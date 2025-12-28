@@ -1592,10 +1592,136 @@ describe("going out - round 6 special rules", () => {
   });
 
   describe("round 6 - cannot discard last card", () => {
-    it.todo("given: round 6, player is down, has 1 card after drawing", () => {});
-    it.todo("and: that card CAN be laid off", () => {});
-    it.todo("then: player MUST lay it off to go out", () => {});
-    it.todo("and: player CANNOT choose to discard it instead", () => {});
+    const setMeld = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+
+    it("given: round 6, player is down, has 1 card after drawing", () => {
+      const nineS = card("9", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [card("Q", "hearts")], // Not layable
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards: 9♠, Q♥
+
+      // Lay off 9♠ to get to 1 card
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Now has 1 card (Q♥)
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().context.roundNumber).toBe(6);
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("and: that card CAN be laid off", () => {
+      const nineS = card("9", "spades");
+
+      // Stock contains a card that CAN be laid off
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [card("9", "clubs")], // Another 9, can be laid off!
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards: 9♠, 9♣ - both can be laid off!
+
+      // Lay off 9♠
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // 1 card remaining: 9♣ which CAN be laid off
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      const remainingCard = actor.getSnapshot().context.hand[0];
+      expect(remainingCard!.rank).toBe("9");
+    });
+
+    it("then: player MUST lay it off to go out", () => {
+      const nineS = card("9", "spades");
+      const nineC = card("9", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [nineC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off 9♠
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      // 1 card: 9♣
+
+      // To go out, MUST lay off the last card
+      const lastCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "LAY_OFF", cardId: lastCard!.id, meldId: setMeld.id });
+
+      // Went out by laying off
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      expect(actor.getSnapshot().value).toBe("wentOut");
+    });
+
+    it("and: player CANNOT choose to discard it instead", () => {
+      const nineS = card("9", "spades");
+      const nineC = card("9", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [nineC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off 9♠
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      // 1 card: 9♣
+
+      // Skip lay down to go to awaitingDiscard
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // Try to discard - should be blocked
+      const lastCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: lastCard!.id });
+
+      // Still in awaitingDiscard - discard blocked
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+    });
   });
 
   describe("round 6 - stuck with unlayable last card", () => {
