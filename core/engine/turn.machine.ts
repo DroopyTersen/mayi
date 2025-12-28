@@ -148,6 +148,49 @@ export const turnMachine = setup({
       const result = validateContractMelds(contract, melds);
       return result.valid;
     },
+    // canLayDown AND laying down uses all cards in hand
+    canLayDownAndGoOut: ({ context, event }) => {
+      if (event.type !== "LAY_DOWN") return false;
+
+      // Cannot lay down if already down this round
+      if (context.isDown) return false;
+
+      // Check if all cards in hand are used in melds
+      const usedCardIds = new Set(event.melds.flatMap((m) => m.cardIds));
+      if (usedCardIds.size !== context.hand.length) return false;
+
+      // Build melds from card IDs
+      const melds: Meld[] = [];
+      for (const proposal of event.melds) {
+        const cards: Card[] = [];
+        for (const cardId of proposal.cardIds) {
+          const card = context.hand.find((c) => c.id === cardId);
+          if (!card) return false; // Card not in hand
+          cards.push(card);
+        }
+        melds.push({
+          id: `meld-${Math.random()}`,
+          type: proposal.type,
+          cards,
+          ownerId: context.playerId,
+        });
+      }
+
+      // Validate each meld individually
+      for (const meld of melds) {
+        if (meld.type === "set" && !isValidSet(meld.cards)) {
+          return false;
+        }
+        if (meld.type === "run" && !isValidRun(meld.cards)) {
+          return false;
+        }
+      }
+
+      // Validate contract requirements
+      const contract = CONTRACTS[context.roundNumber];
+      const result = validateContractMelds(contract, melds);
+      return result.valid;
+    },
     canLayOff: ({ context, event }) => {
       if (event.type !== "LAY_OFF") return false;
 
@@ -375,11 +418,19 @@ export const turnMachine = setup({
         SKIP_LAY_DOWN: {
           target: "awaitingDiscard",
         },
-        LAY_DOWN: {
-          guard: "canLayDown",
-          target: "awaitingDiscard",
-          actions: "layDown",
-        },
+        LAY_DOWN: [
+          {
+            // If laying down uses all cards and is valid, go out immediately
+            guard: "canLayDownAndGoOut",
+            target: "wentOut",
+            actions: "layDown",
+          },
+          {
+            guard: "canLayDown",
+            target: "awaitingDiscard",
+            actions: "layDown",
+          },
+        ],
         LAY_OFF: {
           guard: "canLayOff",
           target: "drawn", // Stay in drawn state to allow more lay offs
