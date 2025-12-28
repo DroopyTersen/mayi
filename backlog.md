@@ -232,7 +232,7 @@ Review specs/command-line-interface.md
 - [x] Implement LAY_OFF rejection - invalid meld (2 tests)
 - [x] Implement LAY_OFF rejection - card doesn't fit (4 tests)
 - [x] Implement LAY_OFF rejection - wild ratio (2 tests)
-- [ ] Fix typecheck errors
+- [x] Fix typecheck errors
 
 ### Going Out (176 tests in goingOut.test.ts)
 
