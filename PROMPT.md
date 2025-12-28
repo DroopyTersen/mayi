@@ -51,17 +51,19 @@ Work through these phases sequentially. Do NOT skip ahead. Each phase builds on 
 
 1. Study relevant specs before writing code
 2. Implement the task with tests (TDD whenever possible)
-3. Run tests to verify your implementation
+3. Run tests to verify your implementation. `bun run typecheck` to verify your types are correct. Never get lazy on types and use `any`.
 4. If tests fail, fix them before moving on
 
 ### After Each Task
 
 1. Run `bun test` to confirm all tests pass
-2. Update `@backlog.md`:
+2. Run `bun run typecheck` to verify your types are correct. Never get lazy on types and use `any`.
+3. If applicable, play through the game manually using the CLI app.
+4. Update `@backlog.md`:
    - Mark completed task as `[x]`
    - Add any new tasks you discovered
    - Note any blockers or questions
-3. Commit your changes:
+5. Commit your changes:
    ```bash
    git add -A
    git commit -m "feat(<scope>): <description>"
