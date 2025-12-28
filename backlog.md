@@ -259,23 +259,23 @@ Review specs/command-line-interface.md
 - [x] Implement not down scenarios (14 tests)
 - [x] Implement going out on lay down turn (18 tests)
 - [x] Implement going out turn output (8 tests)
-- [ ] Fix typecheck errors
+- [x] Fix typecheck errors
 
 ### Scoring (97 tests in scoring.test.ts)
 
-- [ ] Implement calculateHandScore - empty hand (2 tests)
-- [ ] Implement calculateHandScore - number cards (8 tests)
-- [ ] Implement calculateHandScore - face cards (4 tests)
-- [ ] Implement calculateHandScore - aces (3 tests)
-- [ ] Implement calculateHandScore - wild cards (5 tests)
-- [ ] Implement calculateHandScore - mixed hand totals (8 tests)
-- [ ] Implement calculateHandScore - realistic hands (5 tests)
-- [ ] Implement calculateHandScore - worst case hands (5 tests)
-- [ ] Implement calculateHandScore - edge cases (3 tests)
-- [ ] Implement calculateRoundScores (11 tests)
-- [ ] Implement updateTotalScores (14 tests)
-- [ ] Implement determineWinner (21 tests)
-- [ ] Fix typecheck errors
+- [x] Implement calculateHandScore - empty hand (2 tests)
+- [x] Implement calculateHandScore - number cards (8 tests)
+- [x] Implement calculateHandScore - face cards (4 tests)
+- [x] Implement calculateHandScore - aces (3 tests)
+- [x] Implement calculateHandScore - wild cards (5 tests)
+- [x] Implement calculateHandScore - mixed hand totals (8 tests)
+- [x] Implement calculateHandScore - realistic hands (5 tests)
+- [x] Implement calculateHandScore - worst case hands (5 tests)
+- [x] Implement calculateHandScore - edge cases (3 tests)
+- [x] Implement calculateRoundScores (11 tests)
+- [x] Implement updateTotalScores (14 tests)
+- [x] Implement determineWinner (21 tests)
+- [x] Fix typecheck errors
 
 ### Round End (64 tests in roundEnd.test.ts)
 
