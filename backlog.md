@@ -713,6 +713,42 @@ Review specs/command-line-interface.md
 
 - [x] `turn.machine.test.ts:142` - Blocks draw and sets error when stock is empty
 
+---
+
+## Future Work: XState Actor Spawning (9 blocked tests)
+
+> The remaining 9 `it.todo` tests require implementing XState actor spawning between machines. Current architecture uses event-based coordination via CLI harness.
+
+### What Would Be Needed
+
+1. **GameMachine spawns RoundMachine**
+   - Use XState `spawn()` in playing state entry action
+   - Subscribe to RoundMachine output for ROUND_COMPLETE events
+
+2. **RoundMachine spawns TurnMachine**
+   - Use XState `spawn()` when entering active state
+   - Create new TurnMachine for each player's turn
+   - Subscribe to TurnMachine output for TURN_COMPLETE events
+
+3. **Stock Depletion Integration**
+   - RoundMachine monitors TurnMachine for stock depletion
+   - On stock empty, pause turn and trigger reshuffle
+   - Resume turn with refilled stock
+
+### Current Status
+
+The game works correctly with manual coordination via the CLI harness (`harness/play.ts`). The harness:
+- Creates machines as needed
+- Forwards events between machines
+- Handles stock depletion by checking before each turn
+
+### Test Count Summary
+
+- **1976 passing tests** (all core game logic)
+- **9 blocked todos** (XState spawning integration)
+
+---
+
 ## Phase 8 Tasks (Exhaustive Harness Testing)
 
 > End-to-end testing using the CLI harness. See [docs/agent-game-harness.md](docs/agent-game-harness.md) for harness documentation.
