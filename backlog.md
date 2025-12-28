@@ -39,7 +39,7 @@
 - [x] Create TurnMachine XState machine
 - [x] Implement TurnMachine initial state tests (5 tests)
 - [x] Implement DRAW_FROM_STOCK command (7 tests)
-- [ ] Implement DRAW_FROM_DISCARD command (10 tests)
+- [x] Implement DRAW_FROM_DISCARD command (10 tests)
 - [ ] Implement DISCARD command (13 tests)
 - [ ] Implement invalid command handling (7 tests)
 - [ ] Implement turn output (5 tests)
