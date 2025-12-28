@@ -124,3 +124,13 @@
 {"timestamp":"2025-12-28T21:24:32.129Z","turnNumber":18,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"discarded","details":"A♠"}
 {"timestamp":"2025-12-28T21:24:32.129Z","turnNumber":18,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"went out!","details":""}
 {"timestamp":"2025-12-28T21:24:41.080Z","turnNumber":18,"roundNumber":3,"playerId":"system","playerName":"System","action":"started round","details":"Round 3"}
+{"timestamp":"2025-12-28T21:25:24.218Z","turnNumber":18,"roundNumber":3,"playerId":"player-0","playerName":"Alice","action":"drew from stock","details":"7♠"}
+{"timestamp":"2025-12-28T21:25:24.243Z","turnNumber":18,"roundNumber":3,"playerId":"player-1","playerName":"Bob","action":"passed on May I","details":"8♣"}
+{"timestamp":"2025-12-28T21:25:24.265Z","turnNumber":18,"roundNumber":3,"playerId":"player-2","playerName":"Carol","action":"passed on May I","details":"8♣"}
+{"timestamp":"2025-12-28T21:25:24.265Z","turnNumber":18,"roundNumber":3,"playerId":"system","playerName":"System","action":"May I window closed","details":"no claims"}
+{"timestamp":"2025-12-28T21:25:32.200Z","turnNumber":18,"roundNumber":3,"playerId":"player-0","playerName":"Alice","action":"skipped laying down"}
+{"timestamp":"2025-12-28T21:25:32.222Z","turnNumber":18,"roundNumber":3,"playerId":"player-0","playerName":"Alice","action":"discarded","details":"10♣"}
+{"timestamp":"2025-12-28T21:25:40.745Z","turnNumber":19,"roundNumber":3,"playerId":"player-1","playerName":"Bob","action":"drew from stock","details":"J♥"}
+{"timestamp":"2025-12-28T21:25:40.768Z","turnNumber":19,"roundNumber":3,"playerId":"player-2","playerName":"Carol","action":"passed on May I","details":"10♣"}
+{"timestamp":"2025-12-28T21:25:40.789Z","turnNumber":19,"roundNumber":3,"playerId":"player-0","playerName":"Alice","action":"passed on May I","details":"10♣"}
+{"timestamp":"2025-12-28T21:25:40.790Z","turnNumber":19,"roundNumber":3,"playerId":"system","playerName":"System","action":"May I window closed","details":"no claims"}

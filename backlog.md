@@ -736,7 +736,7 @@ Review specs/command-line-interface.md
 
 ### Round 2 Testing (Contract: 1 set + 1 run)
 
-- [x] Play through complete Round 2 (in progress - key features verified)
+- [x] Play through complete Round 2 (Bob went out, verified scoring)
 - [x] Test laying down 1 set + 1 run (minimum 3 + 4 cards)
 - [x] Test run with wilds in middle positions (Alice: 8♥-Joker-10♥-2♣)
 - [ ] Test run with Ace-low (A-2-3)
@@ -752,11 +752,11 @@ Review specs/command-line-interface.md
 
 ### Round 3 Testing (Contract: 2 runs)
 
-- [ ] Play through complete Round 3
+- [~] Play through complete Round 3 (in progress)
 - [ ] Test laying down 2 runs (minimum 4 cards each)
 - [ ] Test runs in different suits
 - [ ] Test layoff to both runs in same turn
-- [ ] Test rejection: attempt to lay down sets
+- [x] Test rejection: attempt to lay down sets (got "Invalid run" when trying to lay down non-consecutive cards)
 
 ### Round 4 Testing (Contract: 3 sets)
 
