@@ -84,7 +84,7 @@ Review specs/command-line-interface.md
 - [x] Implement `parseDrawCommand` function (3 tests)
 - [x] Implement `parseDiscardCommand` function (4 tests)
 - [x] Implement `parseReorderCommand` function (4 tests)
-- [ ] Fix typecheck errors
+- [x] Fix typecheck errors
 
 ### Overall Rule Verification
 
