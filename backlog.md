@@ -245,7 +245,7 @@ Review specs/command-line-interface.md
 - [x] Implement going out rounds 1-5 - sequence via lay off (3 tests)
 - [x] Implement going out rounds 1-5 - player choice (4 tests)
 - [x] Implement going out rounds 1-5 - wentOut trigger (4 tests)
-- [ ] Implement round 6 special rules - normal turns still have discard (4 tests)
+- [x] Implement round 6 special rules - normal turns still have discard (4 tests)
 - [ ] Implement round 6 special rules - cannot discard to go out (4 tests)
 - [ ] Implement round 6 special rules - must lay off (4 tests)
 - [ ] Implement round 6 special rules - cannot discard last card (4 tests)

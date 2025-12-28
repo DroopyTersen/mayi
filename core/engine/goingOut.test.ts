@@ -1077,11 +1077,133 @@ describe("going out - rounds 1-5", () => {
 });
 
 describe("going out - round 6 special rules", () => {
+  // Round 6 helper function
+  function createRound6Input(
+    hand: Card[],
+    table: Meld[] = [],
+    isDown: boolean = true
+  ) {
+    return {
+      playerId: "player-1",
+      hand,
+      stock: [card("Q", "hearts"), card("J", "clubs")],
+      discard: [card("5", "clubs")],
+      roundNumber: 6 as RoundNumber,
+      isDown,
+      laidDownThisTurn: false,
+      table,
+    };
+  }
+
   describe("normal turns still have discard", () => {
-    it.todo("in round 6, normal turns work like other rounds", () => {});
-    it.todo("draw → (optional lay down/lay off) → discard", () => {});
-    it.todo("discarding is allowed when NOT going out", () => {});
-    it.todo("this is the key difference from 'no discard at all'", () => {});
+    it("in round 6, normal turns work like other rounds", () => {
+      // Setup: player is down with 3 cards, will end up with 2+ cards
+      const k1 = card("K", "hearts");
+      const k2 = card("K", "diamonds");
+      const q1 = card("Q", "clubs");
+
+      const input = createRound6Input([k1, k2, q1]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Normal flow: draw → discard
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(4);
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // Discard is allowed since we have 4 cards (not going out)
+      actor.send({ type: "DISCARD", cardId: k1.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+    });
+
+    it("draw → (optional lay down/lay off) → discard", () => {
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const nineS = card("9", "spades");
+      const k1 = card("K", "hearts");
+      const q1 = card("Q", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, k1, q1],
+        stock: [card("A", "hearts")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Draw
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(4);
+
+      // Optional lay off
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+
+      // Skip to discard
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard (still have 3 cards, not going out)
+      actor.send({ type: "DISCARD", cardId: k1.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("discarding is allowed when NOT going out", () => {
+      const k1 = card("K", "hearts");
+      const k2 = card("K", "diamonds");
+
+      // Start with 2 cards, draw makes 3, discard makes 2
+      const input = createRound6Input([k1, k2]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discarding to end up with 2 cards is allowed
+      actor.send({ type: "DISCARD", cardId: k1.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("this is the key difference from 'no discard at all'", () => {
+      // Some variations might say "no discard in round 6"
+      // Our rules say: you CAN discard, just not your LAST card to go out
+      const k1 = card("K", "hearts");
+      const k2 = card("K", "diamonds");
+      const k3 = card("K", "clubs");
+
+      const input = createRound6Input([k1, k2, k3]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 4 cards
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard IS allowed
+      actor.send({ type: "DISCARD", cardId: k1.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+
+      // Turn ended normally with discard
+      expect(actor.getSnapshot().context.discard[0]!.id).toBe(k1.id);
+    });
   });
 
   describe("cannot discard to go out", () => {
