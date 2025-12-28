@@ -123,11 +123,139 @@ describe("TurnMachine - drawn state", () => {
 
 describe("TurnMachine - LAY_DOWN command", () => {
   describe("preconditions", () => {
-    it.todo("rejects if player has not drawn yet (state is awaitingDraw)", () => {});
-    it.todo("rejects if player is already down this round (isDown: true)", () => {});
-    it.todo("rejects if melds do not match contract", () => {});
-    it.todo("rejects if any meld is invalid", () => {});
-    it.todo("state unchanged on any rejection", () => {});
+    it("rejects if player has not drawn yet (state is awaitingDraw)", () => {
+      const input = createTurnInput();
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Try to lay down before drawing
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: ["c1", "c2", "c3"] },
+          { type: "set" as const, cardIds: ["c4", "c5", "c6"] },
+        ],
+      });
+
+      // Should still be in awaitingDraw
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+    });
+
+    it("rejects if player is already down this round (isDown: true)", () => {
+      const input = {
+        ...createTurnInput(),
+        isDown: true, // Player already laid down this round
+        hand: [
+          card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"),
+          card("K", "clubs"), card("K", "diamonds"), card("K", "hearts"),
+          card("5", "spades"),
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      // Try to lay down when already down
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [handBefore[0]!.id, handBefore[1]!.id, handBefore[2]!.id] },
+          { type: "set" as const, cardIds: [handBefore[3]!.id, handBefore[4]!.id, handBefore[5]!.id] },
+        ],
+      });
+
+      // Should still be in drawn state, hand unchanged
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it("rejects if melds do not match contract", () => {
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const, // Round 1 needs 2 sets
+        hand: [
+          card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"),
+          card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades"),
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const hand = actor.getSnapshot().context.hand;
+
+      // Try to lay down 1 set + 1 run (wrong for round 1)
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [hand[0]!.id, hand[1]!.id, hand[2]!.id] },
+          { type: "run" as const, cardIds: [hand[3]!.id, hand[4]!.id, hand[5]!.id, hand[6]!.id] },
+        ],
+      });
+
+      // Should still be in drawn state
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("rejects if any meld is invalid", () => {
+      const input = {
+        ...createTurnInput(),
+        hand: [
+          // Invalid set - different ranks
+          card("9", "clubs"), card("K", "diamonds"), card("5", "hearts"),
+          card("K", "clubs"), card("K", "spades"), card("K", "hearts"),
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const hand = actor.getSnapshot().context.hand;
+
+      // Try to lay down with invalid first set
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [hand[0]!.id, hand[1]!.id, hand[2]!.id] }, // Invalid: different ranks
+          { type: "set" as const, cardIds: [hand[3]!.id, hand[4]!.id, hand[5]!.id] }, // Valid
+        ],
+      });
+
+      // Should still be in drawn state
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("state unchanged on any rejection", () => {
+      const input = {
+        ...createTurnInput(),
+        hand: [
+          card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"),
+          card("K", "clubs"), card("K", "diamonds"), card("K", "hearts"),
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const contextBefore = actor.getSnapshot().context;
+      const handBefore = [...contextBefore.hand];
+      const tableBefore = [...contextBefore.table];
+
+      // Send invalid lay down (wrong contract - only 1 set instead of 2)
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [handBefore[0]!.id, handBefore[1]!.id, handBefore[2]!.id] },
+        ],
+      });
+
+      const contextAfter = actor.getSnapshot().context;
+      expect(contextAfter.hand).toEqual(handBefore);
+      expect(contextAfter.table).toEqual(tableBefore);
+      expect(contextAfter.isDown).toBe(false);
+    });
   });
 
   describe("successful lay down - Round 1 (2 sets)", () => {

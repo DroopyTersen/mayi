@@ -10,6 +10,16 @@ import { setup, assign } from "xstate";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
+import { CONTRACTS, validateContractMelds } from "./contracts";
+import { isValidSet, isValidRun } from "../meld/meld.validation";
+
+/**
+ * Meld proposal for LAY_DOWN event
+ */
+export interface MeldProposal {
+  type: "set" | "run";
+  cardIds: string[];
+}
 
 /**
  * Context for the TurnMachine
@@ -32,6 +42,7 @@ export type TurnEvent =
   | { type: "DRAW_FROM_STOCK" }
   | { type: "DRAW_FROM_DISCARD" }
   | { type: "SKIP_LAY_DOWN" }
+  | { type: "LAY_DOWN"; melds: MeldProposal[] }
   | { type: "DISCARD"; cardId: string };
 
 /**
@@ -69,6 +80,44 @@ export const turnMachine = setup({
     canDiscard: ({ context, event }) => {
       if (event.type !== "DISCARD") return false;
       return context.hand.some((card) => card.id === event.cardId);
+    },
+    canLayDown: ({ context, event }) => {
+      if (event.type !== "LAY_DOWN") return false;
+
+      // Cannot lay down if already down this round
+      if (context.isDown) return false;
+
+      // Build melds from card IDs
+      const melds: Meld[] = [];
+      for (const proposal of event.melds) {
+        const cards: Card[] = [];
+        for (const cardId of proposal.cardIds) {
+          const card = context.hand.find((c) => c.id === cardId);
+          if (!card) return false; // Card not in hand
+          cards.push(card);
+        }
+        melds.push({
+          id: `meld-${Math.random()}`,
+          type: proposal.type,
+          cards,
+          ownerId: context.playerId,
+        });
+      }
+
+      // Validate each meld individually
+      for (const meld of melds) {
+        if (meld.type === "set" && !isValidSet(meld.cards)) {
+          return false;
+        }
+        if (meld.type === "run" && !isValidRun(meld.cards)) {
+          return false;
+        }
+      }
+
+      // Validate contract requirements
+      const contract = CONTRACTS[context.roundNumber];
+      const result = validateContractMelds(contract, melds);
+      return result.valid;
     },
   },
   actions: {
@@ -139,6 +188,10 @@ export const turnMachine = setup({
     drawn: {
       on: {
         SKIP_LAY_DOWN: {
+          target: "awaitingDiscard",
+        },
+        LAY_DOWN: {
+          guard: "canLayDown",
           target: "awaitingDiscard",
         },
       },
