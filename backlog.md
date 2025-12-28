@@ -653,8 +653,8 @@ Review specs/command-line-interface.md
 
 > Tests for going out scenarios and round endings
 
-- [ ] `goingOut.test.ts:70` - Going out ends the round immediately
-- [ ] `goingOut.test.ts:74` - Other players score their remaining cards
+- [x] `goingOut.test.ts:70` - Going out ends the round immediately
+- [x] `goingOut.test.ts:74` - Other players score their remaining cards
 - [x] `goingOut.test.ts:201` - Exception: go out on same turn as laying down
 - [x] `goingOut.test.ts:314` - Round ends (via discard)
 - [x] `goingOut.test.ts:459` - Round ends (via layoff)

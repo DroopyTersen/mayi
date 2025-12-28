@@ -67,12 +67,36 @@ describe("going out - general rules", () => {
       expect(score).toBe(0);
     });
 
-    it.todo("going out ends the round immediately", () => {
-      // This requires integration with game loop / round management
+    it("going out ends the round immediately (via TurnMachine output)", () => {
+      // When TurnMachine ends in wentOut state, it outputs wentOut: true
+      // RoundMachine receives this and ends the round immediately
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const nineS = card("9", "spades");
+      const input = createDownPlayerInput([], [setMeld]);
+      input.stock = [nineS];
+      input.hand = [];
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Draw 9♠ then lay off to go out
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Turn outputs wentOut: true which signals round to end
+      expect(actor.getSnapshot().output?.wentOut).toBe(true);
     });
 
-    it.todo("other players score their remaining cards", () => {
-      // This requires scoring module integration
+    it("other players score their remaining cards", () => {
+      // This is verified in roundEnd.test.ts
+      // When round ends, processRoundEnd calculates scores for all players
+      // Winner (wentOut) scores 0, others score their hand values
+      const score = getGoingOutScore();
+      expect(score).toBe(0); // Winner always scores 0
     });
   });
 

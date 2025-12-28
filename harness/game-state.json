@@ -3,7 +3,7 @@
   "gameId": "fd2c798a",
   "seed": null,
   "createdAt": "2025-12-28T21:32:20.601Z",
-  "updatedAt": "2025-12-28T21:55:06.776Z",
+  "updatedAt": "2025-12-28T21:55:53.599Z",
   "currentRound": 3,
   "contract": {
     "roundNumber": 3,
@@ -71,9 +71,9 @@
           "rank": "Q"
         },
         {
-          "id": "card-83",
+          "id": "card-38",
           "suit": "clubs",
-          "rank": "9"
+          "rank": "2"
         }
       ],
       "isDown": false,
@@ -177,11 +177,6 @@
           "rank": "2"
         },
         {
-          "id": "card-53",
-          "suit": "hearts",
-          "rank": "K"
-        },
-        {
           "id": "card-23",
           "suit": "diamonds",
           "rank": "4"
@@ -200,6 +195,11 @@
           "id": "card-24",
           "suit": "diamonds",
           "rank": "3"
+        },
+        {
+          "id": "card-96",
+          "suit": "spades",
+          "rank": "9"
         }
       ],
       "isDown": false,
@@ -209,21 +209,6 @@
   "currentPlayerIndex": 0,
   "dealerIndex": 2,
   "stock": [
-    {
-      "id": "card-2",
-      "suit": "hearts",
-      "rank": "Q"
-    },
-    {
-      "id": "card-96",
-      "suit": "spades",
-      "rank": "9"
-    },
-    {
-      "id": "card-38",
-      "suit": "clubs",
-      "rank": "2"
-    },
     {
       "id": "card-93",
       "suit": "spades",
@@ -537,6 +522,21 @@
   ],
   "discard": [
     {
+      "id": "card-53",
+      "suit": "hearts",
+      "rank": "K"
+    },
+    {
+      "id": "card-2",
+      "suit": "hearts",
+      "rank": "Q"
+    },
+    {
+      "id": "card-83",
+      "suit": "clubs",
+      "rank": "9"
+    },
+    {
       "id": "card-91",
       "suit": "spades",
       "rank": "A"
@@ -604,9 +604,9 @@
     }
   ],
   "harness": {
-    "phase": "AWAITING_ACTION",
+    "phase": "AWAITING_DISCARD",
     "awaitingPlayerId": "player-0",
     "mayIContext": null,
-    "turnNumber": 45
+    "turnNumber": 48
   }
 }
