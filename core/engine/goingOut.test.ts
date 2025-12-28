@@ -5111,7 +5111,14 @@ describe("going out - on lay down turn", () => {
         ],
       });
 
-      // In awaitingDiscard with 1 card - try to discard
+      // In round 6, after LAY_DOWN player stays in 'drawn' to allow lay offs
+      expect(actor.getSnapshot().value).toBe("drawn");
+
+      // Go to awaitingDiscard via SKIP_LAY_DOWN
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // Try to discard - should be blocked
       actor.send({ type: "DISCARD", cardId: extra.id });
 
       // Blocked - still in awaitingDiscard
@@ -5121,7 +5128,7 @@ describe("going out - on lay down turn", () => {
 
     it("and: player ends turn with 1 card", () => {
       // In round 6, if you lay down and have 1 card, you're stuck
-      // The turn machine stays in awaitingDiscard
+      // After LAY_DOWN, player stays in 'drawn', then SKIP_LAY_DOWN → 'awaitingDiscard'
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
@@ -5160,9 +5167,13 @@ describe("going out - on lay down turn", () => {
         ],
       });
 
-      // Stuck in awaitingDiscard with 1 card
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      // In round 6, after LAY_DOWN player stays in 'drawn'
+      expect(actor.getSnapshot().value).toBe("drawn");
       expect(actor.getSnapshot().context.hand.length).toBe(1);
+
+      // Can skip to awaitingDiscard
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
     });
 
     it("and: must wait until next turn to lay off and go out", () => {

@@ -61,7 +61,8 @@ export type TurnEvent =
   | { type: "LAY_DOWN"; melds: MeldProposal[] }
   | { type: "LAY_OFF"; cardId: string; meldId: string }
   | { type: "DISCARD"; cardId: string }
-  | { type: "GO_OUT"; finalLayOffs: LayOffSpec[] };
+  | { type: "GO_OUT"; finalLayOffs: LayOffSpec[] }
+  | { type: "END_TURN_STUCK" };
 
 /**
  * Input required to create a TurnMachine actor
@@ -268,6 +269,20 @@ export const turnMachine = setup({
       // After all lay offs, hand must be empty
       return simulatedHand.length === 0;
     },
+    // Check if it's round 6
+    isRound6: ({ context }) => {
+      return context.roundNumber === 6;
+    },
+    // Check if player can end turn when stuck (round 6 only)
+    canEndTurnStuck: ({ context }) => {
+      // Only in round 6
+      if (context.roundNumber !== 6) return false;
+      // Player must be down
+      if (!context.isDown) return false;
+      // Must have exactly 1 card (stuck with unlayable card)
+      if (context.hand.length !== 1) return false;
+      return true;
+    },
   },
   actions: {
     drawFromStock: assign({
@@ -427,6 +442,50 @@ export const turnMachine = setup({
             actions: "layDown",
           },
           {
+            // Round 6: after laying down, stay in drawn to allow lay offs
+            guard: ({ context, event }) => {
+              if (event.type !== "LAY_DOWN") return false;
+              if (context.roundNumber !== 6) return false;
+
+              // Cannot lay down if already down this round
+              if (context.isDown) return false;
+
+              // Build melds from card IDs and validate
+              const melds: Meld[] = [];
+              for (const proposal of event.melds) {
+                const cards: Card[] = [];
+                for (const cardId of proposal.cardIds) {
+                  const card = context.hand.find((c) => c.id === cardId);
+                  if (!card) return false;
+                  cards.push(card);
+                }
+                melds.push({
+                  id: `meld-${Math.random()}`,
+                  type: proposal.type,
+                  cards,
+                  ownerId: context.playerId,
+                });
+              }
+
+              // Validate each meld individually
+              for (const meld of melds) {
+                if (meld.type === "set" && !isValidSet(meld.cards)) {
+                  return false;
+                }
+                if (meld.type === "run" && !isValidRun(meld.cards)) {
+                  return false;
+                }
+              }
+
+              // Validate contract requirements
+              const contract = CONTRACTS[context.roundNumber];
+              const result = validateContractMelds(contract, melds);
+              return result.valid;
+            },
+            target: "drawn", // Stay in drawn for round 6
+            actions: "layDown",
+          },
+          {
             guard: "canLayDown",
             target: "awaitingDiscard",
             actions: "layDown",
@@ -473,6 +532,11 @@ export const turnMachine = setup({
             actions: "discardCard",
           },
         ],
+        END_TURN_STUCK: {
+          // Round 6 only: end turn when stuck with 1 unlayable card
+          guard: "canEndTurnStuck",
+          target: "turnComplete",
+        },
       },
     },
     turnComplete: {

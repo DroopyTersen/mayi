@@ -901,7 +901,8 @@ describe("TurnMachine - LAY_DOWN command", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      // In round 6, after LAY_DOWN player stays in 'drawn' to allow lay offs
+      expect(actor.getSnapshot().value).toBe("drawn");
       expect(actor.getSnapshot().context.isDown).toBe(true);
     });
 
