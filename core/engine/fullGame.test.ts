@@ -1434,10 +1434,10 @@ describe("roundHistory completeness", () => {
       });
 
       // Verify against actual totals
-      expect(actor.getSnapshot().context.players[0]!.totalScore).toBe(expectedTotals["player-0"]);
-      expect(actor.getSnapshot().context.players[1]!.totalScore).toBe(expectedTotals["player-1"]);
-      expect(actor.getSnapshot().context.players[2]!.totalScore).toBe(expectedTotals["player-2"]);
-      expect(actor.getSnapshot().context.players[3]!.totalScore).toBe(expectedTotals["player-3"]);
+      expect(actor.getSnapshot().context.players[0]!.totalScore).toBe(expectedTotals["player-0"]!);
+      expect(actor.getSnapshot().context.players[1]!.totalScore).toBe(expectedTotals["player-1"]!);
+      expect(actor.getSnapshot().context.players[2]!.totalScore).toBe(expectedTotals["player-2"]!);
+      expect(actor.getSnapshot().context.players[3]!.totalScore).toBe(expectedTotals["player-3"]!);
     });
 
     it("can identify who won each round", () => {

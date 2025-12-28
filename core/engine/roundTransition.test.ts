@@ -206,7 +206,7 @@ describe("round transition", () => {
             scores: {},
           },
         });
-        expect(actor.getSnapshot().context.currentRound).toBe(round + 1);
+        expect(actor.getSnapshot().context.currentRound).toBe((round + 1) as RoundNumber);
       }
     });
 
