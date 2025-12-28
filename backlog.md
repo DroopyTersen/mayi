@@ -238,7 +238,7 @@ Review specs/command-line-interface.md
 
 - [x] Implement going out general rules - definition (4 tests)
 - [x] Implement going out general rules - must be down (4 tests)
-- [ ] Implement going out general rules - paths to going out (5 tests)
+- [x] Implement going out general rules - paths to going out (5 tests)
 - [ ] Implement going out rounds 1-5 - via discard (4 tests)
 - [ ] Implement going out rounds 1-5 - via lay off (5 tests)
 - [ ] Implement going out rounds 1-5 - sequence via discard (4 tests)

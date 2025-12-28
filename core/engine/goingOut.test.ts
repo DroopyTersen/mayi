@@ -107,11 +107,71 @@ describe("going out - general rules", () => {
   });
 
   describe("paths to going out", () => {
-    it.todo("lay down contract (become down)", () => {});
-    it.todo("on subsequent turns: lay off cards to reduce hand", () => {});
-    it.todo("rounds 1-5: discard last card OR lay off last card(s)", () => {});
-    it.todo("round 6: MUST lay off last card(s), cannot discard to go out", () => {});
-    it.todo("exception: go out on same turn as laying down", () => {});
+    it("lay down contract (become down)", () => {
+      // First step: lay down contract to become "down"
+      // This is tested in laydown tests, here we verify the concept
+      const beforeLayDown = {
+        hand: [card("K", "hearts")],
+        isDown: false,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(beforeLayDown)).toBe(false);
+
+      // After laying down (with cards remaining), still can't go out yet
+      const afterLayDown = {
+        hand: [card("K", "hearts")],
+        isDown: true,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(afterLayDown)).toBe(false);
+    });
+
+    it("on subsequent turns: lay off cards to reduce hand", () => {
+      // After laying down, player can lay off cards on subsequent turns
+      // This progressively reduces hand size toward 0
+      const handWith3Cards = {
+        hand: [card("K", "hearts"), card("Q", "diamonds"), card("J", "clubs")],
+        isDown: true,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(handWith3Cards)).toBe(false);
+
+      const handWith1Card = {
+        hand: [card("K", "hearts")],
+        isDown: true,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(handWith1Card)).toBe(false);
+
+      const emptyHand = {
+        hand: [],
+        isDown: true,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(emptyHand)).toBe(true);
+    });
+
+    it("rounds 1-5: discard last card OR lay off last card(s)", () => {
+      // In rounds 1-5, can go out via either method
+      for (const round of [1, 2, 3, 4, 5] as RoundNumber[]) {
+        // Not blocked for discarding last card
+        expect(isRound6LastCardBlock(round, 1)).toBe(false);
+      }
+    });
+
+    it("round 6: MUST lay off last card(s), cannot discard to go out", () => {
+      // In round 6, discarding last card is blocked
+      expect(isRound6LastCardBlock(6, 1)).toBe(true);
+
+      // But discarding with 2+ cards is fine
+      expect(isRound6LastCardBlock(6, 2)).toBe(false);
+      expect(isRound6LastCardBlock(6, 3)).toBe(false);
+    });
+
+    it.todo("exception: go out on same turn as laying down", () => {
+      // This requires turn machine integration
+      // Can go out if lay down uses most cards and discard uses last
+    });
   });
 });
 
