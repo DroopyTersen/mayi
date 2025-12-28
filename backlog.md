@@ -564,9 +564,46 @@ Review specs/command-line-interface.md
 
 ## Phase 7 Tasks (Joker Swapping)
 
-> Break down when Phase 6 is complete
+> Joker swapping from runs before laying down. Per house rules:
+> - Jokers can be swapped out of runs only, never out of sets
+> - You must have the real card that fits the Joker's position in the run
+> - You may only swap Jokers if you have NOT laid down yet this hand
+> - Once you lay down your contract, you lose the right to perform Joker swaps
 
-- [ ] Review specs/phase-7-tests.md and and scaffold out all of those tests. Add tasks for Phase 7, centered around the tests.
+### Joker Position Identification (8 tests in jokerSwap.test.ts)
+
+- [ ] Implement identifyJokerPositions - find Jokers in runs (3 tests)
+- [ ] Implement getCardForJokerPosition - what card could replace Joker (3 tests)
+- [ ] Implement canSwapJokerWithCard - validation (2 tests)
+
+### Joker Swap Guards (12 tests in jokerSwap.guards.test.ts)
+
+- [ ] Implement notDownForJokerSwap guard (3 tests)
+- [ ] Implement validJokerSwap guard - run only (3 tests)
+- [ ] Implement validJokerSwap guard - card fits position (3 tests)
+- [ ] Implement validJokerSwap guard - player has card in hand (3 tests)
+
+### SWAP_JOKER Command (18 tests in jokerSwap.command.test.ts)
+
+- [ ] Implement SWAP_JOKER in TurnMachine drawn state (4 tests)
+- [ ] Implement swapJoker action - updates table meld (4 tests)
+- [ ] Implement swapJoker action - adds Joker to player hand (3 tests)
+- [ ] Implement swapJoker action - removes swapped card from hand (3 tests)
+- [ ] Implement rejection scenarios (4 tests)
+
+### Joker Swap Integration (15 tests in jokerSwap.integration.test.ts)
+
+- [ ] Implement swap then lay down flow (4 tests)
+- [ ] Implement multiple swaps in one turn (3 tests)
+- [ ] Implement cannot swap after laying down (3 tests)
+- [ ] Implement swap from opponent's run (3 tests)
+- [ ] Implement edge cases - run boundaries (2 tests)
+
+### CLI Joker Swap (8 tests in cli/jokerSwap.test.ts)
+
+- [ ] Implement swap command syntax (2 tests)
+- [ ] Implement swap display (3 tests)
+- [ ] Implement swap error messages (3 tests)
 
 ---
 
