@@ -484,15 +484,15 @@ Review specs/command-line-interface.md
 - [x] Implement veto scenarios - cannot veto after passing (2 tests)
 - [x] Implement veto scenarios - chain of vetoes (2 tests)
 
-### May I Actions (17 tests in mayIActions.test.ts)
+### May I Actions (25 tests in mayIActions.test.ts) ✓
 
-- [ ] Implement current player claiming - via DRAW_FROM_DISCARD (5 tests)
-- [ ] Implement current player claiming - voids other calls (4 tests)
-- [ ] Implement current player claiming - counts as draw (3 tests)
-- [ ] Implement non-current player winning - receives discard + penalty (3 tests)
-- [ ] Implement non-current player winning - discard and stock updated (3 tests)
-- [ ] Implement non-current player winning - turn order unchanged (3 tests)
-- [ ] Implement no claims scenario (4 tests)
+- [x] Implement current player claiming - via DRAW_FROM_DISCARD (5 tests)
+- [x] Implement current player claiming - voids other calls (4 tests)
+- [x] Implement current player claiming - counts as draw (3 tests)
+- [x] Implement non-current player winning - receives discard + penalty (3 tests)
+- [x] Implement non-current player winning - discard and stock updated (3 tests)
+- [x] Implement non-current player winning - turn order unchanged (3 tests)
+- [x] Implement no claims scenario (4 tests)
 
 ### May I Rules (22 tests in mayIRules.test.ts)
 
