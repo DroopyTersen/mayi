@@ -104,7 +104,7 @@ Review specs/command-line-interface.md
 - [x] Implement CONTRACTS constant (8 tests)
 - [x] Implement getContractForRound function (2 tests)
 - [x] Implement minimum cards per contract calculation (6 tests)
-- [ ] Implement validateContract function - correct number of melds (12 tests)
+- [x] Implement validateContract function - correct number of melds (12 tests)
 - [ ] Implement meld type verification (4 tests)
 - [ ] Implement card usage validation (3 tests)
 

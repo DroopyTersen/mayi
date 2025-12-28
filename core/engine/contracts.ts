@@ -5,6 +5,7 @@
  */
 
 import type { RoundNumber } from "./engine.types";
+import type { Meld } from "../meld/meld.types";
 
 /**
  * A contract specifies the required melds to lay down in a round
@@ -58,4 +59,46 @@ export function getMinimumCardsForContract(contract: Contract): number {
   const setCards = contract.sets * 3;
   const runCards = contract.runs * 4;
   return setCards + runCards;
+}
+
+/**
+ * Result of contract validation
+ */
+export interface ContractValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Validate that proposed melds meet the contract requirements
+ *
+ * Checks:
+ * - Correct number of sets
+ * - Correct number of runs
+ *
+ * Note: This only validates the meld counts match the contract.
+ * Individual meld validity (card validity, wild ratios) is checked separately.
+ */
+export function validateContractMelds(
+  contract: Contract,
+  melds: Meld[]
+): ContractValidationResult {
+  const sets = melds.filter((m) => m.type === "set");
+  const runs = melds.filter((m) => m.type === "run");
+
+  if (sets.length !== contract.sets) {
+    return {
+      valid: false,
+      error: `Contract requires ${contract.sets} set(s), but got ${sets.length}`,
+    };
+  }
+
+  if (runs.length !== contract.runs) {
+    return {
+      valid: false,
+      error: `Contract requires ${contract.runs} run(s), but got ${runs.length}`,
+    };
+  }
+
+  return { valid: true };
 }

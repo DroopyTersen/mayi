@@ -1,5 +1,16 @@
 import { describe, it, expect } from "bun:test";
-import { CONTRACTS, getContractForRound, getMinimumCardsForContract } from "./contracts";
+import { CONTRACTS, getContractForRound, getMinimumCardsForContract, validateContractMelds } from "./contracts";
+import type { Meld } from "../meld/meld.types";
+
+// Helper to create a mock meld
+function mockMeld(type: "set" | "run"): Meld {
+  return {
+    id: `meld-${Math.random()}`,
+    type,
+    cards: [],
+    ownerId: "player-1",
+  };
+}
 
 describe("Contract definitions", () => {
   describe("CONTRACTS constant", () => {
@@ -90,20 +101,81 @@ describe("Contract definitions", () => {
   });
 });
 
-describe("validateContract", () => {
+describe("validateContractMelds", () => {
   describe("correct number of melds", () => {
-    it.todo("round 1: valid with exactly 2 sets, 0 runs", () => {});
-    it.todo("round 1: invalid with 1 set (too few)", () => {});
-    it.todo("round 1: invalid with 3 sets (too many)", () => {});
-    it.todo("round 1: invalid with 2 sets + 1 run (extra run)", () => {});
-    it.todo("round 2: valid with exactly 1 set, 1 run", () => {});
-    it.todo("round 2: invalid with 2 sets, 0 runs (wrong types)", () => {});
-    it.todo("round 2: invalid with 0 sets, 2 runs (wrong types)", () => {});
-    it.todo("round 3: valid with exactly 0 sets, 2 runs", () => {});
-    it.todo("round 3: invalid with 1 set, 1 run", () => {});
-    it.todo("round 4: valid with exactly 3 sets, 0 runs", () => {});
-    it.todo("round 5: valid with exactly 2 sets, 1 run", () => {});
-    it.todo("round 6: valid with exactly 1 set, 2 runs", () => {});
+    it("round 1: valid with exactly 2 sets, 0 runs", () => {
+      const melds = [mockMeld("set"), mockMeld("set")];
+      const result = validateContractMelds(CONTRACTS[1], melds);
+      expect(result.valid).toBe(true);
+    });
+
+    it("round 1: invalid with 1 set (too few)", () => {
+      const melds = [mockMeld("set")];
+      const result = validateContractMelds(CONTRACTS[1], melds);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("2 set(s)");
+    });
+
+    it("round 1: invalid with 3 sets (too many)", () => {
+      const melds = [mockMeld("set"), mockMeld("set"), mockMeld("set")];
+      const result = validateContractMelds(CONTRACTS[1], melds);
+      expect(result.valid).toBe(false);
+    });
+
+    it("round 1: invalid with 2 sets + 1 run (extra run)", () => {
+      const melds = [mockMeld("set"), mockMeld("set"), mockMeld("run")];
+      const result = validateContractMelds(CONTRACTS[1], melds);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("0 run(s)");
+    });
+
+    it("round 2: valid with exactly 1 set, 1 run", () => {
+      const melds = [mockMeld("set"), mockMeld("run")];
+      const result = validateContractMelds(CONTRACTS[2], melds);
+      expect(result.valid).toBe(true);
+    });
+
+    it("round 2: invalid with 2 sets, 0 runs (wrong types)", () => {
+      const melds = [mockMeld("set"), mockMeld("set")];
+      const result = validateContractMelds(CONTRACTS[2], melds);
+      expect(result.valid).toBe(false);
+    });
+
+    it("round 2: invalid with 0 sets, 2 runs (wrong types)", () => {
+      const melds = [mockMeld("run"), mockMeld("run")];
+      const result = validateContractMelds(CONTRACTS[2], melds);
+      expect(result.valid).toBe(false);
+    });
+
+    it("round 3: valid with exactly 0 sets, 2 runs", () => {
+      const melds = [mockMeld("run"), mockMeld("run")];
+      const result = validateContractMelds(CONTRACTS[3], melds);
+      expect(result.valid).toBe(true);
+    });
+
+    it("round 3: invalid with 1 set, 1 run", () => {
+      const melds = [mockMeld("set"), mockMeld("run")];
+      const result = validateContractMelds(CONTRACTS[3], melds);
+      expect(result.valid).toBe(false);
+    });
+
+    it("round 4: valid with exactly 3 sets, 0 runs", () => {
+      const melds = [mockMeld("set"), mockMeld("set"), mockMeld("set")];
+      const result = validateContractMelds(CONTRACTS[4], melds);
+      expect(result.valid).toBe(true);
+    });
+
+    it("round 5: valid with exactly 2 sets, 1 run", () => {
+      const melds = [mockMeld("set"), mockMeld("set"), mockMeld("run")];
+      const result = validateContractMelds(CONTRACTS[5], melds);
+      expect(result.valid).toBe(true);
+    });
+
+    it("round 6: valid with exactly 1 set, 2 runs", () => {
+      const melds = [mockMeld("set"), mockMeld("run"), mockMeld("run")];
+      const result = validateContractMelds(CONTRACTS[6], melds);
+      expect(result.valid).toBe(true);
+    });
   });
 
   describe("meld type verification", () => {
