@@ -41,7 +41,7 @@
 - [x] Implement DRAW_FROM_STOCK command (7 tests)
 - [x] Implement DRAW_FROM_DISCARD command (10 tests)
 - [x] Implement DISCARD command (13 tests)
-- [ ] Implement invalid command handling (7 tests)
+- [x] Implement invalid command handling (6 tests)
 - [ ] Implement turn output (5 tests)
 
 ### Hand Reordering (28 tests in hand.reordering.test.ts)

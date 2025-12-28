@@ -449,21 +449,91 @@ describe("TurnMachine - discarding", () => {
 
 describe("TurnMachine - invalid commands", () => {
   describe("in awaitingDraw state", () => {
-    it.todo("DISCARD command is rejected", () => {});
+    it("DISCARD command is rejected", () => {
+      const cardInHand = card("3");
+      const actor = createTurnActor({ hand: [cardInHand, card("5")] });
+      actor.start();
+      // Try to discard without drawing first
+      actor.send({ type: "DISCARD", cardId: cardInHand.id });
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      actor.stop();
+    });
 
-    it.todo("remains in awaitingDraw state", () => {});
+    it("remains in awaitingDraw state", () => {
+      const cardInHand = card("3");
+      const actor = createTurnActor({ hand: [cardInHand, card("5")] });
+      actor.start();
+      const handBefore = [...actor.getSnapshot().context.hand];
+      actor.send({ type: "DISCARD", cardId: cardInHand.id });
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      actor.stop();
+    });
   });
 
   describe("in awaitingDiscard state", () => {
-    it.todo("DRAW_FROM_STOCK command is rejected", () => {});
+    it("DRAW_FROM_STOCK command is rejected", () => {
+      const actor = createTurnActor();
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const handAfterFirstDraw = [...actor.getSnapshot().context.hand];
+      // Try to draw again
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand).toEqual(handAfterFirstDraw);
+      actor.stop();
+    });
 
-    it.todo("DRAW_FROM_DISCARD command is rejected", () => {});
+    it("DRAW_FROM_DISCARD command is rejected", () => {
+      const actor = createTurnActor();
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const handAfterFirstDraw = [...actor.getSnapshot().context.hand];
+      // Try to draw from discard after already drawing
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand).toEqual(handAfterFirstDraw);
+      actor.stop();
+    });
 
-    it.todo("remains in awaitingDiscard state", () => {});
+    it("remains in awaitingDiscard state", () => {
+      const actor = createTurnActor();
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // Send invalid commands
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      actor.stop();
+    });
   });
 
   describe("in turnComplete state", () => {
-    it.todo("all commands are rejected (final state)", () => {});
+    it("all commands are rejected (final state)", () => {
+      const cardToDiscard = card("3");
+      const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+
+      const snapshotBefore = actor.getSnapshot();
+
+      // Try all commands - none should change state
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+
+      actor.send({ type: "DISCARD", cardId: "any-card" });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+
+      // Context should be unchanged
+      expect(actor.getSnapshot().context).toEqual(snapshotBefore.context);
+      actor.stop();
+    });
   });
 });
 
