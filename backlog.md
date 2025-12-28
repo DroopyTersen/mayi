@@ -362,6 +362,8 @@ _(none yet)_
 
 - **Phase 1** (Card Foundation) — v0.1.0
 - **Phase 2** (Minimal Playable Turn) — v0.2.0
+- **Phase 3** (Contracts + Laying Down) — v0.3.0
+- **Phase 4** (Laying Off + Going Out + Scoring) — v0.4.0
 
 ---
 
