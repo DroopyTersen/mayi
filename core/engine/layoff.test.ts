@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test";
+import { createActor } from "xstate";
 import {
   canLayOffCard,
   canLayOffToSet,
@@ -6,8 +7,10 @@ import {
   validateCardOwnership,
   getCardFromHand,
 } from "./layoff";
+import { turnMachine } from "./turn.machine";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
+import type { RoundNumber } from "./engine.types";
 
 function card(rank: Card["rank"], suit: Card["suit"]): Card {
   return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
@@ -568,14 +571,141 @@ describe("canLayOffCard guard", () => {
   });
 });
 
+// Helper to create turn input with a player who is already down from a previous turn
+function createTurnInputForLayOff(
+  hand: Card[],
+  table: Meld[],
+  roundNumber: RoundNumber = 1
+) {
+  return {
+    playerId: "player-1",
+    hand,
+    stock: [card("K", "spades"), card("Q", "hearts")],
+    discard: [card("5", "clubs")],
+    roundNumber,
+    isDown: true, // Already down from previous turn
+    laidDownThisTurn: false, // Did NOT lay down this turn
+    table,
+  };
+}
+
 describe("LAY_OFF action", () => {
   describe("successful lay off to set", () => {
-    it.todo("removes card from player's hand", () => {});
-    it.todo("adds card to target meld's cards array", () => {});
-    it.todo("meld remains type: 'set'", () => {});
-    it.todo("meld ownerId unchanged", () => {});
-    it.todo("hand size decreases by 1", () => {});
-    it.todo("player remains in 'drawn' state (can lay off more)", () => {});
+    it("removes card from player's hand", () => {
+      const nineS = card("9", "spades");
+      const extraCard = card("K", "hearts");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, extraCard], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      const handAfter = actor.getSnapshot().context.hand.length;
+
+      expect(handAfter).toBe(handBefore - 1);
+      expect(actor.getSnapshot().context.hand.find((c) => c.id === nineS.id)).toBeUndefined();
+    });
+
+    it("adds card to target meld's cards array", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === setMeld.id);
+      expect(updatedMeld?.cards.length).toBe(4);
+      expect(updatedMeld?.cards.find((c) => c.id === nineS.id)).toBeDefined();
+    });
+
+    it("meld remains type: 'set'", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === setMeld.id);
+      expect(updatedMeld?.type).toBe("set");
+    });
+
+    it("meld ownerId unchanged", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ], "player-2"); // Owned by different player
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === setMeld.id);
+      expect(updatedMeld?.ownerId).toBe("player-2"); // Still owned by original player
+    });
+
+    it("hand size decreases by 1", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts"), card("5", "diamonds")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Hand should be 4 cards (3 + 1 drawn)
+      expect(actor.getSnapshot().context.hand.length).toBe(4);
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Hand should now be 3 cards
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+    });
+
+    it("player remains in 'drawn' state (can lay off more)", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
   });
 
   describe("successful lay off to run - low end", () => {

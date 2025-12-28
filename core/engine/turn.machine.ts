@@ -12,6 +12,13 @@ import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
 import { CONTRACTS, validateContractMelds } from "./contracts";
 import { isValidSet, isValidRun } from "../meld/meld.validation";
+import {
+  canLayOffCard,
+  canLayOffToSet,
+  canLayOffToRun,
+  validateCardOwnership,
+  getCardFromHand,
+} from "./layoff";
 
 /**
  * Meld proposal for LAY_DOWN event
@@ -44,6 +51,7 @@ export type TurnEvent =
   | { type: "DRAW_FROM_DISCARD" }
   | { type: "SKIP_LAY_DOWN" }
   | { type: "LAY_DOWN"; melds: MeldProposal[] }
+  | { type: "LAY_OFF"; cardId: string; meldId: string }
   | { type: "DISCARD"; cardId: string };
 
 /**
@@ -123,6 +131,35 @@ export const turnMachine = setup({
       const result = validateContractMelds(contract, melds);
       return result.valid;
     },
+    canLayOff: ({ context, event }) => {
+      if (event.type !== "LAY_OFF") return false;
+
+      // Check player state preconditions
+      const layOffContext = {
+        isDown: context.isDown,
+        laidDownThisTurn: context.laidDownThisTurn,
+        hasDrawn: context.hasDrawn,
+      };
+      if (!canLayOffCard(layOffContext)) return false;
+
+      // Validate card ownership
+      const cardOwnership = validateCardOwnership(event.cardId, context.hand);
+      if (!cardOwnership.valid) return false;
+
+      // Find the card and meld
+      const card = getCardFromHand(event.cardId, context.hand);
+      if (!card) return false;
+
+      const meld = context.table.find((m) => m.id === event.meldId);
+      if (!meld) return false;
+
+      // Check if card fits the meld
+      if (meld.type === "set") {
+        return canLayOffToSet(card, meld);
+      } else {
+        return canLayOffToRun(card, meld);
+      }
+    },
   },
   actions: {
     drawFromStock: assign({
@@ -181,6 +218,33 @@ export const turnMachine = setup({
       isDown: () => true,
       laidDownThisTurn: () => true,
     }),
+    layOff: assign({
+      hand: ({ context, event }) => {
+        if (event.type !== "LAY_OFF") return context.hand;
+        return context.hand.filter((card) => card.id !== event.cardId);
+      },
+      table: ({ context, event }) => {
+        if (event.type !== "LAY_OFF") return context.table;
+
+        const card = context.hand.find((c) => c.id === event.cardId);
+        if (!card) return context.table;
+
+        return context.table.map((meld) => {
+          if (meld.id !== event.meldId) return meld;
+
+          // Add card to meld at the appropriate position
+          if (meld.type === "set") {
+            // For sets, order doesn't matter - append
+            return { ...meld, cards: [...meld.cards, card] };
+          } else {
+            // For runs, we need to determine if it goes at low or high end
+            // This is handled in canLayOffToRun - here we just need to add it
+            // For now, append to end (more sophisticated positioning can be added)
+            return { ...meld, cards: [...meld.cards, card] };
+          }
+        });
+      },
+    }),
   },
 }).createMachine({
   id: "turn",
@@ -227,6 +291,11 @@ export const turnMachine = setup({
           guard: "canLayDown",
           target: "awaitingDiscard",
           actions: "layDown",
+        },
+        LAY_OFF: {
+          guard: "canLayOff",
+          target: "drawn", // Stay in drawn state to allow more lay offs
+          actions: "layOff",
         },
       },
     },
