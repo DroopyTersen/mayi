@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { createDeck } from "./card.deck";
+import { createDeck, shuffle } from "./card.deck";
 import type { Card } from "./card.types";
 
 describe("createDeck", () => {
@@ -60,5 +60,47 @@ describe("createDeck", () => {
       const aceOfSpades = deck.filter((c) => c.rank === "A" && c.suit === "spades");
       expect(aceOfSpades.length).toBe(2);
     });
+  });
+});
+
+describe("shuffle", () => {
+  it("returns a new array (does not mutate original)", () => {
+    const deck = createDeck({ deckCount: 1, jokerCount: 2 });
+    const original = [...deck];
+    const shuffled = shuffle(deck);
+
+    // Original should be unchanged
+    expect(deck).toEqual(original);
+    // Shuffled should be a different array reference
+    expect(shuffled).not.toBe(deck);
+  });
+
+  it("preserves all cards (same length and contents)", () => {
+    const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+    const shuffled = shuffle(deck);
+
+    expect(shuffled.length).toBe(deck.length);
+
+    // Check all cards are present (by id)
+    const originalIds = new Set(deck.map((c) => c.id));
+    const shuffledIds = new Set(shuffled.map((c) => c.id));
+    expect(shuffledIds).toEqual(originalIds);
+  });
+
+  it("produces different order (statistical test)", () => {
+    const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+
+    // Shuffle multiple times and check that we get different results
+    // This is probabilistic but with 108 cards, same order is virtually impossible
+    const shuffled1 = shuffle(deck);
+    const shuffled2 = shuffle(deck);
+
+    // At least one should differ from original
+    const ids1 = shuffled1.map((c) => c.id).join(",");
+    const ids2 = shuffled2.map((c) => c.id).join(",");
+    const idsOriginal = deck.map((c) => c.id).join(",");
+
+    // Check that at least one shuffle differs from original
+    expect(ids1 !== idsOriginal || ids2 !== idsOriginal).toBe(true);
   });
 });

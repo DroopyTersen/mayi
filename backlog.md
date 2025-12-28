@@ -8,8 +8,8 @@
 
 - [x] Card utility functions (`isWild`, `isNatural`, `getPointValue`)
 - [x] Deck creation (`createDeck`)
-- [~] Shuffle function (`shuffle`)
-- [ ] Deal function (`deal`)
+- [x] Shuffle function (`shuffle`)
+- [~] Deal function (`deal`)
 - [ ] Set validation (`isValidSet`)
 - [ ] Run validation (`isValidRun`)
 
