@@ -51,7 +51,8 @@ export const gameMachine = setup({
   guards: {
     hasMinPlayers: ({ context }) => context.players.length >= 3,
     hasMaxPlayers: ({ context }) => context.players.length >= 8,
-    isGameOver: ({ context }) => context.currentRound > 6,
+    // Check if we just finished round 6 (game has 6 rounds)
+    isGameOver: ({ context }) => context.currentRound >= 6,
   },
   actions: {
     addPlayer: assign({
