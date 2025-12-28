@@ -43,7 +43,7 @@ Definitions:
 • Set (group): 3 or more cards of the same rank, any suits
 • Run (sequence): 4 or more cards of the same suit in consecutive order
 
-6 hand sequence: 1. Hand 1: 2 sets 2. Hand 2: 1 set + 1 run 3. Hand 3: 2 runs 4. Hand 4: 3 sets 5. Hand 5: 2 sets + 1 run 6. Hand 6: 1 set + 2 runs (last hand, special “no discard” rule when going out)
+6 hand sequence: 1. Hand 1: 2 sets 2. Hand 2: 1 set + 1 run 3. Hand 3: 2 runs 4. Hand 4: 3 sets 5. Hand 5: 2 sets + 1 run 6. Hand 6: 1 set + 2 runs (last hand, "no discard" round)
 
 You must have the entire contract in your hand before you can lay down.
 
@@ -72,9 +72,11 @@ On your turn: 1. Draw exactly one card:
 • Starting on your next turn after laying down, you may:
 • Draw
 • Then add cards to any existing melds on the table (yours or others)
-• Then discard 5. Discard one card to end your turn:
+• Then discard 
+5. Discard one card to end your turn:
 • One card face up on the discard pile
-• Exception: in Hand 6, when you go out, you do not discard (see “Going out”)
+• Exception 1: You may go out without a discard in any round if you play all your cards to melds.
+• Exception 2: In Round 6, you CANNOT discard at all (see “Hand 6”).
 
 ⸻
 
@@ -154,9 +156,9 @@ To go out:
 Hand 6 (last hand, “no discard”)
 
 On Hand 6:
-• To go out, you must finish with no cards in your hand.
-• That means your last play must be laying a card (or cards) into melds so you go to zero cards.
-• You do not discard on this final out play.
+• You CANNOT discard. Every turn must end without a discard.
+• To go out, you must finish with no cards in your hand by playing them all to melds.
+• If you cannot play a card and cannot go out, your turn simply ends after drawing (and potentially laying down or laying off). Your hand will grow if you are stuck.
 
 If the stock pile runs out:
 • Turn the discard pile over (keep the top discard face up) to form a new stock.

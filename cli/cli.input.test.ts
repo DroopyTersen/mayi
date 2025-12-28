@@ -1,11 +1,31 @@
 import { describe, it, expect } from "bun:test";
+import { parseDrawCommand } from "./cli.input";
 
 describe("parseDrawCommand", () => {
-  it.todo("'d' or '1' returns DRAW_FROM_STOCK", () => {});
+  it("'d' or '1' returns DRAW_FROM_STOCK", () => {
+    expect(parseDrawCommand("d")).toEqual({ type: "DRAW_FROM_STOCK" });
+    expect(parseDrawCommand("1")).toEqual({ type: "DRAW_FROM_STOCK" });
+    expect(parseDrawCommand("D")).toEqual({ type: "DRAW_FROM_STOCK" });
+    expect(parseDrawCommand(" d ")).toEqual({ type: "DRAW_FROM_STOCK" });
+  });
 
-  it.todo("'t' or '2' returns DRAW_FROM_DISCARD", () => {});
+  it("'t' or '2' returns DRAW_FROM_DISCARD", () => {
+    expect(parseDrawCommand("t")).toEqual({ type: "DRAW_FROM_DISCARD" });
+    expect(parseDrawCommand("2")).toEqual({ type: "DRAW_FROM_DISCARD" });
+    expect(parseDrawCommand("T")).toEqual({ type: "DRAW_FROM_DISCARD" });
+    expect(parseDrawCommand(" t ")).toEqual({ type: "DRAW_FROM_DISCARD" });
+  });
 
-  it.todo("invalid input returns error/null", () => {});
+  it("invalid input returns error/null", () => {
+    const result = parseDrawCommand("x");
+    expect(result.type).toBe("error");
+
+    const result2 = parseDrawCommand("3");
+    expect(result2.type).toBe("error");
+
+    const result3 = parseDrawCommand("");
+    expect(result3.type).toBe("error");
+  });
 });
 
 describe("parseDiscardCommand", () => {
