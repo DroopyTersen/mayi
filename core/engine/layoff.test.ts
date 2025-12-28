@@ -387,17 +387,84 @@ describe("canLayOffCard guard", () => {
 
   describe("laying off to runs - wild ratio edge cases", () => {
     // given: run (5♠ 6♠ 7♠ 8♠) — 4 natural, 0 wild
-    it.todo("adding Joker at either end → 4 natural, 1 wild — valid", () => {});
+    it("adding Joker at either end → 4 natural, 1 wild — valid", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      // Joker can extend (represents 4 or 9), 4 natural + 1 wild is valid
+      expect(canLayOffToRun(joker(), run)).toBe(true);
+    });
 
     // given: run (5♠ Joker 7♠ 8♠) — 3 natural, 1 wild
-    it.todo("adding 4♠ (natural) → 4 natural, 1 wild — valid", () => {});
-    it.todo("adding 9♠ (natural) → 4 natural, 1 wild — valid", () => {});
-    it.todo("adding 2♣ (wild) at end → 3 natural, 2 wild — valid (equal OK)", () => {});
+    it("adding 4♠ (natural) → 4 natural, 1 wild — valid", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        joker(), // represents 6
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      // Adding natural 4♠ at low end → 4 natural, 1 wild — valid
+      expect(canLayOffToRun(card("4", "spades"), run)).toBe(true);
+    });
 
-    // given: run (5♠ Joker 7♠ 2♣) — 2 natural, 2 wild
-    it.todo("adding 4♠ (natural) → 3 natural, 2 wild — valid", () => {});
-    it.todo("adding 9♠ (natural) → 3 natural, 2 wild — valid", () => {});
-    it.todo("adding Joker → 2 natural, 3 wild — INVALID", () => {});
+    it("adding 9♠ (natural) → 4 natural, 1 wild — valid", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        joker(), // represents 6
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      // Adding natural 9♠ at high end → 4 natural, 1 wild — valid
+      expect(canLayOffToRun(card("9", "spades"), run)).toBe(true);
+    });
+
+    it("adding 2♣ (wild) at end → 3 natural, 2 wild — valid (equal OK)", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        joker(), // represents 6
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      // Adding wild 2♣ → 3 natural, 2 wild — valid (equal is OK)
+      expect(canLayOffToRun(card("2", "clubs"), run)).toBe(true);
+    });
+
+    // given: run (5♠ Joker 7♠ 2♣) — 2 natural, 2 wild (assume 2♣ represents 8)
+    it("adding 4♠ (natural) → 3 natural, 2 wild — valid", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        joker(), // represents 6
+        card("7", "spades"),
+        card("2", "clubs"), // wild representing 8
+      ]);
+      // Adding natural 4♠ at low end → 3 natural, 2 wild — valid
+      expect(canLayOffToRun(card("4", "spades"), run)).toBe(true);
+    });
+
+    it("adding 9♠ (natural) → 3 natural, 2 wild — valid", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        joker(), // represents 6
+        card("7", "spades"),
+        card("2", "clubs"), // wild representing 8
+      ]);
+      // Adding natural 9♠ at high end → 3 natural, 2 wild — valid
+      expect(canLayOffToRun(card("9", "spades"), run)).toBe(true);
+    });
+
+    it("adding Joker → 2 natural, 3 wild — INVALID", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        joker(), // represents 6
+        card("7", "spades"),
+        card("2", "clubs"), // wild representing 8
+      ]);
+      // Adding another Joker → 2 natural, 3 wild — INVALID (wilds outnumber)
+      expect(canLayOffToRun(joker(), run)).toBe(false);
+    });
   });
 
   describe("card ownership for lay off", () => {
