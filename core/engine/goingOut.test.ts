@@ -1460,10 +1460,135 @@ describe("going out - round 6 special rules", () => {
   });
 
   describe("round 6 going out - must lay off", () => {
-    it.todo("given: round 6, player is down, has 2 cards", () => {});
-    it.todo("when: player draws (3 cards)", () => {});
-    it.todo("and: player lays off all 3 cards to valid melds", () => {});
-    it.todo("then: hand is empty (0 cards), player went out, no discard occurred, round ends", () => {});
+    const setMeld = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+    const kingMeld = createMeld("set", [
+      card("K", "clubs"),
+      card("K", "diamonds"),
+      card("K", "hearts"),
+    ]);
+    const aceMeld = createMeld("set", [
+      card("A", "clubs"),
+      card("A", "diamonds"),
+      card("A", "hearts"),
+    ]);
+
+    it("given: round 6, player is down, has 2 cards", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [card("A", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld, aceMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Player has 2 cards, is down, round 6
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().context.roundNumber).toBe(6);
+    });
+
+    it("when: player draws (3 cards)", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [card("A", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld, aceMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // After drawing, player has 3 cards
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+    });
+
+    it("and: player lays off all 3 cards to valid melds", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+      const aS = card("A", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [aS],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld, aceMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 3 cards: 9♠, K♠, A♠
+
+      // Lay off all 3
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: kingMeld.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+
+      const ace = actor.getSnapshot().context.hand.find((c) => c.rank === "A");
+      actor.send({ type: "LAY_OFF", cardId: ace!.id, meldId: aceMeld.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+    });
+
+    it("then: hand is empty (0 cards), player went out, no discard occurred, round ends", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+      const aS = card("A", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [aS],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld, aceMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: kingMeld.id });
+      const ace = actor.getSnapshot().context.hand.find((c) => c.rank === "A");
+      actor.send({ type: "LAY_OFF", cardId: ace!.id, meldId: aceMeld.id });
+
+      // Hand is empty
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      // Player went out
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      // No discard occurred - discard pile unchanged
+      expect(actor.getSnapshot().context.discard.length).toBe(1);
+      expect(actor.getSnapshot().context.discard[0]!.rank).toBe("5");
+    });
   });
 
   describe("round 6 - cannot discard last card", () => {
