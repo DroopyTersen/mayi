@@ -951,13 +951,234 @@ describe("TurnMachine - LAY_DOWN command", () => {
   });
 
   describe("melds with wilds", () => {
-    it.todo("accepts set with valid wild ratio: (9C 9D Joker)", () => {});
-    it.todo("accepts set with equal wilds/naturals: (9C 9D 2H Joker) - 2 natural, 2 wild", () => {});
-    it.todo("accepts run with wild filling gap: (5S 6S Joker 8S)", () => {});
-    it.todo("accepts run with wild at end: (5S 6S 7S 2C)", () => {});
-    it.todo("rejects set with too many wilds: (9C Joker Joker)", () => {});
-    it.todo("rejects run with too many wilds: (5S Joker Joker 2C) - 1 natural, 3 wild", () => {});
-    it.todo("each meld validated independently for wild ratio", () => {});
+    it("accepts set with valid wild ratio: (9C 9D Joker)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const joker: Card = { id: `Joker-${Math.random()}`, rank: "Joker", suit: null };
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, joker, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, joker.id] }, // 2 naturals, 1 wild - valid
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("accepts set with equal wilds/naturals: (9C 9D 2H Joker) - 2 natural, 2 wild", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const twoH = card("2", "hearts");
+      const joker: Card = { id: `Joker-${Math.random()}`, rank: "Joker", suit: null };
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, twoH, joker, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, twoH.id, joker.id] }, // 2 naturals, 2 wilds - equal, valid
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("accepts run with wild filling gap: (5S 6S Joker 8S)", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const joker: Card = { id: `Joker-${Math.random()}`, rank: "Joker", suit: null };
+      const eightS = card("8", "spades");
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const extra = card("K", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, sixS, joker, eightS, nineC, nineD, nineH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, joker.id, eightS.id] }, // Joker fills 7S gap
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("accepts run with wild at end: (5S 6S 7S 2C)", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const twoC = card("2", "clubs"); // Wild at end, filling 8S position
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const extra = card("K", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, sixS, sevenS, twoC, nineC, nineD, nineH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, twoC.id] }, // 2C fills 8S position
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("rejects set with too many wilds: (9C Joker Joker)", () => {
+      const nineC = card("9", "clubs");
+      const joker1: Card = { id: `Joker-1-${Math.random()}`, rank: "Joker", suit: null };
+      const joker2: Card = { id: `Joker-2-${Math.random()}`, rank: "Joker", suit: null };
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, joker1, joker2, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, joker1.id, joker2.id] }, // 1 natural, 2 wilds - invalid
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      // Should still be in drawn state, command rejected
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("rejects run with too many wilds: (5S Joker Joker 2C) - 1 natural, 3 wild", () => {
+      const fiveS = card("5", "spades");
+      const joker1: Card = { id: `Joker-1-${Math.random()}`, rank: "Joker", suit: null };
+      const joker2: Card = { id: `Joker-2-${Math.random()}`, rank: "Joker", suit: null };
+      const twoC = card("2", "clubs");
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const extra = card("K", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, joker1, joker2, twoC, nineC, nineD, nineH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, joker1.id, joker2.id, twoC.id] }, // 1 natural, 3 wilds - invalid
+        ],
+      });
+
+      // Should still be in drawn state, command rejected
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("each meld validated independently for wild ratio", () => {
+      // First set: 2 naturals, 1 wild (valid)
+      // Second set: 1 natural, 2 wilds (invalid)
+      // Overall: 3 naturals, 3 wilds might seem balanced, but per-meld validation fails
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const joker1: Card = { id: `Joker-1-${Math.random()}`, rank: "Joker", suit: null };
+      const kingC = card("K", "clubs");
+      const joker2: Card = { id: `Joker-2-${Math.random()}`, rank: "Joker", suit: null };
+      const twoH = card("2", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, joker1, kingC, joker2, twoH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, joker1.id] }, // 2 naturals, 1 wild - valid
+          { type: "set" as const, cardIds: [kingC.id, joker2.id, twoH.id] }, // 1 natural, 2 wilds - INVALID
+        ],
+      });
+
+      // Should still be in drawn state, command rejected (second meld invalid)
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
   });
 
   describe("larger than minimum melds", () => {
