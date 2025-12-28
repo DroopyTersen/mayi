@@ -30,12 +30,14 @@
 - [x] Implement `createInitialGameState` function
 
 ### Engine Types (25 tests in engine.types.test.ts)
+
 - [x] Implement `GameState structure` tests (8 tests)
 - [x] Implement `Player structure` tests (5 tests)
 - [x] Implement `TurnState structure` tests (3 tests)
 - [x] Implement `createInitialGameState` tests (9 tests)
 
 ### TurnMachine (47 tests in turn.machine.test.ts)
+
 - [x] Create TurnMachine XState machine
 - [x] Implement TurnMachine initial state tests (5 tests)
 - [x] Implement DRAW_FROM_STOCK command (7 tests)
@@ -45,6 +47,7 @@
 - [ ] Implement turn output (5 tests)
 
 ### Hand Reordering (28 tests in hand.reordering.test.ts)
+
 - [ ] Implement REORDER_HAND command basic functionality (5 tests)
 - [ ] Ensure REORDER_HAND works in any turn state (5 tests)
 - [ ] Implement sort by rank functionality (3 tests)
@@ -54,18 +57,21 @@
 - [ ] Handle edge cases (3 tests)
 
 ### Game Loop (17 tests in game.loop.test.ts)
+
 - [ ] Implement turn advancement (4 tests)
 - [ ] Implement state transfer between turns (4 tests)
 - [ ] Implement initial game setup (4 tests)
 - [ ] Implement multiple consecutive turns (5 tests)
 
 ### CLI Renderer (21 tests in cli.renderer.test.ts)
+
 - [ ] Implement `renderCard` function (9 tests)
 - [ ] Implement `renderHand` function (3 tests)
 - [ ] Implement `renderNumberedHand` function (3 tests)
 - [ ] Implement `renderGameState` function (6 tests)
 
 ### CLI Input (11 tests in cli.input.test.ts)
+
 - [ ] Implement `parseDrawCommand` function (3 tests)
 - [ ] Implement `parseDiscardCommand` function (4 tests)
 - [ ] Implement `parseReorderCommand` function (4 tests)

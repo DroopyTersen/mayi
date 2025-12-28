@@ -538,13 +538,96 @@ describe("TurnMachine - invalid commands", () => {
 });
 
 describe("TurnMachine - turn output", () => {
-  it.todo("turnComplete state outputs final hand", () => {});
+  it("turnComplete state outputs final hand", () => {
+    const cardToKeep = card("5");
+    const cardToDiscard = card("3");
+    const actor = createTurnActor({ hand: [cardToDiscard, cardToKeep] });
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
 
-  it.todo("turnComplete state outputs final stock", () => {});
+    const output = actor.getSnapshot().output;
+    expect(output).toBeDefined();
+    expect(output!.hand).toContainEqual(cardToKeep);
+    expect(output!.hand).not.toContainEqual(cardToDiscard);
+    actor.stop();
+  });
 
-  it.todo("turnComplete state outputs final discard", () => {});
+  it("turnComplete state outputs final stock", () => {
+    const stockCard1 = card("K");
+    const stockCard2 = card("Q");
+    const cardToDiscard = card("3");
+    const actor = createTurnActor({
+      hand: [cardToDiscard, card("5")],
+      stock: [stockCard1, stockCard2],
+    });
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
 
-  it.todo("turnComplete state outputs playerId", () => {});
+    const output = actor.getSnapshot().output;
+    expect(output).toBeDefined();
+    expect(output!.stock).toEqual([stockCard2]);
+    actor.stop();
+  });
 
-  it.todo("output can be used to update game state", () => {});
+  it("turnComplete state outputs final discard", () => {
+    const cardToDiscard = card("3");
+    const existingDiscard = card("8");
+    const actor = createTurnActor({
+      hand: [cardToDiscard, card("5")],
+      discard: [existingDiscard],
+    });
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+    const output = actor.getSnapshot().output;
+    expect(output).toBeDefined();
+    expect(output!.discard[0]).toEqual(cardToDiscard);
+    expect(output!.discard[1]).toEqual(existingDiscard);
+    actor.stop();
+  });
+
+  it("turnComplete state outputs playerId", () => {
+    const cardToDiscard = card("3");
+    const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+    const output = actor.getSnapshot().output;
+    expect(output).toBeDefined();
+    expect(output!.playerId).toBe("player-1");
+    actor.stop();
+  });
+
+  it("output can be used to update game state", () => {
+    const cardToDiscard = card("3");
+    const cardToKeep = card("5");
+    const stockCard = card("K");
+    const actor = createTurnActor({
+      hand: [cardToDiscard, cardToKeep],
+      stock: [stockCard, card("Q")],
+      discard: [card("8")],
+    });
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+    const output = actor.getSnapshot().output;
+    expect(output).toBeDefined();
+
+    // Verify output has all the fields needed to update game state
+    expect(output!.playerId).toBeDefined();
+    expect(Array.isArray(output!.hand)).toBe(true);
+    expect(Array.isArray(output!.stock)).toBe(true);
+    expect(Array.isArray(output!.discard)).toBe(true);
+
+    // Verify the data is correct for updating
+    expect(output!.hand.length).toBe(2); // kept card + drawn card
+    expect(output!.stock.length).toBe(1); // one card drawn
+    expect(output!.discard.length).toBe(2); // discarded + existing
+    actor.stop();
+  });
 });
