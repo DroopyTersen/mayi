@@ -12,5 +12,8 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "xstate": "^5.25.0"
   }
 }

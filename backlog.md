@@ -36,7 +36,7 @@
 - [x] Implement `createInitialGameState` tests (9 tests)
 
 ### TurnMachine (47 tests in turn.machine.test.ts)
-- [ ] Create TurnMachine XState machine
+- [x] Create TurnMachine XState machine
 - [ ] Implement TurnMachine initial state tests (5 tests)
 - [ ] Implement DRAW_FROM_STOCK command (7 tests)
 - [ ] Implement DRAW_FROM_DISCARD command (10 tests)
