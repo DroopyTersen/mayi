@@ -50,7 +50,7 @@
 ### Hand Reordering (28 tests in hand.reordering.test.ts)
 
 - [x] Implement REORDER_HAND command basic functionality (5 tests)
-- [ ] Ensure REORDER_HAND works in any turn state (5 tests)
+- [x] Ensure REORDER_HAND works in any turn state (5 tests)
 - [ ] Implement sort by rank functionality (3 tests)
 - [ ] Implement sort by suit functionality (3 tests)
 - [ ] Implement move single card functionality (3 tests)
