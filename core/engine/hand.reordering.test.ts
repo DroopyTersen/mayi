@@ -306,17 +306,75 @@ describe("REORDER_HAND command", () => {
   });
 
   describe("validation", () => {
-    it.todo("rejects if cardIds don't match current hand exactly", () => {});
+    it("rejects if cardIds don't match current hand exactly", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      // Using wrong IDs
+      const result = reorderHand(hand, ["wrong-id-1", "wrong-id-2", "wrong-id-3"]);
+      expect(result.success).toBe(false);
+    });
 
-    it.todo("rejects if cardIds has wrong count", () => {});
+    it("rejects if cardIds has wrong count", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      // Too few IDs
+      const result1 = reorderHand(hand, [card1.id, card2.id]);
+      expect(result1.success).toBe(false);
+      // Too many IDs
+      const result2 = reorderHand(hand, [card1.id, card2.id, card3.id, "extra-id"]);
+      expect(result2.success).toBe(false);
+    });
 
-    it.todo("rejects if cardIds contains id not in hand", () => {});
+    it("rejects if cardIds contains id not in hand", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card1.id, card2.id, "not-in-hand"]);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("not in hand");
+      }
+    });
 
-    it.todo("rejects if cardIds is missing a card from hand", () => {});
+    it("rejects if cardIds is missing a card from hand", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      // Missing card3, added extra card1 instead
+      const result = reorderHand(hand, [card1.id, card2.id, card1.id]);
+      expect(result.success).toBe(false);
+    });
 
-    it.todo("rejects if cardIds has duplicates", () => {});
+    it("rejects if cardIds has duplicates", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card1.id, card1.id, card3.id]);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Duplicate");
+      }
+    });
 
-    it.todo("on rejection, hand remains unchanged", () => {});
+    it("on rejection, hand remains unchanged", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const originalHand = [card1, card2, card3];
+      const handCopy = [...originalHand];
+      // Invalid reorder attempt
+      const result = reorderHand(originalHand, ["wrong-id", card2.id, card3.id]);
+      expect(result.success).toBe(false);
+      // Original hand should be unchanged
+      expect(originalHand).toEqual(handCopy);
+    });
   });
 
   describe("edge cases", () => {

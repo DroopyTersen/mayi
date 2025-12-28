@@ -55,7 +55,7 @@
 - [x] Implement sort by suit functionality (3 tests)
 - [x] Implement move single card functionality (3 tests)
 - [ ] Fix typecheck errors
-- [ ] Implement validation for reorder command (6 tests)
+- [x] Implement validation for reorder command (6 tests)
 - [ ] Handle edge cases (3 tests)
 - [ ] Fix typecheck errors
 
@@ -82,6 +82,10 @@
 - [ ] Implement `parseDiscardCommand` function (4 tests)
 - [ ] Implement `parseReorderCommand` function (4 tests)
 - [ ] Fix typecheck errors
+
+### Overall Rule Verification
+
+- [ ] Review the /specs/house-rules.md and make sure everything we've implemented is valid according to the rules.
 
 ---
 
