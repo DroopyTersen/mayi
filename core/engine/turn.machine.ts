@@ -32,6 +32,7 @@ export interface TurnContext {
   hasDrawn: boolean;
   roundNumber: RoundNumber;
   isDown: boolean;
+  laidDownThisTurn: boolean;
   table: Meld[];
 }
 
@@ -55,6 +56,7 @@ export interface TurnInput {
   discard: Card[];
   roundNumber: RoundNumber;
   isDown: boolean;
+  laidDownThisTurn?: boolean;
   table: Meld[];
 }
 
@@ -151,6 +153,32 @@ export const turnMachine = setup({
         return [card, ...context.discard];
       },
     }),
+    layDown: assign({
+      hand: ({ context, event }) => {
+        if (event.type !== "LAY_DOWN") return context.hand;
+        // Remove all cards used in melds from hand
+        const usedCardIds = new Set(event.melds.flatMap((m) => m.cardIds));
+        return context.hand.filter((card) => !usedCardIds.has(card.id));
+      },
+      table: ({ context, event }) => {
+        if (event.type !== "LAY_DOWN") return context.table;
+        // Build melds and add to table
+        const newMelds: Meld[] = event.melds.map((proposal) => {
+          const cards = proposal.cardIds
+            .map((id) => context.hand.find((c) => c.id === id))
+            .filter((c): c is Card => c !== undefined);
+          return {
+            id: `meld-${crypto.randomUUID()}`,
+            type: proposal.type,
+            cards,
+            ownerId: context.playerId,
+          };
+        });
+        return [...context.table, ...newMelds];
+      },
+      isDown: () => true,
+      laidDownThisTurn: () => true,
+    }),
   },
 }).createMachine({
   id: "turn",
@@ -163,6 +191,7 @@ export const turnMachine = setup({
     hasDrawn: false,
     roundNumber: input.roundNumber,
     isDown: input.isDown,
+    laidDownThisTurn: input.laidDownThisTurn ?? false,
     table: input.table,
   }),
   output: ({ context }) => ({
@@ -193,6 +222,7 @@ export const turnMachine = setup({
         LAY_DOWN: {
           guard: "canLayDown",
           target: "awaitingDiscard",
+          actions: "layDown",
         },
       },
     },
