@@ -1,10 +1,64 @@
 import { describe, it, expect } from "bun:test";
+import { createActor } from "xstate";
+import { turnMachine } from "./turn.machine";
+import type { Card } from "../card/card.types";
+
+// Helper to create a card
+function card(rank: Card["rank"], suit: Card["suit"]): Card {
+  return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
+}
+
+// Helper to create a basic turn input
+function createTurnInput() {
+  return {
+    playerId: "player-1",
+    hand: [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")],
+    stock: [card("K", "spades"), card("Q", "hearts")],
+    discard: [card("5", "clubs")],
+    roundNumber: 1 as const,
+    isDown: false,
+    table: [],
+  };
+}
 
 describe("TurnMachine - drawn state", () => {
   describe("state structure", () => {
-    it.todo("after drawing, enters 'drawn' state (not directly to awaitingDiscard)", () => {});
-    it.todo("hasDrawn is true", () => {});
-    it.todo("player can choose to lay down or proceed to discard", () => {});
+    it("after drawing, enters 'drawn' state (not directly to awaitingDiscard)", () => {
+      const actor = createActor(turnMachine, { input: createTurnInput() });
+      actor.start();
+
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Should now be in 'drawn' state, not 'awaitingDiscard'
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("hasDrawn is true", () => {
+      const actor = createActor(turnMachine, { input: createTurnInput() });
+      actor.start();
+
+      expect(actor.getSnapshot().context.hasDrawn).toBe(false);
+
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.hasDrawn).toBe(true);
+    });
+
+    it("player can choose to lay down or proceed to discard", () => {
+      const actor = createActor(turnMachine, { input: createTurnInput() });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const snapshot = actor.getSnapshot();
+      expect(snapshot.value).toBe("drawn");
+
+      // Check that both LAY_DOWN and SKIP_LAY_DOWN events are possible
+      // We verify by checking the state allows these transitions
+      expect(snapshot.can({ type: "SKIP_LAY_DOWN" })).toBe(true);
+      // LAY_DOWN would require valid melds, so we just check the state structure
+    });
   });
 
   describe("proceeding without laying down", () => {

@@ -16,6 +16,9 @@ function createTurnActor(overrides: Partial<TurnInput> = {}) {
     hand: overrides.hand ?? [card("9"), card("10"), card("J")],
     stock: overrides.stock ?? [card("Q"), card("K"), card("A")],
     discard: overrides.discard ?? [card("8")],
+    roundNumber: 1,
+    isDown: false,
+    table: [],
   };
   return createActor(turnMachine, { input });
 }
@@ -62,11 +65,11 @@ describe("TurnMachine - initial state", () => {
 
 describe("TurnMachine - drawing from stock", () => {
   describe("DRAW_FROM_STOCK command", () => {
-    it("transitions from 'awaitingDraw' to 'awaitingDiscard'", () => {
+    it("transitions from 'awaitingDraw' to 'drawn'", () => {
       const actor = createTurnActor();
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().value).toBe("drawn");
       actor.stop();
     });
 
@@ -145,11 +148,11 @@ describe("TurnMachine - drawing from stock", () => {
 
 describe("TurnMachine - drawing from discard", () => {
   describe("DRAW_FROM_DISCARD command", () => {
-    it("transitions from 'awaitingDraw' to 'awaitingDiscard'", () => {
+    it("transitions from 'awaitingDraw' to 'drawn'", () => {
       const actor = createTurnActor();
       actor.start();
       actor.send({ type: "DRAW_FROM_DISCARD" });
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().value).toBe("drawn");
       actor.stop();
     });
 
@@ -260,6 +263,7 @@ describe("TurnMachine - discarding", () => {
       const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
       expect(actor.getSnapshot().value).toBe("turnComplete");
       actor.stop();
@@ -271,6 +275,7 @@ describe("TurnMachine - discarding", () => {
       const actor = createTurnActor({ hand: [cardToDiscard, cardToKeep] });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
       const finalHand = actor.getSnapshot().context.hand;
       expect(finalHand).not.toContainEqual(cardToDiscard);
@@ -287,6 +292,7 @@ describe("TurnMachine - discarding", () => {
       });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
       const finalDiscard = actor.getSnapshot().context.discard;
       expect(finalDiscard[0]).toEqual(cardToDiscard);
@@ -298,6 +304,7 @@ describe("TurnMachine - discarding", () => {
       const actor = createTurnActor({ hand: [cardToDiscard, card("5"), card("7")] });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       const handSizeAfterDraw = actor.getSnapshot().context.hand.length;
       actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
       expect(actor.getSnapshot().context.hand.length).toBe(handSizeAfterDraw - 1);
@@ -312,6 +319,7 @@ describe("TurnMachine - discarding", () => {
       });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       const discardSizeAfterDraw = actor.getSnapshot().context.discard.length;
       actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
       expect(actor.getSnapshot().context.discard.length).toBe(discardSizeAfterDraw + 1);
@@ -323,6 +331,7 @@ describe("TurnMachine - discarding", () => {
       const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       const stockAfterDraw = [...actor.getSnapshot().context.stock];
       actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
       expect(actor.getSnapshot().context.stock).toEqual(stockAfterDraw);
@@ -335,6 +344,7 @@ describe("TurnMachine - discarding", () => {
       const actor = createTurnActor({ hand: [card("3"), card("5")] });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       actor.send({ type: "DISCARD", cardId: "non-existent-card" });
       expect(actor.getSnapshot().value).toBe("awaitingDiscard");
       actor.stop();
@@ -374,6 +384,7 @@ describe("TurnMachine - discarding", () => {
       const actor1 = createTurnActor({ hand: [first, middle, last] });
       actor1.start();
       actor1.send({ type: "DRAW_FROM_STOCK" });
+      actor1.send({ type: "SKIP_LAY_DOWN" });
       actor1.send({ type: "DISCARD", cardId: first.id });
       expect(actor1.getSnapshot().value).toBe("turnComplete");
       actor1.stop();
@@ -382,6 +393,7 @@ describe("TurnMachine - discarding", () => {
       const actor2 = createTurnActor({ hand: [card("3"), middle, card("7")] });
       actor2.start();
       actor2.send({ type: "DRAW_FROM_STOCK" });
+      actor2.send({ type: "SKIP_LAY_DOWN" });
       actor2.send({ type: "DISCARD", cardId: middle.id });
       expect(actor2.getSnapshot().value).toBe("turnComplete");
       actor2.stop();
@@ -390,6 +402,7 @@ describe("TurnMachine - discarding", () => {
       const actor3 = createTurnActor({ hand: [card("3"), card("5"), last] });
       actor3.start();
       actor3.send({ type: "DRAW_FROM_STOCK" });
+      actor3.send({ type: "SKIP_LAY_DOWN" });
       actor3.send({ type: "DISCARD", cardId: last.id });
       expect(actor3.getSnapshot().value).toBe("turnComplete");
       actor3.stop();
@@ -403,6 +416,7 @@ describe("TurnMachine - discarding", () => {
       });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       actor.send({ type: "DISCARD", cardId: drawnCard.id });
       expect(actor.getSnapshot().value).toBe("turnComplete");
       expect(actor.getSnapshot().context.discard[0]).toEqual(drawnCard);
@@ -417,6 +431,7 @@ describe("TurnMachine - discarding", () => {
       const actor1 = createTurnActor({ hand: [two, card("5")] });
       actor1.start();
       actor1.send({ type: "DRAW_FROM_STOCK" });
+      actor1.send({ type: "SKIP_LAY_DOWN" });
       actor1.send({ type: "DISCARD", cardId: two.id });
       expect(actor1.getSnapshot().value).toBe("turnComplete");
       actor1.stop();
@@ -425,6 +440,7 @@ describe("TurnMachine - discarding", () => {
       const actor2 = createTurnActor({ hand: [joker, card("5")] });
       actor2.start();
       actor2.send({ type: "DRAW_FROM_STOCK" });
+      actor2.send({ type: "SKIP_LAY_DOWN" });
       actor2.send({ type: "DISCARD", cardId: joker.id });
       expect(actor2.getSnapshot().value).toBe("turnComplete");
       actor2.stop();
@@ -437,6 +453,7 @@ describe("TurnMachine - discarding", () => {
       const actor = createTurnActor({ hand: [cardA, cardB, cardC] });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       actor.send({ type: "DISCARD", cardId: cardB.id });
       const finalHand = actor.getSnapshot().context.hand;
       expect(finalHand.find((c) => c.id === cardA.id)).toBeDefined();
@@ -476,6 +493,7 @@ describe("TurnMachine - invalid commands", () => {
       const actor = createTurnActor();
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       const handAfterFirstDraw = [...actor.getSnapshot().context.hand];
       // Try to draw again
       actor.send({ type: "DRAW_FROM_STOCK" });
@@ -488,6 +506,7 @@ describe("TurnMachine - invalid commands", () => {
       const actor = createTurnActor();
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       const handAfterFirstDraw = [...actor.getSnapshot().context.hand];
       // Try to draw from discard after already drawing
       actor.send({ type: "DRAW_FROM_DISCARD" });
@@ -500,6 +519,7 @@ describe("TurnMachine - invalid commands", () => {
       const actor = createTurnActor();
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       // Send invalid commands
       actor.send({ type: "DRAW_FROM_STOCK" });
       expect(actor.getSnapshot().value).toBe("awaitingDiscard");
@@ -515,6 +535,7 @@ describe("TurnMachine - invalid commands", () => {
       const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
       actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
       expect(actor.getSnapshot().value).toBe("turnComplete");
 
@@ -544,6 +565,7 @@ describe("TurnMachine - turn output", () => {
     const actor = createTurnActor({ hand: [cardToDiscard, cardToKeep] });
     actor.start();
     actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "SKIP_LAY_DOWN" });
     actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
 
     const output = actor.getSnapshot().output;
@@ -563,6 +585,7 @@ describe("TurnMachine - turn output", () => {
     });
     actor.start();
     actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "SKIP_LAY_DOWN" });
     actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
 
     const output = actor.getSnapshot().output;
@@ -580,6 +603,7 @@ describe("TurnMachine - turn output", () => {
     });
     actor.start();
     actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "SKIP_LAY_DOWN" });
     actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
 
     const output = actor.getSnapshot().output;
@@ -594,6 +618,7 @@ describe("TurnMachine - turn output", () => {
     const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
     actor.start();
     actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "SKIP_LAY_DOWN" });
     actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
 
     const output = actor.getSnapshot().output;
@@ -613,6 +638,7 @@ describe("TurnMachine - turn output", () => {
     });
     actor.start();
     actor.send({ type: "DRAW_FROM_STOCK" });
+    actor.send({ type: "SKIP_LAY_DOWN" });
     actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
 
     const output = actor.getSnapshot().output;

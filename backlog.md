@@ -110,7 +110,7 @@ Review specs/command-line-interface.md
 - [x] Fix typecheck errors
 
 ### Lay Down Command (95 tests in laydown.test.ts)
-- [ ] Implement drawn state structure (3 tests)
+- [x] Implement drawn state structure (3 tests)
 - [ ] Implement proceeding without laying down (4 tests)
 - [ ] Implement LAY_DOWN preconditions (5 tests)
 - [ ] Implement successful lay down - Round 1 (7 tests)

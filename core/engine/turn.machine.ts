@@ -1,13 +1,15 @@
 /**
  * TurnMachine - XState machine for managing a single player's turn
  *
- * States: awaitingDraw -> awaitingDiscard -> turnComplete
+ * States: awaitingDraw -> drawn -> awaitingDiscard -> turnComplete
  *
- * Phase 2 implementation: simplified turn flow (draw -> discard)
+ * Phase 3 implementation: adds 'drawn' state for laying down
  */
 
 import { setup, assign } from "xstate";
 import type { Card } from "../card/card.types";
+import type { Meld } from "../meld/meld.types";
+import type { RoundNumber } from "./engine.types";
 
 /**
  * Context for the TurnMachine
@@ -18,6 +20,9 @@ export interface TurnContext {
   stock: Card[];
   discard: Card[];
   hasDrawn: boolean;
+  roundNumber: RoundNumber;
+  isDown: boolean;
+  table: Meld[];
 }
 
 /**
@@ -26,6 +31,7 @@ export interface TurnContext {
 export type TurnEvent =
   | { type: "DRAW_FROM_STOCK" }
   | { type: "DRAW_FROM_DISCARD" }
+  | { type: "SKIP_LAY_DOWN" }
   | { type: "DISCARD"; cardId: string };
 
 /**
@@ -36,6 +42,9 @@ export interface TurnInput {
   hand: Card[];
   stock: Card[];
   discard: Card[];
+  roundNumber: RoundNumber;
+  isDown: boolean;
+  table: Meld[];
 }
 
 /**
@@ -103,6 +112,9 @@ export const turnMachine = setup({
     stock: input.stock,
     discard: input.discard,
     hasDrawn: false,
+    roundNumber: input.roundNumber,
+    isDown: input.isDown,
+    table: input.table,
   }),
   output: ({ context }) => ({
     playerId: context.playerId,
@@ -114,13 +126,20 @@ export const turnMachine = setup({
     awaitingDraw: {
       on: {
         DRAW_FROM_STOCK: {
-          target: "awaitingDiscard",
+          target: "drawn",
           actions: "drawFromStock",
         },
         DRAW_FROM_DISCARD: {
           guard: "canDrawFromDiscard",
-          target: "awaitingDiscard",
+          target: "drawn",
           actions: "drawFromDiscard",
+        },
+      },
+    },
+    drawn: {
+      on: {
+        SKIP_LAY_DOWN: {
+          target: "awaitingDiscard",
         },
       },
     },
