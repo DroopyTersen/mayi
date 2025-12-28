@@ -472,10 +472,125 @@ describe("TurnMachine - LAY_DOWN command", () => {
   });
 
   describe("successful lay down - Round 2 (1 set + 1 run)", () => {
-    it.todo("accepts valid 1 set and 1 run", () => {});
-    it.todo("example: (9C 9D 9H) and (5S 6S 7S 8S)", () => {});
-    it.todo("both melds added to table", () => {});
-    it.todo("player marked as down", () => {});
+    it("accepts valid 1 set and 1 run", () => {
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const,
+        hand: [
+          card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"),
+          card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades"),
+          card("K", "hearts"),
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const hand = actor.getSnapshot().context.hand;
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [hand[0]!.id, hand[1]!.id, hand[2]!.id] },
+          { type: "run" as const, cardIds: [hand[3]!.id, hand[4]!.id, hand[5]!.id, hand[6]!.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+    });
+
+    it("example: (9C 9D 9H) and (5S 6S 7S 8S)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+      const extra = card("K", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const,
+        hand: [nineC, nineD, nineH, fiveS, sixS, sevenS, eightS, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, eightS.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("both melds added to table", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const,
+        hand: [nineC, nineD, nineH, fiveS, sixS, sevenS, eightS, card("K", "hearts")],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, eightS.id] },
+        ],
+      });
+
+      const table = actor.getSnapshot().context.table;
+      expect(table.length).toBe(2);
+      expect(table[0]!.type).toBe("set");
+      expect(table[0]!.cards.length).toBe(3);
+      expect(table[1]!.type).toBe("run");
+      expect(table[1]!.cards.length).toBe(4);
+    });
+
+    it("player marked as down", () => {
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const,
+        hand: [
+          card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"),
+          card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades"),
+          card("K", "hearts"),
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+
+      const hand = actor.getSnapshot().context.hand;
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [hand[0]!.id, hand[1]!.id, hand[2]!.id] },
+          { type: "run" as const, cardIds: [hand[3]!.id, hand[4]!.id, hand[5]!.id, hand[6]!.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().context.laidDownThisTurn).toBe(true);
+    });
   });
 
   describe("successful lay down - Round 3 (2 runs)", () => {

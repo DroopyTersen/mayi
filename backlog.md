@@ -114,7 +114,7 @@ Review specs/command-line-interface.md
 - [x] Implement proceeding without laying down (4 tests)
 - [x] Implement LAY_DOWN preconditions (5 tests)
 - [x] Implement successful lay down - Round 1 (7 tests)
-- [ ] Implement successful lay down - Round 2 (4 tests)
+- [x] Implement successful lay down - Round 2 (4 tests)
 - [ ] Implement successful lay down - Round 3 (3 tests)
 - [ ] Implement successful lay down - Round 4 (3 tests)
 - [ ] Implement successful lay down - Round 5 (2 tests)
