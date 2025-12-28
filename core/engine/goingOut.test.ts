@@ -47,10 +47,63 @@ describe("going out - general rules", () => {
   });
 
   describe("must be down to go out", () => {
-    it.todo("player cannot go out if isDown: false", () => {});
-    it.todo("only way to remove cards (other than discard) is to lay off", () => {});
-    it.todo("laying off requires being down", () => {});
-    it.todo("therefore: must be down to reach 0 cards", () => {});
+    it("player cannot go out if isDown: false", () => {
+      const context = {
+        hand: [], // Empty hand
+        isDown: false, // NOT down
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(context)).toBe(false);
+    });
+
+    it("only way to remove cards (other than discard) is to lay off", () => {
+      // This is a conceptual test - lay off is the only way to reduce hand
+      // other than discarding (which only removes 1 card per turn)
+      // Since laying off requires being down, going out requires being down
+      const contextDown = {
+        hand: [],
+        isDown: true,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(contextDown)).toBe(true);
+    });
+
+    it("laying off requires being down", () => {
+      // Already tested in layoff.test.ts - canLayOffCard returns false if not down
+      // Here we just verify the conceptual relationship
+      const contextNotDown = {
+        hand: [],
+        isDown: false,
+        roundNumber: 1 as RoundNumber,
+      };
+      // Even with empty hand, can't go out if not down
+      expect(canGoOut(contextNotDown)).toBe(false);
+    });
+
+    it("therefore: must be down to reach 0 cards", () => {
+      // Summary test: you cannot go out without being down
+      const downWithEmptyHand = {
+        hand: [],
+        isDown: true,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(downWithEmptyHand)).toBe(true);
+
+      const notDownWithEmptyHand = {
+        hand: [],
+        isDown: false,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(notDownWithEmptyHand)).toBe(false);
+
+      // With cards remaining, can't go out regardless
+      const downWithCards = {
+        hand: [card("K", "hearts")],
+        isDown: true,
+        roundNumber: 1 as RoundNumber,
+      };
+      expect(canGoOut(downWithCards)).toBe(false);
+    });
   });
 
   describe("paths to going out", () => {
