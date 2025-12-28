@@ -117,8 +117,8 @@ describe("getRankValue", () => {
   it("maintains correct ordering: 3 < 4 < ... < 10 < J < Q < K < A", () => {
     const ranks: Rank[] = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
     for (let i = 0; i < ranks.length - 1; i++) {
-      const current = getRankValue(ranks[i]);
-      const next = getRankValue(ranks[i + 1]);
+      const current = getRankValue(ranks[i]!);
+      const next = getRankValue(ranks[i + 1]!);
       expect(current).not.toBeNull();
       expect(next).not.toBeNull();
       expect(current!).toBeLessThan(next!);

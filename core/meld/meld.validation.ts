@@ -65,7 +65,11 @@ export function isValidSet(cards: Card[]): boolean {
   }
 
   // All naturals must be the same rank
-  const rank = naturals[0].rank;
+  const firstNaturalCard = naturals[0];
+  if (firstNaturalCard === undefined) {
+    return false;
+  }
+  const rank = firstNaturalCard.rank;
   for (const natural of naturals) {
     if (natural.rank !== rank) {
       return false;
@@ -106,6 +110,9 @@ export function isValidRun(cards: Card[]): boolean {
 
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
+    if (card === undefined) {
+      continue;
+    }
     if (!isWild(card)) {
       const value = getRankValue(card.rank);
       if (value === null) {
@@ -127,7 +134,12 @@ export function isValidRun(cards: Card[]): boolean {
 
   // Check naturals are in increasing order by value (no duplicates, properly ordered)
   for (let i = 1; i < naturalsWithPositions.length; i++) {
-    if (naturalsWithPositions[i].value <= naturalsWithPositions[i - 1].value) {
+    const current = naturalsWithPositions[i];
+    const previous = naturalsWithPositions[i - 1];
+    if (current === undefined || previous === undefined) {
+      return false;
+    }
+    if (current.value <= previous.value) {
       return false; // Not increasing or duplicate
     }
   }
@@ -135,6 +147,9 @@ export function isValidRun(cards: Card[]): boolean {
   // Calculate the value at each position
   // First natural determines the anchor point
   const firstNatural = naturalsWithPositions[0];
+  if (firstNatural === undefined) {
+    return false;
+  }
   const startValue = firstNatural.value - firstNatural.position;
 
   // Check start is valid (>= 3)

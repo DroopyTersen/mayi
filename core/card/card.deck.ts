@@ -68,7 +68,12 @@ export function shuffle(cards: Card[]): Card[] {
 
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    const cardI = shuffled[i];
+    const cardJ = shuffled[j];
+    if (cardI !== undefined && cardJ !== undefined) {
+      shuffled[i] = cardJ;
+      shuffled[j] = cardI;
+    }
   }
 
   return shuffled;
@@ -102,6 +107,15 @@ export function deal(deck: Card[], playerCount: number): DealResult {
 
   const cards = [...deck];
 
+  // Helper to safely shift a card (we've verified enough cards exist)
+  const shiftCard = (): Card => {
+    const card = cards.shift();
+    if (card === undefined) {
+      throw new Error("Unexpected: ran out of cards during deal");
+    }
+    return card;
+  };
+
   // Deal 11 cards to each player
   const hands: Card[][] = [];
   for (let p = 0; p < playerCount; p++) {
@@ -111,12 +125,15 @@ export function deal(deck: Card[], playerCount: number): DealResult {
   // Deal one card at a time to each player (round-robin style)
   for (let cardNum = 0; cardNum < CARDS_PER_HAND; cardNum++) {
     for (let p = 0; p < playerCount; p++) {
-      hands[p].push(cards.shift()!);
+      const hand = hands[p];
+      if (hand !== undefined) {
+        hand.push(shiftCard());
+      }
     }
   }
 
   // Top card goes to discard pile
-  const discard = [cards.shift()!];
+  const discard = [shiftCard()];
 
   // Remaining cards form the stock
   const stock = cards;

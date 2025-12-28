@@ -1,3 +1,17 @@
+Thank you for the clarification! Let me rewrite Phase 4 tests with the correct understanding:
+
+**Rounds 1-5:**
+
+- Normal turns: draw → (optional actions) → discard
+- Going out: can discard last card OR lay off last card(s)
+
+**Round 6:**
+
+- Normal turns: draw → (optional actions) → discard (same as other rounds)
+- Going out: MUST lay off last card(s), CANNOT discard to go out
+
+---
+
 ## Phase 4: Laying Off + Going Out + Scoring — Complete Test Descriptions
 
 ### `core/engine/layoff.test.ts`
@@ -136,9 +150,8 @@ describe('LAY_OFF action', () => {
   describe('state transitions after lay off', () => {
     - after LAY_OFF, remains in 'drawn' state
     - can issue another LAY_OFF command
-    - can proceed to DISCARD (rounds 1-5)
-    - can proceed to END_TURN (round 6)
-    - can trigger going out if hand becomes empty (round 6)
+    - can proceed to DISCARD (if not going out in round 6)
+    - going out triggered immediately if hand becomes empty
   })
 })
 
@@ -195,10 +208,11 @@ describe('going out - general rules', () => {
     - therefore: must be down to reach 0 cards
   })
 
-  describe('only path to going out', () => {
+  describe('paths to going out', () => {
     - lay down contract (become down)
-    - on subsequent turns: lay off cards until 1 remains
-    - discard last card (any round except 6) OR lay off last card (any round)
+    - on subsequent turns: lay off cards to reduce hand
+    - rounds 1-5: discard last card OR lay off last card(s)
+    - round 6: MUST lay off last card(s), cannot discard to go out
     - exception: go out on same turn as laying down (see below)
   })
 })
@@ -214,12 +228,12 @@ describe('going out - rounds 1-5', () => {
   describe('going out via lay off', () => {
     - player goes out by laying off their last card(s)
     - after lay off, hand.length === 0
-    - triggers wentOut state
-    - round ends immediately
-    - no discard required
+    - triggers wentOut state immediately
+    - round ends
+    - no discard needed or allowed after going out
   })
 
-  describe('sequence to go out (with discard)', () => {
+  describe('sequence to go out via discard', () => {
     given: player is down, has 3 cards after drawing
     when: player lays off 2 cards (1 card remaining)
     and: player discards last card
@@ -228,67 +242,105 @@ describe('going out - rounds 1-5', () => {
     and: round ends immediately
   })
 
-  describe('sequence to go out (without discard)', () => {
+  describe('sequence to go out via lay off', () => {
     given: player is down, has 3 cards after drawing
     when: player lays off all 3 cards to valid melds
     then: player has 0 cards
     and: player went out
-    and: round ends immediately without needing a discard
+    and: no discard occurs
+    and: round ends immediately
   })
 
-  describe('must discard to end turn if >0 cards (rounds 1-5)', () => {
+  describe('player choice - discard or lay off', () => {
     given: player is down, has 2 cards after drawing
-    when: player lays off 1 card (1 card remaining)
-    then: player has NOT gone out yet (still has 1 card)
-    and: player MUST discard to complete turn
-    when: player discards last card
-    then: NOW player has gone out
+    and: both cards can be laid off to existing melds
+    then: player can choose to lay off both (going out without discard)
+    or: player can lay off 1, discard the other (going out via discard)
+    and: both are valid ways to go out
   })
 
   describe('wentOut trigger', () => {
-    - checked after DISCARD or LAY_OFF command completes
-    - if hand.length === 0 → wentOut
-    - if hand.length > 0 after discard → turnComplete (normal)
+    - checked after DISCARD command completes
+    - checked after LAY_OFF command completes
+    - if hand.length === 0 → wentOut (round ends)
+    - if hand.length > 0 → continue turn or turnComplete
   })
 })
 
 describe('going out - round 6 special rules', () => {
-  describe('no discarding in round 6', () => {
-    - DISCARD command is NEVER allowed in round 6
-    - this applies to ALL players
-    - this applies regardless of hand size
-    - this applies whether going out or not
-    - error message: "no discarding allowed in round 6"
+  describe('normal turns still have discard', () => {
+    - in round 6, normal turns work like other rounds
+    - draw → (optional lay down/lay off) → discard
+    - discarding is allowed when NOT going out
+    - this is the key difference from "no discard at all"
   })
 
-  describe('must lay off all cards to go out', () => {
-    - in round 6, must reach 0 cards via laying off
-    - last card(s) must be played to melds
-    - no discard to "finish off" the last card
+  describe('cannot discard to go out', () => {
+    - in round 6, you CANNOT discard your last card to go out
+    - going out MUST be via laying off last card(s)
+    - if you have 1 card that can't be laid off, you must discard it
+    - but then you still have 0 cards... wait, that's going out
+    - actually: if you have 1 card, you CANNOT discard it (would be going out)
+    - you must keep it until you can lay it off
   })
 
-  describe('going out via lay off', () => {
+  describe('round 6 going out - must lay off', () => {
     given: round 6, player is down, has 2 cards
     when: player draws (3 cards)
     and: player lays off all 3 cards to valid melds
     then: hand is empty (0 cards)
-    and: player has gone out
+    and: player went out
     and: no discard occurred
     and: round ends
   })
 
-  describe('going out with single card', () => {
+  describe('round 6 - cannot discard last card', () => {
     given: round 6, player is down, has 1 card after drawing
-    and: that card can be laid off
-    when: player lays off that card
-    then: hand is empty (0 cards)
-    and: player goes out
+    and: that card CAN be laid off
+    then: player MUST lay it off to go out
+    and: player CANNOT choose to discard it instead
+  })
+
+  describe('round 6 - stuck with unlayable last card', () => {
+    given: round 6, player is down, has 2 cards after drawing
+    and: 1 card can be laid off, 1 cannot
+    when: player lays off the playable card (1 remaining)
+    then: player has 1 card that cannot be laid off
+    and: player CANNOT discard it (would be going out via discard)
+    and: player must end turn keeping that card
+    and: player waits for future turns when melds may grow
+  })
+
+  describe('round 6 - normal turn with discard', () => {
+    given: round 6, player is down, has 4 cards after drawing
+    and: player can lay off 1 card
+    when: player lays off 1 card (3 remaining)
+    and: no other cards can be laid off
+    then: player CAN discard (not going out, has 2+ cards left)
+    and: player discards 1 card (2 remaining)
+    and: turn ends normally
+    and: player did NOT go out
+  })
+
+  describe('round 6 - discard allowed with 2+ cards remaining', () => {
+    given: round 6, player has 3 cards after laying off
+    then: player CAN discard (will have 2 cards left)
+    and: this is a normal turn end, not going out
+
+    given: round 6, player has 2 cards after laying off
+    then: player CAN discard (will have 1 card left)
+    and: this is a normal turn end, not going out
+
+    given: round 6, player has 1 card
+    then: player CANNOT discard (would have 0 cards = going out)
+    and: must either lay off or keep the card
   })
 
   describe('GO_OUT command', () => {
-    - available in all rounds (as a convenience for multiple lay offs)
+    - convenience command for going out with multiple lay offs
+    - available in all rounds (not just round 6)
     - only available when player is down
-    - can include finalLayOffs array for convenience
+    - can include finalLayOffs array
     - validates all lay offs before executing
     - executes all lay offs in order
     - player must end with 0 cards
@@ -318,24 +370,22 @@ describe('going out - round 6 special rules', () => {
 })
 
 describe('going out - round 6 stuck scenarios', () => {
-  describe('stuck with unlayable cards', () => {
-    given: round 6, player is down, has 3 cards after drawing
-    and: only 1 card can be laid off to existing melds
-    when: player lays off that 1 card (2 remaining)
-    and: remaining 2 cards cannot be laid off anywhere
-    then: player cannot go out
-    and: player cannot discard (round 6 rule)
-    and: player must end turn with 2 cards in hand
-    and: turn ends, next player goes
-  })
-
   describe('stuck with single unlayable card', () => {
-    given: round 6, player is down, has 1 card after drawing
+    given: round 6, player is down, has 1 card after laying off
     and: that card cannot be laid off to any meld
     then: player cannot go out (can't lay off)
-    and: player cannot discard (round 6 rule)
-    and: player ends turn with 1 card
-    and: player must wait for melds to grow in future turns
+    and: player cannot discard (would be going out)
+    and: player ends turn keeping that 1 card
+    and: player must wait for melds to expand
+  })
+
+  describe('hand does NOT grow when stuck with 1 card', () => {
+    given: round 6, player stuck with 1 unlayable card
+    when: next turn - player draws (2 cards)
+    and: still can't lay off either card
+    then: player discards 1 (back to 1 card)
+    and: hand size doesn't grow indefinitely
+    note: only stuck when at exactly 1 card
   })
 
   describe('waiting for melds to expand', () => {
@@ -343,27 +393,17 @@ describe('going out - round 6 stuck scenarios', () => {
     and: no diamond runs exist, no set of 7s exists
     when: player's turn
     then: player cannot play the 7♦
-    and: player keeps it for future turns
-    and: hopes another player creates a meld it fits
-    and: OR hopes to draw cards that help form layable combinations
+    and: if it's their only card, they keep it
+    and: if they have other cards, they may discard something else
+    and: hopes another player creates a meld 7♦ fits
   })
 
-  describe('hand can grow in round 6', () => {
-    given: round 6, player has 2 unlayable cards
-    when: turn 1 - player draws (3 cards), can't lay off, no discard, ends with 3
-    and: turn 2 - player draws (4 cards), can't lay off, no discard, ends with 4
-    and: turn 3 - player draws (5 cards), can't lay off, no discard, ends with 5
-    then: player's hand grows each turn when stuck
-    and: this continues until player can lay off cards
-  })
-
-  describe('ending turn in round 6 without going out', () => {
-    given: player has laid off all possible cards
-    and: player still has cards remaining
-    when: player has no more valid lay off moves
-    then: turn ends automatically (or END_TURN command)
-    and: no discard occurs
-    and: next player's turn begins
+  describe('eventually able to go out', () => {
+    given: round 6, player stuck with 7♦
+    and: another player lays down a set of 7s
+    when: player's next turn
+    then: player can lay off 7♦ to set of 7s
+    and: if it was their only card, they go out
   })
 })
 
@@ -374,8 +414,8 @@ describe('going out - not down scenarios', () => {
     when: player draws (2 cards)
     then: player cannot lay off (not down)
     and: player must discard (1 card remaining)
-    and: player CANNOT reach 0 cards this way
-    and: player CANNOT go out while not down
+    and: player CANNOT reach 0 cards while not down
+    and: draw +1, discard -1 = net zero change
   })
 
   describe('cannot go out if not down - round 6', () => {
@@ -383,25 +423,16 @@ describe('going out - not down scenarios', () => {
     and: player has 8 cards
     when: player draws (9 cards)
     then: player cannot lay off (not down)
-    and: player cannot discard (round 6)
-    and: player ends turn with 9 cards
-    and: player's hand grows until they can lay down!
-  })
-
-  describe('round 6 not down - hand growth', () => {
-    given: round 6, player is not down, has 8 cards
-    when: turn 1 - draws to 9, can't lay down, can't discard, ends with 9
-    and: turn 2 - draws to 10, can't lay down, can't discard, ends with 10
-    and: turn 3 - draws to 11, NOW can lay down contract!
-    then: player finally lays down
-    and: can start laying off on future turns
-    and: can eventually go out
+    and: player discards (8 cards remaining)
+    and: same hand size as start of turn
+    and: must lay down contract before can reduce hand
   })
 
   describe('only path to 0 cards requires being down', () => {
-    - if not down: cannot lay off, can only draw and discard (rounds 1-5)
-    - draw +1, discard -1 = net 0 change (can't reduce hand)
-    - in round 6 not down: draw +1, no discard = hand grows
+    - if not down: cannot lay off
+    - can only draw and discard
+    - draw +1, discard -1 = net 0 change
+    - hand size stays constant until laying down
     - must lay down to become down
     - only then can lay off to reduce hand toward 0
   })
@@ -419,6 +450,16 @@ describe('going out - on lay down turn', () => {
     and: this IS allowed - going out on lay down turn
   })
 
+  describe('going out on lay down - contract uses all cards', () => {
+    given: player has 11 cards forming exactly the contract (larger melds)
+    when: player draws (12 cards)
+    and: player lays down 12 cards (all cards form contract)
+    then: player has 0 cards
+    and: player went out immediately on lay down
+    and: no discard needed
+    note: rare scenario requiring larger-than-minimum melds
+  })
+
   describe('example: round 1 going out on lay down', () => {
     given: round 1 (contract: 2 sets)
     and: player has 7 cards: (9♣ 9♦ 9♥ 9♠) + (K♣ K♦ K♥)
@@ -429,19 +470,21 @@ describe('going out - on lay down turn', () => {
     then: player went out on same turn as laying down
   })
 
-  describe('cannot go out on lay down turn in round 6', () => {
+  describe('round 6 - going out on lay down turn', () => {
     given: round 6 (contract: 1 set + 2 runs = minimum 11 cards)
     and: player has 11 cards
     when: player draws (12 cards)
     and: player lays down exactly 11 cards
     and: player has 1 card remaining
     then: player cannot lay off (laidDownThisTurn: true)
-    and: player cannot discard (round 6)
+    and: if card can be laid off → not allowed this turn
+    and: player CAN discard (not going out, will have 0... wait)
+    actually: player CANNOT discard - would be going out via discard in round 6
     and: player ends turn with 1 card
     and: must wait until next turn to lay off and go out
   })
 
-  describe('round 6 go out on lay down - only with 12+ card contract', () => {
+  describe('round 6 go out on lay down - only with all cards in contract', () => {
     given: round 6, player has 12 cards after drawing
     and: player can form contract using all 12 cards (larger melds)
     when: player lays down all 12 cards
@@ -547,7 +590,6 @@ describe('calculateHandScore', () => {
     - single card hand
     - hand with all same card type
     - hand with one of each point value
-    - very large hand (round 6 stuck scenario)
   })
 })
 
@@ -582,12 +624,6 @@ describe('calculateRoundScores', () => {
     - no missing players
     - no duplicate entries
     - no extra players
-  })
-
-  describe('empty hands (edge case)', () => {
-    - only winner should have empty hand
-    - if somehow multiple empty hands, all would score 0
-    - (shouldn't happen in normal play)
   })
 })
 
@@ -655,12 +691,6 @@ describe('determineWinner', () => {
     and: only p1 is winner
   })
 
-  describe('tie for second doesn\'t affect winner', () => {
-    given: final scores { p1: 75, p2: 80, p3: 80, p4: 100 }
-    then: winners = [p1]
-    and: p2/p3 tie is irrelevant
-  })
-
   describe('perfect game - zero total', () => {
     given: player went out all 6 rounds
     then: total score = 0
@@ -673,28 +703,6 @@ describe('determineWinner', () => {
     - array length >= 1
     - single winner: array of 1
     - tie: array of 2+
-    - order in array doesn't matter (or alphabetical by ID)
-  })
-})
-
-describe('scoring edge cases', () => {
-  describe('all players tie', () => {
-    given: all players have same total score
-    then: all players win
-  })
-
-  describe('very high scores', () => {
-    given: player stuck in round 6 with many cards
-    and: round ends with 15+ cards in hand
-    then: score could be 200+ for single round
-    and: calculation handles large values correctly
-  })
-
-  describe('zero score for multiple rounds', () => {
-    given: player went out in rounds 1, 2, and 3
-    and: scored points in rounds 4, 5, 6
-    then: total = 0 + 0 + 0 + r4 + r5 + r6
-    and: accumulated correctly
   })
 })
 ```
@@ -713,7 +721,7 @@ describe('round end trigger', () => {
   describe('not triggered by other events', () => {
     - normal turn completion does not end round
     - laying down does not end round
-    - laying off does not end round
+    - laying off (with cards remaining) does not end round
     - only going out (0 cards) ends round
   })
 })
@@ -740,14 +748,6 @@ describe('RoundRecord', () => {
     - roundNumber: 1-6
     - scores: map of playerId → round score
     - winnerId: player who went out
-  })
-
-  describe('example records', () => {
-    round 1: {
-      roundNumber: 1,
-      scores: { p1: 0, p2: 35, p3: 42 },
-      winnerId: 'p1'
-    }
   })
 
   describe('storage in roundHistory', () => {
@@ -788,7 +788,6 @@ describe('round transition - to next round', () => {
   describe('first player', () => {
     - currentPlayerIndex = (dealerIndex + 1) % playerCount
     - first player is left of dealer
-    - same as initial deal order
   })
 
   describe('new deck and deal', () => {
@@ -801,7 +800,7 @@ describe('round transition - to next round', () => {
 
   describe('scores preserved', () => {
     - totalScore for each player unchanged by round transition
-    - only roundHistory and individual round scores added
+    - only roundHistory updated
   })
 })
 
@@ -830,17 +829,11 @@ describe('state reset details', () => {
 
   describe('game state reset', () => {
     - table: [] (empty, no melds)
-    - stock: shuffled deck minus 45 dealt cards (for 4 players) minus 1 discard
+    - stock: shuffled deck minus dealt cards minus 1 discard
     - discard: [1 flipped card]
     - currentRound: previous + 1
     - dealerIndex: (previous + 1) % playerCount
     - currentPlayerIndex: (new dealerIndex + 1) % playerCount
-  })
-
-  describe('turn state reset', () => {
-    - hasDrawn: false
-    - laidDownThisTurn: false
-    - current turn machine in initial state
   })
 })
 ```
@@ -859,8 +852,7 @@ describe('TurnMachine - drawn state with lay off', () => {
   describe('state after LAY_OFF', () => {
     - remains in 'drawn' state after LAY_OFF
     - can issue another LAY_OFF command
-    - can issue DISCARD command (rounds 1-5)
-    - can issue END_TURN command (round 6)
+    - can issue DISCARD command (with restrictions in round 6)
     - hasDrawn remains true
     - isDown remains true
   })
@@ -875,26 +867,27 @@ describe('TurnMachine - drawn state with lay off', () => {
 })
 
 describe('TurnMachine - wentOut state', () => {
-  describe('transition to wentOut (rounds 1-5)', () => {
-    given: player is in 'awaitingDiscard' state
+  describe('transition to wentOut via discard (rounds 1-5)', () => {
+    given: rounds 1-5, player is in 'awaitingDiscard' state
     and: player has 1 card in hand
     when: player discards that card
     then: hand becomes empty
     and: state transitions to 'wentOut' (not 'turnComplete')
   })
 
-  describe('transition to wentOut (round 6)', () => {
-    given: round 6, player is in 'drawn' state
+  describe('transition to wentOut via lay off (any round)', () => {
+    given: player is in 'drawn' state
     and: player has 1 card in hand
     when: player lays off that card
     then: hand becomes empty
     and: state transitions to 'wentOut'
+    and: no discard needed
   })
 
   describe('wentOut is final state', () => {
     - no commands accepted in wentOut state
-    - cannot draw, discard, lay off, etc.
     - turn machine terminates
+    - round ends
   })
 
   describe('wentOut output', () => {
@@ -909,7 +902,7 @@ describe('TurnMachine - turnComplete vs wentOut', () => {
   describe('turnComplete output', () => {
     - wentOut: false
     - playerId: current player
-    - hand: remaining cards (length >= 1 in rounds 1-5)
+    - hand: remaining cards (length >= 1)
     - normal turn ending
   })
 
@@ -927,18 +920,23 @@ describe('TurnMachine - turnComplete vs wentOut', () => {
 })
 
 describe('TurnMachine - round 6 specific behavior', () => {
-  describe('DISCARD not available', () => {
-    - in round 6, DISCARD command always rejected
-    - rejected in 'awaitingDraw' state
-    - rejected in 'drawn' state
-    - rejected in any state
-    - error: "no discarding allowed in round 6"
+  describe('normal turns still have discard', () => {
+    - round 6 normal turn: draw → lay off → discard
+    - same as other rounds when NOT going out
+    - DISCARD command available when player has 2+ cards
   })
 
-  describe('no awaitingDiscard state in round 6', () => {
-    - turn flow: awaitingDraw → drawn → (wentOut OR turnComplete)
-    - skips awaitingDiscard entirely
-    - after drawing, player can lay off or end turn
+  describe('cannot discard last card in round 6', () => {
+    given: round 6, player has 1 card in hand
+    when: player tries to DISCARD
+    then: rejected - "cannot discard last card in round 6"
+    and: must lay off to go out, or keep the card
+  })
+
+  describe('DISCARD availability in round 6', () => {
+    - player has 3+ cards → can discard (will have 2+ left)
+    - player has 2 cards → can discard (will have 1 left)
+    - player has 1 card → CANNOT discard (would go out)
   })
 
   describe('state transitions in round 6', () => {
@@ -947,77 +945,77 @@ describe('TurnMachine - round 6 specific behavior', () => {
       - DRAW_FROM_DISCARD → 'drawn'
 
     from 'drawn':
-      - LAY_OFF (if valid) → stay in 'drawn'
-      - LAY_DOWN (if valid) → stay in 'drawn' (then must end turn)
-      - hand empty → 'wentOut'
-      - END_TURN (or no valid moves) → 'turnComplete'
-      - DISCARD → rejected
+      - LAY_OFF (if valid) → stay in 'drawn' OR 'wentOut' if hand empty
+      - LAY_DOWN (if valid) → stay in 'drawn'
+      - hand empty after lay off → 'wentOut'
+      - DISCARD (if 2+ cards) → 'awaitingDiscard' → 'turnComplete'
+      - DISCARD (if 1 card) → rejected
   })
 
-  describe('END_TURN command in round 6', () => {
-    - explicitly ends turn without discarding
-    - only valid in round 6
-    - only valid in 'drawn' state
-    - player keeps remaining cards
-    - transitions to 'turnComplete'
+  describe('round 6 - must lay off last card', () => {
+    given: round 6, player is down, has 1 card
+    and: card can be laid off
+    when: player tries to DISCARD
+    then: rejected
+    when: player lays off that card
+    then: hand empty → wentOut
   })
 
-  describe('automatic turn end detection', () => {
-    - if player has cards but no valid lay offs available
-    - system could auto-detect "stuck" state
-    - or player must explicitly END_TURN
-    - implementation detail TBD
+  describe('round 6 - stuck with 1 unlayable card', () => {
+    given: round 6, player has 1 card that can't be laid off
+    when: player tries to DISCARD
+    then: rejected
+    when: player has no valid moves
+    then: turn ends, player keeps the card
+    and: transitions to 'turnComplete' with 1 card in hand
   })
 })
 
 describe('TurnMachine - going out detection', () => {
-  describe('rounds 1-5: checked after discard or lay off', () => {
+  describe('checked after discard', () => {
     - after DISCARD command processes
-    - OR after LAY_OFF command processes
     - check if hand.length === 0
     - if yes → wentOut
-    - if no → proceed (to turnComplete if discard, or stay in 'drawn' if lay off)
+    - if no → turnComplete
   })
 
-  describe('round 6: checked after lay off', () => {
+  describe('checked after lay off', () => {
     - after each LAY_OFF command processes
     - check if hand.length === 0
-    - if yes → wentOut
+    - if yes → wentOut immediately
     - if no → remain in 'drawn', can continue
   })
 
-  describe('checked after GO_OUT (any round)', () => {
+  describe('checked after GO_OUT', () => {
     - GO_OUT processes all finalLayOffs
     - then checks hand.length
     - should be 0 (validated before execution)
     - transitions to wentOut
   })
+
+  describe('immediate trigger on 0 cards', () => {
+    - wentOut triggers immediately when hand empties
+    - no waiting for "end of turn"
+    - round ends right away
+  })
 })
 
 describe('TurnMachine - player not down behavior', () => {
-  describe('rounds 1-5, not down', () => {
+  describe('all rounds - not down', () => {
     - can draw (DRAW_FROM_STOCK or DRAW_FROM_DISCARD)
     - can lay down (if have contract)
     - cannot lay off
     - must discard to end turn
     - flow: awaitingDraw → drawn → awaitingDiscard → turnComplete
+    - hand size unchanged: draw +1, discard -1 = net 0
   })
 
-  describe('round 6, not down', () => {
-    - can draw
-    - can lay down (if have contract)
-    - cannot lay off
-    - CANNOT discard
-    - must END_TURN if can't lay down
-    - hand grows each turn until can lay down
-  })
-
-  describe('round 6, not down, hand growth', () => {
-    turn 1: 11 cards → draw → 12 cards → can't lay down → END_TURN with 12
-    turn 2: 12 cards → draw → 13 cards → can't lay down → END_TURN with 13
-    turn 3: 13 cards → draw → 14 cards → maybe can lay down now?
-    - this continues until player has enough cards for contract
-    - or until another player goes out
+  describe('cannot go out while not down', () => {
+    - if not down, can't lay off
+    - can only draw and discard
+    - draw +1, discard -1 = net 0
+    - impossible to reach 0 cards
+    - must lay down contract first
   })
 })
 ```
@@ -1068,7 +1066,6 @@ describe('complete lay off turn flow', () => {
     when: player lays off Joker to high end of run
     then: run is (5♠ 6♠ 7♠ 8♠ Joker)
     and: Joker represents 9♠
-    and: run now has 4 natural, 1 wild
   })
 
   describe('cannot lay off immediately after laying down', () => {
@@ -1077,54 +1074,67 @@ describe('complete lay off turn flow', () => {
     and: player lays down contract (becomes down)
     and: player tries to lay off extra card
     then: lay off rejected (laidDownThisTurn: true)
-    and: player must discard to end turn (unless hand is empty)
+    and: player must discard
     and: can lay off next turn
   })
 })
 
 describe('going out scenarios - rounds 1-5', () => {
-  describe('going out via lay off + discard', () => {
+  describe('going out via discard', () => {
     given: round 3, player is down, has 2 cards
     when: player draws (3 cards)
     and: player lays off 2 cards to melds (1 card remaining)
     and: player discards last card
     then: player has 0 cards
-    and: player went out
+    and: player went out via discard
+    and: round ends
   })
 
-  describe('going out via lay off only (no discard)', () => {
-    given: round 3, player is down, has 2 cards
+  describe('going out via lay off (no discard)', () => {
+    given: round 2, player is down, has 2 cards
     when: player draws (3 cards)
-    and: player lays off all 3 cards to melds (0 cards remaining)
+    and: player lays off all 3 cards to valid melds
     then: player has 0 cards
-    and: player went out immediately
+    and: player went out via lay off
     and: no discard occurred
+    and: round ends immediately
   })
 
-  describe('going out on lay down turn (no discard)', () => {
-    given: round 1, player has 6 cards (two 3-card sets possible)
-    when: player draws (7 cards)
-    and: player lays down 7 cards in two sets (one of 3, one of 4)
-    then: player has 0 cards
-    and: player went out immediately
-    and: no discard occurred
+  describe('player choice between discard and lay off', () => {
+    given: round 1, player is down, has 2 cards: 9♠, K♥
+    and: both cards can be laid off to existing melds
+    when: player draws 5♦ (3 cards)
+    and: 5♦ can also be laid off
+
+    option A - all lay off:
+    when: player lays off 9♠, K♥, 5♦
+    then: player went out (0 cards, no discard)
+
+    option B - lay off + discard:
+    when: player lays off 9♠, K♥
+    and: player discards 5♦
+    then: player went out (0 cards, via discard)
+
+    both options are valid
   })
 
-  describe('going out with just discard', () => {
-    given: round 2, player is down, has 1 card
-    when: player draws (2 cards)
-    and: player lays off one card (1 card remaining)
-    and: player discards last card
-    then: player went out
+  describe('going out on lay down turn', () => {
+    given: round 1, player has 7 cards (two 4-card sets possible)
+    when: player draws (8 cards)
+    and: player lays down 7 cards in two sets (4+3)
+    and: player has 1 card remaining
+    and: player discards that card
+    then: player has 0 cards
+    and: player went out on same turn as laying down
   })
 })
 
 describe('going out scenarios - round 6', () => {
-  describe('going out by laying off all cards', () => {
+  describe('going out via lay off', () => {
     given: round 6, player is down, has 2 cards: 9♠, K♥
     and: table has set of 9s and set of kings
     when: player draws (3 cards: 9♠, K♥, 5♦)
-    and: suppose 5♦ fits a diamond run
+    and: 5♦ fits a diamond run
     and: player lays off 9♠
     and: player lays off K♥
     and: player lays off 5♦
@@ -1133,42 +1143,48 @@ describe('going out scenarios - round 6', () => {
     and: no discard occurred
   })
 
-  describe('going out with GO_OUT command', () => {
-    given: round 6, player has 3 layable cards
-    when: player issues GO_OUT with finalLayOffs for all 3
-    then: all 3 laid off atomically
-    and: player went out
+  describe('cannot discard last card', () => {
+    given: round 6, player is down, has 1 card
+    when: player draws (2 cards)
+    and: player can only lay off 1 card
+    and: player lays off that card (1 remaining)
+    then: player has 1 card
+    and: player tries to DISCARD
+    then: rejected - cannot discard last card in round 6
+    and: player ends turn with 1 card
   })
 
-  describe('stuck in round 6 - cannot go out', () => {
-    given: round 6, player is down, has 3 cards after drawing
-    and: only 1 card can be laid off
-    when: player lays off that card (2 remaining)
-    and: remaining cards fit no meld
-    then: player cannot lay off more
-    and: player cannot discard (round 6)
-    and: player ends turn with 2 cards
-    and: did NOT go out
+  describe('can discard with 2+ cards', () => {
+    given: round 6, player is down, has 3 cards
+    when: player draws (4 cards)
+    and: player cannot lay off any cards
+    then: player CAN discard (will have 3 remaining)
+    and: player discards
+    and: turn ends normally with 3 cards
+    and: player did NOT go out
   })
 
-  describe('hand growing in round 6 when stuck', () => {
-    given: round 6, player is down with unlayable cards
-    and: player has 3 cards
-    when: turn 1: draws (4), can't lay off, ends with 4
-    and: turn 2: draws (5), can't lay off, ends with 5
-    and: turn 3: draws (6), still stuck, ends with 6
-    then: hand grew to 6 cards
-    and: waiting for melds to expand or lucky draws
+  describe('stuck with 1 unlayable card', () => {
+    given: round 6, player stuck with 1 card: 7♦
+    and: no diamond run, no set of 7s on table
+    when: player draws (2 cards: 7♦ + K♣)
+    and: K♣ fits a set of kings
+    and: player lays off K♣ (1 card: 7♦)
+    and: 7♦ still doesn't fit anywhere
+    then: player cannot discard (only 1 card)
+    and: player ends turn with 7♦
+    and: must wait for melds to expand
   })
 
-  describe('round 6 not down - hand grows faster', () => {
-    given: round 6, player not down, has 11 cards
-    when: turn 1: draws (12), can't lay down, can't discard, ends with 12
-    and: turn 2: draws (13), can't lay down, ends with 13
-    and: turn 3: draws (14), NOW can lay down contract!
-    and: player lays down
-    then: player is now down
-    and: can start laying off on future turns
+  describe('eventually going out after being stuck', () => {
+    given: round 6, player stuck with 7♦
+    and: another player creates set of 7s
+    when: player's next turn
+    and: player draws (2 cards: 7♦ + X)
+    and: player lays off 7♦ to set of 7s
+    and: player lays off X (if possible) OR discards X
+    then: player eventually reaches 0 cards
+    and: player goes out
   })
 })
 
@@ -1207,16 +1223,12 @@ describe('scoring integration', () => {
 })
 
 describe('edge cases', () => {
-  describe('going out immediately in round 1', () => {
-    given: round 1, player dealt perfect hand for 2 large sets + 1 extra
-    example: (9♣ 9♦ 9♥ 9♠) + (K♣ K♦ K♥ K♠) + (3♣) = 9 cards, need 11
-    actually: 11 cards = 4-card set + 4-card set + 3 extras
-    when: player draws (12 cards)
-    and: player lays down 8 cards (4+4)
-    and: player has 4 cards left
-    and: player discards 1 (3 left)
-    then: did NOT go out (3 cards remaining)
-    note: hard to go out round 1, need huge melds
+  describe('going out with contract using all cards', () => {
+    given: player has exactly 12 cards forming large melds
+    when: player lays down all 12 cards as contract
+    then: player has 0 cards
+    and: player went out on lay down (no discard needed)
+    note: rare scenario with larger-than-minimum melds
   })
 
   describe('laying off wild breaks ratio - rejected', () => {
@@ -1233,19 +1245,39 @@ describe('edge cases', () => {
     and: best possible outcome
   })
 
-  describe('worst case round 6 scoring', () => {
-    given: round 6, player stuck with many cards when someone else goes out
-    example: 15 cards including 2 Jokers, 3 Aces, face cards
-    then: score could be 100+ points for single round
-    and: devastating to total score
+  describe('round 6 last card scenarios', () => {
+    scenario A - layable last card:
+    given: round 6, player has 1 card that CAN be laid off
+    then: player MUST lay it off to go out
+
+    scenario B - unlayable last card:
+    given: round 6, player has 1 card that CANNOT be laid off
+    then: player cannot go out this turn
+    and: player cannot discard
+    and: player keeps the card, waits for better opportunity
+
+    scenario C - draw helps:
+    given: round 6, player has 1 unlayable card
+    when: player draws a card that CAN be laid off
+    and: after laying off drawn card, original card still doesn't fit
+    then: player keeps original card (can't discard it)
+    and: turn ends with 1 card
   })
 
   describe('stock depletion during round', () => {
-    given: many May I calls or long round
+    given: many turns or May I calls deplete stock
     when: stock runs out
     then: flip discard pile (keep top card) to form new stock
     and: round continues
-    note: full implementation may be Phase 5 or later
   })
 })
 ```
+
+---
+
+This revision correctly captures:
+
+1. **Rounds 1-5**: Player can go out via discard OR lay off — their choice
+2. **Round 6**: Normal turns have discard, but player CANNOT discard their last card (must lay it off to go out)
+3. **Stuck in Round 6**: If you have 1 unlayable card, you can't discard it, so you keep it and wait
+   for next turn hoping to draw a card that can be laid down with your other cards.

@@ -61,7 +61,7 @@ describe("Player structure", () => {
   const gameState = createInitialGameState({
     playerNames: ["Alice", "Bob", "Carol"],
   });
-  const player = gameState.players[0];
+  const player = gameState.players[0]!;
 
   it("id is a non-empty string", () => {
     expect(typeof player.id).toBe("string");

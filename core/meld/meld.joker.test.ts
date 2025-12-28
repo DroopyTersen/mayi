@@ -27,9 +27,9 @@ describe("identifyJokerPositions", () => {
     const positions = identifyJokerPositions(meld);
 
     expect(positions.length).toBe(1);
-    expect(positions[0].wildCard).toBe(j);
-    expect(positions[0].actingAsRank).toBe("6");
-    expect(positions[0].actingAsSuit).toBe("spades");
+    expect(positions[0]!.wildCard).toBe(j);
+    expect(positions[0]!.actingAsRank).toBe("6");
+    expect(positions[0]!.actingAsSuit).toBe("spades");
   });
 
   it("in run (Joker 6♠ 7♠ 8♠), Joker is acting as 5♠", () => {
@@ -38,9 +38,9 @@ describe("identifyJokerPositions", () => {
     const positions = identifyJokerPositions(meld);
 
     expect(positions.length).toBe(1);
-    expect(positions[0].wildCard).toBe(j);
-    expect(positions[0].actingAsRank).toBe("5");
-    expect(positions[0].actingAsSuit).toBe("spades");
+    expect(positions[0]!.wildCard).toBe(j);
+    expect(positions[0]!.actingAsRank).toBe("5");
+    expect(positions[0]!.actingAsSuit).toBe("spades");
   });
 
   it("in run (5♠ 6♠ 7♠ Joker), Joker is acting as 8♠", () => {
@@ -49,9 +49,9 @@ describe("identifyJokerPositions", () => {
     const positions = identifyJokerPositions(meld);
 
     expect(positions.length).toBe(1);
-    expect(positions[0].wildCard).toBe(j);
-    expect(positions[0].actingAsRank).toBe("8");
-    expect(positions[0].actingAsSuit).toBe("spades");
+    expect(positions[0]!.wildCard).toBe(j);
+    expect(positions[0]!.actingAsRank).toBe("8");
+    expect(positions[0]!.actingAsSuit).toBe("spades");
   });
 
   it("in run (5♠ Joker Joker 8♠), first Joker is 6♠, second is 7♠", () => {
@@ -61,10 +61,10 @@ describe("identifyJokerPositions", () => {
     const positions = identifyJokerPositions(meld);
 
     expect(positions.length).toBe(2);
-    expect(positions[0].wildCard).toBe(j1);
-    expect(positions[0].actingAsRank).toBe("6");
-    expect(positions[1].wildCard).toBe(j2);
-    expect(positions[1].actingAsRank).toBe("7");
+    expect(positions[0]!.wildCard).toBe(j1);
+    expect(positions[0]!.actingAsRank).toBe("6");
+    expect(positions[1]!.wildCard).toBe(j2);
+    expect(positions[1]!.actingAsRank).toBe("7");
   });
 
   it("in run (Joker 4♠ 5♠ Joker), first is 3♠, second is 6♠", () => {
@@ -74,10 +74,10 @@ describe("identifyJokerPositions", () => {
     const positions = identifyJokerPositions(meld);
 
     expect(positions.length).toBe(2);
-    expect(positions[0].wildCard).toBe(j1);
-    expect(positions[0].actingAsRank).toBe("3");
-    expect(positions[1].wildCard).toBe(j2);
-    expect(positions[1].actingAsRank).toBe("6");
+    expect(positions[0]!.wildCard).toBe(j1);
+    expect(positions[0]!.actingAsRank).toBe("3");
+    expect(positions[1]!.wildCard).toBe(j2);
+    expect(positions[1]!.actingAsRank).toBe("6");
   });
 
   it("handles 2s acting as wilds same as Jokers", () => {
@@ -86,10 +86,10 @@ describe("identifyJokerPositions", () => {
     const positions = identifyJokerPositions(meld);
 
     expect(positions.length).toBe(1);
-    expect(positions[0].wildCard).toBe(two);
-    expect(positions[0].actingAsRank).toBe("6");
-    expect(positions[0].actingAsSuit).toBe("spades");
-    expect(positions[0].isJoker).toBe(false); // 2s can't be swapped
+    expect(positions[0]!.wildCard).toBe(two);
+    expect(positions[0]!.actingAsRank).toBe("6");
+    expect(positions[0]!.actingAsSuit).toBe("spades");
+    expect(positions[0]!.isJoker).toBe(false); // 2s can't be swapped
   });
 
   it("returns empty array for sets", () => {

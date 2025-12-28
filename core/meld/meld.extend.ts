@@ -27,10 +27,13 @@ export function canExtendRun(meld: Meld, card: Card): boolean {
   // Find first natural to get suit and anchor
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
+    if (c === undefined) {
+      continue;
+    }
     if (!isWild(c)) {
       const value = getRankValue(c.rank);
-      if (value !== null) {
-        suit = c.suit!;
+      if (value !== null && c.suit !== null) {
+        suit = c.suit;
         // Calculate run start based on position
         const startValue = value - i;
         minValue = startValue;

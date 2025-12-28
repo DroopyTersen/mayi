@@ -5,7 +5,11 @@ import { isWild, getRankValue } from "../card/card.utils";
 const RANK_ORDER: Rank[] = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 
 function valueToRank(value: number): Rank {
-  return RANK_ORDER[value - 3];
+  const rank = RANK_ORDER[value - 3];
+  if (rank === undefined) {
+    throw new Error(`Invalid rank value: ${value}`);
+  }
+  return rank;
 }
 
 export interface WildPosition {
@@ -36,10 +40,13 @@ export function identifyJokerPositions(meld: Meld): WildPosition[] {
 
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
+    if (card === undefined) {
+      continue;
+    }
     if (!isWild(card)) {
       const value = getRankValue(card.rank);
-      if (value !== null) {
-        suit = card.suit!;
+      if (value !== null && card.suit !== null) {
+        suit = card.suit;
         anchorValue = value;
         anchorPosition = i;
         break;
@@ -58,6 +65,9 @@ export function identifyJokerPositions(meld: Meld): WildPosition[] {
   // Identify each wild card's position
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
+    if (card === undefined) {
+      continue;
+    }
     if (isWild(card)) {
       const value = startValue + i;
       positions.push({

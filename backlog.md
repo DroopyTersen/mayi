@@ -96,7 +96,7 @@ Review specs/command-line-interface.md
 
 > Break down when Phase 2 is complete
 
-- [ ] Fix typecheck errors
+- [x] Fix typecheck errors
 - [ ] Review specs/phase-3-tests.md and and scaffold out all of those tests. Add tasks for PHase 3, centered around the tests.
 
 ---
@@ -112,6 +112,7 @@ Review specs/command-line-interface.md
 ## Phase 5 Tasks (Full Game Loop)
 
 > Break down when Phase 4 is complete
+> Review specs/command-line-ux.md and make sure we've implemented everything we need to for the cli gameplay
 
 - [ ] Review specs/phase-5-tests.md and and scaffold out all of those tests. Add tasks for PHase 5, centered around the tests.
 
@@ -123,8 +124,7 @@ Review specs/command-line-interface.md
 
 > Break down when Phase 5 is complete
 
-- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2.md, and do research to create a similar file, /specs/phase6-tests.md
-- [ ] Review specs/phase6-tests.md and and scaffold out all of those tests. Add tasks for PHase 6, centered around the tests.
+- [ ] Review specs/phase-6-tests.md and and scaffold out all of those tests. Add tasks for Phase 6, centered around the tests.
 
 ---
 
@@ -132,8 +132,7 @@ Review specs/command-line-interface.md
 
 > Break down when Phase 6 is complete
 
-- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2.md, and do research to create a similar file, /specs/phase7-tests.md
-- [ ] Review specs/phase7-tests.md and and scaffold out all of those tests. Add tasks for PHase 7, centered around the tests.
+- [ ] Review specs/phase-7-tests.md and and scaffold out all of those tests. Add tasks for Phase 7, centered around the tests.
 
 ---
 
