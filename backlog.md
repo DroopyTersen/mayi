@@ -208,9 +208,110 @@ Review specs/command-line-interface.md
 
 ## Phase 4 Tasks (Laying Off + Going Out + Scoring)
 
-> Break down when Phase 3 is complete
+> 664 todo tests scaffolded across 6 test files
 
-- [ ] Review specs/phase-4-tests.md and and scaffold out all of those tests. Add tasks for PHase 4, centered around the tests.
+- [x] Review specs/phase-4-tests.md and scaffold out all tests
+- [x] Fix typecheck errors
+
+### Layoff Command (91 tests in layoff.test.ts)
+
+- [ ] Implement canLayOffCard guard preconditions (4 tests)
+- [ ] Implement laying off to sets (6 tests)
+- [ ] Implement laying off to sets - wild ratio edge cases (6 tests)
+- [ ] Implement laying off to runs (8 tests)
+- [ ] Implement run extension boundaries (8 tests)
+- [ ] Implement laying off to runs - wild ratio edge cases (7 tests)
+- [ ] Implement card ownership for lay off (5 tests)
+- [ ] Implement meld ownership - anyone can add to any meld (4 tests)
+- [ ] Implement LAY_OFF action - successful lay off to set (6 tests)
+- [ ] Implement LAY_OFF action - successful lay off to run (10 tests)
+- [ ] Implement multiple lay offs in one turn (7 tests)
+- [ ] Implement state transitions after lay off (4 tests)
+- [ ] Implement LAY_OFF rejection - player state (7 tests)
+- [ ] Implement LAY_OFF rejection - invalid card (2 tests)
+- [ ] Implement LAY_OFF rejection - invalid meld (2 tests)
+- [ ] Implement LAY_OFF rejection - card doesn't fit (4 tests)
+- [ ] Implement LAY_OFF rejection - wild ratio (2 tests)
+- [ ] Fix typecheck errors
+
+### Going Out (176 tests in goingOut.test.ts)
+
+- [ ] Implement going out general rules - definition (4 tests)
+- [ ] Implement going out general rules - must be down (4 tests)
+- [ ] Implement going out general rules - paths to going out (5 tests)
+- [ ] Implement going out rounds 1-5 - via discard (4 tests)
+- [ ] Implement going out rounds 1-5 - via lay off (5 tests)
+- [ ] Implement going out rounds 1-5 - sequence via discard (4 tests)
+- [ ] Implement going out rounds 1-5 - sequence via lay off (3 tests)
+- [ ] Implement going out rounds 1-5 - player choice (4 tests)
+- [ ] Implement going out rounds 1-5 - wentOut trigger (4 tests)
+- [ ] Implement round 6 special rules - normal turns still have discard (4 tests)
+- [ ] Implement round 6 special rules - cannot discard to go out (4 tests)
+- [ ] Implement round 6 special rules - must lay off (4 tests)
+- [ ] Implement round 6 special rules - cannot discard last card (4 tests)
+- [ ] Implement round 6 special rules - stuck with unlayable card (7 tests)
+- [ ] Implement round 6 special rules - normal turn with discard (6 tests)
+- [ ] Implement round 6 special rules - discard allowed with 2+ cards (3 tests)
+- [ ] Implement GO_OUT command (8 tests)
+- [ ] Implement GO_OUT with multiple lay offs (4 tests)
+- [ ] Implement GO_OUT rejected scenarios (5 tests)
+- [ ] Implement round 6 stuck scenarios (17 tests)
+- [ ] Implement not down scenarios (14 tests)
+- [ ] Implement going out on lay down turn (18 tests)
+- [ ] Implement going out turn output (8 tests)
+- [ ] Fix typecheck errors
+
+### Scoring (97 tests in scoring.test.ts)
+
+- [ ] Implement calculateHandScore - empty hand (2 tests)
+- [ ] Implement calculateHandScore - number cards (8 tests)
+- [ ] Implement calculateHandScore - face cards (4 tests)
+- [ ] Implement calculateHandScore - aces (3 tests)
+- [ ] Implement calculateHandScore - wild cards (5 tests)
+- [ ] Implement calculateHandScore - mixed hand totals (8 tests)
+- [ ] Implement calculateHandScore - realistic hands (5 tests)
+- [ ] Implement calculateHandScore - worst case hands (5 tests)
+- [ ] Implement calculateHandScore - edge cases (3 tests)
+- [ ] Implement calculateRoundScores (11 tests)
+- [ ] Implement updateTotalScores (14 tests)
+- [ ] Implement determineWinner (21 tests)
+- [ ] Fix typecheck errors
+
+### Round End (64 tests in roundEnd.test.ts)
+
+- [ ] Implement round end trigger (7 tests)
+- [ ] Implement round end processing (6 tests)
+- [ ] Implement RoundRecord (8 tests)
+- [ ] Implement round transition - to next round (14 tests)
+- [ ] Implement round transition - to game end (6 tests)
+- [ ] Implement state reset details (10 tests)
+- [ ] Fix typecheck errors
+
+### Turn Machine Phase 4 Additions (97 tests in turn.machine.phase4.test.ts)
+
+- [ ] Implement drawn state with lay off (12 tests)
+- [ ] Implement wentOut state (13 tests)
+- [ ] Implement turnComplete vs wentOut (9 tests)
+- [ ] Implement round 6 specific behavior (24 tests)
+- [ ] Implement going out detection (12 tests)
+- [ ] Implement player not down behavior (11 tests)
+- [ ] Fix typecheck errors
+
+### Phase 4 Integration Tests (139 tests in phase4.integration.test.ts)
+
+- [ ] Implement complete lay off turn flow (21 tests)
+- [ ] Implement going out scenarios - rounds 1-5 (21 tests)
+- [ ] Implement going out scenarios - round 6 (31 tests)
+- [ ] Implement scoring integration (19 tests)
+- [ ] Implement edge cases (17 tests)
+- [ ] Fix typecheck errors
+
+### Phase 3 Deferred Tests (4 tests)
+
+> These tests were deferred from Phase 3 because they require Phase 4 functionality
+
+- [ ] Implement cannot lay off on same turn (3 tests in laydown.test.ts)
+- [ ] Implement round transition isDown reset (1 test in table.test.ts)
 
 ---
 

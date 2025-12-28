@@ -1,0 +1,299 @@
+import { describe, it, expect } from "bun:test";
+
+/**
+ * Phase 4: Going Out Tests
+ *
+ * Tests for going out mechanics - ending with 0 cards in hand.
+ */
+
+describe("going out - general rules", () => {
+  describe("definition", () => {
+    it.todo("going out means ending with 0 cards in hand", () => {});
+    it.todo("player who goes out scores 0 for the round", () => {});
+    it.todo("going out ends the round immediately", () => {});
+    it.todo("other players score their remaining cards", () => {});
+  });
+
+  describe("must be down to go out", () => {
+    it.todo("player cannot go out if isDown: false", () => {});
+    it.todo("only way to remove cards (other than discard) is to lay off", () => {});
+    it.todo("laying off requires being down", () => {});
+    it.todo("therefore: must be down to reach 0 cards", () => {});
+  });
+
+  describe("paths to going out", () => {
+    it.todo("lay down contract (become down)", () => {});
+    it.todo("on subsequent turns: lay off cards to reduce hand", () => {});
+    it.todo("rounds 1-5: discard last card OR lay off last card(s)", () => {});
+    it.todo("round 6: MUST lay off last card(s), cannot discard to go out", () => {});
+    it.todo("exception: go out on same turn as laying down", () => {});
+  });
+});
+
+describe("going out - rounds 1-5", () => {
+  describe("going out via discard", () => {
+    it.todo("player goes out by discarding their last card", () => {});
+    it.todo("after discard, hand.length === 0", () => {});
+    it.todo("triggers wentOut state", () => {});
+    it.todo("round ends", () => {});
+  });
+
+  describe("going out via lay off", () => {
+    it.todo("player goes out by laying off their last card(s)", () => {});
+    it.todo("after lay off, hand.length === 0", () => {});
+    it.todo("triggers wentOut state immediately", () => {});
+    it.todo("round ends", () => {});
+    it.todo("no discard needed or allowed after going out", () => {});
+  });
+
+  describe("sequence to go out via discard", () => {
+    it.todo("given: player is down, has 3 cards after drawing", () => {});
+    it.todo("when: player lays off 2 cards (1 card remaining)", () => {});
+    it.todo("and: player discards last card", () => {});
+    it.todo("then: player has 0 cards, went out, round ends immediately", () => {});
+  });
+
+  describe("sequence to go out via lay off", () => {
+    it.todo("given: player is down, has 3 cards after drawing", () => {});
+    it.todo("when: player lays off all 3 cards to valid melds", () => {});
+    it.todo("then: player has 0 cards, went out, no discard occurs, round ends immediately", () => {});
+  });
+
+  describe("player choice - discard or lay off", () => {
+    it.todo("given: player is down, has 2 cards after drawing, both can be laid off", () => {});
+    it.todo("then: player can choose to lay off both (going out without discard)", () => {});
+    it.todo("or: player can lay off 1, discard the other (going out via discard)", () => {});
+    it.todo("and: both are valid ways to go out", () => {});
+  });
+
+  describe("wentOut trigger", () => {
+    it.todo("checked after DISCARD command completes", () => {});
+    it.todo("checked after LAY_OFF command completes", () => {});
+    it.todo("if hand.length === 0 → wentOut (round ends)", () => {});
+    it.todo("if hand.length > 0 → continue turn or turnComplete", () => {});
+  });
+});
+
+describe("going out - round 6 special rules", () => {
+  describe("normal turns still have discard", () => {
+    it.todo("in round 6, normal turns work like other rounds", () => {});
+    it.todo("draw → (optional lay down/lay off) → discard", () => {});
+    it.todo("discarding is allowed when NOT going out", () => {});
+    it.todo("this is the key difference from 'no discard at all'", () => {});
+  });
+
+  describe("cannot discard to go out", () => {
+    it.todo("in round 6, you CANNOT discard your last card to go out", () => {});
+    it.todo("going out MUST be via laying off last card(s)", () => {});
+    it.todo("if you have 1 card that can't be laid off, you must keep it", () => {});
+    it.todo("you must keep it until you can lay it off", () => {});
+  });
+
+  describe("round 6 going out - must lay off", () => {
+    it.todo("given: round 6, player is down, has 2 cards", () => {});
+    it.todo("when: player draws (3 cards)", () => {});
+    it.todo("and: player lays off all 3 cards to valid melds", () => {});
+    it.todo("then: hand is empty (0 cards), player went out, no discard occurred, round ends", () => {});
+  });
+
+  describe("round 6 - cannot discard last card", () => {
+    it.todo("given: round 6, player is down, has 1 card after drawing", () => {});
+    it.todo("and: that card CAN be laid off", () => {});
+    it.todo("then: player MUST lay it off to go out", () => {});
+    it.todo("and: player CANNOT choose to discard it instead", () => {});
+  });
+
+  describe("round 6 - stuck with unlayable last card", () => {
+    it.todo("given: round 6, player is down, has 2 cards after drawing", () => {});
+    it.todo("and: 1 card can be laid off, 1 cannot", () => {});
+    it.todo("when: player lays off the playable card (1 remaining)", () => {});
+    it.todo("then: player has 1 card that cannot be laid off", () => {});
+    it.todo("and: player CANNOT discard it (would be going out via discard)", () => {});
+    it.todo("and: player must end turn keeping that card", () => {});
+    it.todo("and: player waits for future turns when melds may grow", () => {});
+  });
+
+  describe("round 6 - normal turn with discard", () => {
+    it.todo("given: round 6, player is down, has 4 cards after drawing", () => {});
+    it.todo("and: player can lay off 1 card", () => {});
+    it.todo("when: player lays off 1 card (3 remaining)", () => {});
+    it.todo("and: no other cards can be laid off", () => {});
+    it.todo("then: player CAN discard (not going out, has 2+ cards left)", () => {});
+    it.todo("and: player discards 1 card (2 remaining)", () => {});
+    it.todo("and: turn ends normally, player did NOT go out", () => {});
+  });
+
+  describe("round 6 - discard allowed with 2+ cards remaining", () => {
+    it.todo("given: round 6, player has 3 cards after laying off, player CAN discard (will have 2 cards left)", () => {});
+    it.todo("given: round 6, player has 2 cards after laying off, player CAN discard (will have 1 card left)", () => {});
+    it.todo("given: round 6, player has 1 card, player CANNOT discard (would have 0 cards = going out)", () => {});
+  });
+
+  describe("GO_OUT command", () => {
+    it.todo("convenience command for going out with multiple lay offs", () => {});
+    it.todo("available in all rounds (not just round 6)", () => {});
+    it.todo("only available when player is down", () => {});
+    it.todo("can include finalLayOffs array", () => {});
+    it.todo("validates all lay offs before executing", () => {});
+    it.todo("executes all lay offs in order", () => {});
+    it.todo("player must end with 0 cards", () => {});
+    it.todo("transitions to wentOut state", () => {});
+  });
+
+  describe("GO_OUT with multiple lay offs", () => {
+    it.todo("given: player has 3 cards: 9♠, 4♦, K♥", () => {});
+    it.todo("and: table has melds each card can join", () => {});
+    it.todo("when: GO_OUT with finalLayOffs for all three cards", () => {});
+    it.todo("then: all three cards laid off, hand is empty, player went out", () => {});
+  });
+
+  describe("GO_OUT rejected scenarios", () => {
+    it.todo("rejected if player not down", () => {});
+    it.todo("rejected if any lay off in finalLayOffs is invalid", () => {});
+    it.todo("rejected if cards would remain after all lay offs", () => {});
+    it.todo("state unchanged on rejection", () => {});
+    it.todo("error messages specific to failure reason", () => {});
+  });
+});
+
+describe("going out - round 6 stuck scenarios", () => {
+  describe("stuck with single unlayable card", () => {
+    it.todo("given: round 6, player is down, has 1 card after laying off", () => {});
+    it.todo("and: that card cannot be laid off to any meld", () => {});
+    it.todo("then: player cannot go out (can't lay off)", () => {});
+    it.todo("and: player cannot discard (would be going out)", () => {});
+    it.todo("and: player ends turn keeping that 1 card", () => {});
+    it.todo("and: player must wait for melds to expand", () => {});
+  });
+
+  describe("hand does NOT grow when stuck with 1 card", () => {
+    it.todo("given: round 6, player stuck with 1 unlayable card", () => {});
+    it.todo("when: next turn - player draws (2 cards)", () => {});
+    it.todo("and: still can't lay off either card", () => {});
+    it.todo("then: player discards 1 (back to 1 card)", () => {});
+    it.todo("and: hand size doesn't grow indefinitely", () => {});
+  });
+
+  describe("waiting for melds to expand", () => {
+    it.todo("given: round 6, player has 7♦ that fits no current meld", () => {});
+    it.todo("and: no diamond runs exist, no set of 7s exists", () => {});
+    it.todo("when: player's turn", () => {});
+    it.todo("then: player cannot play the 7♦", () => {});
+    it.todo("and: if it's their only card, they keep it", () => {});
+    it.todo("and: if they have other cards, they may discard something else", () => {});
+    it.todo("and: hopes another player creates a meld 7♦ fits", () => {});
+  });
+
+  describe("eventually able to go out", () => {
+    it.todo("given: round 6, player stuck with 7♦", () => {});
+    it.todo("and: another player lays down a set of 7s", () => {});
+    it.todo("when: player's next turn", () => {});
+    it.todo("then: player can lay off 7♦ to set of 7s", () => {});
+    it.todo("and: if it was their only card, they go out", () => {});
+  });
+});
+
+describe("going out - not down scenarios", () => {
+  describe("cannot go out if not down - rounds 1-5", () => {
+    it.todo("given: player has not laid down (isDown: false)", () => {});
+    it.todo("and: player has 1 card", () => {});
+    it.todo("when: player draws (2 cards)", () => {});
+    it.todo("then: player cannot lay off (not down)", () => {});
+    it.todo("and: player must discard (1 card remaining)", () => {});
+    it.todo("and: player CANNOT reach 0 cards while not down", () => {});
+    it.todo("and: draw +1, discard -1 = net zero change", () => {});
+  });
+
+  describe("cannot go out if not down - round 6", () => {
+    it.todo("given: round 6, player has not laid down", () => {});
+    it.todo("and: player has 8 cards", () => {});
+    it.todo("when: player draws (9 cards)", () => {});
+    it.todo("then: player cannot lay off (not down)", () => {});
+    it.todo("and: player discards (8 cards remaining)", () => {});
+    it.todo("and: same hand size as start of turn", () => {});
+    it.todo("and: must lay down contract before can reduce hand", () => {});
+  });
+
+  describe("only path to 0 cards requires being down", () => {
+    it.todo("if not down: cannot lay off", () => {});
+    it.todo("can only draw and discard", () => {});
+    it.todo("draw +1, discard -1 = net 0 change", () => {});
+    it.todo("hand size stays constant until laying down", () => {});
+    it.todo("must lay down to become down", () => {});
+    it.todo("only then can lay off to reduce hand toward 0", () => {});
+  });
+});
+
+describe("going out - on lay down turn", () => {
+  describe("going out same turn as laying down (rounds 1-5)", () => {
+    it.todo("given: player has 7 cards in hand", () => {});
+    it.todo("when: player draws (8 cards)", () => {});
+    it.todo("and: player lays down melds totaling 7 cards (1 card remaining)", () => {});
+    it.todo("and: player discards last card", () => {});
+    it.todo("then: player has 0 cards, went out", () => {});
+    it.todo("note: player became down during turn, then immediately discarded to 0", () => {});
+    it.todo("and: this IS allowed - going out on lay down turn", () => {});
+  });
+
+  describe("going out on lay down - contract uses all cards", () => {
+    it.todo("given: player has 11 cards forming exactly the contract (larger melds)", () => {});
+    it.todo("when: player draws (12 cards)", () => {});
+    it.todo("and: player lays down 12 cards (all cards form contract)", () => {});
+    it.todo("then: player has 0 cards, went out immediately on lay down", () => {});
+    it.todo("and: no discard needed", () => {});
+    it.todo("note: rare scenario requiring larger-than-minimum melds", () => {});
+  });
+
+  describe("example: round 1 going out on lay down", () => {
+    it.todo("given: round 1 (contract: 2 sets)", () => {});
+    it.todo("and: player has 7 cards: (9♣ 9♦ 9♥ 9♠) + (K♣ K♦ K♥)", () => {});
+    it.todo("when: player draws (8 cards total)", () => {});
+    it.todo("and: player lays down: set of 4 nines + set of 3 kings = 7 cards", () => {});
+    it.todo("and: player has 1 card remaining", () => {});
+    it.todo("and: player discards that card", () => {});
+    it.todo("then: player went out on same turn as laying down", () => {});
+  });
+
+  describe("round 6 - going out on lay down turn", () => {
+    it.todo("given: round 6 (contract: 1 set + 2 runs = minimum 11 cards)", () => {});
+    it.todo("and: player has 11 cards", () => {});
+    it.todo("when: player draws (12 cards)", () => {});
+    it.todo("and: player lays down exactly 11 cards", () => {});
+    it.todo("and: player has 1 card remaining", () => {});
+    it.todo("then: player cannot lay off (laidDownThisTurn: true)", () => {});
+    it.todo("and: player CANNOT discard - would be going out via discard in round 6", () => {});
+    it.todo("and: player ends turn with 1 card", () => {});
+    it.todo("and: must wait until next turn to lay off and go out", () => {});
+  });
+
+  describe("round 6 go out on lay down - only with all cards in contract", () => {
+    it.todo("given: round 6, player has 12 cards after drawing", () => {});
+    it.todo("and: player can form contract using all 12 cards (larger melds)", () => {});
+    it.todo("when: player lays down all 12 cards", () => {});
+    it.todo("then: player has 0 cards, went out immediately on lay down", () => {});
+    it.todo("note: rare scenario requiring larger-than-minimum melds", () => {});
+  });
+});
+
+describe("going out - turn output", () => {
+  describe("wentOut output structure", () => {
+    it.todo("wentOut: true", () => {});
+    it.todo("playerId: id of player who went out", () => {});
+    it.todo("hand: empty array []", () => {});
+    it.todo("distinct from turnComplete output", () => {});
+  });
+
+  describe("turnComplete vs wentOut", () => {
+    it.todo("turnComplete: wentOut: false, hand has cards, normal turn end", () => {});
+    it.todo("wentOut: wentOut: true, hand empty, round ends", () => {});
+    it.todo("both are final states of turn machine", () => {});
+    it.todo("parent machine (round) handles differently based on wentOut flag", () => {});
+  });
+
+  describe("wentOut triggers round end", () => {
+    it.todo("when turn outputs wentOut: true", () => {});
+    it.todo("round machine transitions to scoring state", () => {});
+    it.todo("no more turns for any player", () => {});
+    it.todo("scoring begins immediately", () => {});
+  });
+});
