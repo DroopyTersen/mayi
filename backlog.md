@@ -17,7 +17,7 @@
 - [x] Rank ordering utilities (`getRankValue`) — needed for run validation
 - [x] Joker position identification (`identifyJokerPositions`, `canSwapJokerWithCard`)
 - [x] Run extension helpers (`canExtendRun`, `canExtendSet`)
-- [ ] Hand scoring (`calculateHandScore`)
+- [x] Hand scoring (`calculateHandScore`)
 
 ---
 
