@@ -176,21 +176,21 @@ Review specs/command-line-interface.md
 - [x] Implement meld creation (4 tests)
 - [x] Fix typecheck errors
 
-### Integration Tests (56 tests in laydown.integration.test.ts)
+### Integration Tests (58 tests in laydown.integration.test.ts)
 
-- [ ] Implement round 1 successful lay down flow (8 tests)
-- [ ] Implement round 2 lay down with wilds (4 tests)
-- [ ] Implement player chooses not to lay down (7 tests)
-- [ ] Implement player cannot lay down - missing cards (5 tests)
-- [ ] Implement multiple turns with lay down (7 tests)
-- [ ] Fix typecheck errors
-- [ ] Implement edge case: laying down maximum cards (4 tests)
-- [ ] Implement edge case: laying down leaves exactly 1 card (5 tests)
-- [ ] Implement edge case: contract validation prevents over-laying (4 tests)
-- [ ] Implement edge case: wilds across multiple melds (5 tests)
-- [ ] Implement edge case: concentrated wilds invalid (5 tests)
-- [ ] Implement edge case: same rank from multiple decks (4 tests)
-- [ ] Fix typecheck errors
+- [x] Implement round 1 successful lay down flow (8 tests)
+- [x] Implement round 2 lay down with wilds (4 tests)
+- [x] Implement player chooses not to lay down (7 tests)
+- [x] Implement player cannot lay down - missing cards (5 tests)
+- [x] Implement multiple turns with lay down (7 tests)
+- [x] Fix typecheck errors
+- [x] Implement edge case: laying down maximum cards (4 tests)
+- [x] Implement edge case: laying down leaves exactly 1 card (5 tests)
+- [x] Implement edge case: contract validation prevents over-laying (4 tests)
+- [x] Implement edge case: wilds across multiple melds (5 tests)
+- [x] Implement edge case: concentrated wilds invalid (5 tests)
+- [x] Implement edge case: same rank from multiple decks (4 tests)
+- [x] Fix typecheck errors
 
 ### CLI Lay Down (20 tests in cli.laydown.test.ts)
 
