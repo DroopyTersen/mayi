@@ -117,7 +117,7 @@ Review specs/command-line-interface.md
 - [x] Implement successful lay down - Round 2 (4 tests)
 - [x] Implement successful lay down - Round 3 (3 tests)
 - [x] Implement successful lay down - Round 4 (3 tests)
-- [ ] Implement successful lay down - Round 5 (2 tests)
+- [x] Implement successful lay down - Round 5 (2 tests)
 - [ ] Implement successful lay down - Round 6 (2 tests)
 - [ ] Fix typecheck errors
 - [ ] Implement melds with wilds validation (7 tests)
