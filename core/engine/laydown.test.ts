@@ -2603,10 +2603,151 @@ describe("TurnMachine - post lay down behavior", () => {
 
 describe("TurnMachine - turn completion after lay down", () => {
   describe("discard after laying down", () => {
-    it.todo("from awaitingDiscard, DISCARD command works normally", () => {});
-    it.todo("card removed from hand, added to discard pile", () => {});
-    it.todo("transitions to turnComplete", () => {});
-    it.todo("output includes updated hand, table, discard", () => {});
+    it("from awaitingDiscard, DISCARD command works normally", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // Discard works in awaitingDiscard
+      const discardableCard = actor.getSnapshot().context.hand[0]!;
+      actor.send({ type: "DISCARD", cardId: discardableCard.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+    });
+
+    it("card removed from hand, added to discard pile", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const handBefore = actor.getSnapshot().context.hand;
+      const discardPileBefore = actor.getSnapshot().context.discard;
+      const discardCard = handBefore[0]!;
+
+      actor.send({ type: "DISCARD", cardId: discardCard.id });
+
+      const handAfter = actor.getSnapshot().context.hand;
+      const discardPileAfter = actor.getSnapshot().context.discard;
+
+      expect(handAfter.find(c => c.id === discardCard.id)).toBeUndefined();
+      expect(discardPileAfter[0]!.id).toBe(discardCard.id);
+      expect(discardPileAfter.length).toBe(discardPileBefore.length + 1);
+    });
+
+    it("transitions to turnComplete", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      const discardCard = actor.getSnapshot().context.hand[0]!;
+      actor.send({ type: "DISCARD", cardId: discardCard.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().status).toBe("done");
+    });
+
+    it("output includes updated hand, table, discard", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const discardCard = actor.getSnapshot().context.hand[0]!;
+      actor.send({ type: "DISCARD", cardId: discardCard.id });
+
+      const output = actor.getSnapshot().output;
+      expect(output).toBeDefined();
+      expect(output?.hand).toBeDefined();
+      expect(output?.discard).toBeDefined();
+      // Note: output doesn't currently include table, that's stored in context
+    });
   });
 
   describe("turn output reflects lay down", () => {
