@@ -133,7 +133,7 @@ Review specs/command-line-interface.md
 - [x] Implement auto-transition to awaitingDiscard (3 tests)
 - [x] Implement turn end after laying down (2 tests)
 - [ ] Implement cannot lay off on same turn (3 tests)
-- [ ] Implement cannot lay down again (2 tests)
+- [x] Implement cannot lay down again (2 tests)
 - [ ] Implement discard after laying down (4 tests)
 - [ ] Implement turn output reflects lay down (3 tests)
 - [ ] Fix typecheck errors

@@ -2512,8 +2512,92 @@ describe("TurnMachine - post lay down behavior", () => {
   });
 
   describe("cannot lay down again", () => {
-    it.todo("second LAY_DOWN command rejected", () => {});
-    it.todo("isDown already true", () => {});
+    it("second LAY_DOWN command rejected", () => {
+      // Create enough cards for two lay downs
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const threeC = card("3", "clubs");
+      const threeD = card("3", "diamonds");
+      const threeH = card("3", "hearts");
+      const queenC = card("Q", "clubs");
+      const queenD = card("Q", "diamonds");
+      const queenH = card("Q", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, threeC, threeD, threeH, queenC, queenD, queenH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // First lay down - succeeds
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+
+      const tableBefore = actor.getSnapshot().context.table.length;
+
+      // Second lay down attempt - should be rejected (not even possible in awaitingDiscard state)
+      // In awaitingDiscard, only DISCARD is allowed
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [threeC.id, threeD.id, threeH.id] },
+          { type: "set" as const, cardIds: [queenC.id, queenD.id, queenH.id] },
+        ],
+      });
+
+      // Should still be in awaitingDiscard, no additional melds
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.table.length).toBe(tableBefore);
+    });
+
+    it("isDown already true after first lay down", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        isDown: false,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      // isDown is now true, which prevents future lay downs
+    });
   });
 });
 
