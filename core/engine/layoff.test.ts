@@ -1331,24 +1331,143 @@ describe("LAY_OFF rejection", () => {
   });
 
   describe("invalid card rejections", () => {
-    it.todo("rejected if cardId not in player's hand", () => {});
+    it("rejected if cardId not in player's hand", () => {
+      const nineS = card("9", "spades");
+      const notInHand = card("K", "diamonds"); // Different card not in hand
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: notInHand.id, meldId: setMeld.id });
+
+      // Hand should be unchanged
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
     it.todo("error message: 'card not in hand'", () => {});
   });
 
   describe("invalid meld rejections", () => {
-    it.todo("rejected if meldId doesn't exist on table", () => {});
+    it("rejected if meldId doesn't exist on table", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: "non-existent-meld-id" });
+
+      // Hand should be unchanged
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
     it.todo("error message: 'meld not found'", () => {});
   });
 
   describe("card doesn't fit meld rejections", () => {
-    it.todo("rejected if card doesn't match set's rank", () => {});
-    it.todo("rejected if card doesn't extend run", () => {});
-    it.todo("rejected if card wrong suit for run", () => {});
+    it("rejected if card doesn't match set's rank", () => {
+      const kingH = card("K", "hearts");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([kingH, card("5", "diamonds")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld.id });
+
+      // Hand should be unchanged (K doesn't match 9s set)
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
+    it("rejected if card doesn't extend run", () => {
+      const tenS = card("10", "spades");
+      const runMeld = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([tenS, card("K", "hearts")], [runMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: tenS.id, meldId: runMeld.id });
+
+      // Hand should be unchanged (10 doesn't extend 5-8 run - needs 4 or 9)
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
+    it("rejected if card wrong suit for run", () => {
+      const nineH = card("9", "hearts"); // Wrong suit (hearts, not spades)
+      const runMeld = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineH, card("K", "diamonds")], [runMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: nineH.id, meldId: runMeld.id });
+
+      // Hand should be unchanged (9♥ doesn't match spades run)
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
     it.todo("error message: 'card does not fit this meld'", () => {});
   });
 
   describe("wild ratio rejections", () => {
-    it.todo("rejected if adding wild would make wilds > naturals", () => {});
+    it("rejected if adding wild would make wilds > naturals", () => {
+      const myJoker = joker();
+      // Set with 2 naturals and 2 wilds - adding another wild would make 2 natural, 3 wild
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        joker(),
+        card("2", "hearts"), // 2 is wild
+      ]);
+
+      const input = createTurnInputForLayOff([myJoker, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: myJoker.id, meldId: setMeld.id });
+
+      // Hand should be unchanged (would make wilds outnumber naturals)
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
     it.todo("error message: 'would make wilds outnumber naturals'", () => {});
   });
 });

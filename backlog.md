@@ -228,10 +228,10 @@ Review specs/command-line-interface.md
 - [x] Implement multiple lay offs in one turn (7 tests)
 - [x] Implement state transitions after lay off (4 tests)
 - [x] Implement LAY_OFF rejection - player state (7 tests)
-- [ ] Implement LAY_OFF rejection - invalid card (2 tests)
-- [ ] Implement LAY_OFF rejection - invalid meld (2 tests)
-- [ ] Implement LAY_OFF rejection - card doesn't fit (4 tests)
-- [ ] Implement LAY_OFF rejection - wild ratio (2 tests)
+- [x] Implement LAY_OFF rejection - invalid card (2 tests)
+- [x] Implement LAY_OFF rejection - invalid meld (2 tests)
+- [x] Implement LAY_OFF rejection - card doesn't fit (4 tests)
+- [x] Implement LAY_OFF rejection - wild ratio (2 tests)
 - [ ] Fix typecheck errors
 
 ### Going Out (176 tests in goingOut.test.ts)
