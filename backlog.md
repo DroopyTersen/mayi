@@ -15,7 +15,7 @@
 - [x] Set validation (`isValidSet`)
 - [x] Run validation (`isValidRun`)
 - [x] Rank ordering utilities (`getRankValue`) — needed for run validation
-- [ ] Joker position identification (`identifyJokerPosition`, `canSwapJokerWithCard`)
+- [x] Joker position identification (`identifyJokerPositions`, `canSwapJokerWithCard`)
 - [ ] Run extension helpers (`canExtendRun`, `canExtendSet`)
 - [ ] Hand scoring (`calculateHandScore`)
 
