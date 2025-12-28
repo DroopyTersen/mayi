@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { renderCard } from "./cli.renderer";
+import { renderCard, renderHand } from "./cli.renderer";
 import type { Card } from "../core/card/card.types";
 
 // Helper to create test cards
@@ -53,11 +53,32 @@ describe("renderCard", () => {
 });
 
 describe("renderHand", () => {
-  it.todo("displays cards in order", () => {});
+  it("displays cards in order", () => {
+    const hand = [
+      card("3", "hearts"),
+      card("5", "diamonds"),
+      card("9", "clubs"),
+    ];
+    const result = renderHand(hand);
+    expect(result.indexOf("3♥")).toBeLessThan(result.indexOf("5♦"));
+    expect(result.indexOf("5♦")).toBeLessThan(result.indexOf("9♣"));
+  });
 
-  it.todo("separates cards with spaces", () => {});
+  it("separates cards with spaces", () => {
+    const hand = [card("3", "hearts"), card("5", "diamonds")];
+    expect(renderHand(hand)).toBe("3♥ 5♦");
+  });
 
-  it.todo("example: '3\u2665 5\u2666 9\u2663 J\u2660 Joker'", () => {});
+  it("example: '3♥ 5♦ 9♣ J♠ Joker'", () => {
+    const hand = [
+      card("3", "hearts"),
+      card("5", "diamonds"),
+      card("9", "clubs"),
+      card("J", "spades"),
+      joker(),
+    ];
+    expect(renderHand(hand)).toBe("3♥ 5♦ 9♣ J♠ Joker");
+  });
 });
 
 describe("renderNumberedHand (for selection)", () => {

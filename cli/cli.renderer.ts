@@ -33,3 +33,11 @@ export function renderCard(card: Card): string {
   const suitSymbol = SUIT_SYMBOLS[suit] ?? suit;
   return `${card.rank}${suitSymbol}`;
 }
+
+/**
+ * Renders a hand of cards as a space-separated string
+ * Example: "3♥ 5♦ 9♣ J♠ Joker"
+ */
+export function renderHand(hand: Card[]): string {
+  return hand.map(renderCard).join(" ");
+}
