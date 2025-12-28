@@ -876,8 +876,78 @@ describe("TurnMachine - LAY_DOWN command", () => {
   });
 
   describe("successful lay down - Round 6 (1 set + 2 runs)", () => {
-    it.todo("accepts valid 1 set and 2 runs", () => {});
-    it.todo("minimum 11 cards used", () => {});
+    it("accepts valid 1 set and 2 runs", () => {
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 6 as const,
+        hand: [
+          card("3", "clubs"), card("3", "diamonds"), card("3", "hearts"),
+          card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades"),
+          card("9", "hearts"), card("10", "hearts"), card("J", "hearts"), card("Q", "hearts"),
+          card("K", "clubs"),
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const hand = actor.getSnapshot().context.hand;
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [hand[0]!.id, hand[1]!.id, hand[2]!.id] },
+          { type: "run" as const, cardIds: [hand[3]!.id, hand[4]!.id, hand[5]!.id, hand[6]!.id] },
+          { type: "run" as const, cardIds: [hand[7]!.id, hand[8]!.id, hand[9]!.id, hand[10]!.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("minimum 11 cards used", () => {
+      const threeC = card("3", "clubs");
+      const threeD = card("3", "diamonds");
+      const threeH = card("3", "hearts");
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+      const nineH = card("9", "hearts");
+      const tenH = card("10", "hearts");
+      const jackH = card("J", "hearts");
+      const queenH = card("Q", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 6 as const,
+        hand: [threeC, threeD, threeH, fiveS, sixS, sevenS, eightS, nineH, tenH, jackH, queenH, card("K", "clubs")],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handSizeBefore = actor.getSnapshot().context.hand.length;
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [threeC.id, threeD.id, threeH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, eightS.id] },
+          { type: "run" as const, cardIds: [nineH.id, tenH.id, jackH.id, queenH.id] },
+        ],
+      });
+
+      const handAfter = actor.getSnapshot().context.hand;
+      // 11 cards removed (1 set of 3 + 2 runs of 4)
+      expect(handAfter.length).toBe(handSizeBefore - 11);
+      // Verify the table has 1 set and 2 runs
+      const table = actor.getSnapshot().context.table;
+      expect(table.length).toBe(3);
+      expect(table[0]!.type).toBe("set");
+      expect(table[1]!.type).toBe("run");
+      expect(table[2]!.type).toBe("run");
+    });
   });
 
   describe("melds with wilds", () => {
