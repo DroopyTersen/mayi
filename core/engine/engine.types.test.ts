@@ -58,15 +58,35 @@ describe("GameState structure", () => {
 });
 
 describe("Player structure", () => {
-  it.todo("id is a non-empty string", () => {});
+  const gameState = createInitialGameState({
+    playerNames: ["Alice", "Bob", "Carol"],
+  });
+  const player = gameState.players[0];
 
-  it.todo("name is a non-empty string", () => {});
+  it("id is a non-empty string", () => {
+    expect(typeof player.id).toBe("string");
+    expect(player.id.length).toBeGreaterThan(0);
+  });
 
-  it.todo("hand is an array of Cards", () => {});
+  it("name is a non-empty string", () => {
+    expect(typeof player.name).toBe("string");
+    expect(player.name.length).toBeGreaterThan(0);
+    expect(player.name).toBe("Alice");
+  });
 
-  it.todo("isDown is a boolean (false initially)", () => {});
+  it("hand is an array of Cards", () => {
+    expect(Array.isArray(player.hand)).toBe(true);
+  });
 
-  it.todo("totalScore is a number (0 initially)", () => {});
+  it("isDown is a boolean (false initially)", () => {
+    expect(typeof player.isDown).toBe("boolean");
+    expect(player.isDown).toBe(false);
+  });
+
+  it("totalScore is a number (0 initially)", () => {
+    expect(typeof player.totalScore).toBe("number");
+    expect(player.totalScore).toBe(0);
+  });
 });
 
 describe("TurnState structure", () => {
