@@ -11,7 +11,7 @@
 - [x] Shuffle function (`shuffle`)
 - [x] Deal function (`deal`)
 - [x] Review specs/phase1-tests.md and scaffold out all tests (72 todo tests in meld.validation.test.ts)
-- [ ] Helper functions: `countWildsAndNaturals`, `wildsOutnumberNaturals`
+- [x] Helper functions: `countWildsAndNaturals`, `wildsOutnumberNaturals`
 - [ ] Set validation (`isValidSet`)
 - [ ] Run validation (`isValidRun`)
 - [ ] Rank ordering utilities (`getRankValue`, `compareRanks`) — needed for run validation

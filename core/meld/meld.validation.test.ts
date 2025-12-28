@@ -1,10 +1,14 @@
 import { describe, it, expect } from "bun:test";
-// import { isValidSet, isValidRun, countWildsAndNaturals, wildsOutnumberNaturals } from "./meld.validation";
+import { countWildsAndNaturals, wildsOutnumberNaturals } from "./meld.validation";
 import type { Card } from "../card/card.types";
 
 // Helper to create cards for testing
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
   return { id: `${rank}-${suit}`, suit, rank };
+}
+
+function joker(): Card {
+  return { id: "joker", suit: null, rank: "Joker" };
 }
 
 describe("isValidSet", () => {
@@ -107,20 +111,72 @@ describe("isValidRun", () => {
 });
 
 describe("countWildsAndNaturals", () => {
-  it.todo("returns {wilds: 0, naturals: 3} for (9♣ 9♦ 9♥)");
-  it.todo("returns {wilds: 1, naturals: 2} for (9♣ 9♦ Joker)");
-  it.todo("returns {wilds: 2, naturals: 2} for (9♣ 9♦ 2♥ Joker)");
-  it.todo("returns {wilds: 2, naturals: 0} for (Joker 2♣)");
-  it.todo("returns {wilds: 0, naturals: 0} for empty array");
-  it.todo("counts both 2s and Jokers as wilds");
+  it("returns {wilds: 0, naturals: 3} for (9♣ 9♦ 9♥)", () => {
+    const cards = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")];
+    expect(countWildsAndNaturals(cards)).toEqual({ wilds: 0, naturals: 3 });
+  });
+
+  it("returns {wilds: 1, naturals: 2} for (9♣ 9♦ Joker)", () => {
+    const cards = [card("9", "clubs"), card("9", "diamonds"), joker()];
+    expect(countWildsAndNaturals(cards)).toEqual({ wilds: 1, naturals: 2 });
+  });
+
+  it("returns {wilds: 2, naturals: 2} for (9♣ 9♦ 2♥ Joker)", () => {
+    const cards = [card("9", "clubs"), card("9", "diamonds"), card("2", "hearts"), joker()];
+    expect(countWildsAndNaturals(cards)).toEqual({ wilds: 2, naturals: 2 });
+  });
+
+  it("returns {wilds: 2, naturals: 0} for (Joker 2♣)", () => {
+    const cards = [joker(), card("2", "clubs")];
+    expect(countWildsAndNaturals(cards)).toEqual({ wilds: 2, naturals: 0 });
+  });
+
+  it("returns {wilds: 0, naturals: 0} for empty array", () => {
+    expect(countWildsAndNaturals([])).toEqual({ wilds: 0, naturals: 0 });
+  });
+
+  it("counts both 2s and Jokers as wilds", () => {
+    const cards = [card("2", "hearts"), card("2", "spades"), joker()];
+    expect(countWildsAndNaturals(cards)).toEqual({ wilds: 3, naturals: 0 });
+  });
 });
 
 describe("wildsOutnumberNaturals", () => {
-  it.todo("returns false for 3 naturals, 0 wilds");
-  it.todo("returns false for 2 naturals, 1 wild");
-  it.todo("returns false for 2 naturals, 2 wilds (equal is OK)");
-  it.todo("returns false for 4 naturals, 4 wilds (equal is OK)");
-  it.todo("returns true for 1 natural, 2 wilds");
-  it.todo("returns true for 2 naturals, 3 wilds");
-  it.todo("returns true for 0 naturals, any wilds");
+  it("returns false for 3 naturals, 0 wilds", () => {
+    const cards = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")];
+    expect(wildsOutnumberNaturals(cards)).toBe(false);
+  });
+
+  it("returns false for 2 naturals, 1 wild", () => {
+    const cards = [card("9", "clubs"), card("9", "diamonds"), joker()];
+    expect(wildsOutnumberNaturals(cards)).toBe(false);
+  });
+
+  it("returns false for 2 naturals, 2 wilds (equal is OK)", () => {
+    const cards = [card("9", "clubs"), card("9", "diamonds"), joker(), card("2", "hearts")];
+    expect(wildsOutnumberNaturals(cards)).toBe(false);
+  });
+
+  it("returns false for 4 naturals, 4 wilds (equal is OK)", () => {
+    const cards = [
+      card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"), card("9", "spades"),
+      joker(), joker(), card("2", "hearts"), card("2", "spades")
+    ];
+    expect(wildsOutnumberNaturals(cards)).toBe(false);
+  });
+
+  it("returns true for 1 natural, 2 wilds", () => {
+    const cards = [card("9", "clubs"), joker(), card("2", "hearts")];
+    expect(wildsOutnumberNaturals(cards)).toBe(true);
+  });
+
+  it("returns true for 2 naturals, 3 wilds", () => {
+    const cards = [card("9", "clubs"), card("9", "diamonds"), joker(), joker(), card("2", "hearts")];
+    expect(wildsOutnumberNaturals(cards)).toBe(true);
+  });
+
+  it("returns true for 0 naturals, any wilds", () => {
+    const cards = [joker(), card("2", "clubs")];
+    expect(wildsOutnumberNaturals(cards)).toBe(true);
+  });
 });
