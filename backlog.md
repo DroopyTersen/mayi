@@ -154,19 +154,19 @@ Review specs/command-line-interface.md
 
 ### Guards (39 tests in guards.test.ts)
 
-- [ ] Implement notDownYet guard (3 tests)
-- [ ] Implement meetsContract guard - round 1 (5 tests)
-- [ ] Implement meetsContract guard - round 2 (5 tests)
-- [ ] Fix typecheck errors
-- [ ] Implement meetsContract guard - round 3 (3 tests)
-- [ ] Implement meetsContract guard - round 4 (3 tests)
-- [ ] Implement meetsContract guard - round 5 (3 tests)
-- [ ] Implement meetsContract guard - round 6 (3 tests)
-- [ ] Fix typecheck errors
-- [ ] Implement validMelds guard (5 tests)
-- [ ] Implement wildsNotOutnumbered guard (4 tests)
-- [ ] Implement canLayDown composite guard (3 tests)
-- [ ] Fix typecheck errors
+- [x] Implement notDownYet guard (3 tests)
+- [x] Implement meetsContract guard - round 1 (5 tests)
+- [x] Implement meetsContract guard - round 2 (5 tests)
+- [x] Fix typecheck errors
+- [x] Implement meetsContract guard - round 3 (3 tests)
+- [x] Implement meetsContract guard - round 4 (3 tests)
+- [x] Implement meetsContract guard - round 5 (3 tests)
+- [x] Implement meetsContract guard - round 6 (3 tests)
+- [x] Fix typecheck errors
+- [x] Implement validMelds guard (5 tests)
+- [x] Implement wildsNotOutnumbered guard (4 tests)
+- [x] Implement canLayDown composite guard (3 tests)
+- [x] Fix typecheck errors
 
 ### Lay Down Actions (17 tests in laydown.actions.test.ts)
 
