@@ -167,12 +167,12 @@ describe("REORDER_HAND command", () => {
       const cA = card("A", "hearts");
       const hand = [c3, cK, c9, cA, c5, cJ];
       const sorted = sortHandByRank(hand);
-      expect(sorted[0].rank).toBe("A");
-      expect(sorted[1].rank).toBe("K");
-      expect(sorted[2].rank).toBe("J");
-      expect(sorted[3].rank).toBe("9");
-      expect(sorted[4].rank).toBe("5");
-      expect(sorted[5].rank).toBe("3");
+      expect(sorted[0]!.rank).toBe("A");
+      expect(sorted[1]!.rank).toBe("K");
+      expect(sorted[2]!.rank).toBe("J");
+      expect(sorted[3]!.rank).toBe("9");
+      expect(sorted[4]!.rank).toBe("5");
+      expect(sorted[5]!.rank).toBe("3");
     });
 
     it("wilds (2s, Jokers) go at end", () => {
@@ -184,11 +184,11 @@ describe("REORDER_HAND command", () => {
       const hand = [c2, c5, cJoker, cK, c9];
       const sorted = sortHandByRank(hand);
       // Naturals first (K, 9, 5), then wilds (2, Joker)
-      expect(sorted[0].rank).toBe("K");
-      expect(sorted[1].rank).toBe("9");
-      expect(sorted[2].rank).toBe("5");
-      expect(sorted[3].rank).toBe("2");
-      expect(sorted[4].rank).toBe("Joker");
+      expect(sorted[0]!.rank).toBe("K");
+      expect(sorted[1]!.rank).toBe("9");
+      expect(sorted[2]!.rank).toBe("5");
+      expect(sorted[3]!.rank).toBe("2");
+      expect(sorted[4]!.rank).toBe("Joker");
     });
 
     it("within same rank, any order is fine (or by suit)", () => {
@@ -200,10 +200,10 @@ describe("REORDER_HAND command", () => {
       const sorted = sortHandByRank(hand);
       // All should be 9s, sorted by suit (spades, hearts, diamonds, clubs)
       expect(sorted.every((c) => c.rank === "9")).toBe(true);
-      expect(sorted[0].suit).toBe("spades");
-      expect(sorted[1].suit).toBe("hearts");
-      expect(sorted[2].suit).toBe("diamonds");
-      expect(sorted[3].suit).toBe("clubs");
+      expect(sorted[0]!.suit).toBe("spades");
+      expect(sorted[1]!.suit).toBe("hearts");
+      expect(sorted[2]!.suit).toBe("diamonds");
+      expect(sorted[3]!.suit).toBe("clubs");
     });
   });
 
@@ -218,12 +218,12 @@ describe("REORDER_HAND command", () => {
       const hand = [cH5, cSA, cD3, cC7, cHK, cS9];
       const sorted = sortHandBySuit(hand);
       // Order: spades, hearts, diamonds, clubs
-      expect(sorted[0].suit).toBe("spades");
-      expect(sorted[1].suit).toBe("spades");
-      expect(sorted[2].suit).toBe("hearts");
-      expect(sorted[3].suit).toBe("hearts");
-      expect(sorted[4].suit).toBe("diamonds");
-      expect(sorted[5].suit).toBe("clubs");
+      expect(sorted[0]!.suit).toBe("spades");
+      expect(sorted[1]!.suit).toBe("spades");
+      expect(sorted[2]!.suit).toBe("hearts");
+      expect(sorted[3]!.suit).toBe("hearts");
+      expect(sorted[4]!.suit).toBe("diamonds");
+      expect(sorted[5]!.suit).toBe("clubs");
     });
 
     it("within suit, ordered by rank", () => {
@@ -234,10 +234,10 @@ describe("REORDER_HAND command", () => {
       const hand = [cH5, cHK, cH9, cHA];
       const sorted = sortHandBySuit(hand);
       // All hearts, ordered A, K, 9, 5
-      expect(sorted[0].rank).toBe("A");
-      expect(sorted[1].rank).toBe("K");
-      expect(sorted[2].rank).toBe("9");
-      expect(sorted[3].rank).toBe("5");
+      expect(sorted[0]!.rank).toBe("A");
+      expect(sorted[1]!.rank).toBe("K");
+      expect(sorted[2]!.rank).toBe("9");
+      expect(sorted[3]!.rank).toBe("5");
     });
 
     it("wilds go at end", () => {
@@ -248,12 +248,12 @@ describe("REORDER_HAND command", () => {
       const hand = [c2, cH5, cJoker, cS9];
       const sorted = sortHandBySuit(hand);
       // Naturals first (spades, then hearts), then wilds (2, Joker)
-      expect(sorted[0].rank).toBe("9");
-      expect(sorted[0].suit).toBe("spades");
-      expect(sorted[1].rank).toBe("5");
-      expect(sorted[1].suit).toBe("hearts");
-      expect(sorted[2].rank).toBe("2");
-      expect(sorted[3].rank).toBe("Joker");
+      expect(sorted[0]!.rank).toBe("9");
+      expect(sorted[0]!.suit).toBe("spades");
+      expect(sorted[1]!.rank).toBe("5");
+      expect(sorted[1]!.suit).toBe("hearts");
+      expect(sorted[2]!.rank).toBe("2");
+      expect(sorted[3]!.rank).toBe("Joker");
     });
   });
 

@@ -82,8 +82,9 @@ export function sortHandByRank(hand: Card[]): Card[] {
     }
 
     // Both naturals: sort by rank value (higher first)
-    const aValue = getRankValue(a.rank);
-    const bValue = getRankValue(b.rank);
+    // Non-null assertions safe because we've already filtered out wilds above
+    const aValue = getRankValue(a.rank)!;
+    const bValue = getRankValue(b.rank)!;
     if (aValue !== bValue) return bValue - aValue;
 
     // Same rank: sort by suit
@@ -118,8 +119,9 @@ export function sortHandBySuit(hand: Card[]): Card[] {
     if (aSuit !== bSuit) return aSuit - bSuit;
 
     // Same suit: sort by rank value (higher first)
-    const aValue = getRankValue(a.rank);
-    const bValue = getRankValue(b.rank);
+    // Non-null assertions safe because we've already filtered out wilds above
+    const aValue = getRankValue(a.rank)!;
+    const bValue = getRankValue(b.rank)!;
     return bValue - aValue;
   });
 }
@@ -138,7 +140,7 @@ export function moveCard(hand: Card[], fromIndex: number, toIndex: number): Reor
 
   const result = [...hand];
   const [card] = result.splice(fromIndex, 1);
-  result.splice(toIndex, 0, card);
+  result.splice(toIndex, 0, card!);
 
   return { success: true, hand: result };
 }
