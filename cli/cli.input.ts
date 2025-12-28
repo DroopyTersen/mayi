@@ -29,3 +29,38 @@ export function parseDrawCommand(input: string): DrawCommandResult {
 
   return { type: "error", message: "Invalid input. Enter 'd' or '1' for stock, 't' or '2' for discard." };
 }
+
+/**
+ * Result of parsing a discard command
+ */
+export type DiscardCommandResult =
+  | { type: "DISCARD"; position: number }
+  | { type: "error"; message: string };
+
+/**
+ * Parses user input for discard phase
+ * Valid inputs: 'x 3', '3' (position is 1-indexed)
+ */
+export function parseDiscardCommand(input: string, handSize: number): DiscardCommandResult {
+  const trimmed = input.trim().toLowerCase();
+
+  // Handle "x 3" or just "3" format
+  let positionStr: string;
+  if (trimmed.startsWith("x ")) {
+    positionStr = trimmed.slice(2).trim();
+  } else {
+    positionStr = trimmed;
+  }
+
+  const position = parseInt(positionStr, 10);
+
+  if (isNaN(position)) {
+    return { type: "error", message: "Invalid input. Enter a card position number." };
+  }
+
+  if (position < 1 || position > handSize) {
+    return { type: "error", message: `Invalid position. Enter a number between 1 and ${handSize}.` };
+  }
+
+  return { type: "DISCARD", position };
+}

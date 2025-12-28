@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { parseDrawCommand } from "./cli.input";
+import { parseDrawCommand, parseDiscardCommand } from "./cli.input";
 
 describe("parseDrawCommand", () => {
   it("'d' or '1' returns DRAW_FROM_STOCK", () => {
@@ -29,13 +29,41 @@ describe("parseDrawCommand", () => {
 });
 
 describe("parseDiscardCommand", () => {
-  it.todo("'x 3' or '3' returns DISCARD with card at position 3", () => {});
+  it("'x 3' or '3' returns DISCARD with card at position 3", () => {
+    expect(parseDiscardCommand("3", 5)).toEqual({ type: "DISCARD", position: 3 });
+    expect(parseDiscardCommand("x 3", 5)).toEqual({ type: "DISCARD", position: 3 });
+    expect(parseDiscardCommand("X 3", 5)).toEqual({ type: "DISCARD", position: 3 });
+    expect(parseDiscardCommand(" 3 ", 5)).toEqual({ type: "DISCARD", position: 3 });
+  });
 
-  it.todo("position is 1-indexed", () => {});
+  it("position is 1-indexed", () => {
+    // Position 1 is valid (first card)
+    expect(parseDiscardCommand("1", 5)).toEqual({ type: "DISCARD", position: 1 });
+    // Position 5 is valid (last card in hand of 5)
+    expect(parseDiscardCommand("5", 5)).toEqual({ type: "DISCARD", position: 5 });
+  });
 
-  it.todo("validates position is within hand size", () => {});
+  it("validates position is within hand size", () => {
+    // Position 0 is invalid
+    const result0 = parseDiscardCommand("0", 5);
+    expect(result0.type).toBe("error");
 
-  it.todo("invalid input returns error/null", () => {});
+    // Position 6 is invalid for hand of 5
+    const result6 = parseDiscardCommand("6", 5);
+    expect(result6.type).toBe("error");
+
+    // Position -1 is invalid
+    const resultNeg = parseDiscardCommand("-1", 5);
+    expect(resultNeg.type).toBe("error");
+  });
+
+  it("invalid input returns error/null", () => {
+    const resultText = parseDiscardCommand("abc", 5);
+    expect(resultText.type).toBe("error");
+
+    const resultEmpty = parseDiscardCommand("", 5);
+    expect(resultEmpty.type).toBe("error");
+  });
 });
 
 describe("parseReorderCommand", () => {

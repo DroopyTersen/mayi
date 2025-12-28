@@ -219,10 +219,10 @@ describe('TurnMachine - post lay down behavior', () => {
     - player cannot stay in 'drawn' state after laying down
   })
 
-  describe('must discard after laying down', () => {
-    - player must have at least 1 card to discard
-    - cannot lay down all cards and have 0 remaining (except round 6)
-    - if player has 7 cards and lays down 6, must discard 1 of remaining
+  describe('turn end after laying down', () => {
+    - if hand.length > 0: must discard one card to end turn
+    - if hand.length === 0: goes out immediately (no discard)
+    - (note: can only reach 0 on lay down turn if contract uses all cards)
   })
 
   describe('cannot lay off on same turn', () => {

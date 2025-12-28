@@ -82,7 +82,7 @@ Review specs/command-line-interface.md
 ### CLI Input (11 tests in cli.input.test.ts)
 
 - [x] Implement `parseDrawCommand` function (3 tests)
-- [ ] Implement `parseDiscardCommand` function (4 tests)
+- [x] Implement `parseDiscardCommand` function (4 tests)
 - [ ] Implement `parseReorderCommand` function (4 tests)
 - [ ] Fix typecheck errors
 

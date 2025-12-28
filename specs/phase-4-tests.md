@@ -198,7 +198,7 @@ describe('going out - general rules', () => {
   describe('only path to going out', () => {
     - lay down contract (become down)
     - on subsequent turns: lay off cards until 1 remains
-    - discard last card (rounds 1-5) OR lay off last card (round 6)
+    - discard last card (any round except 6) OR lay off last card (any round)
     - exception: go out on same turn as laying down (see below)
   })
 })
@@ -211,7 +211,15 @@ describe('going out - rounds 1-5', () => {
     - round ends
   })
 
-  describe('sequence to go out', () => {
+  describe('going out via lay off', () => {
+    - player goes out by laying off their last card(s)
+    - after lay off, hand.length === 0
+    - triggers wentOut state
+    - round ends immediately
+    - no discard required
+  })
+
+  describe('sequence to go out (with discard)', () => {
     given: player is down, has 3 cards after drawing
     when: player lays off 2 cards (1 card remaining)
     and: player discards last card
@@ -220,7 +228,15 @@ describe('going out - rounds 1-5', () => {
     and: round ends immediately
   })
 
-  describe('must discard to go out (rounds 1-5)', () => {
+  describe('sequence to go out (without discard)', () => {
+    given: player is down, has 3 cards after drawing
+    when: player lays off all 3 cards to valid melds
+    then: player has 0 cards
+    and: player went out
+    and: round ends immediately without needing a discard
+  })
+
+  describe('must discard to end turn if >0 cards (rounds 1-5)', () => {
     given: player is down, has 2 cards after drawing
     when: player lays off 1 card (1 card remaining)
     then: player has NOT gone out yet (still has 1 card)
@@ -229,15 +245,9 @@ describe('going out - rounds 1-5', () => {
     then: NOW player has gone out
   })
 
-  describe('cannot go out without discarding (rounds 1-5)', () => {
-    - even if player could lay off all cards
-    - the last card must be discarded, not laid off
-    - (this differs from round 6)
-  })
-
   describe('wentOut trigger', () => {
-    - checked after DISCARD command completes
-    - if hand.length === 0 after discard → wentOut
+    - checked after DISCARD or LAY_OFF command completes
+    - if hand.length === 0 → wentOut
     - if hand.length > 0 after discard → turnComplete (normal)
   })
 })
@@ -276,7 +286,7 @@ describe('going out - round 6 special rules', () => {
   })
 
   describe('GO_OUT command', () => {
-    - only available in round 6
+    - available in all rounds (as a convenience for multiple lay offs)
     - only available when player is down
     - can include finalLayOffs array for convenience
     - validates all lay offs before executing
@@ -299,7 +309,6 @@ describe('going out - round 6 special rules', () => {
   })
 
   describe('GO_OUT rejected scenarios', () => {
-    - rejected if not round 6
     - rejected if player not down
     - rejected if any lay off in finalLayOffs is invalid
     - rejected if cards would remain after all lay offs
@@ -962,11 +971,12 @@ describe('TurnMachine - round 6 specific behavior', () => {
 })
 
 describe('TurnMachine - going out detection', () => {
-  describe('rounds 1-5: checked after discard', () => {
+  describe('rounds 1-5: checked after discard or lay off', () => {
     - after DISCARD command processes
+    - OR after LAY_OFF command processes
     - check if hand.length === 0
     - if yes → wentOut
-    - if no → turnComplete
+    - if no → proceed (to turnComplete if discard, or stay in 'drawn' if lay off)
   })
 
   describe('round 6: checked after lay off', () => {
@@ -976,7 +986,7 @@ describe('TurnMachine - going out detection', () => {
     - if no → remain in 'drawn', can continue
   })
 
-  describe('round 6: checked after GO_OUT', () => {
+  describe('checked after GO_OUT (any round)', () => {
     - GO_OUT processes all finalLayOffs
     - then checks hand.length
     - should be 0 (validated before execution)
@@ -1067,7 +1077,7 @@ describe('complete lay off turn flow', () => {
     and: player lays down contract (becomes down)
     and: player tries to lay off extra card
     then: lay off rejected (laidDownThisTurn: true)
-    and: player must discard
+    and: player must discard to end turn (unless hand is empty)
     and: can lay off next turn
   })
 })
@@ -1080,34 +1090,32 @@ describe('going out scenarios - rounds 1-5', () => {
     and: player discards last card
     then: player has 0 cards
     and: player went out
-    and: round ends
-    and: scores calculated
+  })
+
+  describe('going out via lay off only (no discard)', () => {
+    given: round 3, player is down, has 2 cards
+    when: player draws (3 cards)
+    and: player lays off all 3 cards to melds (0 cards remaining)
+    then: player has 0 cards
+    and: player went out immediately
+    and: no discard occurred
+  })
+
+  describe('going out on lay down turn (no discard)', () => {
+    given: round 1, player has 6 cards (two 3-card sets possible)
+    when: player draws (7 cards)
+    and: player lays down 7 cards in two sets (one of 3, one of 4)
+    then: player has 0 cards
+    and: player went out immediately
+    and: no discard occurred
   })
 
   describe('going out with just discard', () => {
     given: round 2, player is down, has 1 card
     when: player draws (2 cards)
-    and: player cannot lay off either card
-    and: player discards one card (1 remaining)
-    then: player did NOT go out (has 1 card)
-    note: need to get down to 1 card THEN discard it
-
-    alternate scenario:
-    given: player is down, has 1 card
-    when: player draws (2 cards)
-    and: player lays off drawn card (1 card remaining)
+    and: player lays off one card (1 card remaining)
     and: player discards last card
     then: player went out
-  })
-
-  describe('going out on lay down turn', () => {
-    given: round 1, player has 7 cards (two 4-card sets possible)
-    when: player draws (8 cards)
-    and: player lays down 7 cards in two sets
-    and: player has 1 card remaining
-    and: player discards that card
-    then: player has 0 cards
-    and: player went out on same turn as laying down
   })
 })
 
