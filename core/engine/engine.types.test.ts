@@ -7,21 +7,54 @@ import {
 } from "./engine.types";
 
 describe("GameState structure", () => {
-  it.todo("gameId is a non-empty string", () => {});
+  const gameState = createInitialGameState({
+    playerNames: ["Alice", "Bob", "Carol"],
+  });
 
-  it.todo("currentRound is 1-6", () => {});
+  it("gameId is a non-empty string", () => {
+    expect(typeof gameState.gameId).toBe("string");
+    expect(gameState.gameId.length).toBeGreaterThan(0);
+  });
 
-  it.todo("players is an array of Player objects", () => {});
+  it("currentRound is 1-6", () => {
+    expect(gameState.currentRound).toBeGreaterThanOrEqual(1);
+    expect(gameState.currentRound).toBeLessThanOrEqual(6);
+  });
 
-  it.todo("currentPlayerIndex is valid index into players array", () => {});
+  it("players is an array of Player objects", () => {
+    expect(Array.isArray(gameState.players)).toBe(true);
+    expect(gameState.players.length).toBe(3);
+    for (const player of gameState.players) {
+      expect(typeof player.id).toBe("string");
+      expect(typeof player.name).toBe("string");
+      expect(Array.isArray(player.hand)).toBe(true);
+      expect(typeof player.isDown).toBe("boolean");
+      expect(typeof player.totalScore).toBe("number");
+    }
+  });
 
-  it.todo("dealerIndex is valid index into players array", () => {});
+  it("currentPlayerIndex is valid index into players array", () => {
+    expect(gameState.currentPlayerIndex).toBeGreaterThanOrEqual(0);
+    expect(gameState.currentPlayerIndex).toBeLessThan(gameState.players.length);
+  });
 
-  it.todo("stock is an array of Cards", () => {});
+  it("dealerIndex is valid index into players array", () => {
+    expect(gameState.dealerIndex).toBeGreaterThanOrEqual(0);
+    expect(gameState.dealerIndex).toBeLessThan(gameState.players.length);
+  });
 
-  it.todo("discard is an array of Cards (top card is index 0)", () => {});
+  it("stock is an array of Cards", () => {
+    expect(Array.isArray(gameState.stock)).toBe(true);
+  });
 
-  it.todo("table is an array of Melds (empty initially)", () => {});
+  it("discard is an array of Cards (top card is index 0)", () => {
+    expect(Array.isArray(gameState.discard)).toBe(true);
+  });
+
+  it("table is an array of Melds (empty initially)", () => {
+    expect(Array.isArray(gameState.table)).toBe(true);
+    expect(gameState.table.length).toBe(0);
+  });
 });
 
 describe("Player structure", () => {

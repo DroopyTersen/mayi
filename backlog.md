@@ -30,7 +30,7 @@
 - [x] Implement `createInitialGameState` function
 
 ### Engine Types (25 tests in engine.types.test.ts)
-- [ ] Implement `GameState structure` tests (8 tests)
+- [x] Implement `GameState structure` tests (8 tests)
 - [ ] Implement `Player structure` tests (5 tests)
 - [ ] Implement `TurnState structure` tests (3 tests)
 - [ ] Implement `createInitialGameState` tests (9 tests)
