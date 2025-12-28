@@ -219,7 +219,7 @@ Review specs/command-line-interface.md
 - [x] Implement laying off to sets (6 tests)
 - [x] Implement laying off to sets - wild ratio edge cases (6 tests)
 - [x] Implement laying off to runs (8 tests)
-- [ ] Implement run extension boundaries (8 tests)
+- [x] Implement run extension boundaries (8 tests)
 - [ ] Implement laying off to runs - wild ratio edge cases (7 tests)
 - [ ] Implement card ownership for lay off (5 tests)
 - [ ] Implement meld ownership - anyone can add to any meld (4 tests)
