@@ -94,7 +94,7 @@ _(none yet)_
 
 ## Completed Phases
 
-_(none yet)_
+- **Phase 1** (Card Foundation) — v0.1.0
 
 ---
 
