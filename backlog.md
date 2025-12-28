@@ -130,7 +130,7 @@ Review specs/command-line-interface.md
 - [x] Implement duplicate card usage rejection (2 tests)
 - [x] Fix typecheck errors
 - [x] Implement already down rejection (3 tests)
-- [ ] Implement auto-transition to awaitingDiscard (3 tests)
+- [x] Implement auto-transition to awaitingDiscard (3 tests)
 - [ ] Implement turn end after laying down (2 tests)
 - [ ] Implement cannot lay off on same turn (3 tests)
 - [ ] Implement cannot lay down again (2 tests)
