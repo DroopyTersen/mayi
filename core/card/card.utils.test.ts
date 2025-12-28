@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { isWild, isNatural, getPointValue } from "./card.utils";
-import type { Card } from "./card.types";
+import { isWild, isNatural, getPointValue, getRankValue } from "./card.utils";
+import type { Card, Rank } from "./card.types";
 
 describe("isWild", () => {
   it("returns true for Joker", () => {
@@ -84,5 +84,44 @@ describe("getPointValue", () => {
 
     const ten: Card = { id: "3", suit: "diamonds", rank: "10" };
     expect(getPointValue(ten)).toBe(10);
+  });
+});
+
+describe("getRankValue", () => {
+  it("returns correct values for number cards in run order", () => {
+    expect(getRankValue("3")).toBe(3);
+    expect(getRankValue("4")).toBe(4);
+    expect(getRankValue("5")).toBe(5);
+    expect(getRankValue("6")).toBe(6);
+    expect(getRankValue("7")).toBe(7);
+    expect(getRankValue("8")).toBe(8);
+    expect(getRankValue("9")).toBe(9);
+    expect(getRankValue("10")).toBe(10);
+  });
+
+  it("returns correct values for face cards", () => {
+    expect(getRankValue("J")).toBe(11);
+    expect(getRankValue("Q")).toBe(12);
+    expect(getRankValue("K")).toBe(13);
+  });
+
+  it("returns 14 for Ace (highest in runs)", () => {
+    expect(getRankValue("A")).toBe(14);
+  });
+
+  it("returns null for wild cards (2 and Joker)", () => {
+    expect(getRankValue("2")).toBeNull();
+    expect(getRankValue("Joker")).toBeNull();
+  });
+
+  it("maintains correct ordering: 3 < 4 < ... < 10 < J < Q < K < A", () => {
+    const ranks: Rank[] = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+    for (let i = 0; i < ranks.length - 1; i++) {
+      const current = getRankValue(ranks[i]);
+      const next = getRankValue(ranks[i + 1]);
+      expect(current).not.toBeNull();
+      expect(next).not.toBeNull();
+      expect(current!).toBeLessThan(next!);
+    }
   });
 });

@@ -14,7 +14,7 @@
 - [x] Helper functions: `countWildsAndNaturals`, `wildsOutnumberNaturals`
 - [x] Set validation (`isValidSet`)
 - [ ] Run validation (`isValidRun`)
-- [ ] Rank ordering utilities (`getRankValue`, `compareRanks`) — needed for run validation
+- [x] Rank ordering utilities (`getRankValue`) — needed for run validation
 - [ ] Joker position identification (`identifyJokerPosition`, `canSwapJokerWithCard`)
 - [ ] Run extension helpers (`canExtendRun`, `canExtendSet`)
 - [ ] Hand scoring (`calculateHandScore`)
