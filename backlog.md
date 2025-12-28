@@ -833,7 +833,7 @@ Review specs/command-line-interface.md
 > Record any bugs found during testing here
 
 - [x] **Harness swap command not implemented**: ~~The harness CLI shows `swap <meld> <pos> <card>` as an available command when player hasn't laid down, but running `bun harness/play.ts swap 2 3 1` returns "Unknown command: swap".~~ — Fixed: Added `handleSwap` function to harness/play.ts.
-- [ ] **Run extension bug**: After adding 8♦ to a 9♦-Q♦ run (extending low), the next extension attempt (7♦) failed with "7♦ cannot be added to that run". The run displays as "9♦ 10♦ J♦ Q♦ 8♦" which may indicate internal state issues. Need to investigate if run boundaries are tracked correctly after extension.
+- [x] **Run extension bug**: ~~After adding 8♦ to a 9♦-Q♦ run (extending low), the next extension attempt (7♦) failed~~ — Fixed: Added `getRunInsertPosition()` to core/engine/layoff.ts and updated harness to insert cards at correct position (prepend for low extension, append for high extension).
 - [x] **DOWN player can call May I**: ~~Carol called May I while DOWN~~ — Fixed in engine guards + harness `handleMayI()` now checks `player.isDown` before allowing May I call.
 - [x] **DOWN player can draw from discard**: ~~Carol drew from discard pile while DOWN~~ — Fixed in engine guards + harness `handleDraw()` now checks `player.isDown` before allowing discard draw.
 

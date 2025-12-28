@@ -248,3 +248,77 @@ export function canLayOffToRun(card: Card, meld: Meld): boolean {
 
   return true;
 }
+
+/**
+ * Determines where to insert a card when laying off to a run.
+ * Returns "low" if the card should be prepended, "high" if appended.
+ * Returns null if the card cannot be laid off.
+ *
+ * @param card - The card to lay off
+ * @param meld - The run meld to add to (must be type: 'run')
+ * @returns "low" | "high" | null
+ */
+export function getRunInsertPosition(card: Card, meld: Meld): "low" | "high" | null {
+  if (meld.type !== "run") {
+    return null;
+  }
+
+  const bounds = getRunBounds(meld.cards);
+  if (!bounds) {
+    return null;
+  }
+
+  const { lowValue, highValue, suit } = bounds;
+
+  const canExtendLow = lowValue > 3;
+  const lowExtensionValue = lowValue - 1;
+  const canExtendHigh = highValue < 14;
+  const highExtensionValue = highValue + 1;
+
+  let fitsLow = false;
+  let fitsHigh = false;
+
+  if (isWild(card)) {
+    // Wild can extend at either end
+    fitsLow = canExtendLow;
+    fitsHigh = canExtendHigh;
+  } else {
+    if (card.suit !== suit) {
+      return null;
+    }
+
+    const cardValue = getRankValue(card.rank);
+    if (cardValue === null) {
+      return null;
+    }
+
+    // Check if card value is already in the run
+    if (cardValue >= lowValue && cardValue <= highValue) {
+      return null;
+    }
+
+    fitsLow = canExtendLow && cardValue === lowExtensionValue;
+    fitsHigh = canExtendHigh && cardValue === highExtensionValue;
+  }
+
+  // Check wild ratio first
+  const newCards = [...meld.cards, card];
+  const { wilds, naturals } = countWildsAndNaturals(newCards);
+  if (wilds > naturals) {
+    return null;
+  }
+
+  // For natural cards, return whichever end they fit
+  if (fitsLow && !fitsHigh) {
+    return "low";
+  }
+  if (fitsHigh && !fitsLow) {
+    return "high";
+  }
+  // Wild cards that could fit either end: prefer high (append is more natural)
+  if (fitsLow && fitsHigh) {
+    return "high";
+  }
+
+  return null;
+}

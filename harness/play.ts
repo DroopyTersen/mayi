@@ -43,7 +43,7 @@ import { renderCard } from "../cli/cli.renderer";
 import { parseLayDownInput, inferMeldTypes } from "../cli/cli.laydown";
 import { isValidSet, isValidRun } from "../core/meld/meld.validation";
 import { validateContractMelds, CONTRACTS } from "../core/engine/contracts";
-import { canLayOffToSet, canLayOffToRun } from "../core/engine/layoff";
+import { canLayOffToSet, canLayOffToRun, getRunInsertPosition } from "../core/engine/layoff";
 import { canSwapJokerWithCard, identifyJokerPositions } from "../core/meld/meld.joker";
 import { calculateHandScore } from "../core/scoring/scoring";
 
@@ -385,9 +385,18 @@ function handleLayoff(cardPosStr?: string, meldNumStr?: string): void {
     throw new Error(`${renderCard(card)} cannot be added to that ${meld.type}`);
   }
 
-  // Remove from hand and add to meld
+  // Remove from hand and add to meld in correct position
   player.hand.splice(cardPos - 1, 1);
-  meld.cards.push(card);
+  if (meld.type === "run") {
+    const insertPos = getRunInsertPosition(card, meld);
+    if (insertPos === "low") {
+      meld.cards.unshift(card);
+    } else {
+      meld.cards.push(card);
+    }
+  } else {
+    meld.cards.push(card);
+  }
 
   logAction(state, player.id, player.name, "laid off", `${renderCard(card)} to meld ${meldNum}`);
 
