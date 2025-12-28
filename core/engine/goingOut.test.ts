@@ -2659,10 +2659,159 @@ describe("going out - round 6 special rules", () => {
   });
 
   describe("GO_OUT with multiple lay offs", () => {
-    it.todo("given: player has 3 cards: 9♠, 4♦, K♥", () => {});
-    it.todo("and: table has melds each card can join", () => {});
-    it.todo("when: GO_OUT with finalLayOffs for all three cards", () => {});
-    it.todo("then: all three cards laid off, hand is empty, player went out", () => {});
+    // Set up melds: set of 9s, diamond run, set of kings
+    const setOf9s = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+    // Diamond run 5-6-7, so 4♦ can extend at low end
+    const diamondRun = createMeld("run", [
+      card("5", "diamonds"),
+      card("6", "diamonds"),
+      card("7", "diamonds"),
+    ]);
+    const setOfKings = createMeld("set", [
+      card("K", "clubs"),
+      card("K", "diamonds"),
+      card("K", "spades"),
+    ]);
+
+    it("given: player has 3 cards: 9♠, 4♦, K♥", () => {
+      const nineS = card("9", "spades");
+      const fourD = card("4", "diamonds");
+      const kingH = card("K", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD], // 2 cards, will draw to get 3
+        stock: [kingH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Player now has 3 cards
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+      expect(actor.getSnapshot().context.hand.some((c) => c.rank === "9")).toBe(true);
+      expect(actor.getSnapshot().context.hand.some((c) => c.rank === "4")).toBe(true);
+      expect(actor.getSnapshot().context.hand.some((c) => c.rank === "K")).toBe(true);
+    });
+
+    it("and: table has melds each card can join", () => {
+      const nineS = card("9", "spades");
+      const fourD = card("4", "diamonds");
+      const kingH = card("K", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD],
+        stock: [kingH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Verify table has appropriate melds
+      const table = actor.getSnapshot().context.table;
+      expect(table.length).toBe(3);
+      expect(table.some((m) => m.cards.some((c) => c.rank === "9"))).toBe(true); // 9s set
+      expect(table.some((m) => m.type === "run" && m.cards.some((c) => c.suit === "diamonds"))).toBe(true); // Diamond run
+      expect(table.some((m) => m.cards.some((c) => c.rank === "K"))).toBe(true); // Kings set
+    });
+
+    it("when: GO_OUT with finalLayOffs for all three cards", () => {
+      const nineS = card("9", "spades");
+      const fourD = card("4", "diamonds");
+      const kingH = card("K", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD],
+        stock: [kingH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // GO_OUT with all 3 lay offs
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: nineS.id, meldId: setOf9s.id },
+          { cardId: fourD.id, meldId: diamondRun.id },
+          { cardId: kingH.id, meldId: setOfKings.id },
+        ],
+      });
+
+      // Command was accepted (state changed)
+      expect(actor.getSnapshot().value).toBe("wentOut");
+    });
+
+    it("then: all three cards laid off, hand is empty, player went out", () => {
+      const nineS = card("9", "spades");
+      const fourD = card("4", "diamonds");
+      const kingH = card("K", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD],
+        stock: [kingH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: nineS.id, meldId: setOf9s.id },
+          { cardId: fourD.id, meldId: diamondRun.id },
+          { cardId: kingH.id, meldId: setOfKings.id },
+        ],
+      });
+
+      // Hand is empty
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+
+      // Player went out
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().status).toBe("done");
+
+      // All melds have new cards
+      const table = actor.getSnapshot().context.table;
+      const updated9s = table.find((m) => m.id === setOf9s.id);
+      const updatedDiamondRun = table.find((m) => m.id === diamondRun.id);
+      const updatedKings = table.find((m) => m.id === setOfKings.id);
+
+      expect(updated9s!.cards.length).toBe(4); // 3 + 9♠
+      expect(updatedDiamondRun!.cards.length).toBe(4); // 3 + 4♦
+      expect(updatedKings!.cards.length).toBe(4); // 3 + K♥
+    });
   });
 
   describe("GO_OUT rejected scenarios", () => {
