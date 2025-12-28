@@ -102,7 +102,7 @@ Review specs/command-line-interface.md
 ### Contract Definitions (30 tests in contracts.test.ts)
 
 - [x] Implement CONTRACTS constant (8 tests)
-- [ ] Implement getContractForRound function (2 tests)
+- [x] Implement getContractForRound function (2 tests)
 - [ ] Implement minimum cards per contract calculation (6 tests)
 - [ ] Implement validateContract function - correct number of melds (12 tests)
 - [ ] Implement meld type verification (4 tests)

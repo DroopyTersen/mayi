@@ -46,8 +46,21 @@ describe("Contract definitions", () => {
   });
 
   describe("getContractForRound", () => {
-    it.todo("returns correct contract for rounds 1-6", () => {});
-    it.todo("throws or returns null for invalid round numbers (0, 7, -1)", () => {});
+    it("returns correct contract for rounds 1-6", () => {
+      for (const round of [1, 2, 3, 4, 5, 6] as const) {
+        const contract = getContractForRound(round);
+        expect(contract).not.toBeNull();
+        expect(contract!.roundNumber).toBe(round);
+        expect(contract).toEqual(CONTRACTS[round]);
+      }
+    });
+
+    it("returns null for invalid round numbers (0, 7, -1)", () => {
+      expect(getContractForRound(0)).toBeNull();
+      expect(getContractForRound(7)).toBeNull();
+      expect(getContractForRound(-1)).toBeNull();
+      expect(getContractForRound(1.5)).toBeNull();
+    });
   });
 
   describe("minimum cards required per contract", () => {
