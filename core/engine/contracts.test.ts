@@ -64,12 +64,29 @@ describe("Contract definitions", () => {
   });
 
   describe("minimum cards required per contract", () => {
-    it.todo("round 1 (2 sets): minimum 6 cards (3 + 3)", () => {});
-    it.todo("round 2 (1 set + 1 run): minimum 7 cards (3 + 4)", () => {});
-    it.todo("round 3 (2 runs): minimum 8 cards (4 + 4)", () => {});
-    it.todo("round 4 (3 sets): minimum 9 cards (3 + 3 + 3)", () => {});
-    it.todo("round 5 (2 sets + 1 run): minimum 10 cards (3 + 3 + 4)", () => {});
-    it.todo("round 6 (1 set + 2 runs): minimum 11 cards (3 + 4 + 4)", () => {});
+    it("round 1 (2 sets): minimum 6 cards (3 + 3)", () => {
+      expect(getMinimumCardsForContract(CONTRACTS[1])).toBe(6);
+    });
+
+    it("round 2 (1 set + 1 run): minimum 7 cards (3 + 4)", () => {
+      expect(getMinimumCardsForContract(CONTRACTS[2])).toBe(7);
+    });
+
+    it("round 3 (2 runs): minimum 8 cards (4 + 4)", () => {
+      expect(getMinimumCardsForContract(CONTRACTS[3])).toBe(8);
+    });
+
+    it("round 4 (3 sets): minimum 9 cards (3 + 3 + 3)", () => {
+      expect(getMinimumCardsForContract(CONTRACTS[4])).toBe(9);
+    });
+
+    it("round 5 (2 sets + 1 run): minimum 10 cards (3 + 3 + 4)", () => {
+      expect(getMinimumCardsForContract(CONTRACTS[5])).toBe(10);
+    });
+
+    it("round 6 (1 set + 2 runs): minimum 11 cards (3 + 4 + 4)", () => {
+      expect(getMinimumCardsForContract(CONTRACTS[6])).toBe(11);
+    });
   });
 });
 
