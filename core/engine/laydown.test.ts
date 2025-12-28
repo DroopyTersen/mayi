@@ -1353,11 +1353,197 @@ describe("TurnMachine - LAY_DOWN command", () => {
   });
 
   describe("card removal from hand", () => {
-    it.todo("only cards in melds are removed from hand", () => {});
-    it.todo("remaining cards stay in hand", () => {});
-    it.todo("hand size = previous size - cards laid down", () => {});
-    it.todo("example: 12 cards - 6 laid down = 6 remaining", () => {});
-    it.todo("correct cards removed (verified by cardId)", () => {});
+    it("only cards in melds are removed from hand", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra1 = card("5", "spades");
+      const extra2 = card("6", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra1, extra2],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const drawnCard = actor.getSnapshot().context.hand[8]; // The drawn card
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const handAfter = actor.getSnapshot().context.hand;
+      // Only the meld cards (6 cards) should be removed
+      // Extra cards + drawn card should remain
+      expect(handAfter.find(c => c.id === nineC.id)).toBeUndefined();
+      expect(handAfter.find(c => c.id === kingC.id)).toBeUndefined();
+      expect(handAfter.find(c => c.id === extra1.id)).toBeDefined();
+      expect(handAfter.find(c => c.id === extra2.id)).toBeDefined();
+      expect(handAfter.find(c => c.id === drawnCard!.id)).toBeDefined();
+    });
+
+    it("remaining cards stay in hand", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra1 = card("5", "spades");
+      const extra2 = card("6", "hearts");
+      const extra3 = card("7", "diamonds");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra1, extra2, extra3],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const handAfter = actor.getSnapshot().context.hand;
+      // All three extra cards should still be in hand
+      expect(handAfter.some(c => c.id === extra1.id)).toBe(true);
+      expect(handAfter.some(c => c.id === extra2.id)).toBe(true);
+      expect(handAfter.some(c => c.id === extra3.id)).toBe(true);
+    });
+
+    it("hand size = previous size - cards laid down", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra1 = card("5", "spades");
+      const extra2 = card("6", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra1, extra2],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handSizeBefore = actor.getSnapshot().context.hand.length; // 9 cards (8 + 1 drawn)
+      const cardsLaidDown = 6; // 2 sets of 3
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const handSizeAfter = actor.getSnapshot().context.hand.length;
+      expect(handSizeAfter).toBe(handSizeBefore - cardsLaidDown);
+    });
+
+    it("example: 12 cards - 6 laid down = 6 remaining", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra1 = card("3", "spades");
+      const extra2 = card("4", "hearts");
+      const extra3 = card("5", "diamonds");
+      const extra4 = card("6", "clubs");
+      const extra5 = card("7", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        // 11 cards in hand
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra1, extra2, extra3, extra4, extra5],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" }); // Now 12 cards
+
+      expect(actor.getSnapshot().context.hand.length).toBe(12);
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(6); // 12 - 6 = 6
+    });
+
+    it("correct cards removed (verified by cardId)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const drawnCard = actor.getSnapshot().context.hand.find(c =>
+        c.id !== nineC.id && c.id !== nineD.id && c.id !== nineH.id &&
+        c.id !== kingC.id && c.id !== kingD.id && c.id !== kingH.id &&
+        c.id !== extra.id
+      );
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const handAfter = actor.getSnapshot().context.hand;
+      const handCardIds = handAfter.map(c => c.id);
+
+      // Verify exact IDs removed
+      expect(handCardIds).not.toContain(nineC.id);
+      expect(handCardIds).not.toContain(nineD.id);
+      expect(handCardIds).not.toContain(nineH.id);
+      expect(handCardIds).not.toContain(kingC.id);
+      expect(handCardIds).not.toContain(kingD.id);
+      expect(handCardIds).not.toContain(kingH.id);
+
+      // Verify exact IDs remain
+      expect(handCardIds).toContain(extra.id);
+      expect(handCardIds).toContain(drawnCard!.id);
+    });
   });
 
   describe("meld ownership", () => {

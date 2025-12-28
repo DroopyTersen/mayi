@@ -122,7 +122,7 @@ Review specs/command-line-interface.md
 - [x] Fix typecheck errors
 - [x] Implement melds with wilds validation (7 tests)
 - [x] Implement larger than minimum melds (5 tests)
-- [ ] Implement card removal from hand (5 tests)
+- [x] Implement card removal from hand (5 tests)
 - [ ] Implement meld ownership (3 tests)
 - [ ] Implement wrong number of melds rejection (5 tests)
 - [ ] Implement invalid individual melds rejection (8 tests)
