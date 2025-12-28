@@ -170,11 +170,11 @@ Review specs/command-line-interface.md
 
 ### Lay Down Actions (17 tests in laydown.actions.test.ts)
 
-- [ ] Implement hand modification (5 tests)
-- [ ] Implement table modification (5 tests)
-- [ ] Implement player state modification (2 tests)
-- [ ] Implement meld creation (4 tests)
-- [ ] Fix typecheck errors
+- [x] Implement hand modification (5 tests)
+- [x] Implement table modification (5 tests)
+- [x] Implement player state modification (2 tests)
+- [x] Implement meld creation (4 tests)
+- [x] Fix typecheck errors
 
 ### Integration Tests (56 tests in laydown.integration.test.ts)
 
