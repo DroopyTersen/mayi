@@ -754,10 +754,167 @@ describe("going out - rounds 1-5", () => {
   });
 
   describe("player choice - discard or lay off", () => {
-    it.todo("given: player is down, has 2 cards after drawing, both can be laid off", () => {});
-    it.todo("then: player can choose to lay off both (going out without discard)", () => {});
-    it.todo("or: player can lay off 1, discard the other (going out via discard)", () => {});
-    it.todo("and: both are valid ways to go out", () => {});
+    // Setup melds that can accept both cards
+    const setMeld = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+    const kingMeld = createMeld("set", [
+      card("K", "clubs"),
+      card("K", "diamonds"),
+      card("K", "hearts"),
+    ]);
+
+    it("given: player is down, has 2 cards after drawing, both can be laid off", () => {
+      const nineS = card("9", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [card("K", "spades")], // K♠ can also be laid off
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Player has 2 cards, both can be laid off
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+
+      // Verify both cards can be laid off (9♠ to setMeld, K♠ to kingMeld)
+      const hand = actor.getSnapshot().context.hand;
+      const hasNine = hand.some((c) => c.rank === "9");
+      const hasKing = hand.some((c) => c.rank === "K");
+      expect(hasNine).toBe(true);
+      expect(hasKing).toBe(true);
+    });
+
+    it("then: player can choose to lay off both (going out without discard)", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [kS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off both cards
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      const kCard = actor.getSnapshot().context.hand.find((c) => c.rank === "K");
+      actor.send({ type: "LAY_OFF", cardId: kCard!.id, meldId: kingMeld.id });
+
+      // Went out without discard
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      // Discard pile unchanged
+      expect(actor.getSnapshot().context.discard.length).toBe(1);
+    });
+
+    it("or: player can lay off 1, discard the other (going out via discard)", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [kS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off only one card
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Skip lay down and discard the other
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      const remaining = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: remaining!.id });
+
+      // Went out via discard
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      // Discard pile increased by 1
+      expect(actor.getSnapshot().context.discard.length).toBe(2);
+    });
+
+    it("and: both are valid ways to go out", () => {
+      // This test verifies that both paths lead to the same final state (wentOut)
+      const nineS1 = card("9", "spades");
+      const kS1 = card("K", "spades");
+
+      // Path 1: Lay off both
+      const input1 = {
+        playerId: "player-1",
+        hand: [nineS1],
+        stock: [kS1],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor1 = createActor(turnMachine, { input: input1 });
+      actor1.start();
+      actor1.send({ type: "DRAW_FROM_STOCK" });
+      actor1.send({ type: "LAY_OFF", cardId: nineS1.id, meldId: setMeld.id });
+      const k1 = actor1.getSnapshot().context.hand.find((c) => c.rank === "K");
+      actor1.send({ type: "LAY_OFF", cardId: k1!.id, meldId: kingMeld.id });
+
+      // Path 2: Lay off 1, discard 1
+      const nineS2 = card("9", "spades");
+      const kS2 = card("K", "spades");
+      const input2 = {
+        playerId: "player-1",
+        hand: [nineS2],
+        stock: [kS2],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor2 = createActor(turnMachine, { input: input2 });
+      actor2.start();
+      actor2.send({ type: "DRAW_FROM_STOCK" });
+      actor2.send({ type: "LAY_OFF", cardId: nineS2.id, meldId: setMeld.id });
+      actor2.send({ type: "SKIP_LAY_DOWN" });
+      const remaining = actor2.getSnapshot().context.hand[0];
+      actor2.send({ type: "DISCARD", cardId: remaining!.id });
+
+      // Both paths result in wentOut
+      expect(actor1.getSnapshot().value).toBe("wentOut");
+      expect(actor2.getSnapshot().value).toBe("wentOut");
+
+      // Both have empty hands
+      expect(actor1.getSnapshot().context.hand.length).toBe(0);
+      expect(actor2.getSnapshot().context.hand.length).toBe(0);
+    });
   });
 
   describe("wentOut trigger", () => {
