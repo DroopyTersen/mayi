@@ -104,3 +104,31 @@ export interface AvailableCommands {
   commands: string[];
   description: string;
 }
+
+/**
+ * Orchestrator phase tracks the machine hierarchy state
+ */
+export type OrchestratorPhase =
+  | "IDLE"          // No game running
+  | "GAME_SETUP"    // GameMachine in setup state
+  | "ROUND_ACTIVE"  // RoundMachine active, turn in progress
+  | "MAY_I_WINDOW"  // MayIWindowMachine spawned
+  | "ROUND_END"     // Round complete, awaiting continuation
+  | "GAME_END";     // Game complete
+
+/**
+ * Snapshot of orchestrator state for persistence
+ */
+export interface OrchestratorSnapshot {
+  version: "2.0";
+  gameId: string;
+  createdAt: string;
+  updatedAt: string;
+  phase: OrchestratorPhase;
+  /** XState snapshot for GameMachine actor */
+  gameSnapshot: unknown;
+  /** Turn number for logging */
+  turnNumber: number;
+  /** May I context when in MAY_I_WINDOW phase */
+  mayIContext: MayIContext | null;
+}
