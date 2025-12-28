@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { countWildsAndNaturals, wildsOutnumberNaturals, isValidSet } from "./meld.validation";
+import { countWildsAndNaturals, wildsOutnumberNaturals, isValidSet, isValidRun } from "./meld.validation";
 import type { Card } from "../card/card.types";
 
 // Helper to create cards for testing
@@ -166,56 +166,186 @@ describe("isValidSet", () => {
 
 describe("isValidRun", () => {
   describe("valid runs - naturals only", () => {
-    it.todo("valid: exactly 4 consecutive cards same suit (5♠ 6♠ 7♠ 8♠)");
-    it.todo("valid: 5 consecutive cards same suit");
-    it.todo("valid: 6+ consecutive cards");
-    it.todo("valid: low run starting at 3 (3♦ 4♦ 5♦ 6♦)");
-    it.todo("valid: high run ending at Ace (J♥ Q♥ K♥ A♥)");
-    it.todo("valid: middle run (7♣ 8♣ 9♣ 10♣)");
-    it.todo("valid: run through face cards (9♠ 10♠ J♠ Q♠)");
-    it.todo("valid: longest possible run (3-A, 12 cards)");
+    it("valid: exactly 4 consecutive cards same suit (5♠ 6♠ 7♠ 8♠)", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: 5 consecutive cards same suit", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades"), card("9", "spades")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: 6+ consecutive cards", () => {
+      const cards = [
+        card("5", "spades"), card("6", "spades"), card("7", "spades"),
+        card("8", "spades"), card("9", "spades"), card("10", "spades")
+      ];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: low run starting at 3 (3♦ 4♦ 5♦ 6♦)", () => {
+      const cards = [card("3", "diamonds"), card("4", "diamonds"), card("5", "diamonds"), card("6", "diamonds")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: high run ending at Ace (J♥ Q♥ K♥ A♥)", () => {
+      const cards = [card("J", "hearts"), card("Q", "hearts"), card("K", "hearts"), card("A", "hearts")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: middle run (7♣ 8♣ 9♣ 10♣)", () => {
+      const cards = [card("7", "clubs"), card("8", "clubs"), card("9", "clubs"), card("10", "clubs")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: run through face cards (9♠ 10♠ J♠ Q♠)", () => {
+      const cards = [card("9", "spades"), card("10", "spades"), card("J", "spades"), card("Q", "spades")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: longest possible run (3-A, 12 cards)", () => {
+      const cards = [
+        card("3", "diamonds"), card("4", "diamonds"), card("5", "diamonds"), card("6", "diamonds"),
+        card("7", "diamonds"), card("8", "diamonds"), card("9", "diamonds"), card("10", "diamonds"),
+        card("J", "diamonds"), card("Q", "diamonds"), card("K", "diamonds"), card("A", "diamonds")
+      ];
+      expect(isValidRun(cards)).toBe(true);
+    });
   });
 
   describe("valid runs - with wilds", () => {
-    it.todo("valid: wild filling internal gap (5♠ 6♠ Joker 8♠)");
-    it.todo("valid: wild at start of run (Joker 6♠ 7♠ 8♠) — Joker acts as 5♠");
-    it.todo("valid: wild at end of run (5♠ 6♠ 7♠ 2♣) — 2 acts as 8♠");
-    it.todo("valid: multiple wilds filling gaps (5♠ Joker 7♠ 2♣)");
-    it.todo("valid: 2 naturals + 2 wilds (5♠ Joker Joker 8♠) — equal count OK");
+    it("valid: wild filling internal gap (5♠ 6♠ Joker 8♠)", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), joker(), card("8", "spades")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: wild at start of run (Joker 6♠ 7♠ 8♠) — Joker acts as 5♠", () => {
+      const cards = [joker(), card("6", "spades"), card("7", "spades"), card("8", "spades")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: wild at end of run (5♠ 6♠ 7♠ 2♣) — 2 acts as 8♠", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), card("7", "spades"), card("2", "clubs")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: multiple wilds filling gaps (5♠ Joker 7♠ 2♣)", () => {
+      const cards = [card("5", "spades"), joker(), card("7", "spades"), card("2", "clubs")];
+      expect(isValidRun(cards)).toBe(true);
+    });
+
+    it("valid: 2 naturals + 2 wilds (5♠ Joker Joker 8♠) — equal count OK", () => {
+      const cards = [card("5", "spades"), joker(), joker(), card("8", "spades")];
+      expect(isValidRun(cards)).toBe(true);
+    });
   });
 
   describe("invalid runs - structure", () => {
-    it.todo("invalid: fewer than 4 cards (5♠ 6♠ 7♠)");
-    it.todo("invalid: only 3 cards even with correct sequence");
-    it.todo("invalid: 2 cards");
-    it.todo("invalid: 1 card");
-    it.todo("invalid: empty array");
-    it.todo("invalid: mixed suits (5♠ 6♥ 7♠ 8♠)");
-    it.todo("invalid: gap in sequence without wild (5♠ 6♠ 8♠ 9♠)");
-    it.todo("invalid: duplicate rank in run (5♠ 6♠ 6♠ 7♠)");
-    it.todo("invalid: non-consecutive cards (5♠ 7♠ 9♠ J♠)");
+    it("invalid: fewer than 4 cards (5♠ 6♠ 7♠)", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), card("7", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: only 3 cards even with correct sequence", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), card("7", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: 2 cards", () => {
+      const cards = [card("5", "spades"), card("6", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: 1 card", () => {
+      const cards = [card("5", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: empty array", () => {
+      expect(isValidRun([])).toBe(false);
+    });
+
+    it("invalid: mixed suits (5♠ 6♥ 7♠ 8♠)", () => {
+      const cards = [card("5", "spades"), card("6", "hearts"), card("7", "spades"), card("8", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: gap in sequence without wild (5♠ 6♠ 8♠ 9♠)", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), card("8", "spades"), card("9", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: duplicate rank in run (5♠ 6♠ 6♠ 7♠)", () => {
+      const cards = [card("5", "spades"), card("6", "spades"), card("6", "spades"), card("7", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: non-consecutive cards (5♠ 7♠ 9♠ J♠)", () => {
+      const cards = [card("5", "spades"), card("7", "spades"), card("9", "spades"), card("J", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
   });
 
   describe("invalid runs - ace positioning", () => {
-    it.todo("invalid: Ace as low card (A♠ 3♠ 4♠ 5♠) — Ace is HIGH only");
-    it.todo("invalid: Ace in middle of run (K♠ A♠ 3♠ 4♠)");
-    it.todo("invalid: wraparound run (Q♠ K♠ A♠ 3♠)");
+    it("invalid: Ace as low card (A♠ 3♠ 4♠ 5♠) — Ace is HIGH only", () => {
+      const cards = [card("A", "spades"), card("3", "spades"), card("4", "spades"), card("5", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: Ace in middle of run (K♠ A♠ 3♠ 4♠)", () => {
+      const cards = [card("K", "spades"), card("A", "spades"), card("3", "spades"), card("4", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: wraparound run (Q♠ K♠ A♠ 3♠)", () => {
+      const cards = [card("Q", "spades"), card("K", "spades"), card("A", "spades"), card("3", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
   });
 
   describe("invalid runs - wild ratio", () => {
-    it.todo("invalid: 1 natural + 3 wilds (5♠ Joker Joker 2♣)");
-    it.todo("invalid: 2 naturals + 3 wilds");
-    it.todo("invalid: wilds outnumber naturals");
-    it.todo("invalid: all wilds (Joker Joker 2♣ 2♦)");
+    it("invalid: 1 natural + 3 wilds (5♠ Joker Joker 2♣)", () => {
+      const cards = [card("5", "spades"), joker(), joker(), card("2", "clubs")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: 2 naturals + 3 wilds", () => {
+      const cards = [card("5", "spades"), joker(), joker(), joker(), card("9", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: wilds outnumber naturals", () => {
+      const cards = [card("5", "spades"), joker(), joker(), joker()];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: all wilds (Joker Joker 2♣ 2♦)", () => {
+      const cards = [joker(), joker(), card("2", "clubs"), card("2", "diamonds")];
+      expect(isValidRun(cards)).toBe(false);
+    });
   });
 
   describe("invalid runs - 2 as natural", () => {
-    it.todo("invalid: treating 2 as natural rank (2♠ 3♠ 4♠ 5♠) — 2 is always wild");
+    it("invalid: treating 2 as natural rank (2♠ 3♠ 4♠ 5♠) — 2 is always wild", () => {
+      // The 2 counts as wild, so this is 3 naturals + 1 wild = valid wild ratio
+      // But if 2 tried to represent rank 2 in sequence, it fails because 2 is not in run sequence
+      // Actually, 2 as wild at start would be trying to be below 3, which is invalid
+      const cards = [card("2", "spades"), card("3", "spades"), card("4", "spades"), card("5", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
   });
 
   describe("invalid runs - boundaries", () => {
-    it.todo("invalid: wild before 3 (Joker 3♠ 4♠ 5♠) — nothing below 3");
-    it.todo("invalid: wild after Ace (Q♥ K♥ A♥ Joker) — nothing above Ace");
+    it("invalid: wild before 3 (Joker 3♠ 4♠ 5♠) — nothing below 3", () => {
+      const cards = [joker(), card("3", "spades"), card("4", "spades"), card("5", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+
+    it("invalid: wild after Ace (Q♥ K♥ A♥ Joker) — nothing above Ace", () => {
+      const cards = [card("Q", "hearts"), card("K", "hearts"), card("A", "hearts"), joker()];
+      expect(isValidRun(cards)).toBe(false);
+    });
   });
 });
 

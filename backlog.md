@@ -13,7 +13,7 @@
 - [x] Review specs/phase1-tests.md and scaffold out all tests (72 todo tests in meld.validation.test.ts)
 - [x] Helper functions: `countWildsAndNaturals`, `wildsOutnumberNaturals`
 - [x] Set validation (`isValidSet`)
-- [ ] Run validation (`isValidRun`)
+- [x] Run validation (`isValidRun`)
 - [x] Rank ordering utilities (`getRankValue`) — needed for run validation
 - [ ] Joker position identification (`identifyJokerPosition`, `canSwapJokerWithCard`)
 - [ ] Run extension helpers (`canExtendRun`, `canExtendSet`)
@@ -53,6 +53,8 @@
 
 - [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2-tests.md, and do research to create a similar file, /specs/phase5-tests.md
 - [ ] Review specs/phase5-tests.md and and scaffold out all of those tests. Add tasks for PHase 5, centered around the tests.
+
+> IMPORTANT: Make sure to verify the game works as expected by playing through it manually using the CLI app. You can have multiple players and you can play manually against yourself.
 
 ---
 
