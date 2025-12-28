@@ -125,7 +125,7 @@ Review specs/command-line-interface.md
 - [x] Implement card removal from hand (5 tests)
 - [x] Implement meld ownership (3 tests)
 - [x] Implement wrong number of melds rejection (5 tests)
-- [ ] Implement invalid individual melds rejection (8 tests)
+- [x] Implement invalid individual melds rejection (8 tests)
 - [ ] Implement card not in hand rejection (4 tests)
 - [ ] Implement duplicate card usage rejection (2 tests)
 - [ ] Fix typecheck errors

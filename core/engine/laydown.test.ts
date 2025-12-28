@@ -1811,14 +1811,237 @@ describe("TurnMachine - invalid LAY_DOWN scenarios", () => {
   });
 
   describe("invalid individual melds", () => {
-    it.todo("rejects if first meld is invalid, even if second is valid", () => {});
-    it.todo("rejects if second meld is invalid, even if first is valid", () => {});
-    it.todo("rejects set with different ranks: (9C 10D JH)", () => {});
-    it.todo("rejects run with gap: (5S 6S 8S 9S)", () => {});
-    it.todo("rejects run with mixed suits: (5S 6H 7S 8S)", () => {});
-    it.todo("rejects run with only 3 cards: (5S 6S 7S)", () => {});
-    it.todo("rejects set with only 2 cards: (9C 9D)", () => {});
-    it.todo("provides specific error about which meld is invalid", () => {});
+    it("rejects if first meld is invalid, even if second is valid", () => {
+      const nineC = card("9", "clubs");
+      const tenD = card("10", "diamonds"); // Different rank - invalid for set
+      const jackH = card("J", "hearts"); // Different rank - invalid for set
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, tenD, jackH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, tenD.id, jackH.id] }, // Invalid: different ranks
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] }, // Valid set
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("rejects if second meld is invalid, even if first is valid", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const queenD = card("Q", "diamonds"); // Different rank - invalid for set
+      const jackH = card("J", "hearts"); // Different rank - invalid for set
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, queenD, jackH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] }, // Valid set
+          { type: "set" as const, cardIds: [kingC.id, queenD.id, jackH.id] }, // Invalid: different ranks
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("rejects set with different ranks: (9C 10D JH)", () => {
+      const nineC = card("9", "clubs");
+      const tenD = card("10", "diamonds");
+      const jackH = card("J", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, tenD, jackH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, tenD.id, jackH.id] }, // Invalid: different ranks
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it("rejects run with gap: (5S 6S 8S 9S)", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const eightS = card("8", "spades"); // Gap - no 7S
+      const nineS = card("9", "spades");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("Q", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, sixS, eightS, nineS, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, eightS.id, nineS.id] }, // Invalid: gap
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it("rejects run with mixed suits: (5S 6H 7S 8S)", () => {
+      const fiveS = card("5", "spades");
+      const sixH = card("6", "hearts"); // Wrong suit
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("Q", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, sixH, sevenS, eightS, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixH.id, sevenS.id, eightS.id] }, // Invalid: mixed suits
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it("rejects run with only 3 cards: (5S 6S 7S)", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("Q", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, sixS, sevenS, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id] }, // Invalid: only 3 cards (runs need 4+)
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it("rejects set with only 2 cards: (9C 9D)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id] }, // Invalid: only 2 cards (sets need 3+)
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it.todo("provides specific error about which meld is invalid", () => {
+      // Note: This test requires error messaging support in the TurnMachine
+      // which is not yet implemented. Add to discovered tasks.
+    });
   });
 
   describe("card not in hand", () => {
