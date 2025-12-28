@@ -1661,11 +1661,153 @@ describe("TurnMachine - LAY_DOWN command", () => {
 
 describe("TurnMachine - invalid LAY_DOWN scenarios", () => {
   describe("wrong number of melds", () => {
-    it.todo("round 1: rejects 1 set (need 2)", () => {});
-    it.todo("round 1: rejects 3 sets (too many)", () => {});
-    it.todo("round 2: rejects 2 sets + 0 runs (wrong combination)", () => {});
-    it.todo("round 2: rejects 0 sets + 2 runs (wrong combination)", () => {});
-    it.todo("provides clear error message about contract requirement", () => {});
+    it("round 1: rejects 1 set (need 2)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const extra1 = card("5", "spades");
+      const extra2 = card("6", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, extra1, extra2],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      // Try to lay down only 1 set (round 1 requires 2 sets)
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+        ],
+      });
+
+      // Should stay in drawn state, command rejected
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("round 1: rejects 3 sets (too many)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const threeC = card("3", "clubs");
+      const threeD = card("3", "diamonds");
+      const threeH = card("3", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, threeC, threeD, threeH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      // Try to lay down 3 sets (round 1 requires exactly 2 sets)
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+          { type: "set" as const, cardIds: [threeC.id, threeD.id, threeH.id] },
+        ],
+      });
+
+      // Should stay in drawn state, command rejected
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("round 2: rejects 2 sets + 0 runs (wrong combination)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // Round 2 requires 1 set + 1 run
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      // Try to lay down 2 sets (round 2 requires 1 set + 1 run)
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      // Should stay in drawn state, command rejected
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("round 2: rejects 0 sets + 2 runs (wrong combination)", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+      const threeH = card("3", "hearts");
+      const fourH = card("4", "hearts");
+      const fiveH = card("5", "hearts");
+      const sixH = card("6", "hearts");
+      const extra = card("K", "clubs");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // Round 2 requires 1 set + 1 run
+        hand: [fiveS, sixS, sevenS, eightS, threeH, fourH, fiveH, sixH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      // Try to lay down 2 runs (round 2 requires 1 set + 1 run)
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, eightS.id] },
+          { type: "run" as const, cardIds: [threeH.id, fourH.id, fiveH.id, sixH.id] },
+        ],
+      });
+
+      // Should stay in drawn state, command rejected
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it.todo("provides clear error message about contract requirement", () => {
+      // Note: This test requires error messaging support in the TurnMachine
+      // which is not yet implemented. Add to discovered tasks.
+    });
   });
 
   describe("invalid individual melds", () => {
