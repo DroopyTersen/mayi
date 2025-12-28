@@ -227,12 +227,7 @@ export function getAvailableCommands(state: PersistedGameState): AvailableComman
       }
       if (awaitingPlayer?.isDown) {
         commands.push("layoff <card> <meld>");
-        // Round 6: stuck command when down with 1 card and can't lay off
-        if (state.currentRound === 6 && awaitingPlayer.hand.length === 1) {
-          commands.push("stuck");
-        }
       }
-      // Round 6: skip ends turn (no discard)
       commands.push("skip");
       return {
         phase: "AWAITING_ACTION",

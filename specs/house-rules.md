@@ -76,7 +76,7 @@ On your turn: 1. Draw exactly one card:
 • Then discard 5. Discard one card to end your turn:
 • One card face up on the discard pile
 • Exception 1: You may go out without a discard in any round if you play all your cards to melds.
-• Exception 2: In Round 6, you CANNOT discard at all (see “Hand 6”).
+• Exception 2: In Round 6, you cannot discard to go out — you must play all cards to melds (see "Hand 6").
 
 ⸻
 
@@ -164,12 +164,12 @@ To go out:
 • Discard your last card
 • Everyone else then scores the remaining cards in their hand
 
-Hand 6 (last hand, “no discard”)
+Hand 6 (last hand, "no discard to go out")
 
 On Hand 6:
-• You CANNOT discard. Every turn must end without a discard.
-• To go out, you must finish with no cards in your hand by playing them all to melds.
-• If you cannot play a card and cannot go out, your turn simply ends after drawing (and potentially laying down or laying off). Your hand will grow if you are stuck.
+• Normal play proceeds as usual: draw, optionally lay down/lay off, then discard.
+• HOWEVER: You cannot discard to go out. To go out in Round 6, you must play ALL cards to melds (lay down your contract and lay off every remaining card).
+• If you are down with one card remaining that you cannot lay off, you are "stuck" and must end your turn without discarding. Your hand will grow on future turns until you can play out.
 
 If the stock pile runs out:
 • Turn the discard pile over (keep the top discard face up) to form a new stock.

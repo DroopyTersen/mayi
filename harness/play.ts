@@ -294,16 +294,10 @@ function handleSkip(): void {
   const player = getAwaitingPlayer(state)!;
   logAction(state, player.id, player.name, "skipped laying down");
 
-  // Round 6: No discard phase - turn ends immediately
-  if (state.currentRound === 6) {
-    advanceToNextPlayer(state);
-    saveGameState(state);
-    console.log(`${player.name} ended turn (Round 6: no discard).`);
-  } else {
-    state.harness.phase = "AWAITING_DISCARD";
-    saveGameState(state);
-    console.log(`${player.name} skipped laying down.`);
-  }
+  state.harness.phase = "AWAITING_DISCARD";
+  saveGameState(state);
+
+  console.log(`${player.name} skipped laying down.`);
   console.log("");
   console.log(renderStatus(state));
 }
@@ -326,10 +320,10 @@ function handleDiscard(positionStr?: string): void {
     throw new Error(`Position ${position} is out of range (1-${player.hand.length})`);
   }
 
-  // Round 6: You CANNOT discard at all per house rules section 10
-  if (state.currentRound === 6) {
+  // Round 6: Cannot discard to go out - must play all cards to melds
+  if (state.currentRound === 6 && player.isDown && player.hand.length === 1) {
     throw new Error(
-      "Round 6: You cannot discard. You must play all cards to melds to go out, or use 'skip' to end your turn."
+      "Round 6: Cannot discard to go out. You must play all cards to melds, or use 'stuck' if you can't."
     );
   }
 
