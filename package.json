@@ -1,0 +1,16 @@
+{
+  "name": "mayi",
+  "module": "cli/mayi.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "cli": "bun run cli/mayi.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
