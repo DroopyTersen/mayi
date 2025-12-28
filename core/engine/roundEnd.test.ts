@@ -7,10 +7,13 @@ import type { Meld } from "../meld/meld.types";
 import {
   processRoundEnd,
   setupNextRound,
+  processGameEnd,
   type RoundEndInput,
   type RoundEndResult,
   type NextRoundInput,
   type NextRoundState,
+  type GameEndInput,
+  type GameEndResult,
 } from "./roundEnd.engine";
 
 /**
@@ -915,16 +918,104 @@ describe("round transition - to next round", () => {
 
 describe("round transition - to game end", () => {
   describe("after round 6", () => {
-    it.todo("given: round 6 ends", () => {});
-    it.todo("then: game does not continue to round 7", () => {});
-    it.todo("and: game phase becomes 'gameEnd'", () => {});
+    it("given: round 6 ends", () => {
+      // processRoundEnd returns gameEnd as nextAction for round 6
+      const input: RoundEndInput = {
+        roundNumber: 6 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] },
+          { id: "player-2", hand: [card("K", "hearts")] },
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 50, "player-2": 75 },
+      };
+
+      const result = processRoundEnd(input);
+      expect(result.nextAction).toBe("gameEnd");
+    });
+
+    it("then: game does not continue to round 7", () => {
+      // After round 6, processRoundEnd signals game end, not next round
+      const input: RoundEndInput = {
+        roundNumber: 6 as RoundNumber,
+        winnerId: "player-2",
+        players: [
+          { id: "player-1", hand: [card("5", "clubs")] },
+          { id: "player-2", hand: [] },
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 100, "player-2": 80 },
+      };
+
+      const result = processRoundEnd(input);
+      expect(result.nextAction).not.toBe("nextRound");
+      expect(result.nextAction).toBe("gameEnd");
+    });
+
+    it("and: game phase becomes 'gameEnd'", () => {
+      // processGameEnd returns phase: 'gameEnd'
+      const input: GameEndInput = {
+        finalScores: { "player-1": 120, "player-2": 95, "player-3": 110 },
+        roundHistory: [
+          { roundNumber: 1, winnerId: "player-1", scores: { "player-1": 0, "player-2": 25, "player-3": 30 } },
+          { roundNumber: 2, winnerId: "player-2", scores: { "player-1": 20, "player-2": 0, "player-3": 15 } },
+          { roundNumber: 3, winnerId: "player-3", scores: { "player-1": 15, "player-2": 20, "player-3": 0 } },
+          { roundNumber: 4, winnerId: "player-1", scores: { "player-1": 0, "player-2": 10, "player-3": 25 } },
+          { roundNumber: 5, winnerId: "player-2", scores: { "player-1": 35, "player-2": 0, "player-3": 20 } },
+          { roundNumber: 6, winnerId: "player-3", scores: { "player-1": 50, "player-2": 40, "player-3": 0 } },
+        ],
+      };
+
+      const result = processGameEnd(input);
+      expect(result.phase).toBe("gameEnd");
+    });
   });
 
   describe("game end state", () => {
-    it.todo("final scores calculated (already done via accumulation)", () => {});
-    it.todo("winner(s) determined", () => {});
-    it.todo("game is complete", () => {});
-    it.todo("no more actions possible", () => {});
+    it("final scores calculated (already done via accumulation)", () => {
+      // Final scores come from accumulated totals, not recalculated
+      const input: GameEndInput = {
+        finalScores: { "player-1": 85, "player-2": 120 },
+        roundHistory: [],
+      };
+
+      const result = processGameEnd(input);
+      expect(result.finalScores).toEqual({ "player-1": 85, "player-2": 120 });
+    });
+
+    it("winner(s) determined", () => {
+      // Winner is player(s) with lowest score
+      const input: GameEndInput = {
+        finalScores: { "player-1": 150, "player-2": 95, "player-3": 130 },
+        roundHistory: [],
+      };
+
+      const result = processGameEnd(input);
+      expect(result.winners).toEqual(["player-2"]);
+    });
+
+    it("game is complete", () => {
+      // isComplete is true
+      const input: GameEndInput = {
+        finalScores: { "player-1": 100, "player-2": 100 },
+        roundHistory: [],
+      };
+
+      const result = processGameEnd(input);
+      expect(result.isComplete).toBe(true);
+    });
+
+    it("no more actions possible", () => {
+      // allowedActions is empty
+      const input: GameEndInput = {
+        finalScores: { "player-1": 75, "player-2": 80 },
+        roundHistory: [],
+      };
+
+      const result = processGameEnd(input);
+      expect(result.allowedActions).toEqual([]);
+    });
   });
 });
 

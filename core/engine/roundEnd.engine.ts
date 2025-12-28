@@ -1,7 +1,7 @@
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { RoundNumber, RoundRecord } from "./engine.types";
-import { calculateRoundScores, updateTotalScores, type Scores } from "./scoring.engine";
+import { calculateRoundScores, updateTotalScores, determineWinner, type Scores } from "./scoring.engine";
 import { createDeck, shuffle, deal } from "../card/card.deck";
 
 /**
@@ -162,5 +162,48 @@ export function setupNextRound(input: NextRoundInput): NextRoundState {
     stock: dealResult.stock,
     discard: dealResult.discard,
     table: [],
+  };
+}
+
+/**
+ * Input for processing game end
+ */
+export interface GameEndInput {
+  finalScores: Scores;
+  roundHistory: RoundRecord[];
+}
+
+/**
+ * Result of processing game end
+ */
+export interface GameEndResult {
+  phase: "gameEnd";
+  finalScores: Scores;
+  winners: string[];
+  isComplete: boolean;
+  allowedActions: string[];
+  roundHistory: RoundRecord[];
+}
+
+/**
+ * Process the end of the game.
+ *
+ * This function:
+ * - Determines the winner(s) based on lowest score
+ * - Returns the final game state
+ */
+export function processGameEnd(input: GameEndInput): GameEndResult {
+  const { finalScores, roundHistory } = input;
+
+  // Determine winner(s) - player(s) with lowest score
+  const winners = determineWinner(finalScores);
+
+  return {
+    phase: "gameEnd",
+    finalScores,
+    winners,
+    isComplete: true,
+    allowedActions: [],
+    roundHistory,
   };
 }

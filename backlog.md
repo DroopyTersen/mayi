@@ -283,7 +283,7 @@ Review specs/command-line-interface.md
 - [x] Implement round end processing (6 tests)
 - [x] Implement RoundRecord (8 tests)
 - [x] Implement round transition - to next round (14 tests)
-- [ ] Implement round transition - to game end (6 tests)
+- [x] Implement round transition - to game end (6 tests)
 - [ ] Implement state reset details (10 tests)
 - [ ] Fix typecheck errors
 
