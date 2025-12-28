@@ -2507,9 +2507,141 @@ describe("TurnMachine - post lay down behavior", () => {
   });
 
   describe("cannot lay off on same turn", () => {
-    it.todo("LAY_OFF command rejected when laidDownThisTurn is true", () => {});
-    it.todo("error: cannot lay off on same turn as laying down", () => {});
-    it.todo("must wait until next turn to lay off", () => {});
+    it("LAY_OFF command rejected when laidDownThisTurn is true", () => {
+      // Setup: Player lays down contract, has extra card, table has meld they could lay off to
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const nineS = card("9", "spades"); // Extra card that could be laid off
+      const drawnCard = card("A", "hearts");
+
+      // Existing meld on table that player could lay off to
+      const existingSet = {
+        id: "existing-set",
+        type: "set" as const,
+        cards: [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")],
+        ownerId: "player-2",
+      };
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, nineS],
+        stock: [drawnCard],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as const,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay down contract
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set", cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().context.laidDownThisTurn).toBe(true);
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+
+      // Try to lay off nineS to the existing set
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+
+      // Should be rejected - card still in hand
+      expect(actor.getSnapshot().context.hand).toContainEqual(nineS);
+    });
+
+    it("error: cannot lay off on same turn as laying down", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const nineS = card("9", "spades");
+      const drawnCard = card("A", "hearts");
+
+      const existingSet = {
+        id: "existing-set",
+        type: "set" as const,
+        cards: [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")],
+        ownerId: "player-2",
+      };
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, nineS],
+        stock: [drawnCard],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as const,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set", cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      // Try to lay off
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+
+      // Existing meld should be unchanged
+      const meld = actor.getSnapshot().context.table.find((m) => m.id === existingSet.id);
+      expect(meld?.cards.length).toBe(3);
+    });
+
+    it("must wait until next turn to lay off", () => {
+      // Simulate next turn with laidDownThisTurn: false
+      const nineS = card("9", "spades");
+      const drawnCard = card("A", "hearts");
+
+      const existingSet = {
+        id: "existing-set",
+        type: "set" as const,
+        cards: [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")],
+        ownerId: "player-2",
+      };
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, card("K", "clubs")],
+        stock: [drawnCard],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as const,
+        isDown: true, // Already down from previous turn
+        laidDownThisTurn: false, // Not this turn
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Now can lay off
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+
+      // Card should be laid off successfully
+      expect(actor.getSnapshot().context.hand).not.toContainEqual(nineS);
+      const meld = actor.getSnapshot().context.table.find((m) => m.id === existingSet.id);
+      expect(meld?.cards.length).toBe(4);
+    });
   });
 
   describe("cannot lay down again", () => {

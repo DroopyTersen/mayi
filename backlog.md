@@ -310,8 +310,8 @@ Review specs/command-line-interface.md
 
 > These tests were deferred from Phase 3 because they require Phase 4 functionality
 
-- [ ] Implement cannot lay off on same turn (3 tests in laydown.test.ts)
-- [ ] Implement round transition isDown reset (1 test in table.test.ts)
+- [x] Implement cannot lay off on same turn (3 tests in laydown.test.ts)
+- [x] Implement round transition isDown reset (1 test in table.test.ts)
 
 ---
 

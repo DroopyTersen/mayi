@@ -569,8 +569,26 @@ describe("GameState - isDown tracking", () => {
   });
 
   describe("round transition", () => {
-    it.todo("when round ends, all isDown should reset for next round", () => {
-      // This requires round transition logic which is Phase 4+
+    it("when round ends, all isDown should reset for next round", () => {
+      // Use setupNextRound to verify isDown resets
+      const { setupNextRound } = require("./roundEnd.engine");
+
+      // Setup: Round 1 ends, players were down
+      const result = setupNextRound({
+        previousRound: 1,
+        playerIds: ["Alice", "Bob", "Carol"],
+        previousDealerIndex: 0,
+      });
+
+      // All players should have isDown: false at start of new round
+      expect(result.playerStates["Alice"]?.isDown).toBe(false);
+      expect(result.playerStates["Bob"]?.isDown).toBe(false);
+      expect(result.playerStates["Carol"]?.isDown).toBe(false);
+
+      // Also verify laidDownThisTurn is reset
+      expect(result.playerStates["Alice"]?.laidDownThisTurn).toBe(false);
+      expect(result.playerStates["Bob"]?.laidDownThisTurn).toBe(false);
+      expect(result.playerStates["Carol"]?.laidDownThisTurn).toBe(false);
     });
   });
 });
