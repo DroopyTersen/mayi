@@ -64,7 +64,8 @@ Play goes clockwise.
 
 On your turn: 1. Draw exactly one card:
 • Either the top card of the stock pile
-• Or the top card of the discard pile (if it has not been taken via “May I?”) 2. Optionally lay down:
+• Or the top card of the discard pile (if it has not been taken via "May I?")
+• Important: Once you have laid down ("down"), you may only draw from the stock pile — never from the discard pile. 2. Optionally lay down:
 • If you have not laid down yet this hand
 • And you can fully satisfy the contract for that hand in one go 3. No lay off on the same turn you lay down:
 • On the turn you first lay down your contract, you lay down only the contract.
@@ -108,12 +109,14 @@ When May I? is available:
 
 Calling May I?:
 • Any player (except the current player) may call "May I?" to claim the exposed discard.
+• Important: You cannot call May I? if you have already laid down ("down"). Since calling May I? requires taking the discard, and down players cannot draw from the discard pile, they are ineligible to call May I?.
 • The caller takes the discard AND draws 1 penalty card from the stock.
 • Turn order does not change; the caller simply has more cards now.
 
 Priority and vetoing:
 • When someone calls May I?, any player closer in turn order may veto by claiming the card instead.
-• The current player has first right of refusal — but only if they have not yet drawn from the stock.
+• The current player has first right of refusal — but only if they have not yet drawn from the stock and have not laid down yet this hand.
+• Important: Down players cannot veto. Since vetoing requires taking the discard (with or without penalty), and down players cannot draw from the discard pile, they cannot veto May I? claims.
 • If the current player vetoes: they take the discard as their draw (no penalty). This counts as their draw action; they cannot also draw from stock.
 • If a non-current player vetoes: they effectively May I? themselves — taking the discard plus 1 penalty card from stock.
 • Once the current player draws from stock, they forfeit the right to veto any May I? calls on that discard.

@@ -19,14 +19,18 @@ function createTestInput(overrides?: Partial<MayIWindowInput>): MayIWindowInput 
     { id: "card-7-diamonds", suit: "diamonds", rank: "7" },
     { id: "card-3-clubs", suit: "clubs", rank: "3" },
   ];
+  const playerOrder = overrides?.playerOrder ?? ["player-0", "player-1", "player-2", "player-3"];
+  // Default: all players NOT down
+  const playerDownStatus = overrides?.playerDownStatus ?? Object.fromEntries(playerOrder.map(id => [id, false]));
 
   return {
     discardedCard,
     discardedByPlayerId: "player-1",
     currentPlayerId: "player-2",
     currentPlayerIndex: 2,
-    playerOrder: ["player-0", "player-1", "player-2", "player-3"],
+    playerOrder,
     stock,
+    playerDownStatus,
     ...overrides,
   };
 }
