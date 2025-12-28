@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test";
+import { canLayOffCard } from "./layoff";
 
 /**
  * Phase 4: Laying Off Tests
@@ -8,10 +9,41 @@ import { describe, it, expect } from "bun:test";
 
 describe("canLayOffCard guard", () => {
   describe("preconditions for laying off", () => {
-    it.todo("returns false if player is not down (isDown: false)", () => {});
-    it.todo("returns false if player laid down this turn (laidDownThisTurn: true)", () => {});
-    it.todo("returns false if player hasn't drawn yet (not in drawn state)", () => {});
-    it.todo("returns true if isDown: true AND laidDownThisTurn: false AND hasDrawn", () => {});
+    it("returns false if player is not down (isDown: false)", () => {
+      const context = {
+        isDown: false,
+        laidDownThisTurn: false,
+        hasDrawn: true,
+      };
+      expect(canLayOffCard(context)).toBe(false);
+    });
+
+    it("returns false if player laid down this turn (laidDownThisTurn: true)", () => {
+      const context = {
+        isDown: true,
+        laidDownThisTurn: true,
+        hasDrawn: true,
+      };
+      expect(canLayOffCard(context)).toBe(false);
+    });
+
+    it("returns false if player hasn't drawn yet (not in drawn state)", () => {
+      const context = {
+        isDown: true,
+        laidDownThisTurn: false,
+        hasDrawn: false,
+      };
+      expect(canLayOffCard(context)).toBe(false);
+    });
+
+    it("returns true if isDown: true AND laidDownThisTurn: false AND hasDrawn", () => {
+      const context = {
+        isDown: true,
+        laidDownThisTurn: false,
+        hasDrawn: true,
+      };
+      expect(canLayOffCard(context)).toBe(true);
+    });
   });
 
   describe("laying off to sets", () => {

@@ -215,7 +215,7 @@ Review specs/command-line-interface.md
 
 ### Layoff Command (91 tests in layoff.test.ts)
 
-- [ ] Implement canLayOffCard guard preconditions (4 tests)
+- [x] Implement canLayOffCard guard preconditions (4 tests)
 - [ ] Implement laying off to sets (6 tests)
 - [ ] Implement laying off to sets - wild ratio edge cases (6 tests)
 - [ ] Implement laying off to runs (8 tests)
