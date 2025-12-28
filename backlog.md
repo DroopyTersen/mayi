@@ -77,7 +77,7 @@ Review specs/command-line-interface.md
 - [x] Implement `renderHand` function (3 tests)
 - [x] Implement `renderNumberedHand` function (3 tests)
 - [x] Implement `renderGameState` function (6 tests)
-- [ ] Fix typecheck errors
+- [x] Fix typecheck errors
 
 ### CLI Input (11 tests in cli.input.test.ts)
 
