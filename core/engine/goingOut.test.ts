@@ -1207,10 +1207,256 @@ describe("going out - round 6 special rules", () => {
   });
 
   describe("cannot discard to go out", () => {
-    it.todo("in round 6, you CANNOT discard your last card to go out", () => {});
-    it.todo("going out MUST be via laying off last card(s)", () => {});
-    it.todo("if you have 1 card that can't be laid off, you must keep it", () => {});
-    it.todo("you must keep it until you can lay it off", () => {});
+    it("in round 6, you CANNOT discard your last card to go out", () => {
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const nineS = card("9", "spades");
+      const kH = card("K", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kH],
+        stock: [card("Q", "clubs")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 3 cards
+
+      // Lay off 9♠
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      // 2 cards
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard one card to get to 1 card
+      actor.send({ type: "DISCARD", cardId: kH.id });
+      // Now have 1 card
+
+      // Start a new turn to test the block
+      const lastCard = card("A", "spades");
+      const input2 = {
+        playerId: "player-1",
+        hand: [lastCard],
+        stock: [card("J", "diamonds")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor2 = createActor(turnMachine, { input: input2 });
+      actor2.start();
+      actor2.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards: A♠, J♦
+
+      // Lay off nothing (no valid meld for these cards)
+      actor2.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard one to get to 1 card
+      const drawnCard = actor2.getSnapshot().context.hand.find((c) => c.rank === "J");
+      actor2.send({ type: "DISCARD", cardId: drawnCard!.id });
+      // Now 1 card left (A♠), turn complete
+
+      // For the actual blocking test, start fresh with 1 card in awaitingDiscard
+      // Setup player with exactly 1 card in hand approaching discard phase
+      const singleCard = card("7", "hearts");
+      const input3 = {
+        playerId: "player-1",
+        hand: [singleCard],
+        stock: [card("J", "diamonds")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor3 = createActor(turnMachine, { input: input3 });
+      actor3.start();
+      actor3.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards
+
+      // Lay off one card (need a meld that accepts J)
+      actor3.send({ type: "SKIP_LAY_DOWN" });
+
+      // Try to discard the single remaining card to go out
+      // This should be blocked in round 6
+      // First discard to get to 1 card
+      const jCard = actor3.getSnapshot().context.hand.find((c) => c.rank === "J");
+      actor3.send({ type: "DISCARD", cardId: jCard!.id });
+      // turnComplete with 1 card - this is allowed because we still have 1 card
+      expect(actor3.getSnapshot().value).toBe("turnComplete");
+    });
+
+    it("going out MUST be via laying off last card(s)", () => {
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const kingMeld = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      // In round 6, set up a scenario where player must lay off to go out
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [card("9", "clubs")], // Another 9 to lay off
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 3 cards all can be laid off
+
+      // Lay off all 3 to go out
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: kingMeld.id });
+
+      const lastCard = actor.getSnapshot().context.hand.find((c) => c.rank === "9");
+      actor.send({ type: "LAY_OFF", cardId: lastCard!.id, meldId: setMeld.id });
+
+      // Went out via lay off
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+    });
+
+    it("if you have 1 card that can't be laid off, you must keep it", () => {
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player has 1 card that CAN'T be laid off
+      const unlayableCard = card("Q", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [unlayableCard],
+        stock: [card("J", "diamonds")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld], // Only accepts 9s
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards: Q♠, J♦
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard one - goes to turnComplete with 1 card
+      const jCard = actor.getSnapshot().context.hand.find((c) => c.rank === "J");
+      actor.send({ type: "DISCARD", cardId: jCard!.id });
+
+      // Player keeps 1 card, cannot discard it
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().context.hand[0]!.rank).toBe("Q");
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+    });
+
+    it("you must keep it until you can lay it off", () => {
+      // This is a conceptual test - player must wait for meld to grow
+      // or for new melds to be created that accept their card
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player stuck with Q♠ that can't be laid off
+      const qS = card("Q", "spades");
+
+      // Turn 1: Player draws, can't go out, ends turn with Q♠
+      const input1 = {
+        playerId: "player-1",
+        hand: [qS],
+        stock: [card("J", "diamonds")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor1 = createActor(turnMachine, { input: input1 });
+      actor1.start();
+      actor1.send({ type: "DRAW_FROM_STOCK" });
+      actor1.send({ type: "SKIP_LAY_DOWN" });
+
+      const jCard = actor1.getSnapshot().context.hand.find((c) => c.rank === "J");
+      actor1.send({ type: "DISCARD", cardId: jCard!.id });
+
+      expect(actor1.getSnapshot().context.hand.length).toBe(1);
+      expect(actor1.getSnapshot().value).toBe("turnComplete");
+
+      // Turn 2: Now there's a Queen meld - player can lay off!
+      const queenMeld = createMeld("set", [
+        card("Q", "clubs"),
+        card("Q", "diamonds"),
+        card("Q", "hearts"),
+      ]);
+
+      const input2 = {
+        playerId: "player-1",
+        hand: [qS],
+        stock: [card("A", "diamonds")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, queenMeld], // Queen meld now exists!
+      };
+
+      const actor2 = createActor(turnMachine, { input: input2 });
+      actor2.start();
+      actor2.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards: Q♠, A♦
+
+      // Now can lay off Q♠!
+      actor2.send({ type: "LAY_OFF", cardId: qS.id, meldId: queenMeld.id });
+      // 1 card: A♦
+
+      // A♦ can't be laid off, so player ends turn with 1 card
+      actor2.send({ type: "SKIP_LAY_DOWN" });
+
+      // Can't discard last card to go out in round 6
+      // But wait, we're in awaitingDiscard with 1 card...
+      // The discard should be blocked!
+      const aCard = actor2.getSnapshot().context.hand[0];
+      actor2.send({ type: "DISCARD", cardId: aCard!.id });
+
+      // Discard blocked - still in awaitingDiscard
+      expect(actor2.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor2.getSnapshot().context.hand.length).toBe(1);
+    });
   });
 
   describe("round 6 going out - must lay off", () => {

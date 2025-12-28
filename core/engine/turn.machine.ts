@@ -93,7 +93,13 @@ export const turnMachine = setup({
     canDrawFromDiscard: ({ context }) => context.discard.length > 0,
     canDiscard: ({ context, event }) => {
       if (event.type !== "DISCARD") return false;
-      return context.hand.some((card) => card.id === event.cardId);
+      // Card must be in hand
+      if (!context.hand.some((card) => card.id === event.cardId)) return false;
+      // In round 6, cannot discard last card to go out
+      if (context.roundNumber === 6 && context.hand.length === 1 && context.isDown) {
+        return false;
+      }
+      return true;
     },
     canLayDown: ({ context, event }) => {
       if (event.type !== "LAY_DOWN") return false;
@@ -320,16 +326,21 @@ export const turnMachine = setup({
       on: {
         DISCARD: [
           {
-            // If discarding last card, go out
+            // If discarding last card, go out (rounds 1-5 only)
+            // In round 6, cannot discard last card to go out
             guard: ({ context, event }) => {
               if (event.type !== "DISCARD") return false;
+              // In round 6 when down, cannot discard to go out
+              if (context.roundNumber === 6 && context.hand.length === 1 && context.isDown) {
+                return false;
+              }
               return context.hand.length === 1;
             },
             target: "wentOut",
             actions: "discardCard",
           },
           {
-            // Normal discard
+            // Normal discard (including round 6 when not going out)
             guard: "canDiscard",
             target: "turnComplete",
             actions: "discardCard",
