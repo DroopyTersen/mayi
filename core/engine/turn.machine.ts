@@ -78,6 +78,8 @@ export interface TurnOutput {
   discard: Card[];
   isDown: boolean;
   table: Meld[];
+  /** True if player went out (hand became empty), false otherwise */
+  wentOut?: boolean;
 }
 
 export const turnMachine = setup({
@@ -159,6 +161,15 @@ export const turnMachine = setup({
       } else {
         return canLayOffToRun(card, meld);
       }
+    },
+    // Check if hand will be empty after discard
+    willGoOutAfterDiscard: ({ context }) => {
+      // After discarding 1 card, hand will have length - 1 cards
+      return context.hand.length === 1;
+    },
+    // Check if hand is empty (went out via lay off)
+    handIsEmpty: ({ context }) => {
+      return context.hand.length === 0;
     },
   },
   actions: {
@@ -260,13 +271,14 @@ export const turnMachine = setup({
     laidDownThisTurn: input.laidDownThisTurn ?? false,
     table: input.table,
   }),
-  output: ({ context }) => ({
+  output: ({ context, self }) => ({
     playerId: context.playerId,
     hand: context.hand,
     stock: context.stock,
     discard: context.discard,
     isDown: context.isDown,
     table: context.table,
+    wentOut: self.getSnapshot().value === "wentOut",
   }),
   states: {
     awaitingDraw: {
@@ -298,17 +310,37 @@ export const turnMachine = setup({
           actions: "layOff",
         },
       },
+      always: {
+        // After lay off, if hand is empty, go out immediately
+        guard: "handIsEmpty",
+        target: "wentOut",
+      },
     },
     awaitingDiscard: {
       on: {
-        DISCARD: {
-          guard: "canDiscard",
-          target: "turnComplete",
-          actions: "discardCard",
-        },
+        DISCARD: [
+          {
+            // If discarding last card, go out
+            guard: ({ context, event }) => {
+              if (event.type !== "DISCARD") return false;
+              return context.hand.length === 1;
+            },
+            target: "wentOut",
+            actions: "discardCard",
+          },
+          {
+            // Normal discard
+            guard: "canDiscard",
+            target: "turnComplete",
+            actions: "discardCard",
+          },
+        ],
       },
     },
     turnComplete: {
+      type: "final",
+    },
+    wentOut: {
       type: "final",
     },
   },
