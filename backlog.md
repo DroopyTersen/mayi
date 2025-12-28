@@ -64,8 +64,8 @@ Run `bun run typecheck` to verify your types are correct. In test file we can be
 
 - [x] Fix typecheck errors
 - [x] Implement turn advancement (4 tests)
-- [ ] Implement state transfer between turns (4 tests)
-- [ ] Implement initial game setup (4 tests)
+- [x] Implement state transfer between turns (4 tests)
+- [x] Implement initial game setup (4 tests)
 - [ ] Implement multiple consecutive turns (5 tests)
 - [ ] Fix typecheck errors
 

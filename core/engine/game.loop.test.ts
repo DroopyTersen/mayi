@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { advanceTurn, applyTurnOutput } from "./game.loop";
+import { advanceTurn, applyTurnOutput, setupRound } from "./game.loop";
 import { createInitialGameState } from "./engine.types";
 import type { Card } from "../card/card.types";
 import type { TurnOutput } from "./turn.machine";
@@ -163,13 +163,49 @@ describe("basic turn loop", () => {
   });
 
   describe("initial game setup", () => {
-    it.todo("after deal, each player has 11 cards", () => {});
+    it("after deal, each player has 11 cards", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+      });
+      const readyState = setupRound(state);
 
-    it.todo("stock has remaining cards", () => {});
+      for (const player of readyState.players) {
+        expect(player.hand.length).toBe(11);
+      }
+    });
 
-    it.todo("discard has 1 card (flipped from stock)", () => {});
+    it("stock has remaining cards", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+      });
+      const readyState = setupRound(state);
 
-    it.todo("first player is left of dealer (dealerIndex + 1)", () => {});
+      // 108 cards total (2 decks with jokers)
+      // 4 players * 11 cards = 44 cards dealt
+      // 1 card to discard
+      // 108 - 44 - 1 = 63 cards in stock
+      expect(readyState.stock.length).toBe(63);
+    });
+
+    it("discard has 1 card (flipped from stock)", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+      });
+      const readyState = setupRound(state);
+
+      expect(readyState.discard.length).toBe(1);
+    });
+
+    it("first player is left of dealer (dealerIndex + 1)", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+        dealerIndex: 2,
+      });
+      const readyState = setupRound(state);
+
+      // Dealer is index 2, so first player is index 3
+      expect(readyState.currentPlayerIndex).toBe(3);
+    });
   });
 });
 

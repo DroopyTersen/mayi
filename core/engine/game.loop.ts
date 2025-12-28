@@ -6,6 +6,7 @@
 
 import type { GameState } from "./engine.types";
 import type { TurnOutput } from "./turn.machine";
+import { createDeck, shuffle, deal } from "../card/card.deck";
 
 /**
  * Advances to the next player's turn
@@ -22,6 +23,36 @@ export function advanceTurn(state: GameState): GameState {
       hasLaidDown: false,
       laidDownThisTurn: false,
     },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Sets up a round by creating deck, shuffling, and dealing cards
+ * Returns a new GameState ready for play
+ */
+export function setupRound(state: GameState): GameState {
+  // 3-5 players: 2 decks + 4 jokers (108 cards)
+  // 6-8 players: 3 decks + 6 jokers (162 cards)
+  const playerCount = state.players.length;
+  const deckCount = playerCount <= 5 ? 2 : 3;
+  const jokerCount = playerCount <= 5 ? 4 : 6;
+
+  const deck = createDeck({ deckCount, jokerCount });
+  const shuffled = shuffle(deck);
+  const { hands, stock, discard } = deal(shuffled, playerCount);
+
+  const updatedPlayers = state.players.map((player, index) => ({
+    ...player,
+    hand: hands[index] ?? [],
+  }));
+
+  return {
+    ...state,
+    players: updatedPlayers,
+    stock,
+    discard,
+    roundPhase: "playing",
     updatedAt: new Date().toISOString(),
   };
 }
