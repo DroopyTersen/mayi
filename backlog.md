@@ -45,16 +45,18 @@
 - [x] Implement DISCARD command (13 tests)
 - [x] Implement invalid command handling (6 tests)
 - [ ] Implement turn output (5 tests)
+- [ ] Fix typecheck errors
 
 ### Hand Reordering (28 tests in hand.reordering.test.ts)
 
-- [ ] Implement REORDER_HAND command basic functionality (5 tests)
+- [x] Implement REORDER_HAND command basic functionality (5 tests)
 - [ ] Ensure REORDER_HAND works in any turn state (5 tests)
 - [ ] Implement sort by rank functionality (3 tests)
 - [ ] Implement sort by suit functionality (3 tests)
 - [ ] Implement move single card functionality (3 tests)
 - [ ] Implement validation for reorder command (6 tests)
 - [ ] Handle edge cases (3 tests)
+- [ ] Fix typecheck errors
 
 ### Game Loop (17 tests in game.loop.test.ts)
 
@@ -62,6 +64,7 @@
 - [ ] Implement state transfer between turns (4 tests)
 - [ ] Implement initial game setup (4 tests)
 - [ ] Implement multiple consecutive turns (5 tests)
+- [ ] Fix typecheck errors
 
 ### CLI Renderer (21 tests in cli.renderer.test.ts)
 
@@ -69,12 +72,14 @@
 - [ ] Implement `renderHand` function (3 tests)
 - [ ] Implement `renderNumberedHand` function (3 tests)
 - [ ] Implement `renderGameState` function (6 tests)
+- [ ] Fix typecheck errors
 
 ### CLI Input (11 tests in cli.input.test.ts)
 
 - [ ] Implement `parseDrawCommand` function (3 tests)
 - [ ] Implement `parseDiscardCommand` function (4 tests)
 - [ ] Implement `parseReorderCommand` function (4 tests)
+- [ ] Fix typecheck errors
 
 ---
 
@@ -82,8 +87,8 @@
 
 > Break down when Phase 2 is complete
 
-- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2-tests.md, and do research to create a similar file, /specs/phase3-tests.md
-- [ ] Review specs/phase3-tests.md and and scaffold out all of those tests. Add tasks for PHase 3, centered around the tests.
+- [ ] Fix typecheck errors
+- [ ] Review specs/phase-3-tests.md and and scaffold out all of those tests. Add tasks for PHase 3, centered around the tests.
 
 ---
 

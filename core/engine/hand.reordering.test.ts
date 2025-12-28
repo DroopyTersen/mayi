@@ -1,16 +1,81 @@
 import { describe, it, expect } from "bun:test";
+import { reorderHand, sortHandByRank, sortHandBySuit, moveCard } from "./hand.reordering";
+import type { Card } from "../card/card.types";
+
+// Helper to create test cards
+let cardId = 0;
+function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
+  return { id: `card-${cardId++}`, suit, rank };
+}
+
+function joker(): Card {
+  return { id: `joker-${cardId++}`, suit: null, rank: "Joker" };
+}
 
 describe("REORDER_HAND command", () => {
   describe("basic reordering", () => {
-    it.todo("accepts new order of card ids", () => {});
+    it("accepts new order of card ids", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card3.id, card1.id, card2.id]);
+      expect(result.success).toBe(true);
+    });
 
-    it.todo("hand contains same cards in new order", () => {});
+    it("hand contains same cards in new order", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card3.id, card1.id, card2.id]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand[0]).toEqual(card3);
+        expect(result.hand[1]).toEqual(card1);
+        expect(result.hand[2]).toEqual(card2);
+      }
+    });
 
-    it.todo("hand size is unchanged", () => {});
+    it("hand size is unchanged", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card2.id, card3.id, card1.id]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand.length).toBe(hand.length);
+      }
+    });
 
-    it.todo("all original cards still present", () => {});
+    it("all original cards still present", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card2.id, card3.id, card1.id]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand).toContainEqual(card1);
+        expect(result.hand).toContainEqual(card2);
+        expect(result.hand).toContainEqual(card3);
+      }
+    });
 
-    it.todo("no duplicate cards introduced", () => {});
+    it("no duplicate cards introduced", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card2.id, card3.id, card1.id]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const ids = result.hand.map((c) => c.id);
+        const uniqueIds = new Set(ids);
+        expect(uniqueIds.size).toBe(ids.length);
+      }
+    });
   });
 
   describe("valid in any turn state", () => {
