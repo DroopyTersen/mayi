@@ -918,10 +918,161 @@ describe("going out - rounds 1-5", () => {
   });
 
   describe("wentOut trigger", () => {
-    it.todo("checked after DISCARD command completes", () => {});
-    it.todo("checked after LAY_OFF command completes", () => {});
-    it.todo("if hand.length === 0 → wentOut (round ends)", () => {});
-    it.todo("if hand.length > 0 → continue turn or turnComplete", () => {});
+    const setMeld = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+
+    it("checked after DISCARD command completes", () => {
+      const nineS = card("9", "spades");
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards
+
+      // Lay off one card to get to 1 card
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      // 1 card
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Before discard: still in awaitingDiscard
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // Discard triggers wentOut check
+      const lastCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: lastCard!.id });
+
+      // After discard: hand empty → wentOut
+      expect(actor.getSnapshot().value).toBe("wentOut");
+    });
+
+    it("checked after LAY_OFF command completes", () => {
+      const kingMeld = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [card("9", "clubs")], // Another 9 for setMeld
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 3 cards: nineS, kS, 9♣
+
+      // Lay off cards one by one
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      expect(actor.getSnapshot().value).toBe("drawn"); // Still in drawn
+
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: kingMeld.id });
+      expect(actor.getSnapshot().value).toBe("drawn"); // Still in drawn
+
+      // Last lay off triggers wentOut
+      const lastNine = actor.getSnapshot().context.hand.find((c) => c.rank === "9");
+      actor.send({ type: "LAY_OFF", cardId: lastNine!.id, meldId: setMeld.id });
+
+      // After last lay off: hand empty → wentOut
+      expect(actor.getSnapshot().value).toBe("wentOut");
+    });
+
+    it("if hand.length === 0 → wentOut (round ends)", () => {
+      const kingMeld = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [card("9", "clubs")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off all 3 cards
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: kingMeld.id });
+      const lastCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "LAY_OFF", cardId: lastCard!.id, meldId: setMeld.id });
+
+      // hand.length === 0 → wentOut
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      expect(actor.getSnapshot().value).toBe("wentOut");
+    });
+
+    it("if hand.length > 0 → continue turn or turnComplete", () => {
+      const nineS = card("9", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [card("Q", "hearts")], // Not layable
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 2 cards: nineS, Q♥
+
+      // Lay off 9♠
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // hand.length > 0 (1 card) → still in drawn, not wentOut
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().value).toBe("drawn"); // Continue turn
+
+      // Skip lay down and discard
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // Discard the last card to go out
+      const lastCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: lastCard!.id });
+
+      // Now hand.length === 0 → wentOut
+      expect(actor.getSnapshot().value).toBe("wentOut");
+    });
   });
 });
 
