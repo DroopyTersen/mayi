@@ -1,15 +1,63 @@
 import { describe, it, expect } from "bun:test";
+import { createActor } from "xstate";
+import { turnMachine, type TurnInput } from "./turn.machine";
+import type { Card } from "../card/card.types";
+
+// Helper to create test cards
+let cardId = 0;
+function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
+  return { id: `card-${cardId++}`, suit, rank };
+}
+
+// Helper to create a turn actor with test data
+function createTurnActor(overrides: Partial<TurnInput> = {}) {
+  const input: TurnInput = {
+    playerId: "player-1",
+    hand: overrides.hand ?? [card("9"), card("10"), card("J")],
+    stock: overrides.stock ?? [card("Q"), card("K"), card("A")],
+    discard: overrides.discard ?? [card("8")],
+  };
+  return createActor(turnMachine, { input });
+}
 
 describe("TurnMachine - initial state", () => {
-  it.todo("starts in 'awaitingDraw' state", () => {});
+  it("starts in 'awaitingDraw' state", () => {
+    const actor = createTurnActor();
+    actor.start();
+    expect(actor.getSnapshot().value).toBe("awaitingDraw");
+    actor.stop();
+  });
 
-  it.todo("hasDrawn is false", () => {});
+  it("hasDrawn is false", () => {
+    const actor = createTurnActor();
+    actor.start();
+    expect(actor.getSnapshot().context.hasDrawn).toBe(false);
+    actor.stop();
+  });
 
-  it.todo("player hand matches input", () => {});
+  it("player hand matches input", () => {
+    const hand = [card("3"), card("5"), card("7")];
+    const actor = createTurnActor({ hand });
+    actor.start();
+    expect(actor.getSnapshot().context.hand).toEqual(hand);
+    actor.stop();
+  });
 
-  it.todo("stock matches input", () => {});
+  it("stock matches input", () => {
+    const stock = [card("A"), card("K")];
+    const actor = createTurnActor({ stock });
+    actor.start();
+    expect(actor.getSnapshot().context.stock).toEqual(stock);
+    actor.stop();
+  });
 
-  it.todo("discard matches input", () => {});
+  it("discard matches input", () => {
+    const discard = [card("4"), card("6")];
+    const actor = createTurnActor({ discard });
+    actor.start();
+    expect(actor.getSnapshot().context.discard).toEqual(discard);
+    actor.stop();
+  });
 });
 
 describe("TurnMachine - drawing from stock", () => {

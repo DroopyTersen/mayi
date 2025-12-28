@@ -37,7 +37,7 @@
 
 ### TurnMachine (47 tests in turn.machine.test.ts)
 - [x] Create TurnMachine XState machine
-- [ ] Implement TurnMachine initial state tests (5 tests)
+- [x] Implement TurnMachine initial state tests (5 tests)
 - [ ] Implement DRAW_FROM_STOCK command (7 tests)
 - [ ] Implement DRAW_FROM_DISCARD command (10 tests)
 - [ ] Implement DISCARD command (13 tests)
