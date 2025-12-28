@@ -624,34 +624,34 @@ _(none yet)_
 
 ### Harness Setup
 
-- [ ] Start fresh game with `bun harness/play.ts new`
-- [ ] Verify status display shows correct initial state
-- [ ] Verify JSON output works with `status --json`
-- [ ] Verify log command works
+- [x] Start fresh game with `bun harness/play.ts new`
+- [x] Verify status display shows correct initial state
+- [x] Verify JSON output works with `status --json`
+- [x] Verify log command works
 
 ### Round 1 Testing (Contract: 2 sets)
 
-- [ ] Play through complete Round 1 with one player going out
-- [ ] Test laying down exactly 2 sets (minimum 3 cards each)
-- [ ] Test laying down sets with wilds (verify wilds don't outnumber naturals)
-- [ ] Test laying down larger sets (4+ cards)
+- [x] Play through complete Round 1 with one player going out
+- [x] Test laying down exactly 2 sets (minimum 3 cards each)
+- [x] Test laying down sets with wilds (verify wilds don't outnumber naturals)
+- [x] Test laying down larger sets (4+ cards) — tested with 4 and 5 card sets during layoff
 - [ ] Test rejection: attempt to lay down with only 1 set
 - [ ] Test rejection: attempt to lay down with invalid set
-- [ ] Test layoff after going down (add 4th card to a set)
-- [ ] Verify round scoring is calculated correctly
-- [ ] Verify round history is recorded
+- [x] Test layoff after going down (add 4th card to a set)
+- [x] Verify round scoring is calculated correctly
+- [x] Verify round history is recorded
 
 ### Round 2 Testing (Contract: 1 set + 1 run)
 
-- [ ] Play through complete Round 2
-- [ ] Test laying down 1 set + 1 run (minimum 3 + 4 cards)
-- [ ] Test run with wilds in middle positions
+- [~] Play through complete Round 2 (in progress)
+- [x] Test laying down 1 set + 1 run (minimum 3 + 4 cards)
+- [x] Test run with wilds in middle positions (Alice: 8♥-Joker-10♥-2♣)
 - [ ] Test run with Ace-low (A-2-3)
-- [ ] Test run with Ace-high (Q-K-A)
-- [ ] Test rejection: attempt to lay down 2 sets instead
+- [x] Test run with Ace-high (Q-K-A) — Carol's run 10-J-Q-K goes high
+- [x] Test rejection: attempt to lay down 2 sets instead (got "Contract requires 1 set(s), but got 2")
 - [ ] Test rejection: attempt to lay down 2 runs instead
 - [ ] Test layoff to run (extend at either end)
-- [ ] Verify dealer advances correctly
+- [x] Verify dealer advances correctly (Carol went first)
 
 ### Round 3 Testing (Contract: 2 runs)
 
@@ -687,15 +687,15 @@ _(none yet)_
 
 ### May I Mechanic Testing
 
-- [ ] Test current player takes discard (no May I window)
-- [ ] Test current player draws from stock (May I window opens)
-- [ ] Test single May I claimant wins
+- [x] Test current player takes discard (no May I window)
+- [x] Test current player draws from stock (May I window opens)
+- [x] Test single May I claimant wins
 - [ ] Test multiple May I claimants - priority resolution
 - [ ] Test current player vetoes May I claim
 - [ ] Test non-current player vetoes (closer to current player)
-- [ ] Test penalty card drawn with May I win
+- [x] Test penalty card drawn with May I win (Alice got 5♥ + penalty card)
 - [ ] Test May I when stock is low (< 3 cards)
-- [ ] Test no claims - window closes normally
+- [x] Test no claims - window closes normally
 - [ ] Test May I multiple times in same round
 
 ### Joker Swap Testing
@@ -724,7 +724,7 @@ _(none yet)_
 - [ ] Test going out on same turn as laying down
 - [ ] Test going out with exactly 0 cards after layoff
 - [ ] Test stock depletion and reshuffle
-- [ ] Test first player after dealer rotation
+- [x] Test first player after dealer rotation (Carol went first in Round 2)
 - [ ] Test 3-player priority wrap-around for May I
 
 ### Game Completion
