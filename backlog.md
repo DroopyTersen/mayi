@@ -2,45 +2,16 @@
 
 > Last updated: [Ralph updates this timestamp with each commit]
 
-## Current Phase: 1 — Card Foundation
+## Phase 1 Tasks (Card Foundation)
 
-**Phase Goal:** Pure functions for cards, deck creation, shuffle, deal, and meld validation. No state machines yet.
+> Card types, deck creation, shuffle, deal, meld validation
 
-**Verification:** Unit tests cover all card/meld validation edge cases.
-
----
-
-## Phase 1 Tasks
-
-### Types & Utilities
-
-- [ ] Create `core/card/types.ts` with `Suit`, `Rank`, `Card` types per TechDesign.md
-- [ ] Create `core/card/utils.ts` with `isWild()`, `isNatural()`, `getPointValue()` functions
-- [ ] Write tests for card utility functions in `core/card/utils.test.ts`
-
-### Deck Operations
-
-- [ ] Create `core/card/deck.ts` with `createDeck()` function (configurable deck/joker count)
-- [ ] Implement `shuffle()` function using Fisher-Yates
-- [ ] Implement `deal()` function (distribute cards to players)
-- [ ] Write tests for deck operations in `core/card/deck.test.ts`
-
-### Meld Validation
-
-- [ ] Create `core/meld/types.ts` with `Meld`, `Contract` types
-- [ ] Create `core/meld/validation.ts` with `isValidSet()` function
-- [ ] Implement `isValidRun()` function with consecutive rank checking
-- [ ] Implement wild card ratio validation (wilds ≤ naturals)
-- [ ] Create `CONTRACTS` constant with all 6 round contracts
-- [ ] Write comprehensive meld validation tests in `core/meld/validation.test.ts`
-
-### Project Setup
-
-- [ ] Initialize bun project with `bun init`
-- [ ] Configure TypeScript
-- [ ] Set up test runner
-- [ ] Create folder structure (`core/card`, `core/meld`, `core/engine`)
-- [ ] Create `core/index.ts` with public exports
+- [x] Card utility functions (`isWild`, `isNatural`, `getPointValue`)
+- [~] Deck creation (`createDeck`)
+- [ ] Shuffle function (`shuffle`)
+- [ ] Deal function (`deal`)
+- [ ] Set validation (`isValidSet`)
+- [ ] Run validation (`isValidRun`)
 
 ---
 
