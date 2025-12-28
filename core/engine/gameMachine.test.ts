@@ -6,51 +6,276 @@
  */
 
 import { describe, it, expect } from "bun:test";
+import { createActor } from "xstate";
+import { gameMachine } from "./game.machine";
 
 describe("GameMachine - setup state", () => {
   describe("initial state", () => {
-    it.todo("starts in 'setup' state", () => {});
-    it.todo("gameId is empty or generated", () => {});
-    it.todo("players array is empty", () => {});
-    it.todo("currentRound is 1", () => {});
-    it.todo("dealerIndex is 0", () => {});
-    it.todo("roundHistory is empty array", () => {});
+    it("starts in 'setup' state", () => {
+      const actor = createActor(gameMachine).start();
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.stop();
+    });
+
+    it("gameId is empty or generated", () => {
+      const actor = createActor(gameMachine).start();
+      // Default gameId is empty string
+      expect(actor.getSnapshot().context.gameId).toBe("");
+      actor.stop();
+    });
+
+    it("players array is empty", () => {
+      const actor = createActor(gameMachine).start();
+      expect(actor.getSnapshot().context.players).toEqual([]);
+      actor.stop();
+    });
+
+    it("currentRound is 1", () => {
+      const actor = createActor(gameMachine).start();
+      expect(actor.getSnapshot().context.currentRound).toBe(1);
+      actor.stop();
+    });
+
+    it("dealerIndex is 0", () => {
+      const actor = createActor(gameMachine).start();
+      expect(actor.getSnapshot().context.dealerIndex).toBe(0);
+      actor.stop();
+    });
+
+    it("roundHistory is empty array", () => {
+      const actor = createActor(gameMachine).start();
+      expect(actor.getSnapshot().context.roundHistory).toEqual([]);
+      actor.stop();
+    });
   });
 
   describe("ADD_PLAYER command", () => {
-    it.todo("adds player to players array", () => {});
-    it.todo("player has id, name, hand: [], isDown: false, totalScore: 0", () => {});
-    it.todo("can add multiple players sequentially", () => {});
-    it.todo("players array grows with each ADD_PLAYER", () => {});
-    it.todo("remains in 'setup' state after adding player", () => {});
+    it("adds player to players array", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      expect(actor.getSnapshot().context.players.length).toBe(1);
+      expect(actor.getSnapshot().context.players[0]!.name).toBe("Alice");
+      actor.stop();
+    });
+
+    it("player has id, name, hand: [], isDown: false, totalScore: 0", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      const player = actor.getSnapshot().context.players[0]!;
+      expect(player.id).toBe("player-0");
+      expect(player.name).toBe("Bob");
+      expect(player.hand).toEqual([]);
+      expect(player.isDown).toBe(false);
+      expect(player.totalScore).toBe(0);
+      actor.stop();
+    });
+
+    it("can add multiple players sequentially", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      const players = actor.getSnapshot().context.players;
+      expect(players.length).toBe(3);
+      expect(players.map((p) => p.name)).toEqual(["Alice", "Bob", "Carol"]);
+      actor.stop();
+    });
+
+    it("players array grows with each ADD_PLAYER", () => {
+      const actor = createActor(gameMachine).start();
+      expect(actor.getSnapshot().context.players.length).toBe(0);
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      expect(actor.getSnapshot().context.players.length).toBe(1);
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      expect(actor.getSnapshot().context.players.length).toBe(2);
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      expect(actor.getSnapshot().context.players.length).toBe(3);
+      actor.stop();
+    });
+
+    it("remains in 'setup' state after adding player", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.stop();
+    });
   });
 
   describe("player limits", () => {
-    it.todo("minimum 3 players required", () => {});
-    it.todo("maximum 8 players allowed", () => {});
-    it.todo("ADD_PLAYER rejected if already at 8 players", () => {});
+    it("minimum 3 players required", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      // Try to start with only 2 players - should stay in setup
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      // Add third player and try again
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("playing");
+      actor.stop();
+    });
+
+    it("maximum 8 players allowed", () => {
+      const actor = createActor(gameMachine).start();
+      // Add 8 players
+      for (let i = 0; i < 8; i++) {
+        actor.send({ type: "ADD_PLAYER", name: `Player${i}` });
+      }
+      expect(actor.getSnapshot().context.players.length).toBe(8);
+      actor.stop();
+    });
+
+    it("ADD_PLAYER rejected if already at 8 players", () => {
+      const actor = createActor(gameMachine).start();
+      // Add 8 players
+      for (let i = 0; i < 8; i++) {
+        actor.send({ type: "ADD_PLAYER", name: `Player${i}` });
+      }
+      expect(actor.getSnapshot().context.players.length).toBe(8);
+      // Try to add a 9th player - should be rejected
+      actor.send({ type: "ADD_PLAYER", name: "Player9" });
+      expect(actor.getSnapshot().context.players.length).toBe(8);
+      actor.stop();
+    });
   });
 
   describe("START_GAME command", () => {
-    it.todo("requires minimum 3 players (guard: hasMinPlayers)", () => {});
-    it.todo("rejected if fewer than 3 players", () => {});
-    it.todo("transitions to 'playing' state when valid", () => {});
-    it.todo("triggers initializePlayers action", () => {});
+    it("requires minimum 3 players (guard: hasMinPlayers)", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      // 2 players - should not transition
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.stop();
+    });
+
+    it("rejected if fewer than 3 players", () => {
+      const actor = createActor(gameMachine).start();
+      // 0 players
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      // 1 player
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.stop();
+    });
+
+    it("transitions to 'playing' state when valid", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("playing");
+      actor.stop();
+    });
+
+    it("triggers initializePlayers action", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+      // All players should be initialized with hand: [], isDown: false, totalScore: 0
+      const players = actor.getSnapshot().context.players;
+      for (const player of players) {
+        expect(player.hand).toEqual([]);
+        expect(player.isDown).toBe(false);
+        expect(player.totalScore).toBe(0);
+      }
+      actor.stop();
+    });
   });
 
   describe("START_GAME rejected scenarios", () => {
-    it.todo("rejected with 0 players", () => {});
-    it.todo("rejected with 1 player", () => {});
-    it.todo("rejected with 2 players", () => {});
+    it("rejected with 0 players", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.stop();
+    });
+
+    it("rejected with 1 player", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.stop();
+    });
+
+    it("rejected with 2 players", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      actor.stop();
+    });
+
     it.todo("error message: 'minimum 3 players required'", () => {});
-    it.todo("remains in 'setup' state on rejection", () => {});
+
+    it("remains in 'setup' state on rejection", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().value).toBe("setup");
+      expect(actor.getSnapshot().context.players.length).toBe(1);
+      actor.stop();
+    });
   });
 
   describe("initializePlayers action", () => {
-    it.todo("sets initial totalScore to 0 for all players", () => {});
-    it.todo("sets isDown to false for all players", () => {});
-    it.todo("clears any existing hand data", () => {});
-    it.todo("prepares players for round 1", () => {});
+    it("sets initial totalScore to 0 for all players", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+      for (const player of actor.getSnapshot().context.players) {
+        expect(player.totalScore).toBe(0);
+      }
+      actor.stop();
+    });
+
+    it("sets isDown to false for all players", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+      for (const player of actor.getSnapshot().context.players) {
+        expect(player.isDown).toBe(false);
+      }
+      actor.stop();
+    });
+
+    it("clears any existing hand data", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+      for (const player of actor.getSnapshot().context.players) {
+        expect(player.hand).toEqual([]);
+      }
+      actor.stop();
+    });
+
+    it("prepares players for round 1", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().context.currentRound).toBe(1);
+      expect(actor.getSnapshot().context.players.length).toBe(3);
+      actor.stop();
+    });
   });
 });
 

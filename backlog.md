@@ -324,12 +324,12 @@ Review specs/command-line-interface.md
 
 ### GameMachine (66 tests in gameMachine.test.ts)
 
-- [ ] Implement setup state - initial state (6 tests)
-- [ ] Implement ADD_PLAYER command (5 tests)
-- [ ] Implement player limits (3 tests)
-- [ ] Implement START_GAME command (4 tests)
-- [ ] Implement START_GAME rejected scenarios (5 tests)
-- [ ] Implement initializePlayers action (4 tests)
+- [x] Implement setup state - initial state (6 tests)
+- [x] Implement ADD_PLAYER command (5 tests)
+- [x] Implement player limits (3 tests)
+- [x] Implement START_GAME command (4 tests)
+- [~] Implement START_GAME rejected scenarios (4/5 tests done, 1 todo - error message)
+- [x] Implement initializePlayers action (4 tests)
 - [ ] Implement playing state - entering (3 tests)
 - [ ] Implement RoundMachine input (3 tests)
 - [ ] Implement round completion (4 tests)
