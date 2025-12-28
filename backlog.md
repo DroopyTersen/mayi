@@ -132,7 +132,7 @@ Review specs/command-line-interface.md
 - [x] Implement already down rejection (3 tests)
 - [x] Implement auto-transition to awaitingDiscard (3 tests)
 - [x] Implement turn end after laying down (2 tests)
-- [ ] Implement cannot lay off on same turn (3 tests)
+- [ ] Implement cannot lay off on same turn (3 tests) — requires Phase 4 (LAY_OFF command)
 - [x] Implement cannot lay down again (2 tests)
 - [x] Implement discard after laying down (4 tests)
 - [x] Implement turn output reflects lay down (3 tests)
@@ -149,7 +149,7 @@ Review specs/command-line-interface.md
 - [x] Implement isDown initial state (2 tests)
 - [x] Implement isDown after laying down (3 tests)
 - [x] Implement multiple players down tracking (3 tests)
-- [ ] Implement round transition isDown reset (1 test)
+- [ ] Implement round transition isDown reset (1 test) — requires Phase 4+ (round transitions)
 - [x] Fix typecheck errors
 
 ### Guards (39 tests in guards.test.ts)
@@ -192,17 +192,17 @@ Review specs/command-line-interface.md
 - [x] Implement edge case: same rank from multiple decks (4 tests)
 - [x] Fix typecheck errors
 
-### CLI Lay Down (20 tests in cli.laydown.test.ts)
+### CLI Lay Down (19 tests in cli.laydown.test.ts)
 
 > Review specs/command-line-ux.md and make sure we've implemented everything we need to for the cli gameplay
 
-- [ ] Implement parseLayDownInput card selection syntax (6 tests)
-- [ ] Implement meld type inference (3 tests)
-- [ ] Implement input validation (4 tests)
-- [ ] Fix typecheck errors
-- [ ] Implement alternative syntaxes (1 test)
-- [ ] Implement lay down confirmation flow (5 tests)
-- [ ] Fix typecheck errors
+- [x] Implement parseLayDownInput card selection syntax (6 tests)
+- [x] Implement meld type inference (3 tests)
+- [x] Implement input validation (4 tests)
+- [x] Fix typecheck errors
+- [x] Implement alternative syntaxes (1 test)
+- [x] Implement lay down confirmation flow (5 tests)
+- [x] Fix typecheck errors
 
 ---
 
