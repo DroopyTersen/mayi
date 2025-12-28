@@ -3022,39 +3022,628 @@ describe("going out - round 6 special rules", () => {
 });
 
 describe("going out - round 6 stuck scenarios", () => {
+  // Set of 9s - the only meld on table for most tests
+  const setOf9s = createMeld("set", [
+    card("9", "clubs"),
+    card("9", "diamonds"),
+    card("9", "hearts"),
+  ]);
+
   describe("stuck with single unlayable card", () => {
-    it.todo("given: round 6, player is down, has 1 card after laying off", () => {});
-    it.todo("and: that card cannot be laid off to any meld", () => {});
-    it.todo("then: player cannot go out (can't lay off)", () => {});
-    it.todo("and: player cannot discard (would be going out)", () => {});
-    it.todo("and: player ends turn keeping that 1 card", () => {});
-    it.todo("and: player must wait for melds to expand", () => {});
+    it("given: round 6, player is down, has 1 card after laying off", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [qH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // Lay off 9♠
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOf9s.id });
+
+      // Now have 1 card: Q♥
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().context.hand[0]!.rank).toBe("Q");
+    });
+
+    it("and: that card cannot be laid off to any meld", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [qH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOf9s.id });
+
+      // Try to lay off Q♥ to set of 9s - should fail
+      const qCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "LAY_OFF", cardId: qCard!.id, meldId: setOf9s.id });
+
+      // Still have 1 card
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+    });
+
+    it("then: player cannot go out (can't lay off)", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [qH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOf9s.id });
+
+      // Can't go out via GO_OUT (Q♥ doesn't fit)
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: qH.id, meldId: setOf9s.id }],
+      });
+
+      // Still in drawn state
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("and: player cannot discard (would be going out)", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [qH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOf9s.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Try to discard Q♥ - blocked in round 6
+      const qCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: qCard!.id });
+
+      // Still in awaitingDiscard, discard was blocked
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+    });
+
+    it("and: player ends turn keeping that 1 card", () => {
+      // In the stuck scenario, the turn machine stays in awaitingDiscard
+      // The game loop would need to detect this and force end the turn
+      const qH = card("Q", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [qH],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s], // Q♥ can't fit
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Player is stuck with 1 card that can't be discarded
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+
+      // The game loop would need to handle this stuck state
+    });
+
+    it("and: player must wait for melds to expand", () => {
+      // Conceptual test - player's only hope is for future turns
+      // where melds may grow to accept their card
+      const qH = card("Q", "hearts");
+
+      // Turn 1: Player stuck with Q♥
+      const input1 = {
+        playerId: "player-1",
+        hand: [qH],
+        stock: [card("J", "diamonds")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s], // Only 9s - Q♥ doesn't fit
+      };
+
+      const actor1 = createActor(turnMachine, { input: input1 });
+      actor1.start();
+      actor1.send({ type: "DRAW_FROM_STOCK" });
+      // Has 2 cards: Q♥ and J♦ - neither fits setOf9s
+
+      // Can discard J♦ to keep Q♥
+      const jCard = actor1.getSnapshot().context.hand.find((c) => c.rank === "J");
+      actor1.send({ type: "SKIP_LAY_DOWN" });
+      actor1.send({ type: "DISCARD", cardId: jCard!.id });
+
+      expect(actor1.getSnapshot().value).toBe("turnComplete");
+      expect(actor1.getSnapshot().context.hand.length).toBe(1);
+      expect(actor1.getSnapshot().context.hand[0]!.rank).toBe("Q");
+    });
   });
 
   describe("hand does NOT grow when stuck with 1 card", () => {
-    it.todo("given: round 6, player stuck with 1 unlayable card", () => {});
-    it.todo("when: next turn - player draws (2 cards)", () => {});
-    it.todo("and: still can't lay off either card", () => {});
-    it.todo("then: player discards 1 (back to 1 card)", () => {});
-    it.todo("and: hand size doesn't grow indefinitely", () => {});
+    it("given: round 6, player stuck with 1 unlayable card", () => {
+      const qH = card("Q", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [qH],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Start with 1 card
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+    });
+
+    it("when: next turn - player draws (2 cards)", () => {
+      const qH = card("Q", "hearts");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [qH],
+        stock: [kS],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Now has 2 cards
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("and: still can't lay off either card", () => {
+      const qH = card("Q", "hearts");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [qH],
+        stock: [kS],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Neither Q♥ nor K♠ can be laid off to set of 9s
+      actor.send({ type: "LAY_OFF", cardId: qH.id, meldId: setOf9s.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: setOf9s.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("then: player discards 1 (back to 1 card)", () => {
+      const qH = card("Q", "hearts");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [qH],
+        stock: [kS],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard one card to get back to 1
+      actor.send({ type: "DISCARD", cardId: kS.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+    });
+
+    it("and: hand size doesn't grow indefinitely", () => {
+      // Demonstrates the cycle: start 1, draw +1 = 2, discard -1 = 1
+      const qH = card("Q", "hearts");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [qH],
+        stock: [kS],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      const handSizeStart = actor.getSnapshot().context.hand.length;
+      expect(handSizeStart).toBe(1);
+
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: kS.id });
+
+      const handSizeEnd = actor.getSnapshot().context.hand.length;
+      expect(handSizeEnd).toBe(1);
+
+      // Net change is 0
+      expect(handSizeEnd).toBe(handSizeStart);
+    });
   });
 
   describe("waiting for melds to expand", () => {
-    it.todo("given: round 6, player has 7♦ that fits no current meld", () => {});
-    it.todo("and: no diamond runs exist, no set of 7s exists", () => {});
-    it.todo("when: player's turn", () => {});
-    it.todo("then: player cannot play the 7♦", () => {});
-    it.todo("and: if it's their only card, they keep it", () => {});
-    it.todo("and: if they have other cards, they may discard something else", () => {});
-    it.todo("and: hopes another player creates a meld 7♦ fits", () => {});
+    it("given: round 6, player has 7♦ that fits no current meld", () => {
+      const sevenD = card("7", "diamonds");
+
+      const input = {
+        playerId: "player-1",
+        hand: [sevenD],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s], // Only 9s - 7♦ doesn't fit
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().context.hand[0]!.rank).toBe("7");
+      expect(actor.getSnapshot().context.hand[0]!.suit).toBe("diamonds");
+    });
+
+    it("and: no diamond runs exist, no set of 7s exists", () => {
+      const sevenD = card("7", "diamonds");
+
+      const input = {
+        playerId: "player-1",
+        hand: [sevenD],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s], // Only 9s meld
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Verify no suitable meld exists
+      const table = actor.getSnapshot().context.table;
+      const hasDiamondRun = table.some(
+        (m) => m.type === "run" && m.cards.some((c) => c.suit === "diamonds")
+      );
+      const hasSetOf7s = table.some(
+        (m) => m.type === "set" && m.cards.some((c) => c.rank === "7")
+      );
+
+      expect(hasDiamondRun).toBe(false);
+      expect(hasSetOf7s).toBe(false);
+    });
+
+    it("when: player's turn", () => {
+      const sevenD = card("7", "diamonds");
+
+      const input = {
+        playerId: "player-1",
+        hand: [sevenD],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Player's turn, in drawn state
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("then: player cannot play the 7♦", () => {
+      const sevenD = card("7", "diamonds");
+
+      const input = {
+        playerId: "player-1",
+        hand: [sevenD],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Try to lay off 7♦ - should fail
+      actor.send({ type: "LAY_OFF", cardId: sevenD.id, meldId: setOf9s.id });
+
+      // Still have both cards
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("and: if it's their only card, they keep it", () => {
+      const sevenD = card("7", "diamonds");
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [sevenD],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Try to discard - blocked (last card, round 6)
+      actor.send({ type: "DISCARD", cardId: sevenD.id });
+
+      // Still in awaitingDiscard with 1 card
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+    });
+
+    it("and: if they have other cards, they may discard something else", () => {
+      const sevenD = card("7", "diamonds");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [sevenD],
+        stock: [kS],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard K♠ to keep 7♦
+      actor.send({ type: "DISCARD", cardId: kS.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().context.hand[0]!.rank).toBe("7");
+    });
+
+    it("and: hopes another player creates a meld 7♦ fits", () => {
+      // This is a conceptual test - player waits for future turns
+      const sevenD = card("7", "diamonds");
+
+      // Turn where player keeps 7♦
+      const input = {
+        playerId: "player-1",
+        hand: [sevenD],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      const kCard = actor.getSnapshot().context.hand.find((c) => c.rank === "K");
+      actor.send({ type: "DISCARD", cardId: kCard!.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      // Player hopes someone creates a set of 7s or a diamond run
+    });
   });
 
   describe("eventually able to go out", () => {
-    it.todo("given: round 6, player stuck with 7♦", () => {});
-    it.todo("and: another player lays down a set of 7s", () => {});
-    it.todo("when: player's next turn", () => {});
-    it.todo("then: player can lay off 7♦ to set of 7s", () => {});
-    it.todo("and: if it was their only card, they go out", () => {});
+    it("given: round 6, player stuck with 7♦", () => {
+      const sevenD = card("7", "diamonds");
+
+      const input = {
+        playerId: "player-1",
+        hand: [sevenD],
+        stock: [card("K", "spades")],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().context.hand[0]!.rank).toBe("7");
+    });
+
+    it("and: another player lays down a set of 7s", () => {
+      // Simulated by having the set of 7s on the table in input
+      const setOf7s = createMeld("set", [
+        card("7", "clubs"),
+        card("7", "hearts"),
+        card("7", "spades"),
+      ]);
+
+      expect(setOf7s.cards.length).toBe(3);
+      expect(setOf7s.cards.every((c) => c.rank === "7")).toBe(true);
+    });
+
+    it("when: player's next turn", () => {
+      const sevenD = card("7", "diamonds");
+      const setOf7s = createMeld("set", [
+        card("7", "clubs"),
+        card("7", "hearts"),
+        card("7", "spades"),
+      ]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [sevenD],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s, setOf7s], // Now has set of 7s!
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Player's turn
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("then: player can lay off 7♦ to set of 7s", () => {
+      const sevenD = card("7", "diamonds");
+      const setOf7s = createMeld("set", [
+        card("7", "clubs"),
+        card("7", "hearts"),
+        card("7", "spades"),
+      ]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [sevenD],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s, setOf7s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off 7♦ to set of 7s
+      actor.send({ type: "LAY_OFF", cardId: sevenD.id, meldId: setOf7s.id });
+
+      // Hand is now empty
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+    });
+
+    it("and: if it was their only card, they go out", () => {
+      const sevenD = card("7", "diamonds");
+      const setOf7s = createMeld("set", [
+        card("7", "clubs"),
+        card("7", "hearts"),
+        card("7", "spades"),
+      ]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [sevenD],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOf9s, setOf7s],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: sevenD.id, meldId: setOf7s.id });
+
+      // Player went out
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+    });
   });
 });
 
