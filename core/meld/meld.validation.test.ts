@@ -1,57 +1,166 @@
 import { describe, it, expect } from "bun:test";
-import { countWildsAndNaturals, wildsOutnumberNaturals } from "./meld.validation";
+import { countWildsAndNaturals, wildsOutnumberNaturals, isValidSet } from "./meld.validation";
 import type { Card } from "../card/card.types";
 
 // Helper to create cards for testing
+let cardId = 0;
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
-  return { id: `${rank}-${suit}`, suit, rank };
+  return { id: `card-${cardId++}`, suit, rank };
 }
 
 function joker(): Card {
-  return { id: "joker", suit: null, rank: "Joker" };
+  return { id: `joker-${cardId++}`, suit: null, rank: "Joker" };
 }
 
 describe("isValidSet", () => {
   describe("valid sets - naturals only", () => {
-    it.todo("valid: exactly 3 cards of same rank (9♣ 9♦ 9♥)");
-    it.todo("valid: 4 cards of same rank (K♣ K♦ K♥ K♠)");
-    it.todo("valid: 5 cards of same rank — multi-deck allows this");
-    it.todo("valid: 6+ cards of same rank (with multiple decks)");
-    it.todo("valid: duplicate suits allowed (9♣ 9♣ 9♦) — multi-deck scenario");
-    it.todo("valid: all same suit allowed (9♣ 9♣ 9♣) — weird but legal with 3 decks");
+    it("valid: exactly 3 cards of same rank (9♣ 9♦ 9♥)", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 4 cards of same rank (K♣ K♦ K♥ K♠)", () => {
+      const cards = [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts"), card("K", "spades")];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 5 cards of same rank — multi-deck allows this", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"), card("9", "spades"), card("9", "clubs")];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 6+ cards of same rank (with multiple decks)", () => {
+      const cards = [
+        card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"),
+        card("9", "spades"), card("9", "clubs"), card("9", "diamonds")
+      ];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: duplicate suits allowed (9♣ 9♣ 9♦) — multi-deck scenario", () => {
+      const cards = [card("9", "clubs"), card("9", "clubs"), card("9", "diamonds")];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: all same suit allowed (9♣ 9♣ 9♣) — weird but legal with 3 decks", () => {
+      const cards = [card("9", "clubs"), card("9", "clubs"), card("9", "clubs")];
+      expect(isValidSet(cards)).toBe(true);
+    });
   });
 
   describe("valid sets - with wilds", () => {
-    it.todo("valid: 2 naturals + 1 Joker (9♣ 9♦ Joker)");
-    it.todo("valid: 2 naturals + 1 two (9♣ 9♦ 2♥)");
-    it.todo("valid: 3 naturals + 1 wild (9♣ 9♦ 9♥ Joker)");
-    it.todo("valid: 3 naturals + 2 wilds (9♣ 9♦ 9♥ 2♠ Joker)");
-    it.todo("valid: 2 naturals + 2 wilds (9♣ 9♦ 2♥ Joker) — equal count is OK");
-    it.todo("valid: 4 naturals + 4 wilds — equal count still OK");
-    it.todo("valid: mix of 2s and Jokers as wilds");
+    it("valid: 2 naturals + 1 Joker (9♣ 9♦ Joker)", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), joker()];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 2 naturals + 1 two (9♣ 9♦ 2♥)", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), card("2", "hearts")];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 3 naturals + 1 wild (9♣ 9♦ 9♥ Joker)", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"), joker()];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 3 naturals + 2 wilds (9♣ 9♦ 9♥ 2♠ Joker)", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"), card("2", "spades"), joker()];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 2 naturals + 2 wilds (9♣ 9♦ 2♥ Joker) — equal count is OK", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), card("2", "hearts"), joker()];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: 4 naturals + 4 wilds — equal count still OK", () => {
+      const cards = [
+        card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"), card("9", "spades"),
+        joker(), joker(), card("2", "hearts"), card("2", "spades")
+      ];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: mix of 2s and Jokers as wilds", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), card("2", "hearts"), joker()];
+      expect(isValidSet(cards)).toBe(true);
+    });
   });
 
   describe("invalid sets - structure", () => {
-    it.todo("invalid: fewer than 3 cards (9♣ 9♦)");
-    it.todo("invalid: only 1 card");
-    it.todo("invalid: empty array");
-    it.todo("invalid: different ranks without wilds (9♣ 10♦ J♥)");
-    it.todo("invalid: different ranks even with wild present (9♣ 10♦ Joker)");
+    it("invalid: fewer than 3 cards (9♣ 9♦)", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds")];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: only 1 card", () => {
+      const cards = [card("9", "clubs")];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: empty array", () => {
+      expect(isValidSet([])).toBe(false);
+    });
+
+    it("invalid: different ranks without wilds (9♣ 10♦ J♥)", () => {
+      const cards = [card("9", "clubs"), card("10", "diamonds"), card("J", "hearts")];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: different ranks even with wild present (9♣ 10♦ Joker)", () => {
+      const cards = [card("9", "clubs"), card("10", "diamonds"), joker()];
+      expect(isValidSet(cards)).toBe(false);
+    });
   });
 
   describe("invalid sets - wild ratio", () => {
-    it.todo("invalid: 1 natural + 2 wilds (9♣ Joker Joker)");
-    it.todo("invalid: 1 natural + 2 twos (9♣ 2♥ 2♦)");
-    it.todo("invalid: 1 natural + 1 Joker + 1 two (9♣ Joker 2♥)");
-    it.todo("invalid: 2 naturals + 3 wilds");
-    it.todo("invalid: all wilds (Joker Joker 2♣)");
-    it.todo("invalid: 0 naturals + any wilds");
+    it("invalid: 1 natural + 2 wilds (9♣ Joker Joker)", () => {
+      const cards = [card("9", "clubs"), joker(), joker()];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: 1 natural + 2 twos (9♣ 2♥ 2♦)", () => {
+      const cards = [card("9", "clubs"), card("2", "hearts"), card("2", "diamonds")];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: 1 natural + 1 Joker + 1 two (9♣ Joker 2♥)", () => {
+      const cards = [card("9", "clubs"), joker(), card("2", "hearts")];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: 2 naturals + 3 wilds", () => {
+      const cards = [card("9", "clubs"), card("9", "diamonds"), joker(), joker(), card("2", "hearts")];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: all wilds (Joker Joker 2♣)", () => {
+      const cards = [joker(), joker(), card("2", "clubs")];
+      expect(isValidSet(cards)).toBe(false);
+    });
+
+    it("invalid: 0 naturals + any wilds", () => {
+      const cards = [joker(), card("2", "hearts")];
+      expect(isValidSet(cards)).toBe(false);
+    });
   });
 
   describe("edge cases", () => {
-    it.todo("valid: set of Aces (A♣ A♦ A♥)");
-    it.todo("valid: set of 3s — lowest non-wild rank (3♣ 3♦ 3♥)");
-    it.todo("invalid: set of 2s (2♣ 2♦ 2♥) — 0 naturals, all wilds");
+    it("valid: set of Aces (A♣ A♦ A♥)", () => {
+      const cards = [card("A", "clubs"), card("A", "diamonds"), card("A", "hearts")];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("valid: set of 3s — lowest non-wild rank (3♣ 3♦ 3♥)", () => {
+      const cards = [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")];
+      expect(isValidSet(cards)).toBe(true);
+    });
+
+    it("invalid: set of 2s (2♣ 2♦ 2♥) — 0 naturals, all wilds", () => {
+      const cards = [card("2", "clubs"), card("2", "diamonds"), card("2", "hearts")];
+      expect(isValidSet(cards)).toBe(false);
+    });
   });
 });
 

@@ -12,7 +12,7 @@
 - [x] Deal function (`deal`)
 - [x] Review specs/phase1-tests.md and scaffold out all tests (72 todo tests in meld.validation.test.ts)
 - [x] Helper functions: `countWildsAndNaturals`, `wildsOutnumberNaturals`
-- [ ] Set validation (`isValidSet`)
+- [x] Set validation (`isValidSet`)
 - [ ] Run validation (`isValidRun`)
 - [ ] Rank ordering utilities (`getRankValue`, `compareRanks`) — needed for run validation
 - [ ] Joker position identification (`identifyJokerPosition`, `canSwapJokerWithCard`)
