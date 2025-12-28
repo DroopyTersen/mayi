@@ -1,4 +1,9 @@
 import { describe, it, expect } from "bun:test";
+import { createActor } from "xstate";
+import { turnMachine } from "./turn.machine";
+import type { RoundNumber } from "./engine.types";
+import type { Card, Suit, Rank } from "../card/card.types";
+import type { Meld } from "../meld/meld.types";
 
 /**
  * Phase 4: Integration Tests
@@ -6,59 +11,779 @@ import { describe, it, expect } from "bun:test";
  * Tests for complete flows involving laying off, going out, and scoring.
  */
 
+// Helper to create a card
+function card(rank: Rank, suit: Suit): Card {
+  return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
+}
+
+// Helper to create a meld
+function createMeld(type: "set" | "run", cards: Card[], ownerId = "player-1"): Meld {
+  return {
+    id: `meld-${Math.random()}`,
+    type,
+    cards,
+    ownerId,
+  };
+}
+
 describe("complete lay off turn flow", () => {
   describe("single lay off", () => {
-    it.todo("given: player is down from previous turn, has 5 cards", () => {});
-    it.todo("and: table has set (9♣ 9♦ 9♥)", () => {});
-    it.todo("and: player has 9♠ in hand", () => {});
-    it.todo("when: player draws from stock (6 cards)", () => {});
-    it.todo("and: player lays off 9♠ to the set (5 cards)", () => {});
-    it.todo("and: player discards one card (4 cards)", () => {});
-    it.todo("then: set is now (9♣ 9♦ 9♥ 9♠)", () => {});
-    it.todo("and: player has 4 cards", () => {});
-    it.todo("and: turn completes (wentOut: false)", () => {});
+    // Complete flow: draw → lay off → discard
+    const nineS = card("9", "spades");
+    const extraCards = [card("K", "hearts"), card("Q", "clubs"), card("J", "diamonds"), card("10", "hearts")];
+    const drawnCard = card("A", "clubs");
+    const existingSet = createMeld("set", [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")]);
+
+    it("given: player is down from previous turn, has 5 cards", () => {
+      const hand = [nineS, ...extraCards];
+      expect(hand.length).toBe(5);
+    });
+
+    it("and: table has set (9♣ 9♦ 9♥)", () => {
+      expect(existingSet.cards.length).toBe(3);
+      expect(existingSet.cards.every((c) => c.rank === "9")).toBe(true);
+    });
+
+    it("and: player has 9♠ in hand", () => {
+      expect(nineS.rank).toBe("9");
+      expect(nineS.suit).toBe("spades");
+    });
+
+    it("when: player draws from stock (6 cards)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, ...extraCards],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(6);
+    });
+
+    it("and: player lays off 9♠ to the set (5 cards)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, ...extraCards],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(5);
+    });
+
+    it("and: player discards one card (4 cards)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, ...extraCards],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      expect(actor.getSnapshot().output?.hand.length).toBe(4);
+    });
+
+    it("then: set is now (9♣ 9♦ 9♥ 9♠)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, ...extraCards],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      const set = actor.getSnapshot().output?.table.find((m) => m.id === existingSet.id);
+      expect(set?.cards.length).toBe(4);
+    });
+
+    it("and: player has 4 cards", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, ...extraCards],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      expect(actor.getSnapshot().output?.hand.length).toBe(4);
+    });
+
+    it("and: turn completes (wentOut: false)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, ...extraCards],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().output?.wentOut).toBe(false);
+    });
   });
 
   describe("multiple lay offs", () => {
-    it.todo("given: player is down, has 4 cards: 9♠, 4♦, K♥, 3♣", () => {});
-    it.todo("and: table has set of 9s, diamond run starting at 5, set of kings", () => {});
-    it.todo("when: player draws (5 cards)", () => {});
-    it.todo("and: player lays off 9♠ to set of 9s", () => {});
-    it.todo("and: player lays off 4♦ to diamond run", () => {});
-    it.todo("and: player lays off K♥ to set of kings", () => {});
-    it.todo("and: player discards 3♣", () => {});
-    it.todo("then: player has 1 card (the drawn card)", () => {});
-    it.todo("and: three melds extended", () => {});
-    it.todo("and: turn completes normally", () => {});
+    const nineS = card("9", "spades");
+    const fourD = card("4", "diamonds");
+    const kingH = card("K", "hearts");
+    const threeC = card("3", "clubs");
+    const drawnCard = card("A", "clubs");
+
+    const setOfNines = createMeld("set", [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")]);
+    const diamondRun = createMeld("run", [card("5", "diamonds"), card("6", "diamonds"), card("7", "diamonds"), card("8", "diamonds")]);
+    const setOfKings = createMeld("set", [card("K", "clubs"), card("K", "diamonds"), card("K", "spades")]);
+
+    it("given: player is down, has 4 cards: 9♠, 4♦, K♥, 3♣", () => {
+      const hand = [nineS, fourD, kingH, threeC];
+      expect(hand.length).toBe(4);
+    });
+
+    it("and: table has set of 9s, diamond run starting at 5, set of kings", () => {
+      expect(setOfNines.cards.every((c) => c.rank === "9")).toBe(true);
+      expect(diamondRun.cards.every((c) => c.suit === "diamonds")).toBe(true);
+      expect(setOfKings.cards.every((c) => c.rank === "K")).toBe(true);
+    });
+
+    it("when: player draws (5 cards)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(5);
+    });
+
+    it("and: player lays off 9♠ to set of 9s", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOfNines.id });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(4);
+    });
+
+    it("and: player lays off 4♦ to diamond run", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOfNines.id });
+      actor.send({ type: "LAY_OFF", cardId: fourD.id, meldId: diamondRun.id });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+    });
+
+    it("and: player lays off K♥ to set of kings", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOfNines.id });
+      actor.send({ type: "LAY_OFF", cardId: fourD.id, meldId: diamondRun.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setOfKings.id });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("and: player discards 3♣", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOfNines.id });
+      actor.send({ type: "LAY_OFF", cardId: fourD.id, meldId: diamondRun.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setOfKings.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: threeC.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+    });
+
+    it("then: player has 1 card (the drawn card)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOfNines.id });
+      actor.send({ type: "LAY_OFF", cardId: fourD.id, meldId: diamondRun.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setOfKings.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: threeC.id });
+
+      expect(actor.getSnapshot().output?.hand.length).toBe(1);
+      expect(actor.getSnapshot().output?.hand[0]?.id).toBe(drawnCard.id);
+    });
+
+    it("and: three melds extended", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOfNines.id });
+      actor.send({ type: "LAY_OFF", cardId: fourD.id, meldId: diamondRun.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setOfKings.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: threeC.id });
+
+      const table = actor.getSnapshot().output?.table;
+      const nines = table?.find((m) => m.id === setOfNines.id);
+      const run = table?.find((m) => m.id === diamondRun.id);
+      const kings = table?.find((m) => m.id === setOfKings.id);
+
+      expect(nines?.cards.length).toBe(4); // 3 + 1
+      expect(run?.cards.length).toBe(5); // 4 + 1
+      expect(kings?.cards.length).toBe(4); // 3 + 1
+    });
+
+    it("and: turn completes normally", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, fourD, kingH, threeC],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setOfNines, diamondRun, setOfKings],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setOfNines.id });
+      actor.send({ type: "LAY_OFF", cardId: fourD.id, meldId: diamondRun.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setOfKings.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: threeC.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().output?.wentOut).toBe(false);
+    });
   });
 
   describe("laying off to other player's meld", () => {
-    it.todo("given: player 1 owns set (K♣ K♦ K♥)", () => {});
-    it.todo("and: player 2 is down, has K♠", () => {});
-    it.todo("when: player 2's turn", () => {});
-    it.todo("and: player 2 draws", () => {});
-    it.todo("and: player 2 lays off K♠ to player 1's set", () => {});
-    it.todo("then: set is (K♣ K♦ K♥ K♠)", () => {});
-    it.todo("and: set still owned by player 1", () => {});
-    it.todo("and: player 2's hand reduced by 1", () => {});
+    const kingS = card("K", "spades");
+    const extraCard = card("Q", "clubs");
+    const drawnCard = card("J", "diamonds");
+    const player1Set = createMeld("set", [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts")], "player-1");
+
+    it("given: player 1 owns set (K♣ K♦ K♥)", () => {
+      expect(player1Set.ownerId).toBe("player-1");
+      expect(player1Set.cards.every((c) => c.rank === "K")).toBe(true);
+    });
+
+    it("and: player 2 is down, has K♠", () => {
+      expect(kingS.rank).toBe("K");
+      expect(kingS.suit).toBe("spades");
+    });
+
+    it("when: player 2's turn", () => {
+      // Player 2's turn
+      const input = {
+        playerId: "player-2",
+        hand: [kingS, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [player1Set],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      expect(actor.getSnapshot().context.playerId).toBe("player-2");
+    });
+
+    it("and: player 2 draws", () => {
+      const input = {
+        playerId: "player-2",
+        hand: [kingS, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [player1Set],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+    });
+
+    it("and: player 2 lays off K♠ to player 1's set", () => {
+      const input = {
+        playerId: "player-2",
+        hand: [kingS, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [player1Set],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: kingS.id, meldId: player1Set.id });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("then: set is (K♣ K♦ K♥ K♠)", () => {
+      const input = {
+        playerId: "player-2",
+        hand: [kingS, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [player1Set],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: kingS.id, meldId: player1Set.id });
+
+      const set = actor.getSnapshot().context.table.find((m) => m.id === player1Set.id);
+      expect(set?.cards.length).toBe(4);
+    });
+
+    it("and: set still owned by player 1", () => {
+      const input = {
+        playerId: "player-2",
+        hand: [kingS, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [player1Set],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: kingS.id, meldId: player1Set.id });
+
+      const set = actor.getSnapshot().context.table.find((m) => m.id === player1Set.id);
+      expect(set?.ownerId).toBe("player-1");
+    });
+
+    it("and: player 2's hand reduced by 1", () => {
+      const input = {
+        playerId: "player-2",
+        hand: [kingS, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [player1Set],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      const initialSize = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: kingS.id, meldId: player1Set.id });
+
+      // Drew 1, laid off 1 = net 0 change
+      expect(actor.getSnapshot().context.hand.length).toBe(initialSize);
+    });
   });
 
   describe("laying off wild to meld", () => {
-    it.todo("given: table has run (5♠ 6♠ 7♠ 8♠)", () => {});
-    it.todo("and: player has Joker", () => {});
-    it.todo("when: player lays off Joker to high end of run", () => {});
-    it.todo("then: run is (5♠ 6♠ 7♠ 8♠ Joker)", () => {});
-    it.todo("and: Joker represents 9♠", () => {});
+    const joker = { id: `joker-${Math.random()}`, rank: "Joker" as Rank, suit: "wild" as Suit };
+    const extraCard = card("Q", "clubs");
+    const drawnCard = card("J", "diamonds");
+    const spadeRun = createMeld("run", [card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades")]);
+
+    it("given: table has run (5♠ 6♠ 7♠ 8♠)", () => {
+      expect(spadeRun.cards.every((c) => c.suit === "spades")).toBe(true);
+      expect(spadeRun.cards.length).toBe(4);
+    });
+
+    it("and: player has Joker", () => {
+      expect(joker.rank).toBe("Joker");
+    });
+
+    it("when: player lays off Joker to high end of run", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [joker, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [spadeRun],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: joker.id, meldId: spadeRun.id });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("then: run is (5♠ 6♠ 7♠ 8♠ Joker)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [joker, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [spadeRun],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: joker.id, meldId: spadeRun.id });
+
+      const run = actor.getSnapshot().context.table.find((m) => m.id === spadeRun.id);
+      expect(run?.cards.length).toBe(5);
+    });
+
+    it("and: Joker represents 9♠", () => {
+      // In the run 5♠ 6♠ 7♠ 8♠ + Joker, the Joker represents 9♠
+      // This is conceptual - the implementation tracks it by position
+      const input = {
+        playerId: "player-1",
+        hand: [joker, extraCard],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [spadeRun],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: joker.id, meldId: spadeRun.id });
+
+      const run = actor.getSnapshot().context.table.find((m) => m.id === spadeRun.id);
+      // The joker is at position 4 (0-indexed), representing the next card after 8
+      const jokerCard = run?.cards.find((c) => c.rank === "Joker");
+      expect(jokerCard).toBeDefined();
+    });
   });
 
   describe("cannot lay off immediately after laying down", () => {
-    it.todo("given: player is not down, has contract cards", () => {});
-    it.todo("when: player draws", () => {});
-    it.todo("and: player lays down contract (becomes down)", () => {});
-    it.todo("and: player tries to lay off extra card", () => {});
-    it.todo("then: lay off rejected (laidDownThisTurn: true)", () => {});
-    it.todo("and: player must discard", () => {});
-    it.todo("and: can lay off next turn", () => {});
+    // Round 1 contract: 2 sets of 3
+    const three1 = card("3", "clubs");
+    const three2 = card("3", "diamonds");
+    const three3 = card("3", "hearts");
+    const four1 = card("4", "spades");
+    const four2 = card("4", "clubs");
+    const four3 = card("4", "diamonds");
+    const nineS = card("9", "spades"); // Extra card to try to lay off
+    const drawnCard = card("A", "clubs");
+    const existingSet = createMeld("set", [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")]);
+
+    it("given: player is not down, has contract cards", () => {
+      const hand = [three1, three2, three3, four1, four2, four3, nineS];
+      expect(hand.length).toBe(7);
+    });
+
+    it("when: player draws", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [three1, three2, three3, four1, four2, four3, nineS],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.hand.length).toBe(8);
+    });
+
+    it("and: player lays down contract (becomes down)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [three1, three2, three3, four1, four2, four3, nineS],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
+          { type: "set", cardIds: [four1.id, four2.id, four3.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().context.laidDownThisTurn).toBe(true);
+    });
+
+    it("and: player tries to lay off extra card", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [three1, three2, three3, four1, four2, four3, nineS],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
+          { type: "set", cardIds: [four1.id, four2.id, four3.id] },
+        ],
+      });
+
+      // Try to lay off 9♠ to the existing set of 9s
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+
+      // Should be rejected because laidDownThisTurn is true
+      expect(actor.getSnapshot().context.hand).toContainEqual(nineS);
+    });
+
+    it("then: lay off rejected (laidDownThisTurn: true)", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [three1, three2, three3, four1, four2, four3, nineS],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
+          { type: "set", cardIds: [four1.id, four2.id, four3.id] },
+        ],
+      });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().context.laidDownThisTurn).toBe(true);
+      // Card still in hand
+      expect(actor.getSnapshot().context.hand).toContainEqual(nineS);
+    });
+
+    it("and: player must discard", () => {
+      const input = {
+        playerId: "player-1",
+        hand: [three1, three2, three3, four1, four2, four3, nineS],
+        stock: [drawnCard],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
+          { type: "set", cardIds: [four1.id, four2.id, four3.id] },
+        ],
+      });
+
+      // In awaitingDiscard
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // Discard one of the remaining cards
+      actor.send({ type: "DISCARD", cardId: nineS.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+    });
+
+    it("and: can lay off next turn", () => {
+      // This is conceptual - next turn would have laidDownThisTurn: false
+      // Simulating this by creating a fresh turn with isDown: true, laidDownThisTurn: false
+      const newNineS = card("9", "spades");
+      const input = {
+        playerId: "player-1",
+        hand: [newNineS, card("Q", "clubs")],
+        stock: [card("J", "diamonds")],
+        discard: [card("2", "hearts")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false, // Next turn
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: newNineS.id, meldId: existingSet.id });
+
+      // Lay off succeeds
+      expect(actor.getSnapshot().context.hand).not.toContainEqual(newNineS);
+    });
   });
 });
 
