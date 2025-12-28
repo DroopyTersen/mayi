@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { parseDrawCommand, parseDiscardCommand } from "./cli.input";
+import { parseDrawCommand, parseDiscardCommand, parseReorderCommand } from "./cli.input";
 
 describe("parseDrawCommand", () => {
   it("'d' or '1' returns DRAW_FROM_STOCK", () => {
@@ -67,11 +67,34 @@ describe("parseDiscardCommand", () => {
 });
 
 describe("parseReorderCommand", () => {
-  it.todo("'sort rank' returns sort by rank action", () => {});
+  it("'sort rank' returns sort by rank action", () => {
+    expect(parseReorderCommand("sort rank", 5)).toEqual({ type: "SORT_BY_RANK" });
+    expect(parseReorderCommand("Sort Rank", 5)).toEqual({ type: "SORT_BY_RANK" });
+    expect(parseReorderCommand(" sort rank ", 5)).toEqual({ type: "SORT_BY_RANK" });
+  });
 
-  it.todo("'sort suit' returns sort by suit action", () => {});
+  it("'sort suit' returns sort by suit action", () => {
+    expect(parseReorderCommand("sort suit", 5)).toEqual({ type: "SORT_BY_SUIT" });
+    expect(parseReorderCommand("Sort Suit", 5)).toEqual({ type: "SORT_BY_SUIT" });
+  });
 
-  it.todo("'move 5 1' returns move card from pos 5 to pos 1", () => {});
+  it("'move 5 1' returns move card from pos 5 to pos 1", () => {
+    expect(parseReorderCommand("move 5 1", 5)).toEqual({ type: "MOVE", fromPosition: 5, toPosition: 1 });
+    expect(parseReorderCommand("Move 3 2", 5)).toEqual({ type: "MOVE", fromPosition: 3, toPosition: 2 });
+    expect(parseReorderCommand("move  5  1", 5)).toEqual({ type: "MOVE", fromPosition: 5, toPosition: 1 });
+  });
 
-  it.todo("validates positions are within hand size", () => {});
+  it("validates positions are within hand size", () => {
+    // Position 0 is invalid
+    const result0 = parseReorderCommand("move 0 1", 5);
+    expect(result0.type).toBe("error");
+
+    // Position 6 is invalid for hand of 5
+    const result6 = parseReorderCommand("move 1 6", 5);
+    expect(result6.type).toBe("error");
+
+    // Both positions invalid
+    const resultBoth = parseReorderCommand("move 7 8", 5);
+    expect(resultBoth.type).toBe("error");
+  });
 });

@@ -64,3 +64,50 @@ export function parseDiscardCommand(input: string, handSize: number): DiscardCom
 
   return { type: "DISCARD", position };
 }
+
+/**
+ * Result of parsing a reorder command
+ */
+export type ReorderCommandResult =
+  | { type: "SORT_BY_RANK" }
+  | { type: "SORT_BY_SUIT" }
+  | { type: "MOVE"; fromPosition: number; toPosition: number }
+  | { type: "error"; message: string };
+
+/**
+ * Parses user input for hand reordering
+ * Valid inputs: 'sort rank', 'sort suit', 'move 5 1'
+ */
+export function parseReorderCommand(input: string, handSize: number): ReorderCommandResult {
+  const trimmed = input.trim().toLowerCase();
+
+  if (trimmed === "sort rank") {
+    return { type: "SORT_BY_RANK" };
+  }
+
+  if (trimmed === "sort suit") {
+    return { type: "SORT_BY_SUIT" };
+  }
+
+  if (trimmed.startsWith("move ")) {
+    const parts = trimmed.slice(5).trim().split(/\s+/);
+    if (parts.length !== 2) {
+      return { type: "error", message: "Invalid move command. Use 'move <from> <to>'." };
+    }
+
+    const fromPos = parseInt(parts[0]!, 10);
+    const toPos = parseInt(parts[1]!, 10);
+
+    if (isNaN(fromPos) || isNaN(toPos)) {
+      return { type: "error", message: "Invalid positions. Use numbers." };
+    }
+
+    if (fromPos < 1 || fromPos > handSize || toPos < 1 || toPos > handSize) {
+      return { type: "error", message: `Invalid position. Enter numbers between 1 and ${handSize}.` };
+    }
+
+    return { type: "MOVE", fromPosition: fromPos, toPosition: toPos };
+  }
+
+  return { type: "error", message: "Invalid command. Use 'sort rank', 'sort suit', or 'move <from> <to>'." };
+}
