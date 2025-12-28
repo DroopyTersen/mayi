@@ -758,8 +758,12 @@ describe('edge cases', () => {
 
 1. **Round 6 with 1 unlayable card** — If a player has exactly 1 card in round 6 that cannot be laid off to any meld, what happens? They can't go out (can't lay off), and they supposedly can't discard to go out. Can they still discard to end their turn (ending with 0 cards but NOT "going out")? Or are they stuck? This seems like a rare but possible edge case.
 
+ANSWER: NO DISCARDING ALLOWED. They are stuck. They haven't to wait until EVERY card in their hand works in the melds they lay down.
+
 2. **Going out while not down** — My analysis suggests you effectively can't go out if you're not down (except by discarding on the same turn you lay down), since you can't lay off cards. Is this correct?
 
-3. **Tie score at end of game** — What happens if two players tie for lowest total score after round 6? Both win? Some tiebreaker?
+ANSWER: Yes, you cant go out if you are not down.
 
-Ready for Phase 5 (Full Game Loop)?
+3. **Tie score at end of game** — What happens if two players tie for lowest total score after round 6? Both win?
+
+ANSWER: Both win.

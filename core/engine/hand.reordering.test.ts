@@ -158,11 +158,53 @@ describe("REORDER_HAND command", () => {
   });
 
   describe("sort by rank", () => {
-    it.todo("orders cards A, K, Q, J, 10, 9, 8, 7, 6, 5, 4, 3", () => {});
+    it("orders cards A, K, Q, J, 10, 9, 8, 7, 6, 5, 4, 3", () => {
+      const c3 = card("3", "hearts");
+      const c5 = card("5", "hearts");
+      const c9 = card("9", "hearts");
+      const cJ = card("J", "hearts");
+      const cK = card("K", "hearts");
+      const cA = card("A", "hearts");
+      const hand = [c3, cK, c9, cA, c5, cJ];
+      const sorted = sortHandByRank(hand);
+      expect(sorted[0].rank).toBe("A");
+      expect(sorted[1].rank).toBe("K");
+      expect(sorted[2].rank).toBe("J");
+      expect(sorted[3].rank).toBe("9");
+      expect(sorted[4].rank).toBe("5");
+      expect(sorted[5].rank).toBe("3");
+    });
 
-    it.todo("wilds (2s, Jokers) go at end", () => {});
+    it("wilds (2s, Jokers) go at end", () => {
+      const c5 = card("5", "hearts");
+      const c9 = card("9", "hearts");
+      const c2 = card("2", "spades");
+      const cJoker = joker();
+      const cK = card("K", "hearts");
+      const hand = [c2, c5, cJoker, cK, c9];
+      const sorted = sortHandByRank(hand);
+      // Naturals first (K, 9, 5), then wilds (2, Joker)
+      expect(sorted[0].rank).toBe("K");
+      expect(sorted[1].rank).toBe("9");
+      expect(sorted[2].rank).toBe("5");
+      expect(sorted[3].rank).toBe("2");
+      expect(sorted[4].rank).toBe("Joker");
+    });
 
-    it.todo("within same rank, any order is fine (or by suit)", () => {});
+    it("within same rank, any order is fine (or by suit)", () => {
+      const c9h = card("9", "hearts");
+      const c9s = card("9", "spades");
+      const c9d = card("9", "diamonds");
+      const c9c = card("9", "clubs");
+      const hand = [c9h, c9c, c9s, c9d];
+      const sorted = sortHandByRank(hand);
+      // All should be 9s, sorted by suit (spades, hearts, diamonds, clubs)
+      expect(sorted.every((c) => c.rank === "9")).toBe(true);
+      expect(sorted[0].suit).toBe("spades");
+      expect(sorted[1].suit).toBe("hearts");
+      expect(sorted[2].suit).toBe("diamonds");
+      expect(sorted[3].suit).toBe("clubs");
+    });
   });
 
   describe("sort by suit", () => {
