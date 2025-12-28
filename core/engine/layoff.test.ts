@@ -1100,10 +1100,78 @@ describe("LAY_OFF action", () => {
   });
 
   describe("state transitions after lay off", () => {
-    it.todo("after LAY_OFF, remains in 'drawn' state", () => {});
-    it.todo("can issue another LAY_OFF command", () => {});
-    it.todo("can proceed to DISCARD (if not going out in round 6)", () => {});
-    it.todo("going out triggered immediately if hand becomes empty", () => {});
+    it("after LAY_OFF, remains in 'drawn' state", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("can issue another LAY_OFF command", () => {
+      const nineS = card("9", "spades");
+      const kingH = card("K", "hearts");
+      const setMeld1 = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const setMeld2 = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, kingH, card("5", "diamonds")], [setMeld1, setMeld2]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld1.id });
+      expect(actor.getSnapshot().value).toBe("drawn");
+
+      // Can issue another LAY_OFF
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld2.id });
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("can proceed to DISCARD (if not going out in round 6)", () => {
+      const nineS = card("9", "spades");
+      const extraCard = card("K", "hearts");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, extraCard, card("5", "diamonds")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // After lay off, can skip to discard
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      // And then discard
+      actor.send({ type: "DISCARD", cardId: extraCard.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+    });
+
+    it.todo("going out triggered immediately if hand becomes empty", () => {
+      // This test requires the wentOut state which is Phase 4 turn machine work
+      // When a player lays off their last card, they should go out immediately
+    });
   });
 });
 
