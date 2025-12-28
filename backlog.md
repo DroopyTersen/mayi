@@ -32,7 +32,7 @@
 ### Engine Types (25 tests in engine.types.test.ts)
 - [x] Implement `GameState structure` tests (8 tests)
 - [x] Implement `Player structure` tests (5 tests)
-- [ ] Implement `TurnState structure` tests (3 tests)
+- [x] Implement `TurnState structure` tests (3 tests)
 - [ ] Implement `createInitialGameState` tests (9 tests)
 
 ### TurnMachine (47 tests in turn.machine.test.ts)

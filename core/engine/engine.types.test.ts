@@ -90,11 +90,25 @@ describe("Player structure", () => {
 });
 
 describe("TurnState structure", () => {
-  it.todo("hasDrawn is a boolean", () => {});
+  const gameState = createInitialGameState({
+    playerNames: ["Alice", "Bob", "Carol"],
+  });
+  const turnState = gameState.turnState;
 
-  it.todo("hasLaidDown is a boolean (for later phases)", () => {});
+  it("hasDrawn is a boolean", () => {
+    expect(typeof turnState.hasDrawn).toBe("boolean");
+    expect(turnState.hasDrawn).toBe(false);
+  });
 
-  it.todo("laidDownThisTurn is a boolean (for later phases)", () => {});
+  it("hasLaidDown is a boolean (for later phases)", () => {
+    expect(typeof turnState.hasLaidDown).toBe("boolean");
+    expect(turnState.hasLaidDown).toBe(false);
+  });
+
+  it("laidDownThisTurn is a boolean (for later phases)", () => {
+    expect(typeof turnState.laidDownThisTurn).toBe("boolean");
+    expect(turnState.laidDownThisTurn).toBe(false);
+  });
 });
 
 describe("createInitialGameState", () => {
