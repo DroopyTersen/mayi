@@ -840,6 +840,7 @@ Review specs/command-line-interface.md
 - [x] **Run extension bug**: ~~After adding 8♦ to a 9♦-Q♦ run (extending low), the next extension attempt (7♦) failed~~ — Fixed: Added `getRunInsertPosition()` to core/engine/layoff.ts and updated harness to insert cards at correct position (prepend for low extension, append for high extension).
 - [x] **DOWN player can call May I**: ~~Carol called May I while DOWN~~ — Fixed in engine guards + harness `handleMayI()` now checks `player.isDown` before allowing May I call.
 - [x] **DOWN player can draw from discard**: ~~Carol drew from discard pile while DOWN~~ — Fixed in engine guards + harness `handleDraw()` now checks `player.isDown` before allowing discard draw.
+- [x] **Round 6 discard not fully blocked**: ~~Harness only blocked discard for down players with 1 card~~ — Fixed: Round 6 now properly blocks ALL discarding. `skip` ends turn immediately in Round 6, and `stuck` command available for down players with 1 card.
 
 ---
 
