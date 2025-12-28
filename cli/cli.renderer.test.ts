@@ -1,23 +1,55 @@
 import { describe, it, expect } from "bun:test";
+import { renderCard } from "./cli.renderer";
+import type { Card } from "../core/card/card.types";
+
+// Helper to create test cards
+function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
+  return { id: "test-card", suit, rank };
+}
+
+function joker(): Card {
+  return { id: "test-joker", suit: null, rank: "Joker" };
+}
 
 describe("renderCard", () => {
-  it.todo("renders 9H as '9\u2665'", () => {});
+  it("renders 9H as '9♥'", () => {
+    expect(renderCard(card("9", "hearts"))).toBe("9♥");
+  });
 
-  it.todo("renders 10D as '10\u2666'", () => {});
+  it("renders 10D as '10♦'", () => {
+    expect(renderCard(card("10", "diamonds"))).toBe("10♦");
+  });
 
-  it.todo("renders JS as 'J\u2660'", () => {});
+  it("renders JS as 'J♠'", () => {
+    expect(renderCard(card("J", "spades"))).toBe("J♠");
+  });
 
-  it.todo("renders QC as 'Q\u2663'", () => {});
+  it("renders QC as 'Q♣'", () => {
+    expect(renderCard(card("Q", "clubs"))).toBe("Q♣");
+  });
 
-  it.todo("renders KH as 'K\u2665'", () => {});
+  it("renders KH as 'K♥'", () => {
+    expect(renderCard(card("K", "hearts"))).toBe("K♥");
+  });
 
-  it.todo("renders AD as 'A\u2666'", () => {});
+  it("renders AD as 'A♦'", () => {
+    expect(renderCard(card("A", "diamonds"))).toBe("A♦");
+  });
 
-  it.todo("renders 2S as '2\u2660'", () => {});
+  it("renders 2S as '2♠'", () => {
+    expect(renderCard(card("2", "spades"))).toBe("2♠");
+  });
 
-  it.todo("renders Joker as 'Joker'", () => {});
+  it("renders Joker as 'Joker'", () => {
+    expect(renderCard(joker())).toBe("Joker");
+  });
 
-  it.todo("uses unicode suit symbols", () => {});
+  it("uses unicode suit symbols", () => {
+    expect(renderCard(card("5", "hearts"))).toContain("♥");
+    expect(renderCard(card("5", "diamonds"))).toContain("♦");
+    expect(renderCard(card("5", "clubs"))).toContain("♣");
+    expect(renderCard(card("5", "spades"))).toContain("♠");
+  });
 });
 
 describe("renderHand", () => {

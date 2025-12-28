@@ -1,0 +1,35 @@
+/**
+ * CLI rendering utilities for May I? card game
+ *
+ * Renders cards, hands, and game state for terminal display
+ */
+
+import type { Card } from "../core/card/card.types";
+
+/**
+ * Unicode suit symbols
+ */
+const SUIT_SYMBOLS: Record<string, string> = {
+  hearts: "♥",
+  diamonds: "♦",
+  clubs: "♣",
+  spades: "♠",
+};
+
+/**
+ * Renders a single card as a string
+ * Examples: "9♥", "10♦", "J♠", "Q♣", "Joker"
+ */
+export function renderCard(card: Card): string {
+  if (card.rank === "Joker") {
+    return "Joker";
+  }
+
+  const suit = card.suit;
+  if (!suit) {
+    return card.rank;
+  }
+
+  const suitSymbol = SUIT_SYMBOLS[suit] ?? suit;
+  return `${card.rank}${suitSymbol}`;
+}

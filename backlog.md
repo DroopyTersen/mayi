@@ -71,7 +71,9 @@ Run `bun run typecheck` to verify your types are correct. In test file we can be
 
 ### CLI Renderer (21 tests in cli.renderer.test.ts)
 
-- [ ] Implement `renderCard` function (9 tests)
+Review specs/command-line-interface.md
+
+- [x] Implement `renderCard` function (9 tests)
 - [ ] Implement `renderHand` function (3 tests)
 - [ ] Implement `renderNumberedHand` function (3 tests)
 - [ ] Implement `renderGameState` function (6 tests)
