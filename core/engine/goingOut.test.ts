@@ -1,4 +1,16 @@
 import { describe, it, expect } from "bun:test";
+import {
+  checkGoingOut,
+  canGoOut,
+  isRound6LastCardBlock,
+  getGoingOutScore,
+} from "./goingOut";
+import type { Card } from "../card/card.types";
+import type { RoundNumber } from "./engine.types";
+
+function card(rank: Card["rank"], suit: Card["suit"]): Card {
+  return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
+}
 
 /**
  * Phase 4: Going Out Tests
@@ -8,10 +20,30 @@ import { describe, it, expect } from "bun:test";
 
 describe("going out - general rules", () => {
   describe("definition", () => {
-    it.todo("going out means ending with 0 cards in hand", () => {});
-    it.todo("player who goes out scores 0 for the round", () => {});
-    it.todo("going out ends the round immediately", () => {});
-    it.todo("other players score their remaining cards", () => {});
+    it("going out means ending with 0 cards in hand", () => {
+      const emptyHand: Card[] = [];
+      const result = checkGoingOut(emptyHand);
+      expect(result.wentOut).toBe(true);
+      expect(result.handEmpty).toBe(true);
+
+      const nonEmptyHand = [card("K", "hearts")];
+      const result2 = checkGoingOut(nonEmptyHand);
+      expect(result2.wentOut).toBe(false);
+      expect(result2.handEmpty).toBe(false);
+    });
+
+    it("player who goes out scores 0 for the round", () => {
+      const score = getGoingOutScore();
+      expect(score).toBe(0);
+    });
+
+    it.todo("going out ends the round immediately", () => {
+      // This requires integration with game loop / round management
+    });
+
+    it.todo("other players score their remaining cards", () => {
+      // This requires scoring module integration
+    });
   });
 
   describe("must be down to go out", () => {
