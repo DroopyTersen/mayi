@@ -210,22 +210,137 @@ describe("basic turn loop", () => {
 });
 
 describe("multiple consecutive turns", () => {
-  it.todo(
-    "player 1 draws and discards, then player 2's turn starts",
-    () => {}
-  );
+  it("player 1 draws and discards, then player 2's turn starts", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+      dealerIndex: 0,
+    });
+    const readyState = setupRound(state);
+    // First player is index 1 (Bob)
+    expect(readyState.currentPlayerIndex).toBe(1);
 
-  it.todo(
-    "player 2 draws and discards, then player 3's turn starts",
-    () => {}
-  );
+    // Simulate player 1's turn output
+    const player1Hand = readyState.players[1]!.hand;
+    const drawnCard = readyState.stock[0]!;
+    const discardedCard = player1Hand[0]!;
 
-  it.todo(
-    "full rotation: all players take one turn, back to player 1",
-    () => {}
-  );
+    const output: TurnOutput = {
+      playerId: "player-1",
+      hand: [...player1Hand.slice(1), drawnCard],
+      stock: readyState.stock.slice(1),
+      discard: [discardedCard, ...readyState.discard],
+    };
 
-  it.todo("stock depletes correctly over multiple draws", () => {});
+    const afterTurn = applyTurnOutput(readyState, output);
+    const nextTurn = advanceTurn(afterTurn);
 
-  it.todo("discard grows correctly over multiple discards", () => {});
+    expect(nextTurn.currentPlayerIndex).toBe(2); // Carol's turn
+  });
+
+  it("player 2 draws and discards, then player 3's turn starts", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol", "Dave"],
+      dealerIndex: 0,
+    });
+    const readyState = setupRound(state);
+
+    // Simulate player 1's turn, advance to player 2
+    let current = advanceTurn(readyState);
+    expect(current.currentPlayerIndex).toBe(2);
+
+    // Simulate player 2's turn output
+    const player2Hand = current.players[2]!.hand;
+    const drawnCard = current.stock[0]!;
+    const discardedCard = player2Hand[0]!;
+
+    const output: TurnOutput = {
+      playerId: "player-2",
+      hand: [...player2Hand.slice(1), drawnCard],
+      stock: current.stock.slice(1),
+      discard: [discardedCard, ...current.discard],
+    };
+
+    const afterTurn = applyTurnOutput(current, output);
+    const nextTurn = advanceTurn(afterTurn);
+
+    expect(nextTurn.currentPlayerIndex).toBe(3); // Dave's turn
+  });
+
+  it("full rotation: all players take one turn, back to player 1", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+      dealerIndex: 0,
+    });
+    const readyState = setupRound(state);
+    expect(readyState.currentPlayerIndex).toBe(1); // Bob starts
+
+    let current = readyState;
+    // Advance through all 3 players
+    current = advanceTurn(current); // Bob -> Carol (2)
+    expect(current.currentPlayerIndex).toBe(2);
+    current = advanceTurn(current); // Carol -> Alice (0)
+    expect(current.currentPlayerIndex).toBe(0);
+    current = advanceTurn(current); // Alice -> Bob (1)
+    expect(current.currentPlayerIndex).toBe(1);
+  });
+
+  it("stock depletes correctly over multiple draws", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    const readyState = setupRound(state);
+    const initialStockSize = readyState.stock.length;
+
+    // Simulate 3 turns, each drawing from stock
+    let current = readyState;
+    for (let i = 0; i < 3; i++) {
+      const playerIdx = current.currentPlayerIndex;
+      const playerHand = current.players[playerIdx]!.hand;
+      const drawnCard = current.stock[0]!;
+      const discardedCard = playerHand[0]!;
+
+      const output: TurnOutput = {
+        playerId: current.players[playerIdx]!.id,
+        hand: [...playerHand.slice(1), drawnCard],
+        stock: current.stock.slice(1),
+        discard: [discardedCard, ...current.discard],
+      };
+
+      current = applyTurnOutput(current, output);
+      current = advanceTurn(current);
+    }
+
+    // Stock should have 3 fewer cards (one drawn per turn)
+    expect(current.stock.length).toBe(initialStockSize - 3);
+  });
+
+  it("discard grows correctly over multiple discards", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    const readyState = setupRound(state);
+    expect(readyState.discard.length).toBe(1); // Initial flip
+
+    // Simulate 3 turns, each discarding a card
+    let current = readyState;
+    for (let i = 0; i < 3; i++) {
+      const playerIdx = current.currentPlayerIndex;
+      const playerHand = current.players[playerIdx]!.hand;
+      const drawnCard = current.stock[0]!;
+      const discardedCard = playerHand[0]!;
+
+      const output: TurnOutput = {
+        playerId: current.players[playerIdx]!.id,
+        hand: [...playerHand.slice(1), drawnCard],
+        stock: current.stock.slice(1),
+        discard: [discardedCard, ...current.discard],
+      };
+
+      current = applyTurnOutput(current, output);
+      current = advanceTurn(current);
+    }
+
+    // Discard should have 4 cards (1 initial + 3 discarded)
+    expect(current.discard.length).toBe(4);
+  });
 });
