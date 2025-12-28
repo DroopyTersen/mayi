@@ -621,7 +621,7 @@ Review specs/command-line-interface.md
 - [ ] `laydown.test.ts:1808` - Contract requirement error message
 - [ ] `laydown.test.ts:2042` - Invalid meld error message (which meld is invalid)
 - [ ] `laydown.test.ts:2358` - Already laid down error message
-- [ ] `laydown.test.ts:2503` - Goes out immediately if hand empty after laydown (no discard)
+- [x] `laydown.test.ts:2503` - Goes out immediately if hand empty after laydown (no discard)
 - [ ] `layoff.test.ts:1262` - Error: "must be down from a previous turn to lay off"
 - [ ] `layoff.test.ts:1266` - Error: "cannot lay off on same turn as laying down"
 - [ ] `layoff.test.ts:1355` - Error: "card not in hand"
@@ -629,7 +629,7 @@ Review specs/command-line-interface.md
 - [ ] `layoff.test.ts:1445` - Error: "card does not fit this meld"
 - [ ] `layoff.test.ts:1471` - Error: "would make wilds outnumber naturals"
 - [ ] `gameMachine.test.ts:220` - Error: "minimum 3 players required"
-- [ ] `layoff.test.ts:1171` - Going out triggered immediately if hand becomes empty
+- [x] `layoff.test.ts:1171` - Going out triggered immediately if hand becomes empty
 
 ### Contract Validation Tests (4 tests) ✓
 

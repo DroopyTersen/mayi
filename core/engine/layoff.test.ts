@@ -1168,9 +1168,44 @@ describe("LAY_OFF action", () => {
       expect(actor.getSnapshot().value).toBe("turnComplete");
     });
 
-    it.todo("going out triggered immediately if hand becomes empty", () => {
-      // This test requires the wentOut state which is Phase 4 turn machine work
-      // When a player lays off their last card, they should go out immediately
+    it("going out triggered immediately if hand becomes empty", () => {
+      // Per house rules Exception 1: "You may go out without a discard in any round
+      // if you play all your cards to melds."
+      // When a player lays off their last card(s), they go out immediately
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player is down from previous turn with 0 cards, will draw 1
+      const input = {
+        playerId: "player-1",
+        hand: [], // Start with 0 cards
+        stock: [nineS], // Will draw this - it fits the set
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true, // Already down from previous turn
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Draw - now have 1 card (the 9♠)
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+      expect(actor.getSnapshot().value).toBe("drawn");
+
+      // Lay off the 9♠ to the set of 9s - hand becomes empty
+      // (LAY_OFF happens in 'drawn' state, before SKIP_LAY_DOWN)
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Should have gone out immediately (Exception 1: play all cards to melds)
+      // The 'always' transition in 'drawn' state checks handIsEmpty
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
     });
   });
 });

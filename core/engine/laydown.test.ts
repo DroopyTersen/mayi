@@ -2500,9 +2500,98 @@ describe("TurnMachine - post lay down behavior", () => {
       expect(actor.getSnapshot().value).toBe("turnComplete");
     });
 
-    it.todo("if hand.length === 0: goes out immediately (no discard)", () => {
-      // Note: This requires implementation of "going out" logic which is Phase 4
+    it("if hand.length === 0: goes out immediately (no discard)", () => {
       // When a player lays down all their cards, they go out without discarding
+      // Round 1 requires 2 sets (minimum 6 cards)
+      // Player has exactly 6 cards + draws 1 = 7 cards, lays down 6 = 1 left
+      // For going out, need to lay down ALL cards (use larger melds)
+      const set1 = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"), card("9", "spades")];
+      const set2 = [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts"), card("K", "spades")];
+      const drawnCard = card("A", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [...set1, ...set2], // 8 cards - will have 9 after draw
+        stock: [drawnCard],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as const,
+        isDown: false,
+        table: [],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Draw to have 9 cards
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(9);
+
+      // Lay down sets using 8 cards (both sets of 4)
+      // This leaves 1 card, so won't go out - need to adjust
+
+      // Actually, to go out on lay down, we need to use ALL cards
+      // Let's create a scenario where player uses all cards in melds
+      actor.stop();
+
+      // Better test: player has exactly enough cards for contract after draw
+      const set1b = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")];
+      const set2b = [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts")];
+
+      const input2 = {
+        playerId: "player-1",
+        hand: [...set1b, ...set2b], // 6 cards - minimum for Round 1
+        stock: [], // Empty stock so they can't draw
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as const,
+        isDown: false,
+        table: [],
+      };
+
+      // Can't do this without stock - need different approach
+      // The canLayDownAndGoOut guard checks if laying down uses all cards after draw
+
+      // Use a scenario where stock has the 7th card that completes a set
+      const nine1 = card("9", "clubs");
+      const nine2 = card("9", "diamonds");
+      const nine3 = card("9", "hearts");
+      const king1 = card("K", "clubs");
+      const king2 = card("K", "diamonds");
+      const king3 = card("K", "hearts");
+      const nine4 = card("9", "spades"); // Will be drawn
+
+      const input3 = {
+        playerId: "player-1",
+        hand: [nine1, nine2, nine3, king1, king2, king3], // 6 cards
+        stock: [nine4], // Draw this to get 7 cards
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as const,
+        isDown: false,
+        table: [],
+      };
+
+      const actor3 = createActor(turnMachine, { input: input3 });
+      actor3.start();
+
+      // Draw to get 7 cards
+      actor3.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor3.getSnapshot().context.hand.length).toBe(7);
+
+      // Lay down using all 7 cards (set of 4 nines + set of 3 kings)
+      // But wait - laying down 7 cards leaves 0 cards, going out!
+      // Actually the drawn card is nine4, so we can make set of 4 nines
+
+      // But we only have 7 cards total, using all in lay down = 0 left = go out
+      // However the contract is 2 sets minimum, 4+3=7 cards, using all goes out
+      actor3.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set" as const, cardIds: [king1.id, king2.id, king3.id] },
+        ],
+      });
+
+      // Should go out immediately without discard
+      expect(actor3.getSnapshot().value).toBe("wentOut");
+      expect(actor3.getSnapshot().context.hand.length).toBe(0);
     });
   });
 
