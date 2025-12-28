@@ -472,17 +472,17 @@ Review specs/command-line-interface.md
 - [x] Implement final states - resolved (5 tests)
 - [x] Implement final states - closedNoClaim (4 tests)
 
-### May I Priority (19 tests in mayIPriority.test.ts)
+### May I Priority (24 tests in mayIPriority.test.ts) ✓
 
-- [ ] Implement getClaimPriority - priority order (3 tests)
-- [ ] Implement getClaimPriority - wrap-around (2 tests)
-- [ ] Implement getClaimPriority - excluding discarder (3 tests)
-- [ ] Implement resolveByPriority - single claimant (1 test)
-- [ ] Implement resolveByPriority - multiple claimants (4 tests)
-- [ ] Implement veto scenarios - closer player vetoes (4 tests)
-- [ ] Implement veto scenarios - current player vetoes (3 tests)
-- [ ] Implement veto scenarios - cannot veto after passing (2 tests)
-- [ ] Implement veto scenarios - chain of vetoes (2 tests)
+- [x] Implement getClaimPriority - priority order (3 tests)
+- [x] Implement getClaimPriority - wrap-around (2 tests)
+- [x] Implement getClaimPriority - excluding discarder (3 tests)
+- [x] Implement resolveByPriority - single claimant (1 test)
+- [x] Implement resolveByPriority - multiple claimants (4 tests)
+- [x] Implement veto scenarios - closer player vetoes (4 tests)
+- [x] Implement veto scenarios - current player vetoes (3 tests)
+- [x] Implement veto scenarios - cannot veto after passing (2 tests)
+- [x] Implement veto scenarios - chain of vetoes (2 tests)
 
 ### May I Actions (17 tests in mayIActions.test.ts)
 
