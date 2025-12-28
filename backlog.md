@@ -631,14 +631,14 @@ Review specs/command-line-interface.md
 - [ ] `gameMachine.test.ts:220` - Error: "minimum 3 players required"
 - [ ] `layoff.test.ts:1171` - Going out triggered immediately if hand becomes empty
 
-### Contract Validation Tests (4 tests)
+### Contract Validation Tests (4 tests) ✓
 
 > Tests in contracts.test.ts that verify meld validation during contract validation
 
-- [ ] `contracts.test.ts:277` - Rejects if any set is invalid
-- [ ] `contracts.test.ts:278` - Rejects if any run is invalid
-- [ ] `contracts.test.ts:279` - Rejects if any meld has wilds outnumbering naturals
-- [ ] `contracts.test.ts:280` - All melds checked, not just first one
+- [x] `contracts.test.ts:277` - Rejects if any set is invalid
+- [x] `contracts.test.ts:278` - Rejects if any run is invalid
+- [x] `contracts.test.ts:279` - Rejects if any meld has wilds outnumbering naturals
+- [x] `contracts.test.ts:280` - All melds checked, not just first one
 
 ### Stock Depletion & Reshuffle Tests (4 tests)
 
@@ -722,23 +722,26 @@ Review specs/command-line-interface.md
 - [x] Verify JSON output works with `status --json`
 - [x] Verify log command works
 
-### Round 1 Testing (Contract: 2 sets)
+### Round 1 Testing (Contract: 2 sets) ✓
 
-- [x] Play through complete Round 1 with one player going out
+- [x] Play through complete Round 1 with one player going out (Bob went out with 0 pts)
 - [x] Test laying down exactly 2 sets (minimum 3 cards each)
 - [x] Test laying down sets with wilds (verify wilds don't outnumber naturals)
-- [x] Test laying down larger sets (4+ cards) — tested with 4 and 5 card sets during layoff
+- [x] Test laying down larger sets (4+ cards) — tested with 4, 5, and 6 card sets during layoff
 - [x] Test rejection: attempt to lay down with only 1 set (got "Contract requires 2 set(s), but got 1")
 - [x] Test rejection: attempt to lay down with invalid set (got "Invalid run: J♥ 9♠ 8♦")
-- [x] Test layoff after going down (add 4th card to a set)
-- [x] Verify round scoring is calculated correctly
+- [x] Test layoff after going down (add 4th card to a set, Bob laid off 8♣ to Alice's 8s)
+- [x] Verify round scoring is calculated correctly (Alice: 7, Bob: 0, Carol: 27)
 - [x] Verify round history is recorded
+- [x] Test layoff with duplicate cards from second deck (Alice laid off Q♣ to Carol's 5-Queen set)
+- [x] Test DOWN player cannot call May I (verified error message)
+- [x] Test DOWN player cannot draw from discard (verified error message)
 
-### Round 2 Testing (Contract: 1 set + 1 run)
+### Round 2 Testing (Contract: 1 set + 1 run) ✓
 
-- [x] Play through complete Round 2 (Bob went out, verified scoring)
+- [x] Play through complete Round 2 (Alice laid down 8s set + 3-6 clubs run with wilds)
 - [x] Test laying down 1 set + 1 run (minimum 3 + 4 cards)
-- [x] Test run with wilds in middle positions (Alice: 8♥-Joker-10♥-2♣)
+- [x] Test run with wilds in middle positions (Alice: 3♣-4♣-2♥(5♣)-2♥(6♣))
 - [ ] Test run with Ace-low (A-2-3)
 - [x] Test run with Ace-high (Q-K-A) — Carol's run 10-J-Q-K goes high
 - [x] Test rejection: attempt to lay down 2 sets instead (got "Contract requires 1 set(s), but got 2")
@@ -784,16 +787,17 @@ Review specs/command-line-interface.md
 
 ### May I Mechanic Testing
 
-- [x] Test current player takes discard (no May I window)
-- [x] Test current player draws from stock (May I window opens)
-- [x] Test single May I claimant wins
+- [x] Test current player takes discard (no May I window) — verified Carol took 6♥ directly
+- [x] Test current player draws from stock (May I window opens) — verified May I window opens after stock draw
+- [x] Test single May I claimant wins — Carol called May I for Q♠, won it
 - [ ] Test multiple May I claimants - priority resolution
 - [ ] Test current player vetoes May I claim
 - [ ] Test non-current player vetoes (closer to current player)
-- [x] Test penalty card drawn with May I win (Alice got 5♥ + penalty card)
+- [x] Test penalty card drawn with May I win — Carol got Q♠ + penalty card (went from 11 to 13 cards)
 - [ ] Test May I when stock is low (< 3 cards)
-- [x] Test no claims - window closes normally
+- [x] Test no claims - window closes normally — verified multiple pass scenarios
 - [ ] Test May I multiple times in same round
+- [x] Test DOWN player blocked from calling May I (verified error message)
 
 ### Joker Swap Testing
 
@@ -807,13 +811,13 @@ Review specs/command-line-interface.md
 
 ### Scoring Verification
 
-- [ ] Verify number cards score face value (2-10)
-- [ ] Verify face cards score 10 points (J, Q, K)
+- [x] Verify number cards score face value (2-10) — Alice had 7♦ = 7 pts
+- [x] Verify face cards score 10 points (J, Q, K) — Carol's 7s scored 21 pts total
 - [ ] Verify Aces score 15 points
 - [ ] Verify Jokers score 50 points
 - [ ] Verify Twos (wild) score 20 points
-- [ ] Verify winner scores 0 for round
-- [ ] Verify total scores accumulate across rounds
+- [x] Verify winner scores 0 for round — Bob went out with 0 pts
+- [x] Verify total scores accumulate across rounds — scores carried from R1 to R2
 - [ ] Verify lowest total score wins
 
 ### Edge Cases
@@ -823,6 +827,8 @@ Review specs/command-line-interface.md
 - [ ] Test stock depletion and reshuffle
 - [x] Test first player after dealer rotation (Carol went first in Round 2)
 - [ ] Test 3-player priority wrap-around for May I
+- [x] Test layoff to opponent's meld (Bob laid off cards to Alice's sets)
+- [x] Test duplicate cards from two decks in same set (Aces set has A♠ twice)
 
 ### Game Completion
 

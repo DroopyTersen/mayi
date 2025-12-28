@@ -274,10 +274,81 @@ describe("validateContractMelds", () => {
   });
 
   describe("each meld must be independently valid", () => {
-    it.todo("rejects if any set is invalid (see Phase 1 set validation)", () => {});
-    it.todo("rejects if any run is invalid (see Phase 1 run validation)", () => {});
-    it.todo("rejects if any meld has wilds outnumbering naturals", () => {});
-    it.todo("all melds checked, not just first one", () => {});
+    it("rejects if any set is invalid (see Phase 1 set validation)", () => {
+      // Invalid set: different ranks
+      const invalidSet = meldWithCards("set", [
+        card("9", "clubs"),
+        card("10", "diamonds"), // Wrong rank
+        card("J", "hearts"), // Wrong rank
+      ]);
+      const validSet = meldWithCards("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+
+      // Round 1 contract: 2 sets
+      const result = validateContractMelds(CONTRACTS[1], [invalidSet, validSet]);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("invalid");
+    });
+
+    it("rejects if any run is invalid (see Phase 1 run validation)", () => {
+      // Invalid run: not consecutive
+      const invalidRun = meldWithCards("run", [
+        card("5", "hearts"),
+        card("6", "hearts"),
+        card("8", "hearts"), // Gap - should be 7
+        card("9", "hearts"),
+      ]);
+      const validSet = meldWithCards("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+
+      // Round 2 contract: 1 set + 1 run
+      const result = validateContractMelds(CONTRACTS[2], [validSet, invalidRun]);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("invalid");
+    });
+
+    it("rejects if any meld has wilds outnumbering naturals", () => {
+      // Invalid: 1 natural, 2 wilds (wilds outnumber naturals)
+      const tooManyWilds = meldWithCards("set", [
+        card("9", "clubs"),
+        card("Joker", null), // Wild
+        card("2", "hearts"), // Wild (2s are wild)
+      ]);
+      const validSet = meldWithCards("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+
+      // Round 1 contract: 2 sets
+      const result = validateContractMelds(CONTRACTS[1], [tooManyWilds, validSet]);
+      expect(result.valid).toBe(false);
+    });
+
+    it("all melds checked, not just first one", () => {
+      const validSet = meldWithCards("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+      // Invalid set placed second
+      const invalidSet = meldWithCards("set", [
+        card("9", "clubs"),
+        card("10", "diamonds"), // Wrong rank
+        card("J", "hearts"), // Wrong rank
+      ]);
+
+      // Round 1 contract: 2 sets - valid first, invalid second
+      const result = validateContractMelds(CONTRACTS[1], [validSet, invalidSet]);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("invalid");
+    });
   });
 
   describe("card usage", () => {
