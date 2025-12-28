@@ -3,7 +3,7 @@
   "gameId": "fd2c798a",
   "seed": null,
   "createdAt": "2025-12-28T21:32:20.601Z",
-  "updatedAt": "2025-12-28T21:41:12.217Z",
+  "updatedAt": "2025-12-28T21:45:50.322Z",
   "currentRound": 2,
   "contract": {
     "roundNumber": 2,
@@ -74,11 +74,6 @@
           "rank": "4"
         },
         {
-          "id": "card-41",
-          "suit": "spades",
-          "rank": "Q"
-        },
-        {
           "id": "card-61",
           "suit": "hearts",
           "rank": "5"
@@ -97,6 +92,11 @@
           "id": "card-73",
           "suit": "diamonds",
           "rank": "6"
+        },
+        {
+          "id": "card-0",
+          "suit": "hearts",
+          "rank": "A"
         }
       ],
       "isDown": false,
@@ -160,40 +160,20 @@
           "id": "card-8",
           "suit": "hearts",
           "rank": "6"
+        },
+        {
+          "id": "card-94",
+          "suit": "spades",
+          "rank": "J"
         }
       ],
       "isDown": false,
       "totalScore": 27
     }
   ],
-  "currentPlayerIndex": 1,
+  "currentPlayerIndex": 2,
   "dealerIndex": 1,
   "stock": [
-    {
-      "id": "card-0",
-      "suit": "hearts",
-      "rank": "A"
-    },
-    {
-      "id": "card-16",
-      "suit": "diamonds",
-      "rank": "J"
-    },
-    {
-      "id": "card-34",
-      "suit": "clubs",
-      "rank": "6"
-    },
-    {
-      "id": "card-79",
-      "suit": "clubs",
-      "rank": "K"
-    },
-    {
-      "id": "card-94",
-      "suit": "spades",
-      "rank": "J"
-    },
     {
       "id": "card-9",
       "suit": "hearts",
@@ -537,6 +517,26 @@
   ],
   "discard": [
     {
+      "id": "card-79",
+      "suit": "clubs",
+      "rank": "K"
+    },
+    {
+      "id": "card-34",
+      "suit": "clubs",
+      "rank": "6"
+    },
+    {
+      "id": "card-16",
+      "suit": "diamonds",
+      "rank": "J"
+    },
+    {
+      "id": "card-41",
+      "suit": "spades",
+      "rank": "Q"
+    },
+    {
       "id": "card-81",
       "suit": "clubs",
       "rank": "J"
@@ -610,9 +610,23 @@
     }
   ],
   "harness": {
-    "phase": "AWAITING_DRAW",
+    "phase": "MAY_I_WINDOW",
     "awaitingPlayerId": "player-1",
-    "mayIContext": null,
-    "turnNumber": 21
+    "mayIContext": {
+      "discardedCard": {
+        "id": "card-79",
+        "suit": "clubs",
+        "rank": "K"
+      },
+      "discardedByPlayerId": "player-1",
+      "currentPlayerId": "player-2",
+      "currentPlayerIndex": 2,
+      "awaitingResponseFrom": [
+        "player-1"
+      ],
+      "claimants": [],
+      "currentPlayerPassed": true
+    },
+    "turnNumber": 25
   }
 }

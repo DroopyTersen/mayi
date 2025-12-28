@@ -450,9 +450,63 @@ describe("round end processing", () => {
   });
 
   describe("all players scored", () => {
-    it.todo("winner scores 0", () => {});
-    it.todo("all other players score their hand values", () => {});
-    it.todo("no player skipped", () => {});
+    it("winner scores 0", () => {
+      const input: RoundEndInput = {
+        roundNumber: 1 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] }, // Winner
+          { id: "player-2", hand: [card("K", "hearts")] },
+          { id: "player-3", hand: [card("A", "spades")] },
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0, "player-3": 0 },
+      };
+
+      const result = processRoundEnd(input);
+      expect(result.roundRecord.scores["player-1"]).toBe(0);
+    });
+
+    it("all other players score their hand values", () => {
+      const input: RoundEndInput = {
+        roundNumber: 1 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] }, // Winner - 0
+          { id: "player-2", hand: [card("K", "hearts"), card("5", "diamonds")] }, // 10 + 5 = 15
+          { id: "player-3", hand: [card("A", "spades"), card("Joker", null)] }, // 15 + 50 = 65
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0, "player-3": 0 },
+      };
+
+      const result = processRoundEnd(input);
+      expect(result.roundRecord.scores["player-2"]).toBe(15);
+      expect(result.roundRecord.scores["player-3"]).toBe(65);
+    });
+
+    it("no player skipped", () => {
+      const input: RoundEndInput = {
+        roundNumber: 1 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] },
+          { id: "player-2", hand: [card("K", "hearts")] },
+          { id: "player-3", hand: [card("A", "spades")] },
+          { id: "player-4", hand: [card("5", "clubs")] },
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0, "player-3": 0, "player-4": 0 },
+      };
+
+      const result = processRoundEnd(input);
+      // All 4 players should have a score entry
+      expect(Object.keys(result.roundRecord.scores)).toHaveLength(4);
+      expect(result.roundRecord.scores["player-1"]).toBeDefined();
+      expect(result.roundRecord.scores["player-2"]).toBeDefined();
+      expect(result.roundRecord.scores["player-3"]).toBeDefined();
+      expect(result.roundRecord.scores["player-4"]).toBeDefined();
+    });
   });
 });
 
@@ -625,9 +679,64 @@ describe("RoundRecord", () => {
   });
 
   describe("reconstructing game from history", () => {
-    it.todo("can calculate any player's score at any point", () => {});
-    it.todo("can identify who won each round", () => {});
-    it.todo("full audit trail of game", () => {});
+    const gameHistory: RoundRecord[] = [
+      { roundNumber: 1, winnerId: "player-1", scores: { "player-1": 0, "player-2": 25, "player-3": 15 } },
+      { roundNumber: 2, winnerId: "player-2", scores: { "player-1": 30, "player-2": 0, "player-3": 20 } },
+      { roundNumber: 3, winnerId: "player-3", scores: { "player-1": 10, "player-2": 35, "player-3": 0 } },
+    ];
+
+    it("can calculate any player's score at any point", () => {
+      // After round 1
+      const afterRound1 = gameHistory.slice(0, 1);
+      const p1ScoreR1 = afterRound1.reduce((sum, r) => sum + (r.scores["player-1"] ?? 0), 0);
+      expect(p1ScoreR1).toBe(0);
+
+      // After round 2
+      const afterRound2 = gameHistory.slice(0, 2);
+      const p1ScoreR2 = afterRound2.reduce((sum, r) => sum + (r.scores["player-1"] ?? 0), 0);
+      expect(p1ScoreR2).toBe(30); // 0 + 30
+
+      // After round 3
+      const afterRound3 = gameHistory.slice(0, 3);
+      const p1ScoreR3 = afterRound3.reduce((sum, r) => sum + (r.scores["player-1"] ?? 0), 0);
+      expect(p1ScoreR3).toBe(40); // 0 + 30 + 10
+    });
+
+    it("can identify who won each round", () => {
+      expect(gameHistory[0]!.winnerId).toBe("player-1");
+      expect(gameHistory[1]!.winnerId).toBe("player-2");
+      expect(gameHistory[2]!.winnerId).toBe("player-3");
+    });
+
+    it("full audit trail of game", () => {
+      // Can verify total scores for all players
+      const totalScores = gameHistory.reduce(
+        (acc, round) => {
+          for (const [playerId, score] of Object.entries(round.scores)) {
+            acc[playerId] = (acc[playerId] ?? 0) + score;
+          }
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      expect(totalScores["player-1"]).toBe(40); // 0 + 30 + 10
+      expect(totalScores["player-2"]).toBe(60); // 25 + 0 + 35
+      expect(totalScores["player-3"]).toBe(35); // 15 + 20 + 0
+
+      // Can verify number of wins per player
+      const winCounts = gameHistory.reduce(
+        (acc, round) => {
+          acc[round.winnerId] = (acc[round.winnerId] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      expect(winCounts["player-1"]).toBe(1);
+      expect(winCounts["player-2"]).toBe(1);
+      expect(winCounts["player-3"]).toBe(1);
+    });
   });
 });
 

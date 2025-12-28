@@ -132,3 +132,29 @@
 {"timestamp":"2025-12-28T21:40:44.228Z","turnNumber":20,"roundNumber":2,"playerId":"system","playerName":"System","action":"May I window closed","details":"no claims"}
 {"timestamp":"2025-12-28T21:41:06.267Z","turnNumber":20,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"laid down contract","details":"set: 8♦ 8♣ 8♣, run: 3♣ 4♣ 2♥ 2♥"}
 {"timestamp":"2025-12-28T21:41:12.217Z","turnNumber":20,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"discarded","details":"J♣"}
+{"timestamp":"2025-12-28T21:43:36.538Z","turnNumber":21,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"drew from stock","details":"A♥"}
+{"timestamp":"2025-12-28T21:43:41.673Z","turnNumber":21,"roundNumber":2,"playerId":"player-2","playerName":"Carol","action":"passed on May I","details":"J♣"}
+{"timestamp":"2025-12-28T21:43:41.701Z","turnNumber":21,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"passed on May I","details":"J♣"}
+{"timestamp":"2025-12-28T21:43:41.702Z","turnNumber":21,"roundNumber":2,"playerId":"system","playerName":"System","action":"May I window closed","details":"no claims"}
+{"timestamp":"2025-12-28T21:43:50.552Z","turnNumber":21,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"skipped laying down"}
+{"timestamp":"2025-12-28T21:43:50.580Z","turnNumber":21,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"discarded","details":"Q♠"}
+{"timestamp":"2025-12-28T21:44:01.050Z","turnNumber":22,"roundNumber":2,"playerId":"player-2","playerName":"Carol","action":"drew from stock","details":"J♦"}
+{"timestamp":"2025-12-28T21:44:04.836Z","turnNumber":22,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"passed on May I","details":"Q♠"}
+{"timestamp":"2025-12-28T21:44:04.872Z","turnNumber":22,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"passed on May I","details":"Q♠"}
+{"timestamp":"2025-12-28T21:44:04.872Z","turnNumber":22,"roundNumber":2,"playerId":"system","playerName":"System","action":"May I window closed","details":"no claims"}
+{"timestamp":"2025-12-28T21:44:09.670Z","turnNumber":22,"roundNumber":2,"playerId":"player-2","playerName":"Carol","action":"skipped laying down"}
+{"timestamp":"2025-12-28T21:44:09.698Z","turnNumber":22,"roundNumber":2,"playerId":"player-2","playerName":"Carol","action":"discarded","details":"J♦"}
+{"timestamp":"2025-12-28T21:44:15.213Z","turnNumber":23,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"drew from stock","details":"6♣"}
+{"timestamp":"2025-12-28T21:44:23.558Z","turnNumber":23,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"passed on May I","details":"J♦"}
+{"timestamp":"2025-12-28T21:44:23.586Z","turnNumber":23,"roundNumber":2,"playerId":"player-2","playerName":"Carol","action":"passed on May I","details":"J♦"}
+{"timestamp":"2025-12-28T21:44:23.586Z","turnNumber":23,"roundNumber":2,"playerId":"system","playerName":"System","action":"May I window closed","details":"no claims"}
+{"timestamp":"2025-12-28T21:44:38.441Z","turnNumber":23,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"skipped laying down"}
+{"timestamp":"2025-12-28T21:44:38.469Z","turnNumber":23,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"discarded","details":"6♣"}
+{"timestamp":"2025-12-28T21:44:43.549Z","turnNumber":24,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"drew from stock","details":"K♣"}
+{"timestamp":"2025-12-28T21:44:47.938Z","turnNumber":24,"roundNumber":2,"playerId":"player-2","playerName":"Carol","action":"passed on May I","details":"6♣"}
+{"timestamp":"2025-12-28T21:44:47.966Z","turnNumber":24,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"passed on May I","details":"6♣"}
+{"timestamp":"2025-12-28T21:44:47.966Z","turnNumber":24,"roundNumber":2,"playerId":"system","playerName":"System","action":"May I window closed","details":"no claims"}
+{"timestamp":"2025-12-28T21:44:52.614Z","turnNumber":24,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"skipped laying down"}
+{"timestamp":"2025-12-28T21:44:52.641Z","turnNumber":24,"roundNumber":2,"playerId":"player-1","playerName":"Bob","action":"discarded","details":"K♣"}
+{"timestamp":"2025-12-28T21:44:57.004Z","turnNumber":25,"roundNumber":2,"playerId":"player-2","playerName":"Carol","action":"drew from stock","details":"J♠"}
+{"timestamp":"2025-12-28T21:45:50.322Z","turnNumber":25,"roundNumber":2,"playerId":"player-0","playerName":"Alice","action":"passed on May I","details":"K♣"}

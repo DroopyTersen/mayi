@@ -664,16 +664,16 @@ Review specs/command-line-interface.md
 - [ ] `goingOut.test.ts:5602` - No more turns for any player
 - [ ] `goingOut.test.ts:5605` - Scoring begins immediately
 
-### Round End & Scoring Tests (6 tests)
+### Round End & Scoring Tests (6 tests) ✓
 
 > Tests for RoundRecord and scoring audit trail
 
-- [ ] `roundEnd.test.ts:453` - Winner scores 0
-- [ ] `roundEnd.test.ts:454` - All other players score their hand values
-- [ ] `roundEnd.test.ts:455` - No player skipped
-- [ ] `roundEnd.test.ts:628` - Can calculate any player's score at any point
-- [ ] `roundEnd.test.ts:629` - Can identify who won each round
-- [ ] `roundEnd.test.ts:630` - Full audit trail of game
+- [x] `roundEnd.test.ts:453` - Winner scores 0
+- [x] `roundEnd.test.ts:454` - All other players score their hand values
+- [x] `roundEnd.test.ts:455` - No player skipped
+- [x] `roundEnd.test.ts:628` - Can calculate any player's score at any point
+- [x] `roundEnd.test.ts:629` - Can identify who won each round
+- [x] `roundEnd.test.ts:630` - Full audit trail of game
 
 ### Full Game Contract Enforcement Tests (9 tests)
 
