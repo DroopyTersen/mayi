@@ -249,7 +249,7 @@ Review specs/command-line-interface.md
 - [x] Implement round 6 special rules - cannot discard to go out (4 tests)
 - [x] Implement round 6 special rules - must lay off (4 tests)
 - [x] Implement round 6 special rules - cannot discard last card (4 tests)
-- [ ] Implement round 6 special rules - stuck with unlayable card (7 tests)
+- [x] Implement round 6 special rules - stuck with unlayable card (7 tests)
 - [ ] Implement round 6 special rules - normal turn with discard (6 tests)
 - [ ] Implement round 6 special rules - discard allowed with 2+ cards (3 tests)
 - [ ] Implement GO_OUT command (8 tests)
