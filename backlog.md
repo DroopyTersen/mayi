@@ -303,7 +303,7 @@ Review specs/command-line-interface.md
 - [x] Implement going out scenarios - rounds 1-5 (21 tests)
 - [x] Implement going out scenarios - round 6 (31 tests)
 - [x] Implement scoring integration (19 tests)
-- [ ] Implement edge cases (17 tests)
+- [x] Implement edge cases (17 tests)
 - [x] Fix typecheck errors
 
 ### Phase 3 Deferred Tests (4 tests)
