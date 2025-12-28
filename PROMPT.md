@@ -100,7 +100,9 @@ As you implement, you'll find things that need to be done. Add them to the backl
 - Edge case not covered? Add a task.
 - Spec unclear? Add a `[?]` question to the Questions section.
 
----
+### Typechecking
+
+Run `bun run typecheck` to verify your types are correct. In test file we can be lazy with typescript hacks like foo.bar!, but in real source could we should always code like a senior Typescript engineer. Strict types, no any's. No hacks like !.
 
 ## 4. Code Quality Rules
 

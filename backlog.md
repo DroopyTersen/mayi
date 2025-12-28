@@ -61,7 +61,7 @@
 ### Game Loop (17 tests in game.loop.test.ts)
 
 - [x] Fix typecheck errors
-- [ ] Implement turn advancement (4 tests)
+- [x] Implement turn advancement (4 tests)
 - [ ] Implement state transfer between turns (4 tests)
 - [ ] Implement initial game setup (4 tests)
 - [ ] Implement multiple consecutive turns (5 tests)

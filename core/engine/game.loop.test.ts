@@ -1,14 +1,67 @@
 import { describe, it, expect } from "bun:test";
+import { advanceTurn } from "./game.loop";
+import { createInitialGameState } from "./engine.types";
 
 describe("basic turn loop", () => {
   describe("turn advancement", () => {
-    it.todo("after turn completes, currentPlayerIndex advances", () => {});
+    it("after turn completes, currentPlayerIndex advances", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol"],
+        dealerIndex: 0,
+      });
+      // First player is index 1 (left of dealer 0)
+      expect(state.currentPlayerIndex).toBe(1);
 
-    it.todo("advances clockwise (index + 1, wrapping)", () => {});
+      const nextState = advanceTurn(state);
+      expect(nextState.currentPlayerIndex).toBe(2);
+    });
 
-    it.todo("with 4 players: 0 -> 1 -> 2 -> 3 -> 0", () => {});
+    it("advances clockwise (index + 1, wrapping)", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol"],
+        dealerIndex: 0,
+      });
+      // Start at player 1, advance to 2, then wrap to 0
+      let current = state;
+      current = advanceTurn(current); // 1 -> 2
+      expect(current.currentPlayerIndex).toBe(2);
+      current = advanceTurn(current); // 2 -> 0
+      expect(current.currentPlayerIndex).toBe(0);
+      current = advanceTurn(current); // 0 -> 1
+      expect(current.currentPlayerIndex).toBe(1);
+    });
 
-    it.todo("dealer index doesn't change during round", () => {});
+    it("with 4 players: 0 -> 1 -> 2 -> 3 -> 0", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+        dealerIndex: 3, // So first player is index 0
+      });
+      expect(state.currentPlayerIndex).toBe(0);
+
+      let current = state;
+      current = advanceTurn(current);
+      expect(current.currentPlayerIndex).toBe(1);
+      current = advanceTurn(current);
+      expect(current.currentPlayerIndex).toBe(2);
+      current = advanceTurn(current);
+      expect(current.currentPlayerIndex).toBe(3);
+      current = advanceTurn(current);
+      expect(current.currentPlayerIndex).toBe(0);
+    });
+
+    it("dealer index doesn't change during round", () => {
+      const state = createInitialGameState({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+        dealerIndex: 2,
+      });
+      expect(state.dealerIndex).toBe(2);
+
+      let current = state;
+      for (let i = 0; i < 8; i++) {
+        current = advanceTurn(current);
+        expect(current.dealerIndex).toBe(2);
+      }
+    });
   });
 
   describe("state transfer between turns", () => {
