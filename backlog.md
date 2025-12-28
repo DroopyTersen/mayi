@@ -256,7 +256,7 @@ Review specs/command-line-interface.md
 - [x] Implement GO_OUT with multiple lay offs (4 tests)
 - [x] Implement GO_OUT rejected scenarios (5 tests)
 - [x] Implement round 6 stuck scenarios (17 tests)
-- [ ] Implement not down scenarios (14 tests)
+- [x] Implement not down scenarios (14 tests)
 - [ ] Implement going out on lay down turn (18 tests)
 - [ ] Implement going out turn output (8 tests)
 - [ ] Fix typecheck errors
