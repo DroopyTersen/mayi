@@ -255,38 +255,195 @@ describe("TurnMachine - drawing from discard", () => {
 
 describe("TurnMachine - discarding", () => {
   describe("DISCARD command after drawing", () => {
-    it.todo("transitions from 'awaitingDiscard' to 'turnComplete'", () => {});
+    it("transitions from 'awaitingDiscard' to 'turnComplete'", () => {
+      const cardToDiscard = card("3");
+      const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      actor.stop();
+    });
 
-    it.todo("removes specified card from player's hand", () => {});
+    it("removes specified card from player's hand", () => {
+      const cardToDiscard = card("3");
+      const cardToKeep = card("5");
+      const actor = createTurnActor({ hand: [cardToDiscard, cardToKeep] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      const finalHand = actor.getSnapshot().context.hand;
+      expect(finalHand).not.toContainEqual(cardToDiscard);
+      expect(finalHand).toContainEqual(cardToKeep);
+      actor.stop();
+    });
 
-    it.todo("adds that card to top of discard pile", () => {});
+    it("adds that card to top of discard pile", () => {
+      const cardToDiscard = card("3");
+      const existingDiscard = card("8");
+      const actor = createTurnActor({
+        hand: [cardToDiscard, card("5")],
+        discard: [existingDiscard],
+      });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      const finalDiscard = actor.getSnapshot().context.discard;
+      expect(finalDiscard[0]).toEqual(cardToDiscard);
+      actor.stop();
+    });
 
-    it.todo("hand size decreases by 1", () => {});
+    it("hand size decreases by 1", () => {
+      const cardToDiscard = card("3");
+      const actor = createTurnActor({ hand: [cardToDiscard, card("5"), card("7")] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const handSizeAfterDraw = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(handSizeAfterDraw - 1);
+      actor.stop();
+    });
 
-    it.todo("discard size increases by 1", () => {});
+    it("discard size increases by 1", () => {
+      const cardToDiscard = card("3");
+      const actor = createTurnActor({
+        hand: [cardToDiscard, card("5")],
+        discard: [card("8")],
+      });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const discardSizeAfterDraw = actor.getSnapshot().context.discard.length;
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      expect(actor.getSnapshot().context.discard.length).toBe(discardSizeAfterDraw + 1);
+      actor.stop();
+    });
 
-    it.todo("stock is unchanged", () => {});
+    it("stock is unchanged", () => {
+      const cardToDiscard = card("3");
+      const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const stockAfterDraw = [...actor.getSnapshot().context.stock];
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      expect(actor.getSnapshot().context.stock).toEqual(stockAfterDraw);
+      actor.stop();
+    });
   });
 
   describe("DISCARD command validation", () => {
-    it.todo("rejects if cardId is not in player's hand", () => {});
+    it("rejects if cardId is not in player's hand", () => {
+      const actor = createTurnActor({ hand: [card("3"), card("5")] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DISCARD", cardId: "non-existent-card" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      actor.stop();
+    });
 
-    it.todo(
-      "rejects if player hasn't drawn yet (state is 'awaitingDraw')",
-      () => {}
-    );
+    it("rejects if player hasn't drawn yet (state is 'awaitingDraw')", () => {
+      const cardToDiscard = card("3");
+      const actor = createTurnActor({ hand: [cardToDiscard, card("5")] });
+      actor.start();
+      // Don't draw, try to discard immediately
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      actor.stop();
+    });
 
-    it.todo("state remains unchanged on rejection", () => {});
+    it("state remains unchanged on rejection", () => {
+      const cardInHand = card("3");
+      const actor = createTurnActor({ hand: [cardInHand, card("5")] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const handBefore = [...actor.getSnapshot().context.hand];
+      const discardBefore = [...actor.getSnapshot().context.discard];
+      actor.send({ type: "DISCARD", cardId: "non-existent-card" });
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.discard).toEqual(discardBefore);
+      actor.stop();
+    });
   });
 
   describe("discarding specific cards", () => {
-    it.todo("can discard any card in hand (first, middle, last)", () => {});
+    it("can discard any card in hand (first, middle, last)", () => {
+      const first = card("3");
+      const middle = card("5");
+      const last = card("7");
 
-    it.todo("can discard the card just drawn", () => {});
+      // Discard first
+      const actor1 = createTurnActor({ hand: [first, middle, last] });
+      actor1.start();
+      actor1.send({ type: "DRAW_FROM_STOCK" });
+      actor1.send({ type: "DISCARD", cardId: first.id });
+      expect(actor1.getSnapshot().value).toBe("turnComplete");
+      actor1.stop();
 
-    it.todo("can discard a wild card (2 or Joker)", () => {});
+      // Discard middle
+      const actor2 = createTurnActor({ hand: [card("3"), middle, card("7")] });
+      actor2.start();
+      actor2.send({ type: "DRAW_FROM_STOCK" });
+      actor2.send({ type: "DISCARD", cardId: middle.id });
+      expect(actor2.getSnapshot().value).toBe("turnComplete");
+      actor2.stop();
 
-    it.todo("correct card is removed (verify by id, not just count)", () => {});
+      // Discard last
+      const actor3 = createTurnActor({ hand: [card("3"), card("5"), last] });
+      actor3.start();
+      actor3.send({ type: "DRAW_FROM_STOCK" });
+      actor3.send({ type: "DISCARD", cardId: last.id });
+      expect(actor3.getSnapshot().value).toBe("turnComplete");
+      actor3.stop();
+    });
+
+    it("can discard the card just drawn", () => {
+      const drawnCard = card("K");
+      const actor = createTurnActor({
+        hand: [card("3"), card("5")],
+        stock: [drawnCard, card("Q")],
+      });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.discard[0]).toEqual(drawnCard);
+      actor.stop();
+    });
+
+    it("can discard a wild card (2 or Joker)", () => {
+      const two = card("2", "spades");
+      const joker: Card = { id: `joker-${cardId++}`, suit: null, rank: "Joker" };
+
+      // Discard a 2
+      const actor1 = createTurnActor({ hand: [two, card("5")] });
+      actor1.start();
+      actor1.send({ type: "DRAW_FROM_STOCK" });
+      actor1.send({ type: "DISCARD", cardId: two.id });
+      expect(actor1.getSnapshot().value).toBe("turnComplete");
+      actor1.stop();
+
+      // Discard a Joker
+      const actor2 = createTurnActor({ hand: [joker, card("5")] });
+      actor2.start();
+      actor2.send({ type: "DRAW_FROM_STOCK" });
+      actor2.send({ type: "DISCARD", cardId: joker.id });
+      expect(actor2.getSnapshot().value).toBe("turnComplete");
+      actor2.stop();
+    });
+
+    it("correct card is removed (verify by id, not just count)", () => {
+      const cardA = card("3");
+      const cardB = card("5");
+      const cardC = card("7");
+      const actor = createTurnActor({ hand: [cardA, cardB, cardC] });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DISCARD", cardId: cardB.id });
+      const finalHand = actor.getSnapshot().context.hand;
+      expect(finalHand.find((c) => c.id === cardA.id)).toBeDefined();
+      expect(finalHand.find((c) => c.id === cardB.id)).toBeUndefined();
+      expect(finalHand.find((c) => c.id === cardC.id)).toBeDefined();
+      actor.stop();
+    });
   });
 });
 
