@@ -641,14 +641,14 @@ Review specs/command-line-interface.md
 - [x] `contracts.test.ts:279` - Rejects if any meld has wilds outnumbering naturals
 - [x] `contracts.test.ts:280` - All melds checked, not just first one
 
-### Stock Depletion & Reshuffle Tests (3 tests — requires TurnMachine ↔ RoundMachine integration)
+### Stock Depletion & Reshuffle Tests (3 tests) — BLOCKED
 
 > Integration tests for stock depletion handling.
-> **Architectural requirement**: TurnMachine must notify RoundMachine when stock is empty during draw, triggering automatic reshuffle.
+> **Status**: BLOCKED — Requires TurnMachine to notify RoundMachine when stock is empty during draw. Current architecture uses manual coordination via harness, not XState actor communication.
 
-- [ ] `stockDepletion.test.ts:58` - Reshuffle happens before draw completes (TurnMachine integration)
-- [ ] `stockDepletion.test.ts:237` - Next player draws → reshuffle occurs automatically
-- [ ] `stockDepletion.test.ts:238` - Game continues normally after reshuffle
+- [!] `stockDepletion.test.ts:58` - Reshuffle happens before draw completes (requires TurnMachine↔RoundMachine integration)
+- [!] `stockDepletion.test.ts:237` - Next player draws → reshuffle occurs automatically (requires machine spawning)
+- [!] `stockDepletion.test.ts:238` - Game continues normally after reshuffle (requires machine spawning)
 - [x] `stockDepletion.test.ts:284` - Round ends immediately when reshuffle impossible (conceptual test)
 
 ### Going Out Tests (11 tests) ✓
@@ -681,7 +681,7 @@ Review specs/command-line-interface.md
 
 > Tests verifying correct contracts are enforced per round
 
-- [ ] `fullGame.test.ts:973` - Stock runs out → reshuffle triggered (TurnMachine integration — requires architectural work)
+- [!] `fullGame.test.ts:973` - Stock runs out → reshuffle triggered (BLOCKED: requires TurnMachine↔RoundMachine integration)
 - [x] `fullGame.test.ts:999` - Round 1: players must lay down 2 sets
 - [x] `fullGame.test.ts:1000` - Round 1: 1 set insufficient
 - [x] `fullGame.test.ts:1001` - Round 1: sets + runs insufficient (wrong combination)
@@ -693,24 +693,25 @@ Review specs/command-line-interface.md
 - [x] `fullGame.test.ts:1022` - Round 6: players must lay down 1 set + 2 runs
 - [x] `fullGame.test.ts:1023` - Round 6: minimum 11 cards, special going out rules
 
-### RoundMachine & TurnMachine Spawning Tests (5 tests — requires XState actor spawning)
+### RoundMachine & TurnMachine Spawning Tests (5 tests) — BLOCKED
 
 > Tests for child machine spawning/integration.
-> **Architectural requirement**: GameMachine must spawn RoundMachine as child actor, RoundMachine must spawn TurnMachine per player turn.
+> **Status**: BLOCKED — Current architecture uses event-based coordination via harness. Implementing XState `spawn()` would require significant refactoring.
 
-- [ ] `gameMachine.test.ts:284` - Spawns RoundMachine with current round context
-- [ ] `roundMachine.test.ts:550` - Spawns TurnMachine for current player's turn
-- [ ] `roundMachine.test.ts:726` - Spawn new TurnMachine for next player
-- [ ] `roundMachine.test.ts:1333` - Triggers roundEnd in GameMachine (integration)
-- [ ] `roundMachine.test.ts:1357` - Stock empty checked when player draws from stock
+- [!] `gameMachine.test.ts:291` - Spawns RoundMachine with current round context (requires XState spawn)
+- [!] `roundMachine.test.ts:550` - Spawns TurnMachine for current player's turn (requires XState spawn)
+- [!] `roundMachine.test.ts:726` - Spawn new TurnMachine for next player (requires XState spawn)
+- [!] `roundMachine.test.ts:1333` - Triggers roundEnd in GameMachine (requires parent-child communication)
+- [!] `roundMachine.test.ts:1357` - Stock empty checked when player draws from stock (requires machine integration)
 - [x] `roundMachine.test.ts:1379-1380` - Reshuffle shuffles cards and places as new stock
 - [x] `roundMachine.test.ts:1399-1401` - Reshuffle scenario (20 cards → 19 shuffled)
 
-### Turn Machine Stock Depletion Test (1 test — requires integration)
+### Turn Machine Stock Depletion Test (1 test) — BLOCKED
 
 > Stock reshuffle when TurnMachine encounters empty stock.
+> **Status**: BLOCKED — Requires TurnMachine to communicate with RoundMachine when stock is empty during draw.
 
-- [ ] `turn.machine.test.ts:142` - Reshuffles discard pile into stock (deferred)
+- [!] `turn.machine.test.ts:142` - Reshuffles discard pile into stock (requires RoundMachine integration)
 
 ## Phase 8 Tasks (Exhaustive Harness Testing)
 
