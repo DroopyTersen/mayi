@@ -6,6 +6,7 @@
 
 import type { RoundNumber } from "./engine.types";
 import type { Meld } from "../meld/meld.types";
+import { isValidSet, isValidRun } from "../meld/meld.validation";
 
 /**
  * A contract specifies the required melds to lay down in a round
@@ -75,9 +76,9 @@ export interface ContractValidationResult {
  * Checks:
  * - Correct number of sets
  * - Correct number of runs
+ * - Each meld's declared type matches its actual cards
  *
- * Note: This only validates the meld counts match the contract.
- * Individual meld validity (card validity, wild ratios) is checked separately.
+ * Note: Individual meld validity (wild ratios, card counts) is also checked.
  */
 export function validateContractMelds(
   contract: Contract,
@@ -98,6 +99,25 @@ export function validateContractMelds(
       valid: false,
       error: `Contract requires ${contract.runs} run(s), but got ${runs.length}`,
     };
+  }
+
+  // Verify each meld's declared type matches its actual cards
+  for (const meld of melds) {
+    if (meld.type === "set") {
+      if (!isValidSet(meld.cards)) {
+        return {
+          valid: false,
+          error: `Meld declared as set is invalid`,
+        };
+      }
+    } else if (meld.type === "run") {
+      if (!isValidRun(meld.cards)) {
+        return {
+          valid: false,
+          error: `Meld declared as run is invalid`,
+        };
+      }
+    }
   }
 
   return { valid: true };

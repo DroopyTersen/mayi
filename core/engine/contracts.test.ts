@@ -1,13 +1,35 @@
 import { describe, it, expect } from "bun:test";
 import { CONTRACTS, getContractForRound, getMinimumCardsForContract, validateContractMelds } from "./contracts";
 import type { Meld } from "../meld/meld.types";
+import type { Card } from "../card/card.types";
 
-// Helper to create a mock meld
+// Helper to create a card
+function card(rank: Card["rank"], suit: Card["suit"]): Card {
+  return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
+}
+
+// Helper to create a mock meld with valid cards
 function mockMeld(type: "set" | "run"): Meld {
+  // Create valid cards for the meld type
+  const cards: Card[] =
+    type === "set"
+      ? [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")]
+      : [card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades")];
+
   return {
     id: `meld-${Math.random()}`,
     type,
-    cards: [],
+    cards,
+    ownerId: "player-1",
+  };
+}
+
+// Helper to create a meld with specific cards
+function meldWithCards(type: "set" | "run", cards: Card[]): Meld {
+  return {
+    id: `meld-${Math.random()}`,
+    type,
+    cards,
     ownerId: "player-1",
   };
 }
@@ -179,10 +201,76 @@ describe("validateContractMelds", () => {
   });
 
   describe("meld type verification", () => {
-    it.todo("correctly identifies melds as sets vs runs", () => {});
-    it.todo("rejects if meld type does not match what player claims", () => {});
-    it.todo("a meld of (9C 9D 9H) must be declared as set, not run", () => {});
-    it.todo("a meld of (5S 6S 7S 8S) must be declared as run, not set", () => {});
+    it("correctly identifies melds as sets vs runs", () => {
+      // Valid set declared as set - should pass
+      const validSet = meldWithCards("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      // Valid run declared as run - should pass
+      const validRun = meldWithCards("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const result = validateContractMelds(CONTRACTS[2], [validSet, validRun]);
+      expect(result.valid).toBe(true);
+    });
+
+    it("rejects if meld type does not match what player claims", () => {
+      // Cards form a set (same rank) but declared as run
+      const misdeclared = meldWithCards("run", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"),
+      ]);
+      const validRun = meldWithCards("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const result = validateContractMelds(CONTRACTS[3], [misdeclared, validRun]);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("invalid");
+    });
+
+    it("a meld of (9C 9D 9H) must be declared as set, not run", () => {
+      // 9C 9D 9H declared as run should fail
+      const wrongType = meldWithCards("run", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"), // Need 4 for run minimum
+      ]);
+      const validRun = meldWithCards("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const result = validateContractMelds(CONTRACTS[3], [wrongType, validRun]);
+      expect(result.valid).toBe(false);
+    });
+
+    it("a meld of (5S 6S 7S 8S) must be declared as run, not set", () => {
+      // 5S 6S 7S 8S declared as set should fail
+      const wrongType = meldWithCards("set", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const validSet = meldWithCards("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+      const result = validateContractMelds(CONTRACTS[1], [wrongType, validSet]);
+      expect(result.valid).toBe(false);
+    });
   });
 
   describe("each meld must be independently valid", () => {
