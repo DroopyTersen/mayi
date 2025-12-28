@@ -62,10 +62,62 @@ describe("TurnMachine - drawn state", () => {
   });
 
   describe("proceeding without laying down", () => {
-    it.todo("READY_TO_DISCARD transitions to 'awaitingDiscard'", () => {});
-    it.todo("player remains not down (isDown: false)", () => {});
-    it.todo("hand unchanged (still has drawn card)", () => {});
-    it.todo("can proceed even if player could lay down (optional action)", () => {});
+    it("SKIP_LAY_DOWN transitions to 'awaitingDiscard'", () => {
+      const actor = createActor(turnMachine, { input: createTurnInput() });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().value).toBe("drawn");
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+    });
+
+    it("player remains not down (isDown: false)", () => {
+      const actor = createActor(turnMachine, { input: createTurnInput() });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("hand unchanged (still has drawn card)", () => {
+      const input = createTurnInput();
+      const initialHandSize = input.hand.length;
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handAfterDraw = actor.getSnapshot().context.hand;
+      expect(handAfterDraw.length).toBe(initialHandSize + 1);
+
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Hand should still have the drawn card
+      expect(actor.getSnapshot().context.hand.length).toBe(initialHandSize + 1);
+      expect(actor.getSnapshot().context.hand).toEqual(handAfterDraw);
+    });
+
+    it("can proceed even if player could lay down (optional action)", () => {
+      // Player has cards for a valid contract but chooses not to lay down
+      const input = {
+        ...createTurnInput(),
+        hand: [
+          // Two valid sets for round 1
+          card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"),
+          card("K", "clubs"), card("K", "diamonds"), card("K", "hearts"),
+          card("5", "spades"), // Extra card
+        ],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Player can skip laying down even though they could
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
   });
 });
 

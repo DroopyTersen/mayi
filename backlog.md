@@ -111,7 +111,7 @@ Review specs/command-line-interface.md
 
 ### Lay Down Command (95 tests in laydown.test.ts)
 - [x] Implement drawn state structure (3 tests)
-- [ ] Implement proceeding without laying down (4 tests)
+- [x] Implement proceeding without laying down (4 tests)
 - [ ] Implement LAY_DOWN preconditions (5 tests)
 - [ ] Implement successful lay down - Round 1 (7 tests)
 - [ ] Implement successful lay down - Round 2 (4 tests)
