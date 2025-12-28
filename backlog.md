@@ -444,9 +444,120 @@ Review specs/command-line-interface.md
 
 ## Phase 6 Tasks (May I Mechanic)
 
-> Break down when Phase 5 is complete
+> 309 todo tests scaffolded across 8 test files
 
-- [ ] Review specs/phase-6-tests.md and and scaffold out all of those tests. Add tasks for Phase 6, centered around the tests.
+- [x] Review specs/phase-6-tests.md and scaffold out all tests
+
+### MayIWindowMachine (73 tests in mayIWindow.test.ts)
+
+- [ ] Implement initialization - context from input (10 tests)
+- [ ] Implement initial state (4 tests)
+- [ ] Implement open state - current player takes discard (5 tests)
+- [ ] Implement open state - current player draws from stock (4 tests)
+- [ ] Implement open state - other player calls May I (3 tests)
+- [ ] Implement open state - multiple players call May I (2 tests)
+- [ ] Implement open state - current player vetoes (4 tests)
+- [ ] Implement guards - canCallMayI (3 tests)
+- [ ] Implement guards - isCurrentPlayer (2 tests)
+- [ ] Implement resolvingClaims state - entering (2 tests)
+- [ ] Implement resolvingClaims state - no claimants (3 tests)
+- [ ] Implement resolvingClaims state - single claimant (3 tests)
+- [ ] Implement resolvingClaims state - multiple claimants (3 tests)
+- [ ] Implement resolvingClaims state - veto between non-current players (3 tests)
+- [ ] Implement priority calculation - basic (3 tests)
+- [ ] Implement priority calculation - wrap-around (2 tests)
+- [ ] Implement priority calculation - current player passed (2 tests)
+- [ ] Implement priority calculation - 5 player scenario (3 tests)
+- [ ] Implement final states - closedByCurrentPlayer (5 tests)
+- [ ] Implement final states - resolved (5 tests)
+- [ ] Implement final states - closedNoClaim (4 tests)
+
+### May I Priority (19 tests in mayIPriority.test.ts)
+
+- [ ] Implement getClaimPriority - priority order (3 tests)
+- [ ] Implement getClaimPriority - wrap-around (2 tests)
+- [ ] Implement getClaimPriority - excluding discarder (3 tests)
+- [ ] Implement resolveByPriority - single claimant (1 test)
+- [ ] Implement resolveByPriority - multiple claimants (4 tests)
+- [ ] Implement veto scenarios - closer player vetoes (4 tests)
+- [ ] Implement veto scenarios - current player vetoes (3 tests)
+- [ ] Implement veto scenarios - cannot veto after passing (2 tests)
+- [ ] Implement veto scenarios - chain of vetoes (2 tests)
+
+### May I Actions (17 tests in mayIActions.test.ts)
+
+- [ ] Implement current player claiming - via DRAW_FROM_DISCARD (5 tests)
+- [ ] Implement current player claiming - voids other calls (4 tests)
+- [ ] Implement current player claiming - counts as draw (3 tests)
+- [ ] Implement non-current player winning - receives discard + penalty (3 tests)
+- [ ] Implement non-current player winning - discard and stock updated (3 tests)
+- [ ] Implement non-current player winning - turn order unchanged (3 tests)
+- [ ] Implement no claims scenario (4 tests)
+
+### May I Rules (22 tests in mayIRules.test.ts)
+
+- [ ] Implement eligibility rules - cannot May I own discard (1 test)
+- [ ] Implement eligibility rules - current player can claim (2 tests)
+- [ ] Implement eligibility rules - all other players can May I (3 tests)
+- [ ] Implement timing rules - May I before current player draws (3 tests)
+- [ ] Implement timing rules - window closes on draw from discard (3 tests)
+- [ ] Implement timing rules - resolves on draw from stock (4 tests)
+- [ ] Implement timing rules - loses veto after passing (3 tests)
+- [ ] Implement unlimited per round (5 tests)
+- [ ] Implement penalty card rules (6 tests)
+
+### RoundMachine May I Integration (29 tests in roundMachine.mayI.test.ts)
+
+- [ ] Implement window opens after discard (3 tests)
+- [ ] Implement window does NOT open if went out (3 tests)
+- [ ] Implement MayIWindowMachine input (6 tests)
+- [ ] Implement CURRENT_PLAYER_CLAIMED outcome (4 tests)
+- [ ] Implement MAY_I_RESOLVED outcome (5 tests)
+- [ ] Implement NO_CLAIMS outcome (4 tests)
+- [ ] Implement turn flow - current player claims (4 tests)
+- [ ] Implement turn flow - May I won (4 tests)
+- [ ] Implement turn flow - no May I (3 tests)
+- [ ] Implement turn flow - current player vetoes (3 tests)
+- [ ] Implement multiple May I in a round (5 tests)
+
+### TurnMachine May I Awareness (13 tests in turnMachine.mayI.test.ts)
+
+- [ ] Implement turn starts in awaitingDraw (3 tests)
+- [ ] Implement DRAW_FROM_DISCARD during May I window (4 tests)
+- [ ] Implement DRAW_FROM_STOCK during May I window (4 tests)
+- [ ] Implement hand state after May I resolution (3 tests)
+- [ ] Implement discard availability - no May I (2 tests)
+- [ ] Implement discard availability - May I won (3 tests)
+
+### May I Integration Tests (52 tests in mayIIntegration.test.ts)
+
+- [ ] Implement complete flow - current player takes discard (4 tests)
+- [ ] Implement complete flow - one May I claimant (3 tests)
+- [ ] Implement complete flow - multiple claimants, priority (3 tests)
+- [ ] Implement complete flow - current player vetoes (3 tests)
+- [ ] Implement complete flow - non-current player vetoes (3 tests)
+- [ ] Implement complete flow - no one wants discard (3 tests)
+- [ ] Implement complete flow - May I before current player decides (3 tests)
+- [ ] Implement edge cases - 3 players (3 tests)
+- [ ] Implement edge cases - 8 players (3 tests)
+- [ ] Implement edge cases - stock is low (2 tests)
+- [ ] Implement edge cases - stock is empty (3 tests)
+- [ ] Implement edge cases - first discard of round (2 tests)
+- [ ] Implement turn order verification (5 tests)
+- [ ] Implement strategic scenarios (12 tests)
+
+### CLI May I (30 tests in cli/mayI.test.ts)
+
+- [ ] Implement current player decision prompt (2 tests)
+- [ ] Implement current player decision with pending May I (3 tests)
+- [ ] Implement May I prompt for other players (3 tests)
+- [ ] Implement May I resolution display - single winner (3 tests)
+- [ ] Implement May I resolution display - priority winner (4 tests)
+- [ ] Implement May I veto display - current player (3 tests)
+- [ ] Implement May I veto display - non-current player (5 tests)
+- [ ] Implement no May I claims display (3 tests)
+- [ ] Implement AI May I summary (4 tests)
+- [ ] Implement AI veto summary (4 tests)
 
 ---
 
