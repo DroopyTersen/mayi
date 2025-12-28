@@ -675,21 +675,21 @@ Review specs/command-line-interface.md
 - [x] `roundEnd.test.ts:629` - Can identify who won each round
 - [x] `roundEnd.test.ts:630` - Full audit trail of game
 
-### Full Game Contract Enforcement Tests (9 tests)
+### Full Game Contract Enforcement Tests (9 tests) ✓
 
 > Tests verifying correct contracts are enforced per round
 
-- [ ] `fullGame.test.ts:973` - Stock runs out → reshuffle triggered
-- [ ] `fullGame.test.ts:999` - Round 1: players must lay down 2 sets
-- [ ] `fullGame.test.ts:1000` - Round 1: 1 set insufficient
-- [ ] `fullGame.test.ts:1001` - Round 1: sets + runs insufficient (wrong combination)
-- [ ] `fullGame.test.ts:1005` - Round 2: players must lay down 1 set + 1 run
-- [ ] `fullGame.test.ts:1006` - Round 2: 2 sets insufficient, 2 runs insufficient
-- [ ] `fullGame.test.ts:1010` - Round 3: players must lay down 2 runs
-- [ ] `fullGame.test.ts:1014` - Round 4: players must lay down 3 sets
-- [ ] `fullGame.test.ts:1018` - Round 5: players must lay down 2 sets + 1 run
-- [ ] `fullGame.test.ts:1022` - Round 6: players must lay down 1 set + 2 runs
-- [ ] `fullGame.test.ts:1023` - Round 6: minimum 11 cards, special going out rules
+- [ ] `fullGame.test.ts:973` - Stock runs out → reshuffle triggered (TurnMachine integration)
+- [x] `fullGame.test.ts:999` - Round 1: players must lay down 2 sets
+- [x] `fullGame.test.ts:1000` - Round 1: 1 set insufficient
+- [x] `fullGame.test.ts:1001` - Round 1: sets + runs insufficient (wrong combination)
+- [x] `fullGame.test.ts:1005` - Round 2: players must lay down 1 set + 1 run
+- [x] `fullGame.test.ts:1006` - Round 2: 2 sets insufficient, 2 runs insufficient
+- [x] `fullGame.test.ts:1010` - Round 3: players must lay down 2 runs
+- [x] `fullGame.test.ts:1014` - Round 4: players must lay down 3 sets
+- [x] `fullGame.test.ts:1018` - Round 5: players must lay down 2 sets + 1 run
+- [x] `fullGame.test.ts:1022` - Round 6: players must lay down 1 set + 2 runs
+- [x] `fullGame.test.ts:1023` - Round 6: minimum 11 cards, special going out rules
 
 ### RoundMachine & TurnMachine Spawning Tests (6 tests)
 

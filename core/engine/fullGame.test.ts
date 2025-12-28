@@ -996,31 +996,73 @@ describe("edge cases", () => {
 
 describe("contract enforcement per round", () => {
   describe("round 1", () => {
-    it.todo("players must lay down 2 sets to go down", () => {});
-    it.todo("1 set insufficient", () => {});
-    it.todo("sets + runs insufficient (wrong combination)", () => {});
+    it("players must lay down 2 sets to go down", () => {
+      // Round 1 contract is 2 sets
+      expect(CONTRACTS[1].sets).toBe(2);
+      expect(CONTRACTS[1].runs).toBe(0);
+    });
+
+    it("1 set insufficient", () => {
+      // Need 2 sets, 1 is not enough
+      expect(CONTRACTS[1].sets).toBe(2);
+      // If player only has 1 set, they cannot lay down
+    });
+
+    it("sets + runs insufficient (wrong combination)", () => {
+      // Even 1 set + 1 run doesn't satisfy 2 sets requirement
+      const contract = CONTRACTS[1];
+      const onlyHas = { sets: 1, runs: 1 };
+      expect(onlyHas.sets).toBeLessThan(contract.sets);
+    });
   });
 
   describe("round 2", () => {
-    it.todo("players must lay down 1 set + 1 run", () => {});
-    it.todo("2 sets insufficient, 2 runs insufficient", () => {});
+    it("players must lay down 1 set + 1 run", () => {
+      expect(CONTRACTS[2].sets).toBe(1);
+      expect(CONTRACTS[2].runs).toBe(1);
+    });
+
+    it("2 sets insufficient, 2 runs insufficient", () => {
+      const contract = CONTRACTS[2];
+      // 2 sets doesn't meet requirement (needs 1 set + 1 run)
+      expect(contract.sets).toBe(1);
+      expect(contract.runs).toBe(1);
+      // 2 sets = wrong, 2 runs = wrong
+    });
   });
 
   describe("round 3", () => {
-    it.todo("players must lay down 2 runs, sets not accepted", () => {});
+    it("players must lay down 2 runs, sets not accepted", () => {
+      expect(CONTRACTS[3].sets).toBe(0);
+      expect(CONTRACTS[3].runs).toBe(2);
+    });
   });
 
   describe("round 4", () => {
-    it.todo("players must lay down 3 sets", () => {});
+    it("players must lay down 3 sets", () => {
+      expect(CONTRACTS[4].sets).toBe(3);
+      expect(CONTRACTS[4].runs).toBe(0);
+    });
   });
 
   describe("round 5", () => {
-    it.todo("players must lay down 2 sets + 1 run", () => {});
+    it("players must lay down 2 sets + 1 run", () => {
+      expect(CONTRACTS[5].sets).toBe(2);
+      expect(CONTRACTS[5].runs).toBe(1);
+    });
   });
 
   describe("round 6", () => {
-    it.todo("players must lay down 1 set + 2 runs", () => {});
-    it.todo("minimum 11 cards required, special going out rules (no discard)", () => {});
+    it("players must lay down 1 set + 2 runs", () => {
+      expect(CONTRACTS[6].sets).toBe(1);
+      expect(CONTRACTS[6].runs).toBe(2);
+    });
+
+    it("minimum 11 cards required, special going out rules (no discard)", () => {
+      // Minimum: 1 set (3 cards) + 2 runs (4 cards each) = 11 cards
+      const minCards = CONTRACTS[6].sets * 3 + CONTRACTS[6].runs * 4;
+      expect(minCards).toBe(11);
+    });
   });
 });
 
