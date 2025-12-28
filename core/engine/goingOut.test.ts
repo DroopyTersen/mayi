@@ -2326,14 +2326,336 @@ describe("going out - round 6 special rules", () => {
   });
 
   describe("GO_OUT command", () => {
-    it.todo("convenience command for going out with multiple lay offs", () => {});
-    it.todo("available in all rounds (not just round 6)", () => {});
-    it.todo("only available when player is down", () => {});
-    it.todo("can include finalLayOffs array", () => {});
-    it.todo("validates all lay offs before executing", () => {});
-    it.todo("executes all lay offs in order", () => {});
-    it.todo("player must end with 0 cards", () => {});
-    it.todo("transitions to wentOut state", () => {});
+    // Set up melds for testing
+    const setMeld = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+
+    it("convenience command for going out with multiple lay offs", () => {
+      // GO_OUT allows laying off all remaining cards in a single command
+      const nineS = card("9", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS], // 1 card that can be laid off
+        stock: [],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      // Need to draw first
+      const inputWithStock = {
+        ...input,
+        hand: [],
+        stock: [nineS],
+      };
+
+      const actor = createActor(turnMachine, { input: inputWithStock });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Use GO_OUT to lay off the single card
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: nineS.id, meldId: setMeld.id }],
+      });
+
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+    });
+
+    it("available in all rounds (not just round 6)", () => {
+      const nineS = card("9", "spades");
+
+      // Test in round 1
+      const input1 = {
+        playerId: "player-1",
+        hand: [],
+        stock: [nineS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor1 = createActor(turnMachine, { input: input1 });
+      actor1.start();
+      actor1.send({ type: "DRAW_FROM_STOCK" });
+      actor1.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: nineS.id, meldId: setMeld.id }],
+      });
+      expect(actor1.getSnapshot().value).toBe("wentOut");
+
+      // Test in round 3
+      const nineS2 = card("9", "spades");
+      const input3 = {
+        playerId: "player-1",
+        hand: [],
+        stock: [nineS2],
+        discard: [card("5", "clubs")],
+        roundNumber: 3 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor3 = createActor(turnMachine, { input: input3 });
+      actor3.start();
+      actor3.send({ type: "DRAW_FROM_STOCK" });
+      actor3.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: nineS2.id, meldId: setMeld.id }],
+      });
+      expect(actor3.getSnapshot().value).toBe("wentOut");
+
+      // Test in round 6
+      const nineS3 = card("9", "spades");
+      const input6 = {
+        playerId: "player-1",
+        hand: [],
+        stock: [nineS3],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor6 = createActor(turnMachine, { input: input6 });
+      actor6.start();
+      actor6.send({ type: "DRAW_FROM_STOCK" });
+      actor6.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: nineS3.id, meldId: setMeld.id }],
+      });
+      expect(actor6.getSnapshot().value).toBe("wentOut");
+    });
+
+    it("only available when player is down", () => {
+      const nineS = card("9", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [nineS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false, // NOT down
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Try GO_OUT - should be rejected
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: nineS.id, meldId: setMeld.id }],
+      });
+
+      // Still in drawn state, not wentOut
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+    });
+
+    it("can include finalLayOffs array", () => {
+      const nineS = card("9", "spades");
+      const kingMeld = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+      const kingS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [nineS, kingS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DRAW_FROM_STOCK" }); // Draw both - but wait, only one draw
+
+      // Actually, re-set up to have both cards in hand after one draw
+      const input2 = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [kingS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor2 = createActor(turnMachine, { input: input2 });
+      actor2.start();
+      actor2.send({ type: "DRAW_FROM_STOCK" });
+
+      // GO_OUT with 2 lay offs
+      actor2.send({
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: nineS.id, meldId: setMeld.id },
+          { cardId: kingS.id, meldId: kingMeld.id },
+        ],
+      });
+
+      expect(actor2.getSnapshot().value).toBe("wentOut");
+      expect(actor2.getSnapshot().context.hand.length).toBe(0);
+    });
+
+    it("validates all lay offs before executing", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts"); // Cannot lay off to setMeld
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [qH],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Try GO_OUT with invalid lay off (Q♥ can't go to setMeld of 9s)
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: nineS.id, meldId: setMeld.id },
+          { cardId: qH.id, meldId: setMeld.id }, // Invalid - wrong rank
+        ],
+      });
+
+      // Should be rejected - still in drawn state
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("executes all lay offs in order", () => {
+      const nineS = card("9", "spades");
+      const kingMeld = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "hearts"),
+      ]);
+      const kingS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [kingS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // GO_OUT with 2 lay offs
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: nineS.id, meldId: setMeld.id },
+          { cardId: kingS.id, meldId: kingMeld.id },
+        ],
+      });
+
+      // Verify both cards were added to their respective melds
+      const table = actor.getSnapshot().context.table;
+      const updatedSetMeld = table.find((m) => m.id === setMeld.id);
+      const updatedKingMeld = table.find((m) => m.id === kingMeld.id);
+
+      expect(updatedSetMeld!.cards.length).toBe(4); // Original 3 + 9♠
+      expect(updatedKingMeld!.cards.length).toBe(4); // Original 3 + K♠
+    });
+
+    it("player must end with 0 cards", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts"); // Extra card that won't be laid off
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS],
+        stock: [qH],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Try GO_OUT with only 1 lay off when we have 2 cards
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: nineS.id, meldId: setMeld.id }],
+      });
+
+      // Should be rejected - would leave 1 card
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("transitions to wentOut state", () => {
+      const nineS = card("9", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [nineS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "GO_OUT",
+        finalLayOffs: [{ cardId: nineS.id, meldId: setMeld.id }],
+      });
+
+      // Player went out - state is wentOut and hand is empty
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+
+      // Machine is done (final state)
+      expect(actor.getSnapshot().status).toBe("done");
+    });
   });
 
   describe("GO_OUT with multiple lay offs", () => {

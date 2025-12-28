@@ -44,6 +44,14 @@ export interface TurnContext {
 }
 
 /**
+ * Lay off specification for GO_OUT command
+ */
+export interface LayOffSpec {
+  cardId: string;
+  meldId: string;
+}
+
+/**
  * Events that can be sent to the TurnMachine
  */
 export type TurnEvent =
@@ -52,7 +60,8 @@ export type TurnEvent =
   | { type: "SKIP_LAY_DOWN" }
   | { type: "LAY_DOWN"; melds: MeldProposal[] }
   | { type: "LAY_OFF"; cardId: string; meldId: string }
-  | { type: "DISCARD"; cardId: string };
+  | { type: "DISCARD"; cardId: string }
+  | { type: "GO_OUT"; finalLayOffs: LayOffSpec[] };
 
 /**
  * Input required to create a TurnMachine actor
@@ -177,6 +186,45 @@ export const turnMachine = setup({
     handIsEmpty: ({ context }) => {
       return context.hand.length === 0;
     },
+    // Check if GO_OUT command is valid
+    canGoOut: ({ context, event }) => {
+      if (event.type !== "GO_OUT") return false;
+
+      // Player must be down
+      if (!context.isDown) return false;
+
+      // Must have the right number of lay offs to empty the hand
+      if (event.finalLayOffs.length !== context.hand.length) return false;
+
+      // Validate each lay off would be valid
+      // We need to simulate the lay offs in sequence
+      let simulatedHand = [...context.hand];
+      let simulatedTable = context.table.map((m) => ({ ...m, cards: [...m.cards] }));
+
+      for (const layOff of event.finalLayOffs) {
+        // Find the card in simulated hand
+        const card = simulatedHand.find((c) => c.id === layOff.cardId);
+        if (!card) return false;
+
+        // Find the meld in simulated table
+        const meld = simulatedTable.find((m) => m.id === layOff.meldId);
+        if (!meld) return false;
+
+        // Check if card fits the meld
+        if (meld.type === "set") {
+          if (!canLayOffToSet(card, meld)) return false;
+        } else {
+          if (!canLayOffToRun(card, meld)) return false;
+        }
+
+        // Simulate the lay off
+        simulatedHand = simulatedHand.filter((c) => c.id !== layOff.cardId);
+        meld.cards = [...meld.cards, card];
+      }
+
+      // After all lay offs, hand must be empty
+      return simulatedHand.length === 0;
+    },
   },
   actions: {
     drawFromStock: assign({
@@ -262,6 +310,28 @@ export const turnMachine = setup({
         });
       },
     }),
+    // GO_OUT action - performs all lay offs in order
+    goOut: assign({
+      hand: () => [], // Hand becomes empty
+      table: ({ context, event }) => {
+        if (event.type !== "GO_OUT") return context.table;
+
+        // Apply all lay offs to the table
+        let updatedTable = context.table.map((m) => ({ ...m, cards: [...m.cards] }));
+
+        for (const layOff of event.finalLayOffs) {
+          const card = context.hand.find((c) => c.id === layOff.cardId);
+          if (!card) continue;
+
+          updatedTable = updatedTable.map((meld) => {
+            if (meld.id !== layOff.meldId) return meld;
+            return { ...meld, cards: [...meld.cards, card] };
+          });
+        }
+
+        return updatedTable;
+      },
+    }),
   },
 }).createMachine({
   id: "turn",
@@ -314,6 +384,11 @@ export const turnMachine = setup({
           guard: "canLayOff",
           target: "drawn", // Stay in drawn state to allow more lay offs
           actions: "layOff",
+        },
+        GO_OUT: {
+          guard: "canGoOut",
+          target: "wentOut",
+          actions: "goOut",
         },
       },
       always: {
