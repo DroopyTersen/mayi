@@ -3,12 +3,12 @@
   "gameId": "5e4971cf",
   "seed": null,
   "createdAt": "2025-12-28T21:15:32.947Z",
-  "updatedAt": "2025-12-28T21:18:29.596Z",
-  "currentRound": 2,
+  "updatedAt": "2025-12-28T21:24:41.080Z",
+  "currentRound": 3,
   "contract": {
-    "roundNumber": 2,
-    "sets": 1,
-    "runs": 1
+    "roundNumber": 3,
+    "sets": 0,
+    "runs": 2
   },
   "players": [
     {
@@ -16,24 +16,44 @@
       "name": "Alice",
       "hand": [
         {
-          "id": "card-10",
+          "id": "card-7",
           "suit": "hearts",
-          "rank": "4"
-        },
-        {
-          "id": "card-74",
-          "suit": "diamonds",
-          "rank": "5"
-        },
-        {
-          "id": "card-85",
-          "suit": "clubs",
           "rank": "7"
         },
         {
-          "id": "card-24",
+          "id": "card-30",
+          "suit": "clubs",
+          "rank": "10"
+        },
+        {
+          "id": "card-40",
+          "suit": "spades",
+          "rank": "K"
+        },
+        {
+          "id": "card-47",
+          "suit": "spades",
+          "rank": "6"
+        },
+        {
+          "id": "card-52",
+          "suit": "hearts",
+          "rank": "A"
+        },
+        {
+          "id": "card-42",
+          "suit": "spades",
+          "rank": "J"
+        },
+        {
+          "id": "card-18",
           "suit": "diamonds",
-          "rank": "3"
+          "rank": "9"
+        },
+        {
+          "id": "card-2",
+          "suit": "hearts",
+          "rank": "Q"
         },
         {
           "id": "card-38",
@@ -41,77 +61,52 @@
           "rank": "2"
         },
         {
-          "id": "card-106",
-          "suit": null,
-          "rank": "Joker"
-        },
-        {
-          "id": "card-79",
-          "suit": "clubs",
-          "rank": "K"
-        },
-        {
-          "id": "card-75",
-          "suit": "diamonds",
+          "id": "card-10",
+          "suit": "hearts",
           "rank": "4"
         },
         {
-          "id": "card-69",
-          "suit": "diamonds",
-          "rank": "10"
-        },
-        {
-          "id": "card-8",
+          "id": "card-11",
           "suit": "hearts",
-          "rank": "6"
-        },
-        {
-          "id": "card-105",
-          "suit": null,
-          "rank": "Joker"
+          "rank": "3"
         }
       ],
       "isDown": false,
-      "totalScore": 50
+      "totalScore": 80
     },
     {
       "id": "player-1",
       "name": "Bob",
       "hand": [
         {
-          "id": "card-36",
+          "id": "card-37",
           "suit": "clubs",
-          "rank": "4"
-        },
-        {
-          "id": "card-63",
-          "suit": "hearts",
           "rank": "3"
         },
         {
-          "id": "card-64",
-          "suit": "hearts",
-          "rank": "2"
+          "id": "card-86",
+          "suit": "clubs",
+          "rank": "6"
         },
         {
-          "id": "card-72",
+          "id": "card-21",
           "suit": "diamonds",
-          "rank": "7"
+          "rank": "6"
         },
         {
-          "id": "card-98",
-          "suit": "spades",
-          "rank": "7"
+          "id": "card-32",
+          "suit": "clubs",
+          "rank": "8"
         },
         {
-          "id": "card-101",
-          "suit": "spades",
-          "rank": "4"
+          "id": "card-3",
+          "suit": "hearts",
+          "rank": "J"
         },
         {
-          "id": "card-91",
+          "id": "card-45",
           "suit": "spades",
-          "rank": "A"
+          "rank": "8"
         },
         {
           "id": "card-48",
@@ -119,19 +114,24 @@
           "rank": "5"
         },
         {
-          "id": "card-53",
-          "suit": "hearts",
+          "id": "card-103",
+          "suit": "spades",
+          "rank": "2"
+        },
+        {
+          "id": "card-14",
+          "suit": "diamonds",
           "rank": "K"
         },
         {
-          "id": "card-92",
-          "suit": "spades",
-          "rank": "K"
-        },
-        {
-          "id": "card-95",
-          "suit": "spades",
+          "id": "card-69",
+          "suit": "diamonds",
           "rank": "10"
+        },
+        {
+          "id": "card-22",
+          "suit": "diamonds",
+          "rank": "5"
         }
       ],
       "isDown": false,
@@ -142,132 +142,117 @@
       "name": "Carol",
       "hand": [
         {
+          "id": "card-17",
+          "suit": "diamonds",
+          "rank": "10"
+        },
+        {
+          "id": "card-39",
+          "suit": "spades",
+          "rank": "A"
+        },
+        {
           "id": "card-1",
           "suit": "hearts",
           "rank": "K"
         },
         {
-          "id": "card-80",
-          "suit": "clubs",
-          "rank": "Q"
+          "id": "card-60",
+          "suit": "hearts",
+          "rank": "6"
         },
         {
-          "id": "card-20",
+          "id": "card-56",
+          "suit": "hearts",
+          "rank": "10"
+        },
+        {
+          "id": "card-51",
+          "suit": "spades",
+          "rank": "2"
+        },
+        {
+          "id": "card-81",
+          "suit": "clubs",
+          "rank": "J"
+        },
+        {
+          "id": "card-62",
+          "suit": "hearts",
+          "rank": "4"
+        },
+        {
+          "id": "card-61",
+          "suit": "hearts",
+          "rank": "5"
+        },
+        {
+          "id": "card-72",
           "suit": "diamonds",
           "rank": "7"
-        },
-        {
-          "id": "card-87",
-          "suit": "clubs",
-          "rank": "5"
         },
         {
           "id": "card-65",
           "suit": "diamonds",
           "rank": "A"
-        },
-        {
-          "id": "card-15",
-          "suit": "diamonds",
-          "rank": "Q"
-        },
-        {
-          "id": "card-90",
-          "suit": "clubs",
-          "rank": "2"
-        },
-        {
-          "id": "card-18",
-          "suit": "diamonds",
-          "rank": "9"
-        },
-        {
-          "id": "card-9",
-          "suit": "hearts",
-          "rank": "5"
-        },
-        {
-          "id": "card-13",
-          "suit": "diamonds",
-          "rank": "A"
-        },
-        {
-          "id": "card-89",
-          "suit": "clubs",
-          "rank": "3"
-        },
-        {
-          "id": "card-67",
-          "suit": "diamonds",
-          "rank": "Q"
         }
       ],
       "isDown": false,
-      "totalScore": 28
+      "totalScore": 123
     }
   ],
-  "currentPlayerIndex": 2,
-  "dealerIndex": 1,
+  "currentPlayerIndex": 0,
+  "dealerIndex": 2,
   "stock": [
     {
-      "id": "card-4",
-      "suit": "hearts",
-      "rank": "10"
-    },
-    {
-      "id": "card-99",
+      "id": "card-98",
       "suit": "spades",
-      "rank": "6"
+      "rank": "7"
     },
     {
-      "id": "card-102",
-      "suit": "spades",
-      "rank": "3"
-    },
-    {
-      "id": "card-3",
+      "id": "card-55",
       "suit": "hearts",
       "rank": "J"
     },
     {
-      "id": "card-77",
-      "suit": "diamonds",
-      "rank": "2"
-    },
-    {
-      "id": "card-32",
+      "id": "card-36",
       "suit": "clubs",
-      "rank": "8"
+      "rank": "4"
     },
     {
-      "id": "card-100",
+      "id": "card-27",
+      "suit": "clubs",
+      "rank": "K"
+    },
+    {
+      "id": "card-96",
       "suit": "spades",
-      "rank": "5"
+      "rank": "9"
     },
     {
-      "id": "card-6",
-      "suit": "hearts",
-      "rank": "8"
-    },
-    {
-      "id": "card-107",
+      "id": "card-105",
       "suit": null,
       "rank": "Joker"
     },
     {
-      "id": "card-0",
+      "id": "card-64",
       "suit": "hearts",
-      "rank": "A"
+      "rank": "2"
     },
     {
-      "id": "card-19",
+      "id": "card-24",
       "suit": "diamonds",
-      "rank": "8"
+      "rank": "3"
     },
     {
-      "id": "card-94",
-      "suit": "spades",
-      "rank": "J"
+      "id": "card-25",
+      "suit": "diamonds",
+      "rank": "2"
+    },
+    {
+      "id": "card-28",
+      "suit": "clubs",
+      "rank": "Q"
     },
     {
       "id": "card-88",
@@ -275,39 +260,59 @@
       "rank": "4"
     },
     {
-      "id": "card-41",
-      "suit": "spades",
-      "rank": "Q"
-    },
-    {
-      "id": "card-31",
+      "id": "card-85",
       "suit": "clubs",
-      "rank": "9"
-    },
-    {
-      "id": "card-59",
-      "suit": "hearts",
       "rank": "7"
     },
     {
-      "id": "card-61",
-      "suit": "hearts",
-      "rank": "5"
-    },
-    {
-      "id": "card-45",
+      "id": "card-97",
       "suit": "spades",
       "rank": "8"
     },
     {
-      "id": "card-30",
+      "id": "card-44",
+      "suit": "spades",
+      "rank": "9"
+    },
+    {
+      "id": "card-91",
+      "suit": "spades",
+      "rank": "A"
+    },
+    {
+      "id": "card-35",
       "suit": "clubs",
+      "rank": "5"
+    },
+    {
+      "id": "card-100",
+      "suit": "spades",
+      "rank": "5"
+    },
+    {
+      "id": "card-80",
+      "suit": "clubs",
+      "rank": "Q"
+    },
+    {
+      "id": "card-4",
+      "suit": "hearts",
       "rank": "10"
     },
     {
-      "id": "card-51",
-      "suit": "spades",
+      "id": "card-104",
+      "suit": null,
+      "rank": "Joker"
+    },
+    {
+      "id": "card-77",
+      "suit": "diamonds",
       "rank": "2"
+    },
+    {
+      "id": "card-20",
+      "suit": "diamonds",
+      "rank": "7"
     },
     {
       "id": "card-73",
@@ -320,39 +325,114 @@
       "rank": "4"
     },
     {
-      "id": "card-47",
-      "suit": "spades",
+      "id": "card-34",
+      "suit": "clubs",
       "rank": "6"
     },
     {
-      "id": "card-25",
-      "suit": "diamonds",
-      "rank": "2"
-    },
-    {
-      "id": "card-42",
+      "id": "card-92",
       "suit": "spades",
-      "rank": "J"
+      "rank": "K"
     },
     {
-      "id": "card-16",
+      "id": "card-89",
+      "suit": "clubs",
+      "rank": "3"
+    },
+    {
+      "id": "card-106",
+      "suit": null,
+      "rank": "Joker"
+    },
+    {
+      "id": "card-102",
+      "suit": "spades",
+      "rank": "3"
+    },
+    {
+      "id": "card-67",
       "suit": "diamonds",
-      "rank": "J"
-    },
-    {
-      "id": "card-62",
-      "suit": "hearts",
-      "rank": "4"
-    },
-    {
-      "id": "card-54",
-      "suit": "hearts",
       "rank": "Q"
     },
     {
-      "id": "card-71",
+      "id": "card-78",
+      "suit": "clubs",
+      "rank": "A"
+    },
+    {
+      "id": "card-5",
+      "suit": "hearts",
+      "rank": "9"
+    },
+    {
+      "id": "card-33",
+      "suit": "clubs",
+      "rank": "7"
+    },
+    {
+      "id": "card-8",
+      "suit": "hearts",
+      "rank": "6"
+    },
+    {
+      "id": "card-31",
+      "suit": "clubs",
+      "rank": "9"
+    },
+    {
+      "id": "card-26",
+      "suit": "clubs",
+      "rank": "A"
+    },
+    {
+      "id": "card-49",
+      "suit": "spades",
+      "rank": "4"
+    },
+    {
+      "id": "card-63",
+      "suit": "hearts",
+      "rank": "3"
+    },
+    {
+      "id": "card-0",
+      "suit": "hearts",
+      "rank": "A"
+    },
+    {
+      "id": "card-70",
       "suit": "diamonds",
-      "rank": "8"
+      "rank": "9"
+    },
+    {
+      "id": "card-79",
+      "suit": "clubs",
+      "rank": "K"
+    },
+    {
+      "id": "card-82",
+      "suit": "clubs",
+      "rank": "10"
+    },
+    {
+      "id": "card-43",
+      "suit": "spades",
+      "rank": "10"
+    },
+    {
+      "id": "card-9",
+      "suit": "hearts",
+      "rank": "5"
+    },
+    {
+      "id": "card-66",
+      "suit": "diamonds",
+      "rank": "K"
+    },
+    {
+      "id": "card-75",
+      "suit": "diamonds",
+      "rank": "4"
     },
     {
       "id": "card-29",
@@ -360,17 +440,102 @@
       "rank": "J"
     },
     {
-      "id": "card-17",
+      "id": "card-19",
       "suit": "diamonds",
-      "rank": "10"
+      "rank": "8"
     },
     {
-      "id": "card-96",
-      "suit": "spades",
+      "id": "card-16",
+      "suit": "diamonds",
+      "rank": "J"
+    },
+    {
+      "id": "card-57",
+      "suit": "hearts",
       "rank": "9"
     },
     {
-      "id": "card-35",
+      "id": "card-68",
+      "suit": "diamonds",
+      "rank": "J"
+    },
+    {
+      "id": "card-83",
+      "suit": "clubs",
+      "rank": "9"
+    },
+    {
+      "id": "card-107",
+      "suit": null,
+      "rank": "Joker"
+    },
+    {
+      "id": "card-99",
+      "suit": "spades",
+      "rank": "6"
+    },
+    {
+      "id": "card-90",
+      "suit": "clubs",
+      "rank": "2"
+    },
+    {
+      "id": "card-54",
+      "suit": "hearts",
+      "rank": "Q"
+    },
+    {
+      "id": "card-101",
+      "suit": "spades",
+      "rank": "4"
+    },
+    {
+      "id": "card-95",
+      "suit": "spades",
+      "rank": "10"
+    },
+    {
+      "id": "card-13",
+      "suit": "diamonds",
+      "rank": "A"
+    },
+    {
+      "id": "card-41",
+      "suit": "spades",
+      "rank": "Q"
+    },
+    {
+      "id": "card-76",
+      "suit": "diamonds",
+      "rank": "3"
+    },
+    {
+      "id": "card-58",
+      "suit": "hearts",
+      "rank": "8"
+    },
+    {
+      "id": "card-71",
+      "suit": "diamonds",
+      "rank": "8"
+    },
+    {
+      "id": "card-6",
+      "suit": "hearts",
+      "rank": "8"
+    },
+    {
+      "id": "card-15",
+      "suit": "diamonds",
+      "rank": "Q"
+    },
+    {
+      "id": "card-12",
+      "suit": "hearts",
+      "rank": "2"
+    },
+    {
+      "id": "card-87",
       "suit": "clubs",
       "rank": "5"
     },
@@ -380,134 +545,24 @@
       "rank": "7"
     },
     {
-      "id": "card-28",
-      "suit": "clubs",
-      "rank": "Q"
+      "id": "card-50",
+      "suit": "spades",
+      "rank": "3"
     },
     {
-      "id": "card-81",
-      "suit": "clubs",
-      "rank": "J"
-    },
-    {
-      "id": "card-22",
+      "id": "card-74",
       "suit": "diamonds",
       "rank": "5"
     },
     {
-      "id": "card-49",
-      "suit": "spades",
-      "rank": "4"
-    },
-    {
-      "id": "card-14",
-      "suit": "diamonds",
+      "id": "card-53",
+      "suit": "hearts",
       "rank": "K"
     },
     {
-      "id": "card-37",
-      "suit": "clubs",
-      "rank": "3"
-    },
-    {
-      "id": "card-68",
-      "suit": "diamonds",
+      "id": "card-94",
+      "suit": "spades",
       "rank": "J"
-    },
-    {
-      "id": "card-97",
-      "suit": "spades",
-      "rank": "8"
-    },
-    {
-      "id": "card-21",
-      "suit": "diamonds",
-      "rank": "6"
-    },
-    {
-      "id": "card-34",
-      "suit": "clubs",
-      "rank": "6"
-    },
-    {
-      "id": "card-55",
-      "suit": "hearts",
-      "rank": "J"
-    },
-    {
-      "id": "card-66",
-      "suit": "diamonds",
-      "rank": "K"
-    },
-    {
-      "id": "card-86",
-      "suit": "clubs",
-      "rank": "6"
-    },
-    {
-      "id": "card-7",
-      "suit": "hearts",
-      "rank": "7"
-    },
-    {
-      "id": "card-33",
-      "suit": "clubs",
-      "rank": "7"
-    },
-    {
-      "id": "card-43",
-      "suit": "spades",
-      "rank": "10"
-    },
-    {
-      "id": "card-103",
-      "suit": "spades",
-      "rank": "2"
-    },
-    {
-      "id": "card-58",
-      "suit": "hearts",
-      "rank": "8"
-    },
-    {
-      "id": "card-82",
-      "suit": "clubs",
-      "rank": "10"
-    },
-    {
-      "id": "card-70",
-      "suit": "diamonds",
-      "rank": "9"
-    },
-    {
-      "id": "card-84",
-      "suit": "clubs",
-      "rank": "8"
-    },
-    {
-      "id": "card-12",
-      "suit": "hearts",
-      "rank": "2"
-    },
-    {
-      "id": "card-83",
-      "suit": "clubs",
-      "rank": "9"
-    },
-    {
-      "id": "card-2",
-      "suit": "hearts",
-      "rank": "Q"
-    },
-    {
-      "id": "card-39",
-      "suit": "spades",
-      "rank": "A"
-    },
-    {
-      "id": "card-27",
-      "suit": "clubs",
-      "rank": "K"
     },
     {
       "id": "card-93",
@@ -515,72 +570,18 @@
       "rank": "Q"
     },
     {
-      "id": "card-56",
+      "id": "card-59",
       "suit": "hearts",
-      "rank": "10"
-    },
-    {
-      "id": "card-52",
-      "suit": "hearts",
-      "rank": "A"
-    },
-    {
-      "id": "card-50",
-      "suit": "spades",
-      "rank": "3"
-    },
-    {
-      "id": "card-76",
-      "suit": "diamonds",
-      "rank": "3"
-    },
-    {
-      "id": "card-44",
-      "suit": "spades",
-      "rank": "9"
-    },
-    {
-      "id": "card-104",
-      "suit": null,
-      "rank": "Joker"
-    },
-    {
-      "id": "card-11",
-      "suit": "hearts",
-      "rank": "3"
-    },
-    {
-      "id": "card-26",
-      "suit": "clubs",
-      "rank": "A"
-    },
-    {
-      "id": "card-57",
-      "suit": "hearts",
-      "rank": "9"
-    },
-    {
-      "id": "card-60",
-      "suit": "hearts",
-      "rank": "6"
-    },
-    {
-      "id": "card-5",
-      "suit": "hearts",
-      "rank": "9"
-    },
-    {
-      "id": "card-40",
-      "suit": "spades",
-      "rank": "K"
-    },
-    {
-      "id": "card-78",
-      "suit": "clubs",
-      "rank": "A"
+      "rank": "7"
     }
   ],
-  "discard": [],
+  "discard": [
+    {
+      "id": "card-84",
+      "suit": "clubs",
+      "rank": "8"
+    }
+  ],
   "table": [],
   "roundHistory": [
     {
@@ -591,12 +592,21 @@
         "player-2": 28
       },
       "winnerId": "player-1"
+    },
+    {
+      "roundNumber": 2,
+      "scores": {
+        "player-0": 30,
+        "player-1": 0,
+        "player-2": 95
+      },
+      "winnerId": "player-1"
     }
   ],
   "harness": {
-    "phase": "AWAITING_ACTION",
-    "awaitingPlayerId": "player-2",
+    "phase": "AWAITING_DRAW",
+    "awaitingPlayerId": "player-0",
     "mayIContext": null,
-    "turnNumber": 7
+    "turnNumber": 18
   }
 }

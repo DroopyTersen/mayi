@@ -742,9 +742,11 @@ Review specs/command-line-interface.md
 - [ ] Test run with Ace-low (A-2-3)
 - [x] Test run with Ace-high (Q-K-A) — Carol's run 10-J-Q-K goes high
 - [x] Test rejection: attempt to lay down 2 sets instead (got "Contract requires 1 set(s), but got 2")
-- [ ] Test rejection: attempt to lay down 2 runs instead
+- [x] Test rejection: attempt to lay down 2 runs instead (got "Invalid run" for invalid second meld, contract validation works)
 - [x] Test DOWN player cannot draw from discard (harness blocks with error message)
 - [x] Test DOWN player cannot call May I (harness blocks with error message)
+- [x] Test run extension at high end (7♠ added to 3♠-4♠-5♠-6♠ → 3♠-4♠-5♠-6♠-7♠)
+- [x] Test wild card extending run (2♥ wild extending run at high end)
 - [x] Test layoff to run (extend at either end) — Carol extended 10-J-Q-K to 10-J-Q-K-A
 - [x] Verify dealer advances correctly (Carol went first)
 
