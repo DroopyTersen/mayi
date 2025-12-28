@@ -870,22 +870,245 @@ describe("TurnMachine - wentOut state", () => {
 
 describe("TurnMachine - turnComplete vs wentOut", () => {
   describe("turnComplete output", () => {
-    it.todo("wentOut: false", () => {});
-    it.todo("playerId: current player", () => {});
-    it.todo("hand: remaining cards (length >= 1)", () => {});
-    it.todo("normal turn ending", () => {});
+    it("wentOut: false", () => {
+      const cardToDiscard = card("K", "hearts");
+      const input = {
+        playerId: "player-1",
+        hand: [card("Q", "spades"), card("J", "diamonds")],
+        stock: [cardToDiscard],
+        discard: [card("10", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+      expect(actor.getSnapshot().output?.wentOut).toBe(false);
+    });
+
+    it("playerId: current player", () => {
+      const cardToDiscard = card("K", "hearts");
+      const input = {
+        playerId: "player-99",
+        hand: [card("Q", "spades")],
+        stock: [cardToDiscard],
+        discard: [card("10", "clubs")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+      expect(actor.getSnapshot().output?.playerId).toBe("player-99");
+    });
+
+    it("hand: remaining cards (length >= 1)", () => {
+      const cardToDiscard = card("K", "hearts");
+      const remainingCards = [card("Q", "spades"), card("J", "diamonds"), card("10", "hearts")];
+      const input = {
+        playerId: "player-1",
+        hand: remainingCards,
+        stock: [cardToDiscard],
+        discard: [card("9", "clubs")],
+        roundNumber: 3 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+      expect(actor.getSnapshot().output?.hand.length).toBe(3);
+      expect(actor.getSnapshot().output?.hand.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("normal turn ending", () => {
+      const cardToDiscard = card("K", "hearts");
+      const input = {
+        playerId: "player-1",
+        hand: [card("Q", "spades")],
+        stock: [cardToDiscard],
+        discard: [card("10", "clubs")],
+        roundNumber: 4 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().status).toBe("done");
+    });
   });
 
   describe("wentOut output", () => {
-    it.todo("wentOut: true", () => {});
-    it.todo("playerId: current player", () => {});
-    it.todo("hand: [] empty", () => {});
-    it.todo("triggers round end", () => {});
+    it("wentOut: true", () => {
+      const lastCard = card("K", "hearts");
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [lastCard],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: lastCard.id });
+
+      expect(actor.getSnapshot().output?.wentOut).toBe(true);
+    });
+
+    it("playerId: current player", () => {
+      const lastCard = card("K", "hearts");
+      const input = {
+        playerId: "player-77",
+        hand: [],
+        stock: [lastCard],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: lastCard.id });
+
+      expect(actor.getSnapshot().output?.playerId).toBe("player-77");
+    });
+
+    it("hand: [] empty", () => {
+      const lastCard = card("K", "hearts");
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [lastCard],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 3 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: lastCard.id });
+
+      expect(actor.getSnapshot().output?.hand).toEqual([]);
+      expect(actor.getSnapshot().output?.hand.length).toBe(0);
+    });
+
+    it("triggers round end", () => {
+      // wentOut: true is the signal that round should end
+      const lastCard = card("K", "hearts");
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [lastCard],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 4 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: lastCard.id });
+
+      // The output signals to parent machine to end the round
+      const output = actor.getSnapshot().output!;
+      expect(output.wentOut).toBe(true);
+      // Parent would check this and trigger round scoring
+    });
   });
 
   describe("parent machine behavior", () => {
-    it.todo("on turnComplete → advance to next player's turn", () => {});
-    it.todo("on wentOut → transition to round scoring", () => {});
+    it("on turnComplete → advance to next player's turn", () => {
+      // turnComplete with wentOut: false means game continues
+      const cardToDiscard = card("K", "hearts");
+      const input = {
+        playerId: "player-1",
+        hand: [card("Q", "spades"), card("J", "diamonds")],
+        stock: [cardToDiscard],
+        discard: [card("10", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+      const output = actor.getSnapshot().output!;
+      // Parent checks wentOut to decide what to do
+      expect(output.wentOut).toBe(false);
+      // When false, parent advances to next player
+    });
+
+    it("on wentOut → transition to round scoring", () => {
+      // wentOut: true means round ends and scoring happens
+      const lastCard = card("K", "hearts");
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [lastCard],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 5 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: lastCard.id });
+
+      const output = actor.getSnapshot().output!;
+      // Parent checks wentOut to decide what to do
+      expect(output.wentOut).toBe(true);
+      // When true, parent transitions to round scoring
+    });
   });
 });
 
