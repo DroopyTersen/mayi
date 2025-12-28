@@ -599,6 +599,7 @@ _(none yet)_
 - **Phase 3** (Contracts + Laying Down) — v0.3.0
 - **Phase 4** (Laying Off + Going Out + Scoring) — v0.4.0
 - **Phase 5** (Full Game Loop) — v0.5.0
+- **Phase 6** (May I Mechanic) — v0.6.0
 
 ---
 
