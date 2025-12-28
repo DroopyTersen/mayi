@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { renderCard, renderHand } from "./cli.renderer";
+import { renderCard, renderHand, renderNumberedHand } from "./cli.renderer";
 import type { Card } from "../core/card/card.types";
 
 // Helper to create test cards
@@ -82,14 +82,32 @@ describe("renderHand", () => {
 });
 
 describe("renderNumberedHand (for selection)", () => {
-  it.todo("displays position numbers with cards", () => {});
+  it("displays position numbers with cards", () => {
+    const hand = [card("3", "hearts"), card("5", "diamonds")];
+    const result = renderNumberedHand(hand);
+    expect(result).toContain("1:");
+    expect(result).toContain("2:");
+    expect(result).toContain("3♥");
+    expect(result).toContain("5♦");
+  });
 
-  it.todo(
-    "example: '1:3\u2665 2:5\u2666 3:9\u2663 4:J\u2660 5:Joker'",
-    () => {}
-  );
+  it("example: '1:3♥ 2:5♦ 3:9♣ 4:J♠ 5:Joker'", () => {
+    const hand = [
+      card("3", "hearts"),
+      card("5", "diamonds"),
+      card("9", "clubs"),
+      card("J", "spades"),
+      joker(),
+    ];
+    expect(renderNumberedHand(hand)).toBe("1:3♥ 2:5♦ 3:9♣ 4:J♠ 5:Joker");
+  });
 
-  it.todo("positions are 1-indexed for human readability", () => {});
+  it("positions are 1-indexed for human readability", () => {
+    const hand = [card("A", "spades")];
+    const result = renderNumberedHand(hand);
+    expect(result).toBe("1:A♠");
+    expect(result).not.toContain("0:");
+  });
 });
 
 describe("renderGameState", () => {

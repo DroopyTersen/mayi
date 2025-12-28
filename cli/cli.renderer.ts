@@ -41,3 +41,12 @@ export function renderCard(card: Card): string {
 export function renderHand(hand: Card[]): string {
   return hand.map(renderCard).join(" ");
 }
+
+/**
+ * Renders a hand with position numbers for card selection
+ * Example: "1:3♥ 2:5♦ 3:9♣ 4:J♠ 5:Joker"
+ * Positions are 1-indexed for human readability
+ */
+export function renderNumberedHand(hand: Card[]): string {
+  return hand.map((card, index) => `${index + 1}:${renderCard(card)}`).join(" ");
+}

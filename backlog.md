@@ -75,7 +75,7 @@ Review specs/command-line-interface.md
 
 - [x] Implement `renderCard` function (9 tests)
 - [x] Implement `renderHand` function (3 tests)
-- [ ] Implement `renderNumberedHand` function (3 tests)
+- [x] Implement `renderNumberedHand` function (3 tests)
 - [ ] Implement `renderGameState` function (6 tests)
 - [ ] Fix typecheck errors
 
