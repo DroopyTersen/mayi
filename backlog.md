@@ -119,7 +119,7 @@ Review specs/command-line-interface.md
 - [x] Implement successful lay down - Round 4 (3 tests)
 - [x] Implement successful lay down - Round 5 (2 tests)
 - [x] Implement successful lay down - Round 6 (2 tests)
-- [ ] Fix typecheck errors
+- [x] Fix typecheck errors
 - [ ] Implement melds with wilds validation (7 tests)
 - [ ] Implement larger than minimum melds (5 tests)
 - [ ] Implement card removal from hand (5 tests)
