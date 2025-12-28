@@ -97,7 +97,96 @@ Review specs/command-line-interface.md
 > Break down when Phase 2 is complete
 
 - [x] Fix typecheck errors
-- [ ] Review specs/phase-3-tests.md and and scaffold out all of those tests. Add tasks for PHase 3, centered around the tests.
+- [x] Review specs/phase-3-tests.md and scaffold out all tests (283 todo tests)
+
+### Contract Definitions (30 tests in contracts.test.ts)
+
+- [ ] Implement CONTRACTS constant (8 tests)
+- [ ] Implement getContractForRound function (2 tests)
+- [ ] Implement minimum cards per contract calculation (6 tests)
+- [ ] Implement validateContract function - correct number of melds (12 tests)
+- [ ] Implement meld type verification (4 tests)
+- [ ] Implement card usage validation (3 tests)
+
+### Lay Down Command (95 tests in laydown.test.ts)
+
+- [ ] Implement drawn state structure (3 tests)
+- [ ] Implement proceeding without laying down (4 tests)
+- [ ] Implement LAY_DOWN preconditions (5 tests)
+- [ ] Implement successful lay down - Round 1 (7 tests)
+- [ ] Implement successful lay down - Round 2 (4 tests)
+- [ ] Implement successful lay down - Round 3 (3 tests)
+- [ ] Implement successful lay down - Round 4 (3 tests)
+- [ ] Implement successful lay down - Round 5 (2 tests)
+- [ ] Implement successful lay down - Round 6 (2 tests)
+- [ ] Implement melds with wilds validation (7 tests)
+- [ ] Implement larger than minimum melds (5 tests)
+- [ ] Implement card removal from hand (5 tests)
+- [ ] Implement meld ownership (3 tests)
+- [ ] Implement wrong number of melds rejection (5 tests)
+- [ ] Implement invalid individual melds rejection (8 tests)
+- [ ] Implement card not in hand rejection (4 tests)
+- [ ] Implement duplicate card usage rejection (2 tests)
+- [ ] Implement already down rejection (3 tests)
+- [ ] Implement auto-transition to awaitingDiscard (3 tests)
+- [ ] Implement turn end after laying down (2 tests)
+- [ ] Implement cannot lay off on same turn (3 tests)
+- [ ] Implement cannot lay down again (2 tests)
+- [ ] Implement discard after laying down (4 tests)
+- [ ] Implement turn output reflects lay down (3 tests)
+
+### Table Management (17 tests in table.test.ts)
+
+- [ ] Implement table initial state (2 tests)
+- [ ] Implement table after first player lays down (3 tests)
+- [ ] Implement table after multiple players lay down (4 tests)
+- [ ] Implement table persistence across turns (3 tests)
+- [ ] Implement isDown initial state (2 tests)
+- [ ] Implement isDown after laying down (3 tests)
+- [ ] Implement multiple players down tracking (3 tests)
+- [ ] Implement round transition isDown reset (1 test)
+
+### Guards (39 tests in guards.test.ts)
+
+- [ ] Implement notDownYet guard (3 tests)
+- [ ] Implement meetsContract guard - round 1 (5 tests)
+- [ ] Implement meetsContract guard - round 2 (5 tests)
+- [ ] Implement meetsContract guard - round 3 (3 tests)
+- [ ] Implement meetsContract guard - round 4 (3 tests)
+- [ ] Implement meetsContract guard - round 5 (3 tests)
+- [ ] Implement meetsContract guard - round 6 (3 tests)
+- [ ] Implement validMelds guard (5 tests)
+- [ ] Implement wildsNotOutnumbered guard (4 tests)
+- [ ] Implement canLayDown composite guard (3 tests)
+
+### Lay Down Actions (17 tests in laydown.actions.test.ts)
+
+- [ ] Implement hand modification (5 tests)
+- [ ] Implement table modification (5 tests)
+- [ ] Implement player state modification (2 tests)
+- [ ] Implement meld creation (4 tests)
+
+### Integration Tests (56 tests in laydown.integration.test.ts)
+
+- [ ] Implement round 1 successful lay down flow (8 tests)
+- [ ] Implement round 2 lay down with wilds (4 tests)
+- [ ] Implement player chooses not to lay down (7 tests)
+- [ ] Implement player cannot lay down - missing cards (5 tests)
+- [ ] Implement multiple turns with lay down (7 tests)
+- [ ] Implement edge case: laying down maximum cards (4 tests)
+- [ ] Implement edge case: laying down leaves exactly 1 card (5 tests)
+- [ ] Implement edge case: contract validation prevents over-laying (4 tests)
+- [ ] Implement edge case: wilds across multiple melds (5 tests)
+- [ ] Implement edge case: concentrated wilds invalid (5 tests)
+- [ ] Implement edge case: same rank from multiple decks (4 tests)
+
+### CLI Lay Down (20 tests in cli.laydown.test.ts)
+
+- [ ] Implement parseLayDownInput card selection syntax (6 tests)
+- [ ] Implement meld type inference (3 tests)
+- [ ] Implement input validation (4 tests)
+- [ ] Implement alternative syntaxes (1 test)
+- [ ] Implement lay down confirmation flow (5 tests)
 
 ---
 
