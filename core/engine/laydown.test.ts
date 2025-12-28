@@ -2045,10 +2045,150 @@ describe("TurnMachine - invalid LAY_DOWN scenarios", () => {
   });
 
   describe("card not in hand", () => {
-    it.todo("rejects if any cardId in melds is not in player's hand", () => {});
-    it.todo("rejects if cardId belongs to another player", () => {});
-    it.todo("rejects if cardId is on the table already", () => {});
-    it.todo("rejects if cardId does not exist", () => {});
+    it("rejects if any cardId in melds is not in player's hand", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      // Card not in hand
+      const outsideCard = card("Q", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, outsideCard.id] }, // outsideCard not in hand
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+    });
+
+    it("rejects if cardId belongs to another player", () => {
+      // In practice, another player's cards are not in our hand
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const extra = card("5", "spades");
+
+      // Card belonging to another player (not in our hand)
+      const otherPlayerCard = card("K", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, extra], // Notice: no kingH
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, otherPlayerCard.id] }, // otherPlayerCard not in hand
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it("rejects if cardId is on the table already", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      // Card already on table (not in hand)
+      const tableCard = card("3", "hearts");
+      const existingMeld = {
+        id: "meld-existing",
+        type: "set" as const,
+        cards: [tableCard, card("3", "clubs"), card("3", "diamonds")],
+        ownerId: "other-player",
+      };
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, extra], // Notice: no kingH
+        table: [existingMeld],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, tableCard.id] }, // tableCard not in hand (it's on table)
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
+
+    it("rejects if cardId does not exist", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, "non-existent-card-id"] }, // fake ID
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+    });
   });
 
   describe("duplicate card usage", () => {
