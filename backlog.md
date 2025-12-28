@@ -614,7 +614,100 @@ Review specs/command-line-interface.md
 
 > Tasks found during implementation that don't fit current phase
 
-_(none yet)_
+### Error Message Improvements (13 tests)
+
+> These tests verify that specific, helpful error messages are provided to users
+
+- [ ] `laydown.test.ts:1808` - Contract requirement error message
+- [ ] `laydown.test.ts:2042` - Invalid meld error message (which meld is invalid)
+- [ ] `laydown.test.ts:2358` - Already laid down error message
+- [ ] `laydown.test.ts:2503` - Goes out immediately if hand empty after laydown (no discard)
+- [ ] `layoff.test.ts:1262` - Error: "must be down from a previous turn to lay off"
+- [ ] `layoff.test.ts:1266` - Error: "cannot lay off on same turn as laying down"
+- [ ] `layoff.test.ts:1355` - Error: "card not in hand"
+- [ ] `layoff.test.ts:1379` - Error: "meld not found"
+- [ ] `layoff.test.ts:1445` - Error: "card does not fit this meld"
+- [ ] `layoff.test.ts:1471` - Error: "would make wilds outnumber naturals"
+- [ ] `gameMachine.test.ts:220` - Error: "minimum 3 players required"
+- [ ] `layoff.test.ts:1171` - Going out triggered immediately if hand becomes empty
+
+### Contract Validation Tests (4 tests)
+
+> Tests in contracts.test.ts that verify meld validation during contract validation
+
+- [ ] `contracts.test.ts:277` - Rejects if any set is invalid
+- [ ] `contracts.test.ts:278` - Rejects if any run is invalid
+- [ ] `contracts.test.ts:279` - Rejects if any meld has wilds outnumbering naturals
+- [ ] `contracts.test.ts:280` - All melds checked, not just first one
+
+### Stock Depletion & Reshuffle Tests (4 tests)
+
+> Integration tests for stock depletion handling
+
+- [ ] `stockDepletion.test.ts:58` - Reshuffle happens before draw completes (TurnMachine integration)
+- [ ] `stockDepletion.test.ts:237` - Next player draws → reshuffle occurs automatically
+- [ ] `stockDepletion.test.ts:238` - Game continues normally after reshuffle
+- [ ] `stockDepletion.test.ts:284` - Round ends immediately when reshuffle impossible
+
+### Going Out Tests (11 tests)
+
+> Tests for going out scenarios and round endings
+
+- [ ] `goingOut.test.ts:70` - Going out ends the round immediately
+- [ ] `goingOut.test.ts:74` - Other players score their remaining cards
+- [ ] `goingOut.test.ts:201` - Exception: go out on same turn as laying down
+- [ ] `goingOut.test.ts:314` - Round ends (via discard)
+- [ ] `goingOut.test.ts:459` - Round ends (via layoff)
+- [ ] `goingOut.test.ts:5590` - Parent machine handles wentOut flag differently
+- [ ] `goingOut.test.ts:5596` - When turn outputs wentOut: true
+- [ ] `goingOut.test.ts:5599` - Round machine transitions to scoring state
+- [ ] `goingOut.test.ts:5602` - No more turns for any player
+- [ ] `goingOut.test.ts:5605` - Scoring begins immediately
+
+### Round End & Scoring Tests (6 tests)
+
+> Tests for RoundRecord and scoring audit trail
+
+- [ ] `roundEnd.test.ts:453` - Winner scores 0
+- [ ] `roundEnd.test.ts:454` - All other players score their hand values
+- [ ] `roundEnd.test.ts:455` - No player skipped
+- [ ] `roundEnd.test.ts:628` - Can calculate any player's score at any point
+- [ ] `roundEnd.test.ts:629` - Can identify who won each round
+- [ ] `roundEnd.test.ts:630` - Full audit trail of game
+
+### Full Game Contract Enforcement Tests (9 tests)
+
+> Tests verifying correct contracts are enforced per round
+
+- [ ] `fullGame.test.ts:973` - Stock runs out → reshuffle triggered
+- [ ] `fullGame.test.ts:999` - Round 1: players must lay down 2 sets
+- [ ] `fullGame.test.ts:1000` - Round 1: 1 set insufficient
+- [ ] `fullGame.test.ts:1001` - Round 1: sets + runs insufficient (wrong combination)
+- [ ] `fullGame.test.ts:1005` - Round 2: players must lay down 1 set + 1 run
+- [ ] `fullGame.test.ts:1006` - Round 2: 2 sets insufficient, 2 runs insufficient
+- [ ] `fullGame.test.ts:1010` - Round 3: players must lay down 2 runs
+- [ ] `fullGame.test.ts:1014` - Round 4: players must lay down 3 sets
+- [ ] `fullGame.test.ts:1018` - Round 5: players must lay down 2 sets + 1 run
+- [ ] `fullGame.test.ts:1022` - Round 6: players must lay down 1 set + 2 runs
+- [ ] `fullGame.test.ts:1023` - Round 6: minimum 11 cards, special going out rules
+
+### RoundMachine & TurnMachine Spawning Tests (6 tests)
+
+> Tests for child machine spawning/integration
+
+- [ ] `gameMachine.test.ts:284` - Spawns RoundMachine with current round context
+- [ ] `roundMachine.test.ts:550` - Spawns TurnMachine for current player's turn
+- [ ] `roundMachine.test.ts:726` - Spawn new TurnMachine for next player
+- [ ] `roundMachine.test.ts:1333` - Triggers roundEnd in GameMachine (integration)
+- [ ] `roundMachine.test.ts:1357` - Stock empty checked when player draws from stock
+- [ ] `roundMachine.test.ts:1379-1380` - Reshuffle shuffles cards and places as new stock
+- [ ] `roundMachine.test.ts:1399-1401` - Reshuffle scenario (20 cards → 19 shuffled)
+
+### Turn Machine Initial State Test (1 test)
+
+> Deferred from Phase 2
+
+- [ ] `turn.machine.test.ts:142` - Initial state test (todo description needed)
 
 ## Phase 8 Tasks (Exhaustive Harness Testing)
 
@@ -739,7 +832,8 @@ _(none yet)_
 
 > Record any bugs found during testing here
 
-_(none yet)_
+- [ ] **Harness swap command not implemented**: The harness CLI shows `swap <meld> <pos> <card>` as an available command when player hasn't laid down, but running `bun harness/play.ts swap 2 3 1` returns "Unknown command: swap". The Joker swap logic works in the core engine (tested via unit tests in Phase 7), but the harness CLI handler is missing.
+- [ ] **Run extension bug**: After adding 8♦ to a 9♦-Q♦ run (extending low), the next extension attempt (7♦) failed with "7♦ cannot be added to that run". The run displays as "9♦ 10♦ J♦ Q♦ 8♦" which may indicate internal state issues. Need to investigate if run boundaries are tracked correctly after extension.
 
 ---
 
