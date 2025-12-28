@@ -135,8 +135,8 @@ Review specs/command-line-interface.md
 - [ ] Implement cannot lay off on same turn (3 tests)
 - [x] Implement cannot lay down again (2 tests)
 - [x] Implement discard after laying down (4 tests)
-- [ ] Implement turn output reflects lay down (3 tests)
-- [ ] Fix typecheck errors
+- [x] Implement turn output reflects lay down (3 tests)
+- [x] Fix typecheck errors
 
 ### Table Management (17 tests in table.test.ts)
 

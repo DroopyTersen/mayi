@@ -88,6 +88,8 @@ describe("basic turn loop", () => {
         hand: [card("3"), card("5"), stockCard1], // drew stockCard1
         stock: [stockCard2], // one card removed
         discard: [],
+        isDown: false,
+        table: [],
       };
 
       const updatedState = applyTurnOutput(state, output);
@@ -108,6 +110,8 @@ describe("basic turn loop", () => {
         hand: [card("5")],
         stock: [],
         discard: [discardedCard, existingDiscard], // new card on top
+        isDown: false,
+        table: [],
       };
 
       const updatedState = applyTurnOutput(state, output);
@@ -128,6 +132,8 @@ describe("basic turn loop", () => {
         hand: [card("3"), card("5"), card("K")], // discarded 7, drew K
         stock: [],
         discard: [],
+        isDown: false,
+        table: [],
       };
 
       const updatedState = applyTurnOutput(state, output);
@@ -149,6 +155,8 @@ describe("basic turn loop", () => {
         hand: [card("5"), stockCards[0]!], // kept 5, drew K, discarded 3
         stock: [stockCards[1]!, stockCards[2]!],
         discard: [card("3"), card("8")],
+        isDown: false,
+        table: [],
       };
 
       const afterTurn = applyTurnOutput(state, output);
@@ -229,6 +237,8 @@ describe("multiple consecutive turns", () => {
       hand: [...player1Hand.slice(1), drawnCard],
       stock: readyState.stock.slice(1),
       discard: [discardedCard, ...readyState.discard],
+      isDown: false,
+      table: [],
     };
 
     const afterTurn = applyTurnOutput(readyState, output);
@@ -258,6 +268,8 @@ describe("multiple consecutive turns", () => {
       hand: [...player2Hand.slice(1), drawnCard],
       stock: current.stock.slice(1),
       discard: [discardedCard, ...current.discard],
+      isDown: false,
+      table: [],
     };
 
     const afterTurn = applyTurnOutput(current, output);
@@ -304,6 +316,8 @@ describe("multiple consecutive turns", () => {
         hand: [...playerHand.slice(1), drawnCard],
         stock: current.stock.slice(1),
         discard: [discardedCard, ...current.discard],
+        isDown: false,
+        table: [],
       };
 
       current = applyTurnOutput(current, output);
@@ -334,6 +348,8 @@ describe("multiple consecutive turns", () => {
         hand: [...playerHand.slice(1), drawnCard],
         stock: current.stock.slice(1),
         discard: [discardedCard, ...current.discard],
+        isDown: false,
+        table: [],
       };
 
       current = applyTurnOutput(current, output);

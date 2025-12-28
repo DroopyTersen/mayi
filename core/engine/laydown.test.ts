@@ -2746,13 +2746,133 @@ describe("TurnMachine - turn completion after lay down", () => {
       expect(output).toBeDefined();
       expect(output?.hand).toBeDefined();
       expect(output?.discard).toBeDefined();
-      // Note: output doesn't currently include table, that's stored in context
+      expect(output?.table).toBeDefined();
+      expect(output?.isDown).toBeDefined();
     });
   });
 
   describe("turn output reflects lay down", () => {
-    it.todo("output.isDown is true", () => {});
-    it.todo("output.table includes new melds", () => {});
-    it.todo("output.hand is reduced by meld cards + discard", () => {});
+    it("output.isDown is true", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const discardCard = actor.getSnapshot().context.hand[0]!;
+      actor.send({ type: "DISCARD", cardId: discardCard.id });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.isDown).toBe(true);
+    });
+
+    it("output.table includes new melds", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const discardCard = actor.getSnapshot().context.hand[0]!;
+      actor.send({ type: "DISCARD", cardId: discardCard.id });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.table).toBeDefined();
+      expect(output?.table.length).toBe(2);
+      // Check that the melds contain the expected cards
+      const meldCardIds = output?.table.flatMap(m => m.cards.map(c => c.id));
+      expect(meldCardIds).toContain(nineC.id);
+      expect(meldCardIds).toContain(nineD.id);
+      expect(meldCardIds).toContain(nineH.id);
+      expect(meldCardIds).toContain(kingC.id);
+      expect(meldCardIds).toContain(kingD.id);
+      expect(meldCardIds).toContain(kingH.id);
+    });
+
+    it("output.hand is reduced by meld cards + discard", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // Hand now has 8 cards (7 original + 1 drawn)
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+      // Hand now has 2 cards (8 - 6 laid down)
+
+      const discardCard = actor.getSnapshot().context.hand[0]!;
+      actor.send({ type: "DISCARD", cardId: discardCard.id });
+      // Hand now has 1 card (2 - 1 discarded)
+
+      const output = actor.getSnapshot().output;
+      expect(output?.hand.length).toBe(1);
+      // The remaining card should be the one not used in melds and not discarded
+      const remainingCard = output?.hand[0];
+      expect(remainingCard).toBeDefined();
+      // Should not be any of the meld cards
+      expect(remainingCard!.id).not.toBe(nineC.id);
+      expect(remainingCard!.id).not.toBe(nineD.id);
+      expect(remainingCard!.id).not.toBe(nineH.id);
+      expect(remainingCard!.id).not.toBe(kingC.id);
+      expect(remainingCard!.id).not.toBe(kingD.id);
+      expect(remainingCard!.id).not.toBe(kingH.id);
+      // Should not be the discarded card
+      expect(remainingCard!.id).not.toBe(discardCard.id);
+    });
   });
 });

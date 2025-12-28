@@ -68,6 +68,8 @@ export interface TurnOutput {
   hand: Card[];
   stock: Card[];
   discard: Card[];
+  isDown: boolean;
+  table: Meld[];
 }
 
 export const turnMachine = setup({
@@ -199,6 +201,8 @@ export const turnMachine = setup({
     hand: context.hand,
     stock: context.stock,
     discard: context.discard,
+    isDown: context.isDown,
+    table: context.table,
   }),
   states: {
     awaitingDraw: {
