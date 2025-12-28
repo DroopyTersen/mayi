@@ -586,27 +586,27 @@ Review specs/command-line-interface.md
 - [x] Implement validJokerSwap guard - Joker only (3 tests)
 - [x] Implement canPerformJokerSwap composite guard (2 tests)
 
-### SWAP_JOKER Command (18 tests in jokerSwap.command.test.ts)
+### SWAP_JOKER Command (18 tests in jokerSwap.command.test.ts) ✓
 
-- [ ] Implement SWAP_JOKER in TurnMachine drawn state (4 tests)
-- [ ] Implement swapJoker action - updates table meld (4 tests)
-- [ ] Implement swapJoker action - adds Joker to player hand (3 tests)
-- [ ] Implement swapJoker action - removes swapped card from hand (3 tests)
-- [ ] Implement rejection scenarios (4 tests)
+- [x] Implement SWAP_JOKER in TurnMachine drawn state (4 tests)
+- [x] Implement swapJoker action - updates table meld (4 tests)
+- [x] Implement swapJoker action - adds Joker to player hand (3 tests)
+- [x] Implement swapJoker action - removes swapped card from hand (3 tests)
+- [x] Implement rejection scenarios (4 tests)
 
-### Joker Swap Integration (15 tests in jokerSwap.integration.test.ts)
+### Joker Swap Integration (15 tests in jokerSwap.integration.test.ts) ✓
 
-- [ ] Implement swap then lay down flow (4 tests)
-- [ ] Implement multiple swaps in one turn (3 tests)
-- [ ] Implement cannot swap after laying down (3 tests)
-- [ ] Implement swap from opponent's run (3 tests)
-- [ ] Implement edge cases - run boundaries (2 tests)
+- [x] Implement swap then lay down flow (4 tests)
+- [x] Implement multiple swaps in one turn (3 tests)
+- [x] Implement cannot swap after laying down (3 tests)
+- [x] Implement swap from opponent's run (3 tests)
+- [x] Implement edge cases - run boundaries (2 tests)
 
-### CLI Joker Swap (8 tests in cli/jokerSwap.test.ts)
+### CLI Joker Swap (8 tests in cli/jokerSwap.test.ts) ✓
 
-- [ ] Implement swap command syntax (2 tests)
-- [ ] Implement swap display (3 tests)
-- [ ] Implement swap error messages (3 tests)
+- [x] Implement swap command syntax (2 tests)
+- [x] Implement swap display (3 tests)
+- [x] Implement swap error messages (3 tests)
 
 ---
 
@@ -640,6 +640,7 @@ _(none yet)_
 - **Phase 4** (Laying Off + Going Out + Scoring) — v0.4.0
 - **Phase 5** (Full Game Loop) — v0.5.0
 - **Phase 6** (May I Mechanic) — v0.6.0
+- **Phase 7** (Joker Swapping) — v0.7.0
 
 ---
 

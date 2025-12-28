@@ -19,6 +19,7 @@ import {
   validateCardOwnership,
   getCardFromHand,
 } from "./layoff";
+import { canSwapJokerWithCard } from "../meld/meld.joker";
 
 /**
  * Meld proposal for LAY_DOWN event
@@ -62,7 +63,8 @@ export type TurnEvent =
   | { type: "LAY_OFF"; cardId: string; meldId: string }
   | { type: "DISCARD"; cardId: string }
   | { type: "GO_OUT"; finalLayOffs: LayOffSpec[] }
-  | { type: "END_TURN_STUCK" };
+  | { type: "END_TURN_STUCK" }
+  | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string };
 
 /**
  * Input required to create a TurnMachine actor
@@ -283,6 +285,34 @@ export const turnMachine = setup({
       if (context.hand.length !== 1) return false;
       return true;
     },
+    // Check if player can swap a Joker from a meld
+    canSwapJoker: ({ context, event }) => {
+      if (event.type !== "SWAP_JOKER") return false;
+
+      // Player must not be down yet (per house rules)
+      if (context.isDown) return false;
+
+      // Find the meld
+      const meld = context.table.find((m) => m.id === event.meldId);
+      if (!meld) return false;
+
+      // Meld must be a run (not a set)
+      if (meld.type !== "run") return false;
+
+      // Find the joker card in the meld
+      const jokerCard = meld.cards.find((c) => c.id === event.jokerCardId);
+      if (!jokerCard) return false;
+
+      // Must be a Joker (not a 2)
+      if (jokerCard.rank !== "Joker") return false;
+
+      // Find the swap card in hand
+      const swapCard = context.hand.find((c) => c.id === event.swapCardId);
+      if (!swapCard) return false;
+
+      // Check if swap is valid using the meld.joker utility
+      return canSwapJokerWithCard(meld, jokerCard, swapCard);
+    },
   },
   actions: {
     drawFromStock: assign({
@@ -390,6 +420,45 @@ export const turnMachine = setup({
         return updatedTable;
       },
     }),
+    // SWAP_JOKER action - swap a Joker from a run with a card from hand
+    swapJoker: assign({
+      hand: ({ context, event }) => {
+        if (event.type !== "SWAP_JOKER") return context.hand;
+
+        // Find the meld and joker
+        const meld = context.table.find((m) => m.id === event.meldId);
+        if (!meld) return context.hand;
+
+        const jokerCard = meld.cards.find((c) => c.id === event.jokerCardId);
+        if (!jokerCard) return context.hand;
+
+        // Remove swap card from hand and add joker
+        return [
+          ...context.hand.filter((c) => c.id !== event.swapCardId),
+          jokerCard,
+        ];
+      },
+      table: ({ context, event }) => {
+        if (event.type !== "SWAP_JOKER") return context.table;
+
+        // Find the swap card in hand
+        const swapCard = context.hand.find((c) => c.id === event.swapCardId);
+        if (!swapCard) return context.table;
+
+        return context.table.map((meld) => {
+          if (meld.id !== event.meldId) return meld;
+
+          // Find the joker's position and replace it with the swap card
+          const jokerIndex = meld.cards.findIndex((c) => c.id === event.jokerCardId);
+          if (jokerIndex === -1) return meld;
+
+          const newCards = [...meld.cards];
+          newCards[jokerIndex] = swapCard;
+
+          return { ...meld, cards: newCards };
+        });
+      },
+    }),
   },
 }).createMachine({
   id: "turn",
@@ -495,6 +564,11 @@ export const turnMachine = setup({
           guard: "canLayOff",
           target: "drawn", // Stay in drawn state to allow more lay offs
           actions: "layOff",
+        },
+        SWAP_JOKER: {
+          guard: "canSwapJoker",
+          target: "drawn", // Stay in drawn state after swap
+          actions: "swapJoker",
         },
         GO_OUT: {
           guard: "canGoOut",
