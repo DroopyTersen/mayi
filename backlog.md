@@ -2,6 +2,8 @@
 
 > Last updated: [Ralph updates this timestamp with each commit]
 
+Run `bun run typecheck` to verify your types are correct. In test file we can be lazy with typescript hacks like foo.bar!, but in real source could we should always code like a senior Typescript engineer. Strict types, no any's. No hacks like !.
+
 ## Phase 1 Tasks (Card Foundation)
 
 > Card types, deck creation, shuffle, deal, meld validation
@@ -109,8 +111,7 @@
 
 > Break down when Phase 4 is complete
 
-- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2-tests.md, and do research to create a similar file, /specs/phase5-tests.md
-- [ ] Review specs/phase5-tests.md and and scaffold out all of those tests. Add tasks for PHase 5, centered around the tests.
+- [ ] Review specs/phase-5-tests.md and and scaffold out all of those tests. Add tasks for PHase 5, centered around the tests.
 
 > IMPORTANT: Make sure to verify the game works as expected by playing through it manually using the CLI app. You can have multiple players and you can play manually against yourself.
 
