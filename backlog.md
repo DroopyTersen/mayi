@@ -284,8 +284,8 @@ Review specs/command-line-interface.md
 - [x] Implement RoundRecord (8 tests)
 - [x] Implement round transition - to next round (14 tests)
 - [x] Implement round transition - to game end (6 tests)
-- [ ] Implement state reset details (10 tests)
-- [ ] Fix typecheck errors
+- [x] Implement state reset details (10 tests)
+- [x] Fix typecheck errors
 
 ### Turn Machine Phase 4 Additions (97 tests in turn.machine.phase4.test.ts)
 
