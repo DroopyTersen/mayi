@@ -110,6 +110,7 @@ Review specs/command-line-interface.md
 - [x] Fix typecheck errors
 
 ### Lay Down Command (95 tests in laydown.test.ts)
+
 - [x] Implement drawn state structure (3 tests)
 - [x] Implement proceeding without laying down (4 tests)
 - [x] Implement LAY_DOWN preconditions (5 tests)
@@ -520,14 +521,14 @@ Review specs/command-line-interface.md
 - [x] Implement turn flow - current player vetoes (3 tests)
 - [x] Implement multiple May I in a round (5 tests)
 
-### TurnMachine May I Awareness (13 tests in turnMachine.mayI.test.ts)
+### TurnMachine May I Awareness (19 tests in turnMachine.mayI.test.ts) ✓
 
-- [ ] Implement turn starts in awaitingDraw (3 tests)
-- [ ] Implement DRAW_FROM_DISCARD during May I window (4 tests)
-- [ ] Implement DRAW_FROM_STOCK during May I window (4 tests)
-- [ ] Implement hand state after May I resolution (3 tests)
-- [ ] Implement discard availability - no May I (2 tests)
-- [ ] Implement discard availability - May I won (3 tests)
+- [x] Implement turn starts in awaitingDraw (3 tests)
+- [x] Implement DRAW_FROM_DISCARD during May I window (4 tests)
+- [x] Implement DRAW_FROM_STOCK during May I window (4 tests)
+- [x] Implement hand state after May I resolution (3 tests)
+- [x] Implement discard availability - no May I (2 tests)
+- [x] Implement discard availability - May I won (3 tests)
 
 ### May I Integration Tests (52 tests in mayIIntegration.test.ts)
 
@@ -574,6 +575,12 @@ Review specs/command-line-interface.md
 > Tasks found during implementation that don't fit current phase
 
 _(none yet)_
+
+## Phase 8 Tasks Final Game End Testing
+
+> Break down when Phase 7 is complete
+
+- [ ]Put everything together and test the game end to end using the CLI app. Add bugs and tasks to backlog for any issues found. Ensure CLI game follows specs/command-line-ux.md. Ensure game follows specs/house-rules.md.
 
 ---
 
