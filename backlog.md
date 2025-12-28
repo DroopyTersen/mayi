@@ -105,11 +105,11 @@ Review specs/command-line-interface.md
 - [x] Implement getContractForRound function (2 tests)
 - [x] Implement minimum cards per contract calculation (6 tests)
 - [x] Implement validateContract function - correct number of melds (12 tests)
-- [ ] Implement meld type verification (4 tests)
-- [ ] Implement card usage validation (3 tests)
+- [x] Implement meld type verification (4 tests)
+- [x] Implement card usage validation (3 tests)
+- [x] Fix typecheck errors
 
 ### Lay Down Command (95 tests in laydown.test.ts)
-
 - [ ] Implement drawn state structure (3 tests)
 - [ ] Implement proceeding without laying down (4 tests)
 - [ ] Implement LAY_DOWN preconditions (5 tests)
@@ -119,6 +119,7 @@ Review specs/command-line-interface.md
 - [ ] Implement successful lay down - Round 4 (3 tests)
 - [ ] Implement successful lay down - Round 5 (2 tests)
 - [ ] Implement successful lay down - Round 6 (2 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement melds with wilds validation (7 tests)
 - [ ] Implement larger than minimum melds (5 tests)
 - [ ] Implement card removal from hand (5 tests)
@@ -127,6 +128,7 @@ Review specs/command-line-interface.md
 - [ ] Implement invalid individual melds rejection (8 tests)
 - [ ] Implement card not in hand rejection (4 tests)
 - [ ] Implement duplicate card usage rejection (2 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement already down rejection (3 tests)
 - [ ] Implement auto-transition to awaitingDiscard (3 tests)
 - [ ] Implement turn end after laying down (2 tests)
@@ -134,30 +136,37 @@ Review specs/command-line-interface.md
 - [ ] Implement cannot lay down again (2 tests)
 - [ ] Implement discard after laying down (4 tests)
 - [ ] Implement turn output reflects lay down (3 tests)
+- [ ] Fix typecheck errors
 
 ### Table Management (17 tests in table.test.ts)
 
+- [ ] Fix typecheck errors
 - [ ] Implement table initial state (2 tests)
 - [ ] Implement table after first player lays down (3 tests)
 - [ ] Implement table after multiple players lay down (4 tests)
 - [ ] Implement table persistence across turns (3 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement isDown initial state (2 tests)
 - [ ] Implement isDown after laying down (3 tests)
 - [ ] Implement multiple players down tracking (3 tests)
 - [ ] Implement round transition isDown reset (1 test)
+- [ ] Fix typecheck errors
 
 ### Guards (39 tests in guards.test.ts)
 
 - [ ] Implement notDownYet guard (3 tests)
 - [ ] Implement meetsContract guard - round 1 (5 tests)
 - [ ] Implement meetsContract guard - round 2 (5 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement meetsContract guard - round 3 (3 tests)
 - [ ] Implement meetsContract guard - round 4 (3 tests)
 - [ ] Implement meetsContract guard - round 5 (3 tests)
 - [ ] Implement meetsContract guard - round 6 (3 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement validMelds guard (5 tests)
 - [ ] Implement wildsNotOutnumbered guard (4 tests)
 - [ ] Implement canLayDown composite guard (3 tests)
+- [ ] Fix typecheck errors
 
 ### Lay Down Actions (17 tests in laydown.actions.test.ts)
 
@@ -165,6 +174,7 @@ Review specs/command-line-interface.md
 - [ ] Implement table modification (5 tests)
 - [ ] Implement player state modification (2 tests)
 - [ ] Implement meld creation (4 tests)
+- [ ] Fix typecheck errors
 
 ### Integration Tests (56 tests in laydown.integration.test.ts)
 
@@ -173,20 +183,26 @@ Review specs/command-line-interface.md
 - [ ] Implement player chooses not to lay down (7 tests)
 - [ ] Implement player cannot lay down - missing cards (5 tests)
 - [ ] Implement multiple turns with lay down (7 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement edge case: laying down maximum cards (4 tests)
 - [ ] Implement edge case: laying down leaves exactly 1 card (5 tests)
 - [ ] Implement edge case: contract validation prevents over-laying (4 tests)
 - [ ] Implement edge case: wilds across multiple melds (5 tests)
 - [ ] Implement edge case: concentrated wilds invalid (5 tests)
 - [ ] Implement edge case: same rank from multiple decks (4 tests)
+- [ ] Fix typecheck errors
 
 ### CLI Lay Down (20 tests in cli.laydown.test.ts)
+
+> Review specs/command-line-ux.md and make sure we've implemented everything we need to for the cli gameplay
 
 - [ ] Implement parseLayDownInput card selection syntax (6 tests)
 - [ ] Implement meld type inference (3 tests)
 - [ ] Implement input validation (4 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement alternative syntaxes (1 test)
 - [ ] Implement lay down confirmation flow (5 tests)
+- [ ] Fix typecheck errors
 
 ---
 
