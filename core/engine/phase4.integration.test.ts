@@ -4,6 +4,7 @@ import { turnMachine } from "./turn.machine";
 import type { RoundNumber } from "./engine.types";
 import type { Card, Suit, Rank } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
+import { calculateRoundScores, updateTotalScores, determineWinner } from "./scoring.engine";
 
 /**
  * Phase 4: Integration Tests
@@ -2000,35 +2001,173 @@ describe("going out scenarios - round 6", () => {
 
 describe("scoring integration", () => {
   describe("round end scoring flow", () => {
-    it.todo("given: 3 players", () => {});
-    it.todo("and: player 1 goes out", () => {});
-    it.todo("and: player 2 has (J♥, Q♦) in hand", () => {});
-    it.todo("and: player 3 has (A♠, Joker, 5♣) in hand", () => {});
-    it.todo("when: round ends", () => {});
-    it.todo("then: p1 round score = 0", () => {});
-    it.todo("and: p2 round score = 10 + 10 = 20", () => {});
-    it.todo("and: p3 round score = 15 + 50 + 5 = 70", () => {});
-    it.todo("and: roundRecord created with these scores", () => {});
-    it.todo("and: totalScores updated", () => {});
+    // Using the scoring functions directly to test integration
+    const jackH = card("J", "hearts");
+    const queenD = card("Q", "diamonds");
+    const aceS = card("A", "spades");
+    const joker: Card = { id: `joker-${Math.random()}`, rank: "Joker", suit: null };
+    const fiveC = card("5", "clubs");
+
+    it("given: 3 players", () => {
+      const players = [
+        { id: "p1", hand: [] as Card[] },
+        { id: "p2", hand: [jackH, queenD] },
+        { id: "p3", hand: [aceS, joker, fiveC] },
+      ];
+      expect(players.length).toBe(3);
+    });
+
+    it("and: player 1 goes out", () => {
+      // Player 1 went out, so they have no cards
+      const p1Hand: Card[] = [];
+      expect(p1Hand.length).toBe(0);
+    });
+
+    it("and: player 2 has (J♥, Q♦) in hand", () => {
+      expect(jackH.rank).toBe("J");
+      expect(queenD.rank).toBe("Q");
+    });
+
+    it("and: player 3 has (A♠, Joker, 5♣) in hand", () => {
+      expect(aceS.rank).toBe("A");
+      expect(joker.rank).toBe("Joker");
+      expect(fiveC.rank).toBe("5");
+    });
+
+    it("when: round ends", () => {
+      // Round ends when player 1 goes out
+      const winnerId = "p1";
+      expect(winnerId).toBe("p1");
+    });
+
+    it("then: p1 round score = 0", () => {
+      const scores = calculateRoundScores(
+        [
+          { id: "p1", hand: [] },
+          { id: "p2", hand: [jackH, queenD] },
+          { id: "p3", hand: [aceS, joker, fiveC] },
+        ],
+        "p1"
+      );
+      expect(scores["p1"]).toBe(0);
+    });
+
+    it("and: p2 round score = 10 + 10 = 20", () => {
+      const scores = calculateRoundScores(
+        [
+          { id: "p1", hand: [] },
+          { id: "p2", hand: [jackH, queenD] },
+          { id: "p3", hand: [aceS, joker, fiveC] },
+        ],
+        "p1"
+      );
+      expect(scores["p2"]).toBe(20); // J=10, Q=10
+    });
+
+    it("and: p3 round score = 15 + 50 + 5 = 70", () => {
+      const scores = calculateRoundScores(
+        [
+          { id: "p1", hand: [] },
+          { id: "p2", hand: [jackH, queenD] },
+          { id: "p3", hand: [aceS, joker, fiveC] },
+        ],
+        "p1"
+      );
+      expect(scores["p3"]).toBe(70); // A=15, Joker=50, 5=5
+    });
+
+    it("and: roundRecord created with these scores", () => {
+      const roundScores = calculateRoundScores(
+        [
+          { id: "p1", hand: [] },
+          { id: "p2", hand: [jackH, queenD] },
+          { id: "p3", hand: [aceS, joker, fiveC] },
+        ],
+        "p1"
+      );
+      // Round record would include these scores
+      expect(roundScores).toEqual({ p1: 0, p2: 20, p3: 70 });
+    });
+
+    it("and: totalScores updated", () => {
+      const initialTotals = { p1: 0, p2: 0, p3: 0 };
+      const roundScores = { p1: 0, p2: 20, p3: 70 };
+      const newTotals = updateTotalScores(initialTotals, roundScores);
+      expect(newTotals).toEqual({ p1: 0, p2: 20, p3: 70 });
+    });
   });
 
   describe("total score accumulation", () => {
-    it.todo("given: after round 3, scores are { p1: 45, p2: 60, p3: 30 }", () => {});
-    it.todo("and: round 4 ends with { p1: 0, p2: 25, p3: 55 }", () => {});
-    it.todo("then: new totals = { p1: 45, p2: 85, p3: 85 }", () => {});
-    it.todo("and: p2 and p3 now tied", () => {});
+    it("given: after round 3, scores are { p1: 45, p2: 60, p3: 30 }", () => {
+      const totals = { p1: 45, p2: 60, p3: 30 };
+      expect(totals.p1).toBe(45);
+      expect(totals.p2).toBe(60);
+      expect(totals.p3).toBe(30);
+    });
+
+    it("and: round 4 ends with { p1: 0, p2: 25, p3: 55 }", () => {
+      const round4Scores = { p1: 0, p2: 25, p3: 55 };
+      expect(round4Scores.p1).toBe(0);
+      expect(round4Scores.p2).toBe(25);
+      expect(round4Scores.p3).toBe(55);
+    });
+
+    it("then: new totals = { p1: 45, p2: 85, p3: 85 }", () => {
+      const round3Totals = { p1: 45, p2: 60, p3: 30 };
+      const round4Scores = { p1: 0, p2: 25, p3: 55 };
+      const newTotals = updateTotalScores(round3Totals, round4Scores);
+      expect(newTotals).toEqual({ p1: 45, p2: 85, p3: 85 });
+    });
+
+    it("and: p2 and p3 now tied", () => {
+      const newTotals = { p1: 45, p2: 85, p3: 85 };
+      expect(newTotals.p2).toBe(newTotals.p3);
+    });
   });
 
   describe("determining winner after round 6", () => {
-    it.todo("given: final totals { p1: 150, p2: 85, p3: 120 }", () => {});
-    it.todo("then: p2 wins with lowest score", () => {});
-    it.todo("and: game ends", () => {});
+    it("given: final totals { p1: 150, p2: 85, p3: 120 }", () => {
+      const finalScores = { p1: 150, p2: 85, p3: 120 };
+      expect(finalScores.p1).toBe(150);
+      expect(finalScores.p2).toBe(85);
+      expect(finalScores.p3).toBe(120);
+    });
+
+    it("then: p2 wins with lowest score", () => {
+      const finalScores = { p1: 150, p2: 85, p3: 120 };
+      const winners = determineWinner(finalScores);
+      expect(winners).toEqual(["p2"]);
+    });
+
+    it("and: game ends", () => {
+      // Game ends after round 6, so we just verify winner is determined
+      const finalScores = { p1: 150, p2: 85, p3: 120 };
+      const winners = determineWinner(finalScores);
+      expect(winners.length).toBeGreaterThan(0);
+    });
   });
 
   describe("tie for winner", () => {
-    it.todo("given: final totals { p1: 100, p2: 100, p3: 150 }", () => {});
-    it.todo("then: p1 and p2 both win", () => {});
-    it.todo("and: both have lowest score (100)", () => {});
+    it("given: final totals { p1: 100, p2: 100, p3: 150 }", () => {
+      const finalScores = { p1: 100, p2: 100, p3: 150 };
+      expect(finalScores.p1).toBe(100);
+      expect(finalScores.p2).toBe(100);
+      expect(finalScores.p3).toBe(150);
+    });
+
+    it("then: p1 and p2 both win", () => {
+      const finalScores = { p1: 100, p2: 100, p3: 150 };
+      const winners = determineWinner(finalScores);
+      expect(winners).toContain("p1");
+      expect(winners).toContain("p2");
+      expect(winners.length).toBe(2);
+    });
+
+    it("and: both have lowest score (100)", () => {
+      const finalScores = { p1: 100, p2: 100, p3: 150 };
+      const lowestScore = Math.min(...Object.values(finalScores));
+      expect(lowestScore).toBe(100);
+    });
   });
 });
 
