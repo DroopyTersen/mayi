@@ -1,6 +1,8 @@
 import type { Card } from "../card/card.types";
+import type { Meld } from "../meld/meld.types";
 import type { RoundNumber, RoundRecord } from "./engine.types";
 import { calculateRoundScores, updateTotalScores, type Scores } from "./scoring.engine";
+import { createDeck, shuffle, deal } from "../card/card.deck";
 
 /**
  * Player data needed for round end processing
@@ -69,5 +71,96 @@ export function processRoundEnd(input: RoundEndInput): RoundEndResult {
     updatedTotalScores,
     updatedRoundHistory,
     nextAction,
+  };
+}
+
+/**
+ * Player state for a new round
+ */
+export interface PlayerRoundState {
+  hand: Card[];
+  isDown: boolean;
+  laidDownThisTurn: boolean;
+}
+
+/**
+ * Input for setting up the next round
+ */
+export interface NextRoundInput {
+  previousRound: RoundNumber;
+  playerIds: string[];
+  previousDealerIndex: number;
+}
+
+/**
+ * Result of setting up the next round
+ */
+export interface NextRoundState {
+  currentRound: RoundNumber;
+  dealerIndex: number;
+  currentPlayerIndex: number;
+  playerStates: Record<string, PlayerRoundState>;
+  stock: Card[];
+  discard: Card[];
+  table: Meld[];
+}
+
+/**
+ * Set up the game state for the next round.
+ *
+ * This function:
+ * - Increments the round number
+ * - Rotates the dealer
+ * - Sets the first player (left of dealer)
+ * - Creates and shuffles a new deck
+ * - Deals 11 cards to each player
+ * - Sets up the discard pile with one card
+ * - Resets player states (isDown, laidDownThisTurn)
+ * - Clears the table
+ */
+export function setupNextRound(input: NextRoundInput): NextRoundState {
+  const { previousRound, playerIds, previousDealerIndex } = input;
+
+  // Increment round
+  const currentRound = (previousRound + 1) as RoundNumber;
+
+  // Rotate dealer
+  const dealerIndex = (previousDealerIndex + 1) % playerIds.length;
+
+  // First player is left of dealer
+  const currentPlayerIndex = (dealerIndex + 1) % playerIds.length;
+
+  // Determine deck size based on player count
+  // 2-4 players: 2 decks + 4 jokers = 108 cards
+  // 5-6 players: 3 decks + 6 jokers = 162 cards
+  const deckCount = playerIds.length >= 5 ? 3 : 2;
+  const jokerCount = playerIds.length >= 5 ? 6 : 4;
+
+  // Create, shuffle, and deal
+  const deck = createDeck({ deckCount, jokerCount });
+  const shuffledDeck = shuffle(deck);
+  const dealResult = deal(shuffledDeck, playerIds.length);
+
+  // Build player states
+  const playerStates: Record<string, PlayerRoundState> = {};
+  for (let i = 0; i < playerIds.length; i++) {
+    const playerId = playerIds[i];
+    if (playerId !== undefined) {
+      playerStates[playerId] = {
+        hand: dealResult.hands[i] ?? [],
+        isDown: false,
+        laidDownThisTurn: false,
+      };
+    }
+  }
+
+  return {
+    currentRound,
+    dealerIndex,
+    currentPlayerIndex,
+    playerStates,
+    stock: dealResult.stock,
+    discard: dealResult.discard,
+    table: [],
   };
 }

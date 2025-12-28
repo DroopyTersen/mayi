@@ -6,8 +6,11 @@ import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import {
   processRoundEnd,
+  setupNextRound,
   type RoundEndInput,
   type RoundEndResult,
+  type NextRoundInput,
+  type NextRoundState,
 } from "./roundEnd.engine";
 
 /**
@@ -627,40 +630,286 @@ describe("RoundRecord", () => {
 
 describe("round transition - to next round", () => {
   describe("when rounds 1-5 end", () => {
-    it.todo("given: round N ends (where N < 6)", () => {});
-    it.todo("then: game continues to round N+1", () => {});
-    it.todo("and: currentRound increments", () => {});
+    it("given: round N ends (where N < 6)", () => {
+      // Rounds 1-5 trigger next round setup
+      for (const roundNum of [1, 2, 3, 4, 5] as RoundNumber[]) {
+        const input: NextRoundInput = {
+          previousRound: roundNum,
+          playerIds: ["player-1", "player-2"],
+          previousDealerIndex: 0,
+        };
+
+        const result = setupNextRound(input);
+        expect(result.currentRound).toBe((roundNum + 1) as RoundNumber);
+      }
+    });
+
+    it("then: game continues to round N+1", () => {
+      const input: NextRoundInput = {
+        previousRound: 3 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3"],
+        previousDealerIndex: 1,
+      };
+
+      const result = setupNextRound(input);
+      expect(result.currentRound).toBe(4);
+    });
+
+    it("and: currentRound increments", () => {
+      const input: NextRoundInput = {
+        previousRound: 2 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 0,
+      };
+
+      const result = setupNextRound(input);
+      expect(result.currentRound).toBe(3);
+    });
   });
 
   describe("state reset for new round", () => {
-    it.todo("all players' isDown reset to false", () => {});
-    it.todo("all players' hands cleared", () => {});
-    it.todo("table cleared (no melds)", () => {});
-    it.todo("turnState reset", () => {});
+    it("all players' isDown reset to false", () => {
+      const input: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3"],
+        previousDealerIndex: 0,
+      };
+
+      const result = setupNextRound(input);
+      for (const playerId of input.playerIds) {
+        expect(result.playerStates[playerId]!.isDown).toBe(false);
+      }
+    });
+
+    it("all players' hands cleared", () => {
+      // Players get new hands (11 cards each), not empty
+      const input: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 0,
+      };
+
+      const result = setupNextRound(input);
+      for (const playerId of input.playerIds) {
+        expect(result.playerStates[playerId]!.hand.length).toBe(11);
+      }
+    });
+
+    it("table cleared (no melds)", () => {
+      const input: NextRoundInput = {
+        previousRound: 2 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 1,
+      };
+
+      const result = setupNextRound(input);
+      expect(result.table).toEqual([]);
+    });
+
+    it("turnState reset", () => {
+      // laidDownThisTurn should be false for all players
+      const input: NextRoundInput = {
+        previousRound: 3 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3"],
+        previousDealerIndex: 2,
+      };
+
+      const result = setupNextRound(input);
+      for (const playerId of input.playerIds) {
+        expect(result.playerStates[playerId]!.laidDownThisTurn).toBe(false);
+      }
+    });
   });
 
   describe("dealer rotation", () => {
-    it.todo("dealerIndex advances by 1 (clockwise/left)", () => {});
-    it.todo("wraps around: if dealer was last player, becomes first", () => {});
-    it.todo("example: 4 players, dealer 2 → dealer 3 → dealer 0 → dealer 1", () => {});
+    it("dealerIndex advances by 1 (clockwise/left)", () => {
+      const input: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3", "player-4"],
+        previousDealerIndex: 0,
+      };
+
+      const result = setupNextRound(input);
+      expect(result.dealerIndex).toBe(1);
+    });
+
+    it("wraps around: if dealer was last player, becomes first", () => {
+      const input: NextRoundInput = {
+        previousRound: 2 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3", "player-4"],
+        previousDealerIndex: 3, // last player
+      };
+
+      const result = setupNextRound(input);
+      expect(result.dealerIndex).toBe(0); // wraps to first
+    });
+
+    it("example: 4 players, dealer 2 → dealer 3 → dealer 0 → dealer 1", () => {
+      const playerIds = ["p0", "p1", "p2", "p3"];
+
+      // dealer 2 → dealer 3
+      let result = setupNextRound({
+        previousRound: 1 as RoundNumber,
+        playerIds,
+        previousDealerIndex: 2,
+      });
+      expect(result.dealerIndex).toBe(3);
+
+      // dealer 3 → dealer 0
+      result = setupNextRound({
+        previousRound: 2 as RoundNumber,
+        playerIds,
+        previousDealerIndex: 3,
+      });
+      expect(result.dealerIndex).toBe(0);
+
+      // dealer 0 → dealer 1
+      result = setupNextRound({
+        previousRound: 3 as RoundNumber,
+        playerIds,
+        previousDealerIndex: 0,
+      });
+      expect(result.dealerIndex).toBe(1);
+    });
   });
 
   describe("first player", () => {
-    it.todo("currentPlayerIndex = (dealerIndex + 1) % playerCount", () => {});
-    it.todo("first player is left of dealer", () => {});
+    it("currentPlayerIndex = (dealerIndex + 1) % playerCount", () => {
+      const input: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3", "player-4"],
+        previousDealerIndex: 1, // new dealer will be 2
+      };
+
+      const result = setupNextRound(input);
+      // new dealer is 2, so first player is (2 + 1) % 4 = 3
+      expect(result.currentPlayerIndex).toBe(3);
+    });
+
+    it("first player is left of dealer", () => {
+      // With dealer at index 3 (4 players), first player wraps to 0
+      const input: NextRoundInput = {
+        previousRound: 2 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3", "player-4"],
+        previousDealerIndex: 2, // new dealer will be 3
+      };
+
+      const result = setupNextRound(input);
+      expect(result.dealerIndex).toBe(3);
+      expect(result.currentPlayerIndex).toBe(0); // left of dealer 3
+    });
   });
 
   describe("new deck and deal", () => {
-    it.todo("new deck created (appropriate for player count)", () => {});
-    it.todo("deck shuffled", () => {});
-    it.todo("11 cards dealt to each player", () => {});
-    it.todo("one card flipped to start discard pile", () => {});
-    it.todo("remaining cards become stock", () => {});
+    it("new deck created (appropriate for player count)", () => {
+      // 2-4 players: 2 decks (108 cards)
+      // 5-6 players: 3 decks (162 cards)
+      const input2Players: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 0,
+      };
+      const result2 = setupNextRound(input2Players);
+      // 2 players * 11 cards + 1 discard + stock = 108 total
+      const totalCards2 =
+        Object.values(result2.playerStates).reduce((sum, p) => sum + p.hand.length, 0) +
+        result2.discard.length +
+        result2.stock.length;
+      expect(totalCards2).toBe(108);
+
+      const input5Players: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["p1", "p2", "p3", "p4", "p5"],
+        previousDealerIndex: 0,
+      };
+      const result5 = setupNextRound(input5Players);
+      const totalCards5 =
+        Object.values(result5.playerStates).reduce((sum, p) => sum + p.hand.length, 0) +
+        result5.discard.length +
+        result5.stock.length;
+      expect(totalCards5).toBe(162);
+    });
+
+    it("deck shuffled", () => {
+      // Run twice with same input - hands should be different (probabilistically)
+      const input: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 0,
+      };
+
+      const result1 = setupNextRound(input);
+      const result2 = setupNextRound(input);
+
+      // Hands should differ (extremely unlikely to be same after shuffle)
+      const hand1Ids = result1.playerStates["player-1"]!.hand.map((c) => c.id).join(",");
+      const hand2Ids = result2.playerStates["player-1"]!.hand.map((c) => c.id).join(",");
+      expect(hand1Ids).not.toBe(hand2Ids);
+    });
+
+    it("11 cards dealt to each player", () => {
+      const input: NextRoundInput = {
+        previousRound: 3 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3"],
+        previousDealerIndex: 1,
+      };
+
+      const result = setupNextRound(input);
+      for (const playerId of input.playerIds) {
+        expect(result.playerStates[playerId]!.hand.length).toBe(11);
+      }
+    });
+
+    it("one card flipped to start discard pile", () => {
+      const input: NextRoundInput = {
+        previousRound: 4 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 0,
+      };
+
+      const result = setupNextRound(input);
+      expect(result.discard.length).toBe(1);
+    });
+
+    it("remaining cards become stock", () => {
+      const input: NextRoundInput = {
+        previousRound: 5 as RoundNumber,
+        playerIds: ["player-1", "player-2", "player-3"],
+        previousDealerIndex: 2,
+      };
+
+      const result = setupNextRound(input);
+      // 108 cards - (3 players * 11 cards) - 1 discard = 74
+      expect(result.stock.length).toBe(108 - 33 - 1);
+    });
   });
 
   describe("scores preserved", () => {
-    it.todo("totalScore for each player unchanged by round transition", () => {});
-    it.todo("only roundHistory updated", () => {});
+    it("totalScore for each player unchanged by round transition", () => {
+      // setupNextRound doesn't modify scores - that's handled separately
+      // This test verifies the function doesn't include score modification
+      const input: NextRoundInput = {
+        previousRound: 2 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 0,
+      };
+
+      const result = setupNextRound(input);
+      // Result shouldn't have totalScores - those are preserved externally
+      expect(result).not.toHaveProperty("totalScores");
+    });
+
+    it("only roundHistory updated", () => {
+      // setupNextRound doesn't modify round history either
+      const input: NextRoundInput = {
+        previousRound: 3 as RoundNumber,
+        playerIds: ["player-1", "player-2"],
+        previousDealerIndex: 1,
+      };
+
+      const result = setupNextRound(input);
+      expect(result).not.toHaveProperty("roundHistory");
+    });
   });
 });
 
