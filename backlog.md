@@ -834,8 +834,8 @@ Review specs/command-line-interface.md
 
 - [ ] **Harness swap command not implemented**: The harness CLI shows `swap <meld> <pos> <card>` as an available command when player hasn't laid down, but running `bun harness/play.ts swap 2 3 1` returns "Unknown command: swap". The Joker swap logic works in the core engine (tested via unit tests in Phase 7), but the harness CLI handler is missing.
 - [ ] **Run extension bug**: After adding 8♦ to a 9♦-Q♦ run (extending low), the next extension attempt (7♦) failed with "7♦ cannot be added to that run". The run displays as "9♦ 10♦ J♦ Q♦ 8♦" which may indicate internal state issues. Need to investigate if run boundaries are tracked correctly after extension.
-- [ ] **DOWN player can call May I**: Carol called May I while DOWN (had already laid down her contract). Per house rules section 7: "You cannot call May I? if you have already laid down ('down'). Since calling May I? requires taking the discard, and down players cannot draw from the discard pile, they are ineligible to call May I?" The guard check is missing or not working.
-- [ ] **DOWN player can draw from discard**: Carol drew from discard pile while DOWN. Per house rules section 5: "Important: Once you have laid down ('down'), you may only draw from the stock pile — never from the discard pile." The guard check for `DRAW_FROM_DISCARD` action doesn't verify player is not DOWN.
+- [x] **DOWN player can call May I**: ~~Carol called May I while DOWN~~ — Fixed in engine guards + harness `handleMayI()` now checks `player.isDown` before allowing May I call.
+- [x] **DOWN player can draw from discard**: ~~Carol drew from discard pile while DOWN~~ — Fixed in engine guards + harness `handleDraw()` now checks `player.isDown` before allowing discard draw.
 
 ---
 

@@ -159,6 +159,12 @@ function handleDraw(source?: string): void {
     if (state.discard.length === 0) {
       throw new Error("Discard pile is empty!");
     }
+    // DOWN players cannot draw from discard (per house rules section 5)
+    if (player.isDown) {
+      throw new Error(
+        "You cannot draw from discard when you are down. Down players may only draw from stock."
+      );
+    }
     const card = state.discard.shift()!;
     player.hand.push(card);
 
@@ -403,6 +409,13 @@ function handleMayI(): void {
 
   if (player.id === ctx.currentPlayerId) {
     throw new Error("Current player should use 'take' or 'pass', not 'mayi'");
+  }
+
+  // DOWN players cannot call May I (per house rules section 7)
+  if (player.isDown) {
+    throw new Error(
+      "You cannot call May I when you are down. Down players cannot draw from the discard pile."
+    );
   }
 
   // Add player to claimants
