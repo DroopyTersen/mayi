@@ -2462,8 +2462,47 @@ describe("TurnMachine - post lay down behavior", () => {
   });
 
   describe("turn end after laying down", () => {
-    it.todo("if hand.length > 0: must discard one card to end turn", () => {});
-    it.todo("if hand.length === 0: goes out immediately (no discard)", () => {});
+    it("if hand.length > 0: must discard one card to end turn", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra1 = card("5", "spades");
+      const extra2 = card("6", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra1, extra2],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay down
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand.length).toBeGreaterThan(0);
+
+      // Must discard to complete turn
+      actor.send({ type: "DISCARD", cardId: extra1.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+    });
+
+    it.todo("if hand.length === 0: goes out immediately (no discard)", () => {
+      // Note: This requires implementation of "going out" logic which is Phase 4
+      // When a player lays down all their cards, they go out without discarding
+    });
   });
 
   describe("cannot lay off on same turn", () => {
