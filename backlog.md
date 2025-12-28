@@ -506,19 +506,19 @@ Review specs/command-line-interface.md
 - [x] Implement unlimited per round (5 tests)
 - [x] Implement penalty card rules (6 tests)
 
-### RoundMachine May I Integration (29 tests in roundMachine.mayI.test.ts)
+### RoundMachine May I Integration (46 tests in roundMachine.mayI.test.ts) ✓
 
-- [ ] Implement window opens after discard (3 tests)
-- [ ] Implement window does NOT open if went out (3 tests)
-- [ ] Implement MayIWindowMachine input (6 tests)
-- [ ] Implement CURRENT_PLAYER_CLAIMED outcome (4 tests)
-- [ ] Implement MAY_I_RESOLVED outcome (5 tests)
-- [ ] Implement NO_CLAIMS outcome (4 tests)
-- [ ] Implement turn flow - current player claims (4 tests)
-- [ ] Implement turn flow - May I won (4 tests)
-- [ ] Implement turn flow - no May I (3 tests)
-- [ ] Implement turn flow - current player vetoes (3 tests)
-- [ ] Implement multiple May I in a round (5 tests)
+- [x] Implement window opens after discard (3 tests)
+- [x] Implement window does NOT open if went out (3 tests)
+- [x] Implement MayIWindowMachine input (6 tests)
+- [x] Implement CURRENT_PLAYER_CLAIMED outcome (4 tests)
+- [x] Implement MAY_I_RESOLVED outcome (5 tests)
+- [x] Implement NO_CLAIMS outcome (4 tests)
+- [x] Implement turn flow - current player claims (4 tests)
+- [x] Implement turn flow - May I won (4 tests)
+- [x] Implement turn flow - no May I (3 tests)
+- [x] Implement turn flow - current player vetoes (3 tests)
+- [x] Implement multiple May I in a round (5 tests)
 
 ### TurnMachine May I Awareness (13 tests in turnMachine.mayI.test.ts)
 
