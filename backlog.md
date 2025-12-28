@@ -494,17 +494,17 @@ Review specs/command-line-interface.md
 - [x] Implement non-current player winning - turn order unchanged (3 tests)
 - [x] Implement no claims scenario (4 tests)
 
-### May I Rules (22 tests in mayIRules.test.ts)
+### May I Rules (34 tests in mayIRules.test.ts) ✓
 
-- [ ] Implement eligibility rules - cannot May I own discard (1 test)
-- [ ] Implement eligibility rules - current player can claim (2 tests)
-- [ ] Implement eligibility rules - all other players can May I (3 tests)
-- [ ] Implement timing rules - May I before current player draws (3 tests)
-- [ ] Implement timing rules - window closes on draw from discard (3 tests)
-- [ ] Implement timing rules - resolves on draw from stock (4 tests)
-- [ ] Implement timing rules - loses veto after passing (3 tests)
-- [ ] Implement unlimited per round (5 tests)
-- [ ] Implement penalty card rules (6 tests)
+- [x] Implement eligibility rules - cannot May I own discard (1 test)
+- [x] Implement eligibility rules - current player can claim (2 tests)
+- [x] Implement eligibility rules - all other players can May I (3 tests)
+- [x] Implement timing rules - May I before current player draws (3 tests)
+- [x] Implement timing rules - window closes on draw from discard (3 tests)
+- [x] Implement timing rules - resolves on draw from stock (4 tests)
+- [x] Implement timing rules - loses veto after passing (3 tests)
+- [x] Implement unlimited per round (5 tests)
+- [x] Implement penalty card rules (6 tests)
 
 ### RoundMachine May I Integration (29 tests in roundMachine.mayI.test.ts)
 

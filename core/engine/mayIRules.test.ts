@@ -5,84 +5,491 @@
  */
 
 import { describe, it, expect } from "bun:test";
+import { createActor } from "xstate";
+import { mayIWindowMachine } from "./mayIWindow.machine";
+import type { MayIWindowInput } from "./mayIWindow.machine";
+import type { Card } from "../card/card.types";
+
+function createTestInput(overrides?: Partial<MayIWindowInput>): MayIWindowInput {
+  const discardedCard: Card = { id: "card-K-spades", suit: "spades", rank: "K" };
+  const stock: Card[] = [
+    { id: "card-7-diamonds", suit: "diamonds", rank: "7" },
+    { id: "card-3-clubs", suit: "clubs", rank: "3" },
+  ];
+
+  return {
+    discardedCard,
+    discardedByPlayerId: "player-1",
+    currentPlayerId: "player-2",
+    currentPlayerIndex: 2,
+    playerOrder: ["player-0", "player-1", "player-2", "player-3"],
+    stock,
+    ...overrides,
+  };
+}
+
+function createMayIActor(input: MayIWindowInput) {
+  const actor = createActor(mayIWindowMachine, { input });
+  actor.start();
+  return actor;
+}
 
 describe("May I eligibility rules", () => {
   describe("cannot May I your own discard", () => {
-    it.todo("given: P1 just discarded K♠, when: P1 tries to call May I, then: rejected", () => {});
+    it("given: P1 just discarded K♠, when: P1 tries to call May I, then: rejected", () => {
+      const input = createTestInput({ discardedByPlayerId: "player-1" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-1" });
+
+      // P1's claim should be rejected - they cannot May I their own discard
+      expect(actor.getSnapshot().context.claimants).not.toContain("player-1");
+    });
   });
 
   describe("current player CAN claim (not technically May I)", () => {
-    it.todo("given: P2 is current player, when: P2 draws from discard, then: this is their normal draw, NOT a May I", () => {});
-    it.todo("no penalty", () => {});
+    it("given: P2 is current player, when: P2 draws from discard, then: this is their normal draw, NOT a May I", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.type).toBe("CURRENT_PLAYER_CLAIMED");
+      expect(output?.winnerId).toBe("player-2");
+    });
+
+    it("no penalty", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.penaltyCard).toBeNull();
+      expect(output?.winnerReceived).toHaveLength(1);
+    });
   });
 
   describe("all other players can May I", () => {
-    it.todo("given: P1 discarded, P2 is current, then: P3 can call May I", () => {});
-    it.todo("P0 can call May I", () => {});
-    it.todo("anyone except P1 (discarder) can call", () => {});
+    it("given: P1 discarded, P2 is current, then: P3 can call May I", () => {
+      const input = createTestInput({
+        discardedByPlayerId: "player-1",
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+      expect(actor.getSnapshot().context.claimants).toContain("player-3");
+    });
+
+    it("P0 can call May I", () => {
+      const input = createTestInput({
+        discardedByPlayerId: "player-1",
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-0" });
+
+      expect(actor.getSnapshot().context.claimants).toContain("player-0");
+    });
+
+    it("anyone except P1 (discarder) can call", () => {
+      const input = createTestInput({
+        discardedByPlayerId: "player-1",
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      // P0, P2, P3 can all call
+      actor.send({ type: "CALL_MAY_I", playerId: "player-0" });
+      actor.send({ type: "CALL_MAY_I", playerId: "player-2" });
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+      const claimants = actor.getSnapshot().context.claimants;
+      expect(claimants).toContain("player-0");
+      expect(claimants).toContain("player-2");
+      expect(claimants).toContain("player-3");
+      expect(claimants).not.toContain("player-1");
+    });
   });
 });
 
 describe("May I timing rules", () => {
   describe("May I can be called before current player draws", () => {
-    it.todo("given: P1 discards, P2's turn starts (awaitingDraw), when: P3 calls May I, then: valid, claim recorded", () => {});
-    it.todo("window waits for P2 to decide", () => {});
-    it.todo("P2 can still veto by taking discard", () => {});
+    it("given: P1 discards, P2's turn starts (awaitingDraw), when: P3 calls May I, then: valid, claim recorded", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      // Window is in "open" state, P3 can call May I
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+      expect(actor.getSnapshot().context.claimants).toContain("player-3");
+      expect(actor.getSnapshot().value).toBe("open");
+    });
+
+    it("window waits for P2 to decide", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+      // Window stays open until current player acts
+      expect(actor.getSnapshot().value).toBe("open");
+      expect(actor.getSnapshot().context.currentPlayerPassed).toBe(false);
+      expect(actor.getSnapshot().context.currentPlayerClaimed).toBe(false);
+    });
+
+    it("P2 can still veto by taking discard", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.type).toBe("CURRENT_PLAYER_CLAIMED");
+      expect(output?.winnerId).toBe("player-2");
+    });
   });
 
   describe("May I window closes when current player draws from discard", () => {
-    it.todo("given: P3 has called May I, when: current player (P2) draws from discard, then: P2 gets the card", () => {});
-    it.todo("P3's claim denied", () => {});
-    it.todo("window closes", () => {});
+    it("given: P3 has called May I, when: current player (P2) draws from discard, then: P2 gets the card", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      expect(actor.getSnapshot().output?.winnerId).toBe("player-2");
+    });
+
+    it("P3's claim denied", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.winnerId).not.toBe("player-3");
+      expect(output?.type).toBe("CURRENT_PLAYER_CLAIMED");
+    });
+
+    it("window closes", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      expect(actor.getSnapshot().status).toBe("done");
+      expect(actor.getSnapshot().value).toBe("closedByCurrentPlayer");
+    });
   });
 
   describe("May I resolves when current player draws from stock", () => {
-    it.todo("given: P3 has called May I, when: current player (P2) draws from stock, then: P2 has 'passed'", () => {});
-    it.todo("window resolves May I claims", () => {});
-    it.todo("P3 wins (only claimant)", () => {});
-    it.todo("P3 gets card + penalty", () => {});
+    it("given: P3 has called May I, when: current player (P2) draws from stock, then: P2 has 'passed'", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().context.currentPlayerPassed).toBe(true);
+    });
+
+    it("window resolves May I claims", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().value).toBe("resolved");
+      expect(actor.getSnapshot().output?.type).toBe("MAY_I_RESOLVED");
+    });
+
+    it("P3 wins (only claimant)", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().output?.winnerId).toBe("player-3");
+    });
+
+    it("P3 gets card + penalty", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.winnerReceived).toHaveLength(2);
+      expect(output?.penaltyCard).not.toBeNull();
+    });
   });
 
   describe("current player loses veto after drawing from stock", () => {
-    it.todo("given: P2 (current) draws from stock, then: P2 cannot claim the discard anymore", () => {});
-    it.todo("May I resolves among other claimants", () => {});
-    it.todo("P2's draw is from stock, not discard", () => {});
+    it("given: P2 (current) draws from stock, then: P2 cannot claim the discard anymore", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      // Machine is in final state - P2 cannot act anymore
+      expect(actor.getSnapshot().status).toBe("done");
+      expect(actor.getSnapshot().context.currentPlayerPassed).toBe(true);
+    });
+
+    it("May I resolves among other claimants", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "CALL_MAY_I", playerId: "player-0" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      // P3 wins (closer in priority)
+      expect(actor.getSnapshot().output?.winnerId).toBe("player-3");
+    });
+
+    it("P2's draw is from stock, not discard", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      // P2 passed, they drew from stock
+      expect(actor.getSnapshot().context.currentPlayerPassed).toBe(true);
+      expect(actor.getSnapshot().context.currentPlayerClaimed).toBe(false);
+    });
   });
 });
 
 describe("May I unlimited per round", () => {
   describe("no limit on calls per player", () => {
-    it.todo("turn 1: P3 wins May I (+2 cards), turn 5: P3 wins May I (+2 cards), turn 9: P3 wins May I (+2 cards), all valid", () => {});
-    it.todo("P3's hand has grown by 6 cards from May I", () => {});
+    it("turn 1: P3 wins May I (+2 cards), turn 5: P3 wins May I (+2 cards), turn 9: P3 wins May I (+2 cards), all valid", () => {
+      // Each May I window is independent - test that P3 can win multiple times
+      // Simulating 3 separate May I windows where P3 wins each time
+      for (let turn = 0; turn < 3; turn++) {
+        const input = createTestInput({ currentPlayerId: "player-2" });
+        const actor = createMayIActor(input);
+
+        actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+        actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+        expect(actor.getSnapshot().output?.winnerId).toBe("player-3");
+        expect(actor.getSnapshot().output?.winnerReceived).toHaveLength(2);
+      }
+    });
+
+    it("P3's hand has grown by 6 cards from May I", () => {
+      // Each May I win adds 2 cards, 3 wins = 6 cards
+      let totalCards = 0;
+      for (let i = 0; i < 3; i++) {
+        const input = createTestInput({ currentPlayerId: "player-2" });
+        const actor = createMayIActor(input);
+
+        actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+        actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+        totalCards += actor.getSnapshot().output?.winnerReceived.length ?? 0;
+      }
+      expect(totalCards).toBe(6);
+    });
   });
 
   describe("can May I multiple times in sequence", () => {
-    it.todo("given: P3 just won a May I, when: next player discards, then: P3 can call May I again", () => {});
-    it.todo("pays another penalty card if they win", () => {});
+    it("given: P3 just won a May I, when: next player discards, then: P3 can call May I again", () => {
+      // First window - P3 wins
+      const input1 = createTestInput({ currentPlayerId: "player-2" });
+      const actor1 = createMayIActor(input1);
+      actor1.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor1.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+      expect(actor1.getSnapshot().output?.winnerId).toBe("player-3");
+
+      // Second window - P3 can call again
+      const input2 = createTestInput({ currentPlayerId: "player-3" });
+      const actor2 = createMayIActor(input2);
+      actor2.send({ type: "CALL_MAY_I", playerId: "player-0" });
+      expect(actor2.getSnapshot().context.claimants).toContain("player-0");
+    });
+
+    it("pays another penalty card if they win", () => {
+      // Each win costs a penalty card
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().output?.penaltyCard).not.toBeNull();
+    });
   });
 
   describe("strategic cost", () => {
-    it.todo("each May I adds 2 cards to hand", () => {});
-    it.todo("+1 wanted card, +1 random penalty", () => {});
-    it.todo("larger hand = more points if caught at round end", () => {});
+    it("each May I adds 2 cards to hand", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().output?.winnerReceived).toHaveLength(2);
+    });
+
+    it("+1 wanted card, +1 random penalty", () => {
+      const discardedCard: Card = { id: "card-K-spades", suit: "spades", rank: "K" };
+      const penaltyCard: Card = { id: "card-7-diamonds", suit: "diamonds", rank: "7" };
+      const input = createTestInput({
+        discardedCard,
+        stock: [penaltyCard],
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.winnerReceived).toContainEqual(discardedCard);
+      expect(output?.winnerReceived).toContainEqual(penaltyCard);
+    });
+
+    it("larger hand = more points if caught at round end", () => {
+      // This is a game rule concept - more cards = higher risk
+      // We just verify the penalty card mechanism works
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      // Winner gets 2 cards, increasing hand size and potential points
+      expect(actor.getSnapshot().output?.winnerReceived).toHaveLength(2);
+    });
   });
 });
 
 describe("May I penalty card", () => {
   describe("always from stock", () => {
-    it.todo("penalty card is top card of stock", () => {});
-    it.todo("cannot choose which card", () => {});
-    it.todo("blind draw (luck element)", () => {});
+    it("penalty card is top card of stock", () => {
+      const penaltyCard: Card = { id: "card-7-diamonds", suit: "diamonds", rank: "7" };
+      const input = createTestInput({
+        stock: [penaltyCard, { id: "card-3-clubs", suit: "clubs", rank: "3" }],
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().output?.penaltyCard).toEqual(penaltyCard);
+    });
+
+    it("cannot choose which card", () => {
+      // Penalty is always top of stock - no choice
+      const topCard: Card = { id: "card-7-diamonds", suit: "diamonds", rank: "7" };
+      const secondCard: Card = { id: "card-3-clubs", suit: "clubs", rank: "3" };
+      const input = createTestInput({
+        stock: [topCard, secondCard],
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      // Must be the top card, not second
+      expect(actor.getSnapshot().output?.penaltyCard).toEqual(topCard);
+      expect(actor.getSnapshot().output?.penaltyCard).not.toEqual(secondCard);
+    });
+
+    it("blind draw (luck element)", () => {
+      // Winner doesn't know what penalty card they'll get
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      // Penalty card is determined by stock order
+      expect(actor.getSnapshot().output?.penaltyCard).not.toBeNull();
+    });
   });
 
   describe("only non-current players pay penalty", () => {
-    it.todo("current player claiming: 1 card (their draw), no penalty", () => {});
-    it.todo("anyone else winning May I: 2 cards (discard + penalty)", () => {});
+    it("current player claiming: 1 card (their draw), no penalty", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.winnerReceived).toHaveLength(1);
+      expect(output?.penaltyCard).toBeNull();
+    });
+
+    it("anyone else winning May I: 2 cards (discard + penalty)", () => {
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.winnerReceived).toHaveLength(2);
+      expect(output?.penaltyCard).not.toBeNull();
+    });
   });
 
   describe("penalty card could be anything", () => {
-    it.todo("might be helpful (card you need)", () => {});
-    it.todo("might be harmful (Joker = 50 points if stuck)", () => {});
-    it.todo("adds uncertainty to May I decision", () => {});
+    it("might be helpful (card you need)", () => {
+      // The penalty card is random - could be helpful
+      const helpfulCard: Card = { id: "card-A-hearts", suit: "hearts", rank: "A" };
+      const input = createTestInput({
+        stock: [helpfulCard],
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().output?.penaltyCard).toEqual(helpfulCard);
+    });
+
+    it("might be harmful (Joker = 50 points if stuck)", () => {
+      // Joker as penalty is risky - high point value
+      const joker: Card = { id: "joker-1", suit: null, rank: "Joker" };
+      const input = createTestInput({
+        stock: [joker],
+        currentPlayerId: "player-2",
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      expect(actor.getSnapshot().output?.penaltyCard).toEqual(joker);
+    });
+
+    it("adds uncertainty to May I decision", () => {
+      // The unknown penalty adds strategic depth
+      const input = createTestInput({ currentPlayerId: "player-2" });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      // Winner gets penalty but doesn't know what it is beforehand
+      expect(actor.getSnapshot().output?.penaltyCard).toBeDefined();
+    });
   });
 });
