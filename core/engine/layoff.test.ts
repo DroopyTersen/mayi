@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { canLayOffCard, canLayOffToSet } from "./layoff";
+import { canLayOffCard, canLayOffToSet, canLayOffToRun } from "./layoff";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 
@@ -191,14 +191,85 @@ describe("canLayOffCard guard", () => {
   });
 
   describe("laying off to runs", () => {
-    it.todo("valid: extending run at low end (4♠ to 5♠ 6♠ 7♠ 8♠)", () => {});
-    it.todo("valid: extending run at high end (9♠ to 5♠ 6♠ 7♠ 8♠)", () => {});
-    it.todo("valid: adding wild at low end (Joker to 5♠ 6♠ 7♠ 8♠) — acts as 4♠", () => {});
-    it.todo("valid: adding wild at high end (2♣ to 5♠ 6♠ 7♠ 8♠) — acts as 9♠", () => {});
-    it.todo("invalid: card doesn't connect (10♠ to 5♠ 6♠ 7♠ 8♠) — gap of 1", () => {});
-    it.todo("invalid: wrong suit (4♥ to 5♠ 6♠ 7♠ 8♠)", () => {});
-    it.todo("invalid: rank already in run (6♠ to 5♠ 6♠ 7♠ 8♠) — duplicate rank", () => {});
-    it.todo("invalid: non-connecting card (3♠ to 5♠ 6♠ 7♠ 8♠) — gap too large", () => {});
+    it("valid: extending run at low end (4♠ to 5♠ 6♠ 7♠ 8♠)", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(card("4", "spades"), run)).toBe(true);
+    });
+
+    it("valid: extending run at high end (9♠ to 5♠ 6♠ 7♠ 8♠)", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(card("9", "spades"), run)).toBe(true);
+    });
+
+    it("valid: adding wild at low end (Joker to 5♠ 6♠ 7♠ 8♠) — acts as 4♠", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(joker(), run)).toBe(true);
+    });
+
+    it("valid: adding wild at high end (2♣ to 5♠ 6♠ 7♠ 8♠) — acts as 9♠", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(card("2", "clubs"), run)).toBe(true);
+    });
+
+    it("invalid: card doesn't connect (10♠ to 5♠ 6♠ 7♠ 8♠) — gap of 1", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(card("10", "spades"), run)).toBe(false);
+    });
+
+    it("invalid: wrong suit (4♥ to 5♠ 6♠ 7♠ 8♠)", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(card("4", "hearts"), run)).toBe(false);
+    });
+
+    it("invalid: rank already in run (6♠ to 5♠ 6♠ 7♠ 8♠) — duplicate rank", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(card("6", "spades"), run)).toBe(false);
+    });
+
+    it("invalid: non-connecting card (3♠ to 5♠ 6♠ 7♠ 8♠) — gap too large", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToRun(card("3", "spades"), run)).toBe(false);
+    });
   });
 
   describe("run extension boundaries", () => {
