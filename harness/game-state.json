@@ -3,7 +3,7 @@
   "gameId": "fd2c798a",
   "seed": null,
   "createdAt": "2025-12-28T21:32:20.601Z",
-  "updatedAt": "2025-12-28T21:57:48.290Z",
+  "updatedAt": "2025-12-28T22:00:18.583Z",
   "currentRound": 3,
   "contract": {
     "roundNumber": 3,
@@ -24,11 +24,6 @@
           "id": "card-84",
           "suit": "clubs",
           "rank": "8"
-        },
-        {
-          "id": "card-15",
-          "suit": "diamonds",
-          "rank": "Q"
         }
       ],
       "isDown": true,
@@ -54,11 +49,6 @@
           "rank": "8"
         },
         {
-          "id": "card-92",
-          "suit": "spades",
-          "rank": "K"
-        },
-        {
           "id": "card-86",
           "suit": "clubs",
           "rank": "6"
@@ -74,11 +64,6 @@
           "rank": "Q"
         },
         {
-          "id": "card-39",
-          "suit": "spades",
-          "rank": "A"
-        },
-        {
           "id": "card-7",
           "suit": "hearts",
           "rank": "7"
@@ -92,6 +77,16 @@
           "id": "card-93",
           "suit": "spades",
           "rank": "Q"
+        },
+        {
+          "id": "card-52",
+          "suit": "hearts",
+          "rank": "A"
+        },
+        {
+          "id": "card-71",
+          "suit": "diamonds",
+          "rank": "8"
         }
       ],
       "isDown": false,
@@ -107,14 +102,9 @@
           "rank": "9"
         },
         {
-          "id": "card-96",
-          "suit": "spades",
-          "rank": "9"
-        },
-        {
-          "id": "card-34",
+          "id": "card-88",
           "suit": "clubs",
-          "rank": "6"
+          "rank": "4"
         }
       ],
       "isDown": true,
@@ -124,51 +114,6 @@
   "currentPlayerIndex": 2,
   "dealerIndex": 2,
   "stock": [
-    {
-      "id": "card-102",
-      "suit": "spades",
-      "rank": "3"
-    },
-    {
-      "id": "card-41",
-      "suit": "spades",
-      "rank": "Q"
-    },
-    {
-      "id": "card-8",
-      "suit": "hearts",
-      "rank": "6"
-    },
-    {
-      "id": "card-50",
-      "suit": "spades",
-      "rank": "3"
-    },
-    {
-      "id": "card-52",
-      "suit": "hearts",
-      "rank": "A"
-    },
-    {
-      "id": "card-59",
-      "suit": "hearts",
-      "rank": "7"
-    },
-    {
-      "id": "card-74",
-      "suit": "diamonds",
-      "rank": "5"
-    },
-    {
-      "id": "card-71",
-      "suit": "diamonds",
-      "rank": "8"
-    },
-    {
-      "id": "card-88",
-      "suit": "clubs",
-      "rank": "4"
-    },
     {
       "id": "card-0",
       "suit": "hearts",
@@ -412,6 +357,51 @@
   ],
   "discard": [
     {
+      "id": "card-39",
+      "suit": "spades",
+      "rank": "A"
+    },
+    {
+      "id": "card-74",
+      "suit": "diamonds",
+      "rank": "5"
+    },
+    {
+      "id": "card-96",
+      "suit": "spades",
+      "rank": "9"
+    },
+    {
+      "id": "card-92",
+      "suit": "spades",
+      "rank": "K"
+    },
+    {
+      "id": "card-50",
+      "suit": "spades",
+      "rank": "3"
+    },
+    {
+      "id": "card-8",
+      "suit": "hearts",
+      "rank": "6"
+    },
+    {
+      "id": "card-41",
+      "suit": "spades",
+      "rank": "Q"
+    },
+    {
+      "id": "card-15",
+      "suit": "diamonds",
+      "rank": "Q"
+    },
+    {
+      "id": "card-34",
+      "suit": "clubs",
+      "rank": "6"
+    },
+    {
       "id": "card-101",
       "suit": "spades",
       "rank": "4"
@@ -503,6 +493,11 @@
       "type": "run",
       "cards": [
         {
+          "id": "card-102",
+          "suit": "spades",
+          "rank": "3"
+        },
+        {
           "id": "card-49",
           "suit": "spades",
           "rank": "4"
@@ -589,6 +584,11 @@
       "type": "run",
       "cards": [
         {
+          "id": "card-59",
+          "suit": "hearts",
+          "rank": "7"
+        },
+        {
           "id": "card-58",
           "suit": "hearts",
           "rank": "8"
@@ -633,9 +633,9 @@
     }
   ],
   "harness": {
-    "phase": "AWAITING_DISCARD",
+    "phase": "AWAITING_ACTION",
     "awaitingPlayerId": "player-2",
     "mayIContext": null,
-    "turnNumber": 53
+    "turnNumber": 62
   }
 }
