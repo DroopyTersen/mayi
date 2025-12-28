@@ -56,7 +56,7 @@
 - [x] Implement move single card functionality (3 tests)
 - [ ] Fix typecheck errors
 - [x] Implement validation for reorder command (6 tests)
-- [ ] Handle edge cases (3 tests)
+- [x] Handle edge cases (3 tests)
 - [ ] Fix typecheck errors
 
 ### Game Loop (17 tests in game.loop.test.ts)

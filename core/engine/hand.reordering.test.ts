@@ -378,13 +378,36 @@ describe("REORDER_HAND command", () => {
   });
 
   describe("edge cases", () => {
-    it.todo("reordering hand of 1 card (no-op, but valid)", () => {});
+    it("reordering hand of 1 card (no-op, but valid)", () => {
+      const card1 = card("3");
+      const hand = [card1];
+      const result = reorderHand(hand, [card1.id]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand).toEqual([card1]);
+      }
+    });
 
-    it.todo("reordering to same order (no-op, but valid)", () => {});
+    it("reordering to same order (no-op, but valid)", () => {
+      const card1 = card("3");
+      const card2 = card("5");
+      const card3 = card("7");
+      const hand = [card1, card2, card3];
+      const result = reorderHand(hand, [card1.id, card2.id, card3.id]);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand).toEqual(hand);
+      }
+    });
 
-    it.todo(
-      "reordering empty hand (edge case - probably invalid game state)",
-      () => {}
-    );
+    it("reordering empty hand (edge case - probably invalid game state)", () => {
+      const hand: Card[] = [];
+      const result = reorderHand(hand, []);
+      // Empty hand with empty order is technically valid (both have 0 cards)
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand).toEqual([]);
+      }
+    });
   });
 });
