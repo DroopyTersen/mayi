@@ -743,6 +743,8 @@ Review specs/command-line-interface.md
 - [x] Test run with Ace-high (Q-K-A) — Carol's run 10-J-Q-K goes high
 - [x] Test rejection: attempt to lay down 2 sets instead (got "Contract requires 1 set(s), but got 2")
 - [ ] Test rejection: attempt to lay down 2 runs instead
+- [x] Test DOWN player cannot draw from discard (harness blocks with error message)
+- [x] Test DOWN player cannot call May I (harness blocks with error message)
 - [x] Test layoff to run (extend at either end) — Carol extended 10-J-Q-K to 10-J-Q-K-A
 - [x] Verify dealer advances correctly (Carol went first)
 
