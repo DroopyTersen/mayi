@@ -70,9 +70,9 @@ describe("getPointValue", () => {
     expect(getPointValue(king)).toBe(10);
   });
 
-  it("returns 2 for wild 2s", () => {
+  it("returns 20 for wild 2s", () => {
     const two: Card = { id: "1", suit: "hearts", rank: "2" };
-    expect(getPointValue(two)).toBe(2);
+    expect(getPointValue(two)).toBe(20);
   });
 
   it("returns face value for number cards 3-10", () => {

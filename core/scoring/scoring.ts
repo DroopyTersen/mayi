@@ -8,7 +8,7 @@ import { getPointValue } from "../card/card.utils";
  * - 3-10: face value
  * - J, Q, K: 10 points
  * - Ace: 15 points
- * - 2 (wild): 2 points
+ * - 2 (wild): 20 points
  * - Joker: 50 points
  */
 export function calculateHandScore(hand: Card[]): number {

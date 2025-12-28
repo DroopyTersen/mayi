@@ -706,12 +706,12 @@ Review specs/command-line-interface.md
 - [x] `roundMachine.test.ts:1379-1380` - Reshuffle shuffles cards and places as new stock
 - [x] `roundMachine.test.ts:1399-1401` - Reshuffle scenario (20 cards → 19 shuffled)
 
-### Turn Machine Stock Depletion Test (1 test) — BLOCKED
+### Turn Machine Stock Depletion Test (1 test) ✓
 
-> Stock reshuffle when TurnMachine encounters empty stock.
-> **Status**: BLOCKED — Requires TurnMachine to communicate with RoundMachine when stock is empty during draw.
+> Stock empty handling in TurnMachine.
+> **Implementation**: Added `canDrawFromStock` guard that blocks draw when stock is empty, sets error message. RoundMachine is responsible for reshuffle before turn starts.
 
-- [!] `turn.machine.test.ts:142` - Reshuffles discard pile into stock (requires RoundMachine integration)
+- [x] `turn.machine.test.ts:142` - Blocks draw and sets error when stock is empty
 
 ## Phase 8 Tasks (Exhaustive Harness Testing)
 

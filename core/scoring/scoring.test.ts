@@ -32,8 +32,8 @@ describe("calculateHandScore", () => {
     expect(calculateHandScore([card("A")])).toBe(15);
   });
 
-  it("hand with single 2 scores 2", () => {
-    expect(calculateHandScore([card("2")])).toBe(2);
+  it("hand with single 2 scores 20", () => {
+    expect(calculateHandScore([card("2")])).toBe(20);
   });
 
   it("hand with single Joker scores 50", () => {

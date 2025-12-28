@@ -139,10 +139,50 @@ describe("TurnMachine - drawing from stock", () => {
   });
 
   describe("when stock is empty", () => {
-    it.todo(
-      "reshuffles discard pile into stock (deferred to later phase)",
-      () => {}
-    );
+    it("blocks draw and sets error when stock is empty", () => {
+      // TurnMachine cannot draw from empty stock - RoundMachine handles reshuffle
+      const input: TurnInput = {
+        playerId: "player-1",
+        hand: [{ id: "card-1", suit: "hearts", rank: "5" }],
+        stock: [], // Empty stock
+        discard: [{ id: "card-2", suit: "spades", rank: "K" }],
+        roundNumber: 1,
+        isDown: false,
+        table: [],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Try to draw from empty stock
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Should stay in awaitingDraw state
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      // Error should be set
+      expect(actor.getSnapshot().context.lastError).toBe("stock is empty - reshuffle required");
+      actor.stop();
+    });
+
+    it("allows draw from discard when stock is empty (if not down)", () => {
+      const input: TurnInput = {
+        playerId: "player-1",
+        hand: [{ id: "card-1", suit: "hearts", rank: "5" }],
+        stock: [], // Empty stock
+        discard: [{ id: "card-2", suit: "spades", rank: "K" }],
+        roundNumber: 1,
+        isDown: false, // Not down, so can draw from discard
+        table: [],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Can still draw from discard
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+      actor.stop();
+    });
   });
 });
 

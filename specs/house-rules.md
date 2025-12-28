@@ -28,7 +28,8 @@ Wild cards:
 • All Jokers
 
 Card values for scoring:
-• 2 to 10: face value
+• 3 to 10: face value
+• 2 (wild): 20 points
 • J, Q, K: 10 points
 • Ace: 15 points
 • Joker: 50 points

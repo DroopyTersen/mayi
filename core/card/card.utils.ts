@@ -21,14 +21,14 @@ export function isNatural(card: Card): boolean {
  * - 3-10: face value
  * - J, Q, K: 10 points
  * - Ace: 15 points
- * - 2 (wild): 2 points
+ * - 2 (wild): 20 points
  * - Joker: 50 points
  */
 export function getPointValue(card: Card): number {
   if (card.rank === "Joker") return 50;
   if (card.rank === "A") return 15;
   if (card.rank === "K" || card.rank === "Q" || card.rank === "J") return 10;
-  if (card.rank === "2") return 2;
+  if (card.rank === "2") return 20;
   return parseInt(card.rank, 10);
 }
 

@@ -102,20 +102,20 @@ describe("calculateHandScore", () => {
   });
 
   describe("wild cards", () => {
-    it("2♥ = 2 points (wild but low value)", () => {
-      expect(calculateHandScore([card("2", "hearts")])).toBe(2);
+    it("2♥ = 20 points (wild, high value)", () => {
+      expect(calculateHandScore([card("2", "hearts")])).toBe(20);
     });
 
-    it("2♦ = 2 points", () => {
-      expect(calculateHandScore([card("2", "diamonds")])).toBe(2);
+    it("2♦ = 20 points", () => {
+      expect(calculateHandScore([card("2", "diamonds")])).toBe(20);
     });
 
-    it("2♣ = 2 points", () => {
-      expect(calculateHandScore([card("2", "clubs")])).toBe(2);
+    it("2♣ = 20 points", () => {
+      expect(calculateHandScore([card("2", "clubs")])).toBe(20);
     });
 
-    it("2♠ = 2 points", () => {
-      expect(calculateHandScore([card("2", "spades")])).toBe(2);
+    it("2♠ = 20 points", () => {
+      expect(calculateHandScore([card("2", "spades")])).toBe(20);
     });
 
     it("Joker = 50 points (high risk!)", () => {
@@ -152,13 +152,13 @@ describe("calculateHandScore", () => {
       expect(calculateHandScore([joker(), joker()])).toBe(100);
     });
 
-    it("(2♣, 2♦, 2♥, 2♠) = 8 (all wilds but low total)", () => {
+    it("(2♣, 2♦, 2♥, 2♠) = 80 (all wilds, high total)", () => {
       expect(calculateHandScore([
         card("2", "clubs"),
         card("2", "diamonds"),
         card("2", "hearts"),
         card("2", "spades"),
-      ])).toBe(8);
+      ])).toBe(80);
     });
   });
 
@@ -198,12 +198,12 @@ describe("calculateHandScore", () => {
       ])).toBe(30);
     });
 
-    it("(2♣, 2♦, 2♥) = 6 (wilds but cheap to hold)", () => {
+    it("(2♣, 2♦, 2♥) = 60 (wilds are expensive to hold)", () => {
       expect(calculateHandScore([
         card("2", "clubs"),
         card("2", "diamonds"),
         card("2", "hearts"),
-      ])).toBe(6);
+      ])).toBe(60);
     });
   });
 
@@ -251,14 +251,14 @@ describe("calculateHandScore", () => {
     });
 
     it("hand with one of each point value", () => {
-      // 3 (3 pts), J (10 pts), A (15 pts), Joker (50 pts), 2 (2 pts) = 80
+      // 3 (3 pts), J (10 pts), A (15 pts), Joker (50 pts), 2 (20 pts) = 98
       expect(calculateHandScore([
         card("3"),
         card("J"),
         card("A"),
         joker(),
         card("2"),
-      ])).toBe(80);
+      ])).toBe(98);
     });
   });
 });

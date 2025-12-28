@@ -104,6 +104,10 @@ export const turnMachine = setup({
     output: {} as TurnOutput,
   },
   guards: {
+    canDrawFromStock: ({ context }) => {
+      // Cannot draw from stock if stock is empty
+      return context.stock.length > 0;
+    },
     canDrawFromDiscard: ({ context }) => {
       // Cannot draw from discard if already down
       if (context.isDown) return false;
@@ -387,6 +391,9 @@ export const turnMachine = setup({
         return "card does not fit this meld";
       },
     }),
+    setStockEmptyError: assign({
+      lastError: () => "stock is empty - reshuffle required",
+    }),
     drawFromStock: assign({
       hand: ({ context }) => {
         const topCard = context.stock[0];
@@ -560,10 +567,17 @@ export const turnMachine = setup({
   states: {
     awaitingDraw: {
       on: {
-        DRAW_FROM_STOCK: {
-          target: "drawn",
-          actions: "drawFromStock",
-        },
+        DRAW_FROM_STOCK: [
+          {
+            guard: "canDrawFromStock",
+            target: "drawn",
+            actions: ["drawFromStock", "clearError"],
+          },
+          {
+            // Fallback: set error when stock is empty
+            actions: "setStockEmptyError",
+          },
+        ],
         DRAW_FROM_DISCARD: {
           guard: "canDrawFromDiscard",
           target: "drawn",
