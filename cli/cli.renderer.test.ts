@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import { renderCard, renderHand, renderNumberedHand } from "./cli.renderer";
+import { renderCard, renderHand, renderNumberedHand, renderGameState } from "./cli.renderer";
 import type { Card } from "../core/card/card.types";
+import { createInitialGameState } from "../core/engine/engine.types";
 
 // Helper to create test cards
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
@@ -111,15 +112,69 @@ describe("renderNumberedHand (for selection)", () => {
 });
 
 describe("renderGameState", () => {
-  it.todo("shows current round", () => {});
+  it("shows current round", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    const result = renderGameState(state);
+    expect(result).toContain("Round 1 of 6");
+  });
 
-  it.todo("shows all players with card counts", () => {});
+  it("shows all players with card counts", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    state.players[0]!.hand = [card("3"), card("5")];
+    state.players[1]!.hand = [card("7"), card("9"), card("J")];
+    state.players[2]!.hand = [card("K")];
 
-  it.todo("shows current player indicator", () => {});
+    const result = renderGameState(state);
+    expect(result).toContain("Alice: 2 cards");
+    expect(result).toContain("Bob: 3 cards");
+    expect(result).toContain("Carol: 1 cards");
+  });
 
-  it.todo("shows discard pile top card", () => {});
+  it("shows current player indicator", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+      dealerIndex: 0,
+    });
+    // Current player is index 1 (Bob)
+    const result = renderGameState(state);
+    expect(result).toContain("→ Bob");
+    expect(result).not.toContain("→ Alice");
+    expect(result).not.toContain("→ Carol");
+  });
 
-  it.todo("shows stock pile count", () => {});
+  it("shows discard pile top card", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    state.discard = [card("K", "clubs"), card("5", "hearts")];
 
-  it.todo("shows current player's hand", () => {});
+    const result = renderGameState(state);
+    expect(result).toContain("DISCARD: K♣");
+  });
+
+  it("shows stock pile count", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    state.stock = [card("3"), card("5"), card("7"), card("9"), card("J")];
+
+    const result = renderGameState(state);
+    expect(result).toContain("STOCK: 5 cards");
+  });
+
+  it("shows current player's hand", () => {
+    const state = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+      dealerIndex: 0,
+    });
+    // Current player is Bob (index 1)
+    state.players[1]!.hand = [card("3", "hearts"), card("K", "spades"), joker()];
+
+    const result = renderGameState(state);
+    expect(result).toContain("Your hand: 3♥ K♠ Joker");
+  });
 });

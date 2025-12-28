@@ -5,6 +5,7 @@
  */
 
 import type { Card } from "../core/card/card.types";
+import type { GameState } from "../core/engine/engine.types";
 
 /**
  * Unicode suit symbols
@@ -49,4 +50,39 @@ export function renderHand(hand: Card[]): string {
  */
 export function renderNumberedHand(hand: Card[]): string {
   return hand.map((card, index) => `${index + 1}:${renderCard(card)}`).join(" ");
+}
+
+/**
+ * Renders the full game state for display
+ */
+export function renderGameState(state: GameState): string {
+  const lines: string[] = [];
+
+  // Round header
+  lines.push(`Round ${state.currentRound} of 6`);
+  lines.push("");
+
+  // Players section
+  lines.push("PLAYERS");
+  for (let i = 0; i < state.players.length; i++) {
+    const player = state.players[i]!;
+    const indicator = i === state.currentPlayerIndex ? "→ " : "  ";
+    const cardCount = player.hand.length;
+    lines.push(`${indicator}${player.name}: ${cardCount} cards`);
+  }
+  lines.push("");
+
+  // Discard and stock
+  const topDiscard = state.discard[0];
+  const discardDisplay = topDiscard ? renderCard(topDiscard) : "(empty)";
+  lines.push(`DISCARD: ${discardDisplay} | STOCK: ${state.stock.length} cards`);
+  lines.push("");
+
+  // Current player's hand
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  if (currentPlayer) {
+    lines.push(`Your hand: ${renderHand(currentPlayer.hand)}`);
+  }
+
+  return lines.join("\n");
 }
