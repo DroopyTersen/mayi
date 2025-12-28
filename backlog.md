@@ -614,20 +614,21 @@ Review specs/command-line-interface.md
 
 > Tasks found during implementation that don't fit current phase
 
-### Error Message Improvements (13 tests)
+### Error Message Improvements (10 tests — requires `lastError` context field)
 
-> These tests verify that specific, helpful error messages are provided to users
+> These tests verify that specific, helpful error messages are provided to users.
+> **Architectural requirement**: Add `lastError?: string` to TurnMachine/GameMachine context that gets set when guards reject events.
 
 - [ ] `laydown.test.ts:1808` - Contract requirement error message
 - [ ] `laydown.test.ts:2042` - Invalid meld error message (which meld is invalid)
 - [ ] `laydown.test.ts:2358` - Already laid down error message
 - [x] `laydown.test.ts:2503` - Goes out immediately if hand empty after laydown (no discard)
-- [ ] `layoff.test.ts:1262` - Error: "must be down from a previous turn to lay off"
-- [ ] `layoff.test.ts:1266` - Error: "cannot lay off on same turn as laying down"
-- [ ] `layoff.test.ts:1355` - Error: "card not in hand"
-- [ ] `layoff.test.ts:1379` - Error: "meld not found"
-- [ ] `layoff.test.ts:1445` - Error: "card does not fit this meld"
-- [ ] `layoff.test.ts:1471` - Error: "would make wilds outnumber naturals"
+- [ ] `layoff.test.ts:1297` - Error: "must be down from a previous turn to lay off"
+- [ ] `layoff.test.ts:1301` - Error: "cannot lay off on same turn as laying down"
+- [ ] `layoff.test.ts:1390` - Error: "card not in hand"
+- [ ] `layoff.test.ts:1414` - Error: "meld not found"
+- [ ] `layoff.test.ts:1480` - Error: "card does not fit this meld"
+- [ ] `layoff.test.ts:1506` - Error: "would make wilds outnumber naturals"
 - [ ] `gameMachine.test.ts:220` - Error: "minimum 3 players required"
 - [x] `layoff.test.ts:1171` - Going out triggered immediately if hand becomes empty
 
@@ -640,14 +641,15 @@ Review specs/command-line-interface.md
 - [x] `contracts.test.ts:279` - Rejects if any meld has wilds outnumbering naturals
 - [x] `contracts.test.ts:280` - All melds checked, not just first one
 
-### Stock Depletion & Reshuffle Tests (4 tests)
+### Stock Depletion & Reshuffle Tests (3 tests — requires TurnMachine ↔ RoundMachine integration)
 
-> Integration tests for stock depletion handling
+> Integration tests for stock depletion handling.
+> **Architectural requirement**: TurnMachine must notify RoundMachine when stock is empty during draw, triggering automatic reshuffle.
 
 - [ ] `stockDepletion.test.ts:58` - Reshuffle happens before draw completes (TurnMachine integration)
 - [ ] `stockDepletion.test.ts:237` - Next player draws → reshuffle occurs automatically
 - [ ] `stockDepletion.test.ts:238` - Game continues normally after reshuffle
-- [ ] `stockDepletion.test.ts:284` - Round ends immediately when reshuffle impossible
+- [x] `stockDepletion.test.ts:284` - Round ends immediately when reshuffle impossible (conceptual test)
 
 ### Going Out Tests (11 tests) ✓
 
@@ -675,11 +677,11 @@ Review specs/command-line-interface.md
 - [x] `roundEnd.test.ts:629` - Can identify who won each round
 - [x] `roundEnd.test.ts:630` - Full audit trail of game
 
-### Full Game Contract Enforcement Tests (9 tests) ✓
+### Full Game Contract Enforcement Tests (10 tests)
 
 > Tests verifying correct contracts are enforced per round
 
-- [ ] `fullGame.test.ts:973` - Stock runs out → reshuffle triggered (TurnMachine integration)
+- [ ] `fullGame.test.ts:973` - Stock runs out → reshuffle triggered (TurnMachine integration — requires architectural work)
 - [x] `fullGame.test.ts:999` - Round 1: players must lay down 2 sets
 - [x] `fullGame.test.ts:1000` - Round 1: 1 set insufficient
 - [x] `fullGame.test.ts:1001` - Round 1: sets + runs insufficient (wrong combination)
@@ -691,23 +693,24 @@ Review specs/command-line-interface.md
 - [x] `fullGame.test.ts:1022` - Round 6: players must lay down 1 set + 2 runs
 - [x] `fullGame.test.ts:1023` - Round 6: minimum 11 cards, special going out rules
 
-### RoundMachine & TurnMachine Spawning Tests (6 tests)
+### RoundMachine & TurnMachine Spawning Tests (5 tests — requires XState actor spawning)
 
-> Tests for child machine spawning/integration
+> Tests for child machine spawning/integration.
+> **Architectural requirement**: GameMachine must spawn RoundMachine as child actor, RoundMachine must spawn TurnMachine per player turn.
 
 - [ ] `gameMachine.test.ts:284` - Spawns RoundMachine with current round context
 - [ ] `roundMachine.test.ts:550` - Spawns TurnMachine for current player's turn
 - [ ] `roundMachine.test.ts:726` - Spawn new TurnMachine for next player
 - [ ] `roundMachine.test.ts:1333` - Triggers roundEnd in GameMachine (integration)
 - [ ] `roundMachine.test.ts:1357` - Stock empty checked when player draws from stock
-- [ ] `roundMachine.test.ts:1379-1380` - Reshuffle shuffles cards and places as new stock
-- [ ] `roundMachine.test.ts:1399-1401` - Reshuffle scenario (20 cards → 19 shuffled)
+- [x] `roundMachine.test.ts:1379-1380` - Reshuffle shuffles cards and places as new stock
+- [x] `roundMachine.test.ts:1399-1401` - Reshuffle scenario (20 cards → 19 shuffled)
 
-### Turn Machine Initial State Test (1 test)
+### Turn Machine Stock Depletion Test (1 test — requires integration)
 
-> Deferred from Phase 2
+> Stock reshuffle when TurnMachine encounters empty stock.
 
-- [ ] `turn.machine.test.ts:142` - Initial state test (todo description needed)
+- [ ] `turn.machine.test.ts:142` - Reshuffles discard pile into stock (deferred)
 
 ## Phase 8 Tasks (Exhaustive Harness Testing)
 
