@@ -1547,9 +1547,115 @@ describe("TurnMachine - LAY_DOWN command", () => {
   });
 
   describe("meld ownership", () => {
-    it.todo("each meld has ownerId set to current player", () => {});
-    it.todo("melds appear on table with correct owner", () => {});
-    it.todo("multiple players' melds can coexist on table", () => {});
+    it("each meld has ownerId set to current player", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        playerId: "player-42",
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const table = actor.getSnapshot().context.table;
+      expect(table[0]!.ownerId).toBe("player-42");
+      expect(table[1]!.ownerId).toBe("player-42");
+    });
+
+    it("melds appear on table with correct owner", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        playerId: "alice",
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+        table: [], // Empty table
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const table = actor.getSnapshot().context.table;
+      expect(table.length).toBe(2);
+      expect(table.every(m => m.ownerId === "alice")).toBe(true);
+    });
+
+    it("multiple players' melds can coexist on table", () => {
+      // Simulate a table that already has another player's melds
+      const existingMeld = {
+        id: "meld-bob-1",
+        type: "set" as const,
+        cards: [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")],
+        ownerId: "bob",
+      };
+
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        playerId: "alice",
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+        table: [existingMeld], // Bob's meld already on table
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      const table = actor.getSnapshot().context.table;
+      expect(table.length).toBe(3); // 1 from bob + 2 from alice
+
+      // Bob's meld still present
+      expect(table.some(m => m.ownerId === "bob")).toBe(true);
+      // Alice's melds added
+      expect(table.filter(m => m.ownerId === "alice").length).toBe(2);
+    });
   });
 });
 
