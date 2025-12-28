@@ -390,14 +390,15 @@ export const turnMachine = setup({
     laidDownThisTurn: input.laidDownThisTurn ?? false,
     table: input.table,
   }),
-  output: ({ context, self }) => ({
+  output: ({ context }) => ({
     playerId: context.playerId,
     hand: context.hand,
     stock: context.stock,
     discard: context.discard,
     isDown: context.isDown,
     table: context.table,
-    wentOut: self.getSnapshot().value === "wentOut",
+    // wentOut is true when hand is empty at end of turn (player went out)
+    wentOut: context.hand.length === 0,
   }),
   states: {
     awaitingDraw: {

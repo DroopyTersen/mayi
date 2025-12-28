@@ -5338,23 +5338,261 @@ describe("going out - on lay down turn", () => {
 
 describe("going out - turn output", () => {
   describe("wentOut output structure", () => {
-    it.todo("wentOut: true", () => {});
-    it.todo("playerId: id of player who went out", () => {});
-    it.todo("hand: empty array []", () => {});
-    it.todo("distinct from turnComplete output", () => {});
+    it("wentOut: true", () => {
+      // Output.wentOut is true when player went out
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const drawnCard = card("A", "clubs");
+
+      // Start with 0 cards in hand (already laid off everything except final discard)
+      // Draw from stock gives 1 card, discard leaves 0 cards -> went out
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [drawnCard],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true, // Already down from previous turn
+        laidDownThisTurn: false,
+        table: [
+          createMeld("set", [three1, three2, three3], "player-1"),
+          createMeld("set", [card("K", "hearts"), card("K", "diamonds"), card("K", "spades")], "player-2"),
+        ],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id }); // Discard the drawn card, hand empty
+
+      expect(actor.getSnapshot().status).toBe("done");
+      expect(actor.getSnapshot().output?.wentOut).toBe(true);
+    });
+
+    it("playerId: id of player who went out", () => {
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const drawnCard = card("A", "clubs");
+
+      const input = {
+        playerId: "player-winner",
+        hand: [],
+        stock: [drawnCard],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [
+          createMeld("set", [three1, three2, three3], "player-winner"),
+          createMeld("set", [card("K", "hearts"), card("K", "diamonds"), card("K", "spades")], "player-2"),
+        ],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      expect(actor.getSnapshot().output?.playerId).toBe("player-winner");
+    });
+
+    it("hand: empty array []", () => {
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const drawnCard = card("A", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [drawnCard],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [
+          createMeld("set", [three1, three2, three3], "player-1"),
+          createMeld("set", [card("K", "hearts"), card("K", "diamonds"), card("K", "spades")], "player-2"),
+        ],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      expect(actor.getSnapshot().output?.hand).toEqual([]);
+    });
+
+    it("distinct from turnComplete output", () => {
+      // Normal turn ends with turnComplete, not wentOut
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const card1 = card("5", "spades");
+      const card2 = card("7", "hearts");
+
+      const input = {
+        playerId: "player-1",
+        hand: [card1, card2],
+        stock: [card("A", "clubs")],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [
+          createMeld("set", [three1, three2, three3], "player-1"),
+          createMeld("set", [card("K", "hearts"), card("K", "diamonds"), card("K", "spades")], "player-2"),
+        ],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: card1.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().output?.wentOut).toBe(false);
+      expect(actor.getSnapshot().output?.hand.length).toBe(2); // 2 cards minus 1 discard + 1 drawn = 2
+    });
   });
 
   describe("turnComplete vs wentOut", () => {
-    it.todo("turnComplete: wentOut: false, hand has cards, normal turn end", () => {});
-    it.todo("wentOut: wentOut: true, hand empty, round ends", () => {});
-    it.todo("both are final states of turn machine", () => {});
-    it.todo("parent machine (round) handles differently based on wentOut flag", () => {});
+    it("turnComplete: wentOut: false, hand has cards, normal turn end", () => {
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const card1 = card("5", "spades");
+      const card2 = card("7", "hearts");
+      const card3 = card("9", "diamonds");
+
+      const input = {
+        playerId: "player-1",
+        hand: [card1, card2, card3],
+        stock: [card("A", "clubs")],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [
+          createMeld("set", [three1, three2, three3], "player-1"),
+        ],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: card1.id });
+
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().output?.wentOut).toBe(false);
+      expect(actor.getSnapshot().output?.hand.length).toBe(3); // 3 + draw - discard
+    });
+
+    it("wentOut: wentOut: true, hand empty, round ends", () => {
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const drawnCard = card("A", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [],
+        stock: [drawnCard],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [
+          createMeld("set", [three1, three2, three3], "player-1"),
+        ],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().output?.wentOut).toBe(true);
+      expect(actor.getSnapshot().output?.hand.length).toBe(0);
+    });
+
+    it("both are final states of turn machine", () => {
+      // Verify that both wentOut and turnComplete are final states
+      // by checking they both result in status "done"
+
+      // Test wentOut - start with empty hand, draw and discard to go out
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const drawnCard = card("A", "clubs");
+
+      const goOutInput = {
+        playerId: "player-1",
+        hand: [],
+        stock: [drawnCard],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [three1, three2, three3], "player-1")],
+      };
+
+      const goOutActor = createActor(turnMachine, { input: goOutInput });
+      goOutActor.start();
+      goOutActor.send({ type: "DRAW_FROM_STOCK" });
+      goOutActor.send({ type: "SKIP_LAY_DOWN" });
+      goOutActor.send({ type: "DISCARD", cardId: drawnCard.id });
+
+      expect(goOutActor.getSnapshot().status).toBe("done");
+
+      // Test turnComplete - start with 2 cards, draw and discard - hand still has cards
+      const normalInput = {
+        playerId: "player-2",
+        hand: [card("5", "spades"), card("7", "hearts")],
+        stock: [card("K", "clubs")],
+        discard: [card("2", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")], "player-2")],
+      };
+
+      const normalActor = createActor(turnMachine, { input: normalInput });
+      normalActor.start();
+      normalActor.send({ type: "DRAW_FROM_STOCK" });
+      normalActor.send({ type: "SKIP_LAY_DOWN" });
+      normalActor.send({ type: "DISCARD", cardId: normalInput.hand[0]!.id });
+
+      expect(normalActor.getSnapshot().status).toBe("done");
+    });
+
+    it.todo("parent machine (round) handles differently based on wentOut flag", () => {
+      // This test requires round machine implementation (Phase 4+)
+    });
   });
 
   describe("wentOut triggers round end", () => {
-    it.todo("when turn outputs wentOut: true", () => {});
-    it.todo("round machine transitions to scoring state", () => {});
-    it.todo("no more turns for any player", () => {});
-    it.todo("scoring begins immediately", () => {});
+    it.todo("when turn outputs wentOut: true", () => {
+      // Requires round machine implementation
+    });
+    it.todo("round machine transitions to scoring state", () => {
+      // Requires round machine implementation
+    });
+    it.todo("no more turns for any player", () => {
+      // Requires round machine implementation
+    });
+    it.todo("scoring begins immediately", () => {
+      // Requires round machine implementation
+    });
   });
 });

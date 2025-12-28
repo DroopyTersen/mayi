@@ -258,7 +258,7 @@ Review specs/command-line-interface.md
 - [x] Implement round 6 stuck scenarios (17 tests)
 - [x] Implement not down scenarios (14 tests)
 - [x] Implement going out on lay down turn (18 tests)
-- [ ] Implement going out turn output (8 tests)
+- [x] Implement going out turn output (8 tests)
 - [ ] Fix typecheck errors
 
 ### Scoring (97 tests in scoring.test.ts)
