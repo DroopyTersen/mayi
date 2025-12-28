@@ -192,3 +192,5 @@ You are building a card game that a family will play together over the internet.
 The goal is a working game, not perfect code. Ship incrementally. Each phase should leave the codebase in a working state.
 
 Now, read `@Backlog.md` and get to work.
+
+REMEMBER! Do one thing at a time, find a good commit point and stop, commit, update Backlog.md and then end your turn. The next time we run we'll pick up where you left off.
