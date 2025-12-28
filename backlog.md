@@ -289,7 +289,7 @@ Review specs/command-line-interface.md
 
 ### Turn Machine Phase 4 Additions (97 tests in turn.machine.phase4.test.ts)
 
-- [ ] Implement drawn state with lay off (12 tests)
+- [x] Implement drawn state with lay off (12 tests)
 - [ ] Implement wentOut state (13 tests)
 - [ ] Implement turnComplete vs wentOut (9 tests)
 - [ ] Implement round 6 specific behavior (24 tests)

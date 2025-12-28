@@ -1,4 +1,9 @@
 import { describe, it, expect } from "bun:test";
+import { createActor } from "xstate";
+import { turnMachine } from "./turn.machine";
+import type { RoundNumber } from "./engine.types";
+import type { Card } from "../card/card.types";
+import type { Meld } from "../meld/meld.types";
 
 /**
  * Phase 4: Turn Machine Tests
@@ -6,28 +11,410 @@ import { describe, it, expect } from "bun:test";
  * Tests for turn machine behavior related to laying off, going out, and round 6 rules.
  */
 
+let cardId = 0;
+function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
+  return { id: `card-${cardId++}`, suit, rank };
+}
+
+function createMeld(type: "set" | "run", cards: Card[], ownerId: string = "player-1"): Meld {
+  return {
+    id: `meld-${Math.random()}`,
+    type,
+    cards,
+    ownerId,
+  };
+}
+
 describe("TurnMachine - drawn state with lay off", () => {
   describe("LAY_OFF availability", () => {
-    it.todo("available when isDown: true AND laidDownThisTurn: false AND hasDrawn: true", () => {});
-    it.todo("NOT available when isDown: false (not down)", () => {});
-    it.todo("NOT available when laidDownThisTurn: true (just laid down)", () => {});
-    it.todo("NOT available when hasDrawn: false (haven't drawn yet)", () => {});
+    it("available when isDown: true AND laidDownThisTurn: false AND hasDrawn: true", () => {
+      const cardToLayOff = card("3", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [cardToLayOff, card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Should be able to lay off
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+
+      // Card should be removed from hand
+      expect(actor.getSnapshot().context.hand.length).toBe(2); // 2 original + 1 draw - 1 layoff
+    });
+
+    it("NOT available when isDown: false (not down)", () => {
+      const cardToLayOff = card("3", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [cardToLayOff, card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: false, // not down
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+
+      // Should be rejected - hand unchanged (still has 3 cards)
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+    });
+
+    it("NOT available when laidDownThisTurn: true (just laid down)", () => {
+      // Set up a round 1 contract scenario
+      const three1 = card("3", "clubs");
+      const three2 = card("3", "diamonds");
+      const three3 = card("3", "hearts");
+      const four1 = card("4", "clubs");
+      const four2 = card("4", "diamonds");
+      const four3 = card("4", "hearts");
+      const extraThree = card("3", "spades");
+
+      const existingSet = createMeld("set", [card("5", "clubs"), card("5", "diamonds"), card("5", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [three1, three2, three3, four1, four2, four3, extraThree],
+        stock: [card("A", "clubs")],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay down contract
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
+          { type: "set", cardIds: [four1.id, four2.id, four3.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().context.laidDownThisTurn).toBe(true);
+
+      // Try to lay off - should be rejected because laidDownThisTurn is true
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: extraThree.id, meldId: existingSet.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
+    it("NOT available when hasDrawn: false (haven't drawn yet)", () => {
+      const cardToLayOff = card("3", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [cardToLayOff, card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("Q", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      // Don't draw - try to lay off immediately
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+
+      // Should be rejected - still in awaitingDraw state
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
   });
 
   describe("state after LAY_OFF", () => {
-    it.todo("remains in 'drawn' state after LAY_OFF", () => {});
-    it.todo("can issue another LAY_OFF command", () => {});
-    it.todo("can issue DISCARD command (with restrictions in round 6)", () => {});
-    it.todo("hasDrawn remains true", () => {});
-    it.todo("isDown remains true", () => {});
+    it("remains in 'drawn' state after LAY_OFF", () => {
+      const cardToLayOff = card("3", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [cardToLayOff, card("K", "hearts"), card("Q", "clubs")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("can issue another LAY_OFF command", () => {
+      const card1 = card("3", "spades");
+      const card2 = card("3", "clubs");
+      const existingSet = createMeld("set", [card("3", "hearts"), card("3", "diamonds"), card("3", "clubs")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [card1, card2, card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // First lay off
+      actor.send({ type: "LAY_OFF", cardId: card1.id, meldId: existingSet.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(3); // 3 + 1 - 1 = 3
+
+      // Second lay off
+      actor.send({ type: "LAY_OFF", cardId: card2.id, meldId: existingSet.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(2); // 3 - 1 = 2
+    });
+
+    it("can issue DISCARD command (with restrictions in round 6)", () => {
+      const cardToLayOff = card("3", "spades");
+      const cardToDiscard = card("K", "hearts");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [cardToLayOff, cardToDiscard, card("Q", "clubs")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+
+      expect(actor.getSnapshot().status).toBe("done");
+    });
+
+    it("hasDrawn remains true", () => {
+      const cardToLayOff = card("3", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [cardToLayOff, card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.hasDrawn).toBe(true);
+
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().context.hasDrawn).toBe(true);
+    });
+
+    it("isDown remains true", () => {
+      const cardToLayOff = card("3", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [cardToLayOff, card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
   });
 
   describe("multiple lay offs", () => {
-    it.todo("lay off first card → still in 'drawn'", () => {});
-    it.todo("lay off second card → still in 'drawn'", () => {});
-    it.todo("lay off third card → still in 'drawn'", () => {});
-    it.todo("unlimited lay offs allowed per turn", () => {});
-    it.todo("limited only by cards in hand and valid targets", () => {});
+    it("lay off first card → still in 'drawn'", () => {
+      const card1 = card("3", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [card1, card("K", "hearts"), card("Q", "clubs")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: card1.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("lay off second card → still in 'drawn'", () => {
+      const card1 = card("3", "spades");
+      const card2 = card("3", "clubs");
+      const existingSet = createMeld("set", [card("3", "hearts"), card("3", "diamonds"), card("3", "clubs")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [card1, card2, card("K", "hearts"), card("Q", "clubs")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: card1.id, meldId: existingSet.id });
+      actor.send({ type: "LAY_OFF", cardId: card2.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("lay off third card → still in 'drawn'", () => {
+      const card1 = card("5", "spades");
+      const card2 = card("5", "clubs");
+      const card3 = card("5", "diamonds");
+      const existingSet = createMeld("set", [card("5", "hearts"), card("5", "diamonds"), card("5", "clubs")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [card1, card2, card3, card("K", "hearts"), card("Q", "clubs")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: card1.id, meldId: existingSet.id });
+      actor.send({ type: "LAY_OFF", cardId: card2.id, meldId: existingSet.id });
+      actor.send({ type: "LAY_OFF", cardId: card3.id, meldId: existingSet.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(3); // 5 + 1 - 3 = 3
+    });
+
+    it("unlimited lay offs allowed per turn", () => {
+      // Create multiple melds to lay off to
+      const set1 = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+      const set2 = createMeld("set", [card("5", "clubs"), card("5", "diamonds"), card("5", "hearts")]);
+
+      const card1 = card("3", "spades");
+      const card2 = card("5", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [card1, card2, card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [set1, set2],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off to first set
+      actor.send({ type: "LAY_OFF", cardId: card1.id, meldId: set1.id });
+      // Lay off to second set
+      actor.send({ type: "LAY_OFF", cardId: card2.id, meldId: set2.id });
+
+      // Both should succeed
+      expect(actor.getSnapshot().context.hand.length).toBe(2); // 3 + 1 - 2 = 2
+    });
+
+    it("limited only by cards in hand and valid targets", () => {
+      // Try to lay off a card that doesn't fit
+      const invalidCard = card("K", "spades");
+      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
+
+      const input = {
+        playerId: "player-1",
+        hand: [invalidCard, card("Q", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [card("J", "diamonds")],
+        roundNumber: 2 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [existingSet],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: invalidCard.id, meldId: existingSet.id });
+
+      // Should be rejected - hand unchanged
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
   });
 });
 
