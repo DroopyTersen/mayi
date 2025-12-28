@@ -294,8 +294,8 @@ Review specs/command-line-interface.md
 - [x] Implement turnComplete vs wentOut (9 tests)
 - [x] Implement round 6 specific behavior (24 tests)
 - [x] Implement going out detection (12 tests)
-- [ ] Implement player not down behavior (11 tests)
-- [ ] Fix typecheck errors
+- [x] Implement player not down behavior (11 tests)
+- [x] Fix typecheck errors
 
 ### Phase 4 Integration Tests (139 tests in phase4.integration.test.ts)
 
