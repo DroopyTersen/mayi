@@ -120,5 +120,19 @@ export function validateContractMelds(
     }
   }
 
+  // Check for duplicate card usage across melds (by cardId)
+  const seenCardIds = new Set<string>();
+  for (const meld of melds) {
+    for (const card of meld.cards) {
+      if (seenCardIds.has(card.id)) {
+        return {
+          valid: false,
+          error: `Card ${card.id} appears in multiple melds (duplicate card usage)`,
+        };
+      }
+      seenCardIds.add(card.id);
+    }
+  }
+
   return { valid: true };
 }

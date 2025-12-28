@@ -281,8 +281,64 @@ describe("validateContractMelds", () => {
   });
 
   describe("card usage", () => {
-    it.todo("each card can only appear in one meld", () => {});
-    it.todo("rejects if same cardId appears in multiple melds", () => {});
-    it.todo("validates by cardId, not by rank/suit (multi-deck has duplicates)", () => {});
+    it("each card can only appear in one meld", () => {
+      // Create a card that appears in both melds
+      const sharedCard: Card = { id: "shared-card-id", rank: "9", suit: "clubs" };
+
+      const set1 = meldWithCards("set", [
+        sharedCard,
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const set2 = meldWithCards("set", [
+        sharedCard, // Same card used again!
+        card("9", "spades"),
+        { id: "9C-other", rank: "9", suit: "clubs" }, // Different 9C
+      ]);
+
+      const result = validateContractMelds(CONTRACTS[1], [set1, set2]);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("duplicate");
+    });
+
+    it("rejects if same cardId appears in multiple melds", () => {
+      // Different card objects but same ID
+      const card1: Card = { id: "card-123", rank: "9", suit: "clubs" };
+      const card2: Card = { id: "card-123", rank: "9", suit: "clubs" }; // Same ID!
+
+      const set1 = meldWithCards("set", [
+        card1,
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const set2 = meldWithCards("set", [
+        card2, // Same ID as card1
+        card("9", "spades"),
+        { id: "9C-other", rank: "9", suit: "clubs" },
+      ]);
+
+      const result = validateContractMelds(CONTRACTS[1], [set1, set2]);
+      expect(result.valid).toBe(false);
+    });
+
+    it("validates by cardId, not by rank/suit (multi-deck has duplicates)", () => {
+      // Two 9 of clubs from different decks (different IDs) - should be valid
+      const nineClubsDeck1: Card = { id: "9C-deck1", rank: "9", suit: "clubs" };
+      const nineClubsDeck2: Card = { id: "9C-deck2", rank: "9", suit: "clubs" };
+
+      const set1 = meldWithCards("set", [
+        nineClubsDeck1,
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const set2 = meldWithCards("set", [
+        nineClubsDeck2, // Different card (different ID), same rank/suit
+        card("9", "spades"),
+        { id: "9C-deck3", rank: "9", suit: "clubs" },
+      ]);
+
+      const result = validateContractMelds(CONTRACTS[1], [set1, set2]);
+      expect(result.valid).toBe(true);
+    });
   });
 });
