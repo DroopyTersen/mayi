@@ -16,9 +16,9 @@ function createTurnActor(overrides: Partial<TurnInput> = {}) {
     hand: overrides.hand ?? [card("9"), card("10"), card("J")],
     stock: overrides.stock ?? [card("Q"), card("K"), card("A")],
     discard: overrides.discard ?? [card("8")],
-    roundNumber: 1,
-    isDown: false,
-    table: [],
+    roundNumber: overrides.roundNumber ?? 1,
+    isDown: overrides.isDown ?? false,
+    table: overrides.table ?? [],
   };
   return createActor(turnMachine, { input });
 }
@@ -251,6 +251,64 @@ describe("TurnMachine - drawing from discard", () => {
       expect(actor.getSnapshot().context.hand).toEqual(initialHand);
       expect(actor.getSnapshot().context.stock).toEqual(initialStock);
       expect(actor.getSnapshot().context.discard).toEqual([]);
+      actor.stop();
+    });
+  });
+
+  describe("when player is down", () => {
+    it("DRAW_FROM_DISCARD is rejected - down players cannot draw from discard", () => {
+      const topDiscard = card("K");
+      const actor = createTurnActor({
+        discard: [topDiscard],
+        isDown: true, // Player has laid down
+      });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+      // Should remain in awaitingDraw since guard fails
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      expect(actor.getSnapshot().context.hasDrawn).toBe(false);
+      actor.stop();
+    });
+
+    it("hand remains unchanged", () => {
+      const hand = [card("3"), card("5")];
+      const topDiscard = card("K");
+      const actor = createTurnActor({
+        hand,
+        discard: [topDiscard],
+        isDown: true,
+      });
+      actor.start();
+      const initialHand = [...actor.getSnapshot().context.hand];
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+      expect(actor.getSnapshot().context.hand).toEqual(initialHand);
+      actor.stop();
+    });
+
+    it("discard pile remains unchanged", () => {
+      const topDiscard = card("K");
+      const actor = createTurnActor({
+        discard: [topDiscard],
+        isDown: true,
+      });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+      expect(actor.getSnapshot().context.discard).toContainEqual(topDiscard);
+      actor.stop();
+    });
+
+    it("can still DRAW_FROM_STOCK", () => {
+      const stockCard = card("Q");
+      const actor = createTurnActor({
+        stock: [stockCard],
+        discard: [card("K")],
+        isDown: true,
+      });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hasDrawn).toBe(true);
+      expect(actor.getSnapshot().context.hand).toContainEqual(stockCard);
       actor.stop();
     });
   });

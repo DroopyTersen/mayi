@@ -102,7 +102,11 @@ export const turnMachine = setup({
     output: {} as TurnOutput,
   },
   guards: {
-    canDrawFromDiscard: ({ context }) => context.discard.length > 0,
+    canDrawFromDiscard: ({ context }) => {
+      // Cannot draw from discard if already down
+      if (context.isDown) return false;
+      return context.discard.length > 0;
+    },
     canDiscard: ({ context, event }) => {
       if (event.type !== "DISCARD") return false;
       // Card must be in hand

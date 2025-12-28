@@ -17,6 +17,7 @@ export interface MayIWindowInput {
   currentPlayerIndex: number;
   playerOrder: string[]; // All player IDs in turn order
   stock: Card[];
+  playerDownStatus: Record<string, boolean>; // Map of playerId -> isDown
 }
 
 /**
@@ -34,6 +35,7 @@ export interface MayIWindowContext {
   winnerId: string | null;
   stock: Card[];
   penaltyCard: Card | null;
+  playerDownStatus: Record<string, boolean>; // Map of playerId -> isDown
 }
 
 /**
@@ -122,12 +124,26 @@ export const mayIWindowMachine = setup({
       }
       return false;
     },
+    canCurrentPlayerDrawFromDiscard: ({ context, event }) => {
+      // Must be current player
+      if (!("playerId" in event) || event.playerId !== context.currentPlayerId) {
+        return false;
+      }
+      // Current player cannot draw from discard if they are down
+      // Default to false (not down) if player is not in the map
+      const isDown = context.playerDownStatus[context.currentPlayerId] ?? false;
+      return !isDown;
+    },
     canCallMayI: ({ context, event }) => {
       if (event.type !== "CALL_MAY_I") return false;
       // Cannot May I your own discard
       if (event.playerId === context.discardedByPlayerId) return false;
       // Cannot call if already claimed
       if (context.claimants.includes(event.playerId)) return false;
+      // Cannot May I if you are down
+      // Default to false (not down) if player is not in the map
+      const isDown = context.playerDownStatus[event.playerId] ?? false;
+      if (isDown) return false;
       return true;
     },
     hasClaimants: ({ context }) => context.claimants.length > 0,
@@ -180,12 +196,13 @@ export const mayIWindowMachine = setup({
     winnerId: null,
     stock: input.stock,
     penaltyCard: null,
+    playerDownStatus: input.playerDownStatus,
   }),
   states: {
     open: {
       on: {
         DRAW_FROM_DISCARD: {
-          guard: "isCurrentPlayer",
+          guard: "canCurrentPlayerDrawFromDiscard",
           target: "closedByCurrentPlayer",
           actions: "setCurrentPlayerClaimed",
         },

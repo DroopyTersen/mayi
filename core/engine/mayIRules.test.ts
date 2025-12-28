@@ -16,14 +16,18 @@ function createTestInput(overrides?: Partial<MayIWindowInput>): MayIWindowInput 
     { id: "card-7-diamonds", suit: "diamonds", rank: "7" },
     { id: "card-3-clubs", suit: "clubs", rank: "3" },
   ];
+  const playerOrder = overrides?.playerOrder ?? ["player-0", "player-1", "player-2", "player-3"];
+  // Default: all players NOT down
+  const playerDownStatus = overrides?.playerDownStatus ?? Object.fromEntries(playerOrder.map(id => [id, false]));
 
   return {
     discardedCard,
     discardedByPlayerId: "player-1",
     currentPlayerId: "player-2",
     currentPlayerIndex: 2,
-    playerOrder: ["player-0", "player-1", "player-2", "player-3"],
+    playerOrder,
     stock,
+    playerDownStatus,
     ...overrides,
   };
 }
@@ -490,6 +494,132 @@ describe("May I penalty card", () => {
 
       // Winner gets penalty but doesn't know what it is beforehand
       expect(actor.getSnapshot().output?.penaltyCard).toBeDefined();
+    });
+  });
+});
+
+describe("Down player restrictions", () => {
+  describe("down players cannot call May I", () => {
+    it("given: P3 is down, when: P3 tries to call May I, then: rejected", () => {
+      const input = createTestInput({
+        currentPlayerId: "player-2",
+        playerDownStatus: {
+          "player-0": false,
+          "player-1": false,
+          "player-2": false,
+          "player-3": true, // P3 is down
+        },
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+      // P3's claim should be rejected - down players cannot May I
+      expect(actor.getSnapshot().context.claimants).not.toContain("player-3");
+    });
+
+    it("given: P0 and P3 are down, when: both try to call May I, then: both rejected", () => {
+      const input = createTestInput({
+        currentPlayerId: "player-2",
+        playerDownStatus: {
+          "player-0": true, // P0 is down
+          "player-1": false,
+          "player-2": false,
+          "player-3": true, // P3 is down
+        },
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-0" });
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+      expect(actor.getSnapshot().context.claimants).toHaveLength(0);
+    });
+
+    it("given: P0 is down but P3 is not, when: both try to call May I, then: only P3 accepted", () => {
+      const input = createTestInput({
+        currentPlayerId: "player-2",
+        playerDownStatus: {
+          "player-0": true, // P0 is down
+          "player-1": false,
+          "player-2": false,
+          "player-3": false, // P3 is NOT down
+        },
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-0" });
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+      expect(actor.getSnapshot().context.claimants).toContain("player-3");
+      expect(actor.getSnapshot().context.claimants).not.toContain("player-0");
+    });
+  });
+
+  describe("down current player cannot draw from discard (cannot veto)", () => {
+    it("given: P2 is current and down, when: P2 tries DRAW_FROM_DISCARD, then: rejected", () => {
+      const input = createTestInput({
+        currentPlayerId: "player-2",
+        playerDownStatus: {
+          "player-0": false,
+          "player-1": false,
+          "player-2": true, // Current player is down
+          "player-3": false,
+        },
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "DRAW_FROM_DISCARD", playerId: "player-2" });
+
+      // Should still be in open state - draw rejected
+      expect(actor.getSnapshot().value).toBe("open");
+      expect(actor.getSnapshot().context.currentPlayerClaimed).toBe(false);
+    });
+
+    it("given: P2 is down and P3 calls May I, when: P2 draws from stock, then: P3 wins automatically", () => {
+      const input = createTestInput({
+        currentPlayerId: "player-2",
+        playerDownStatus: {
+          "player-0": false,
+          "player-1": false,
+          "player-2": true, // Current player is down
+          "player-3": false,
+        },
+      });
+      const actor = createMayIActor(input);
+
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+      // P2 cannot veto because they're down, so they draw from stock
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.type).toBe("MAY_I_RESOLVED");
+      expect(output?.winnerId).toBe("player-3");
+    });
+  });
+
+  describe("all players down scenario", () => {
+    it("given: all players except discarder are down, when: current player draws from stock, then: NO_CLAIMS", () => {
+      const input = createTestInput({
+        discardedByPlayerId: "player-1",
+        currentPlayerId: "player-2",
+        playerDownStatus: {
+          "player-0": true, // Down
+          "player-1": false, // Discarder (can't May I own discard anyway)
+          "player-2": true, // Current player, also down
+          "player-3": true, // Down
+        },
+      });
+      const actor = createMayIActor(input);
+
+      // No one can call May I (all down except discarder)
+      actor.send({ type: "CALL_MAY_I", playerId: "player-0" }); // Rejected
+      actor.send({ type: "CALL_MAY_I", playerId: "player-3" }); // Rejected
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-2" });
+
+      const output = actor.getSnapshot().output;
+      expect(output?.type).toBe("NO_CLAIMS");
+      expect(output?.winnerId).toBeNull();
     });
   });
 });

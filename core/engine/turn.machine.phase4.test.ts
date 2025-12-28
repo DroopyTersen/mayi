@@ -1377,7 +1377,7 @@ describe("TurnMachine - round 6 specific behavior", () => {
       expect(actor.getSnapshot().value).toBe("drawn");
     });
 
-    it("from 'awaitingDraw': DRAW_FROM_DISCARD → 'drawn'", () => {
+    it("from 'awaitingDraw': DRAW_FROM_DISCARD → 'drawn' (when not down)", () => {
       const topDiscard = card("Q", "diamonds");
       const input = {
         playerId: "player-1",
@@ -1385,7 +1385,7 @@ describe("TurnMachine - round 6 specific behavior", () => {
         stock: [card("A", "clubs")],
         discard: [topDiscard],
         roundNumber: 6 as RoundNumber,
-        isDown: true,
+        isDown: false, // Not down yet - can draw from discard
         laidDownThisTurn: false,
         table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
       };
@@ -1396,6 +1396,28 @@ describe("TurnMachine - round 6 specific behavior", () => {
       expect(actor.getSnapshot().value).toBe("awaitingDraw");
       actor.send({ type: "DRAW_FROM_DISCARD" });
       expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("from 'awaitingDraw': DRAW_FROM_DISCARD rejected when down", () => {
+      const topDiscard = card("Q", "diamonds");
+      const input = {
+        playerId: "player-1",
+        hand: [card("K", "hearts")],
+        stock: [card("A", "clubs")],
+        discard: [topDiscard],
+        roundNumber: 6 as RoundNumber,
+        isDown: true, // Already down - cannot draw from discard
+        laidDownThisTurn: false,
+        table: [createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")])],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      actor.send({ type: "DRAW_FROM_DISCARD" });
+      // Stays in awaitingDraw because down players cannot draw from discard
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
     });
 
     it("from 'drawn': LAY_OFF (if valid) → stay in 'drawn' OR 'wentOut' if hand empty", () => {
@@ -1860,7 +1882,7 @@ describe("TurnMachine - going out detection", () => {
         stock: [],
         discard: [card("Q", "diamonds")],
         roundNumber: 1 as RoundNumber,
-        isDown: true,
+        isDown: false, // Not down - can draw from discard
         laidDownThisTurn: false,
         table: [],
       };
@@ -2136,8 +2158,8 @@ describe("TurnMachine - going out detection", () => {
       const input = {
         playerId: "player-1",
         hand: [card1, extraCard],
-        stock: [],
-        discard: [card("Q", "diamonds")],
+        stock: [card("Q", "diamonds")], // Use stock instead - isDown players can't draw from discard
+        discard: [],
         roundNumber: 1 as RoundNumber,
         isDown: true,
         laidDownThisTurn: false,
@@ -2146,7 +2168,7 @@ describe("TurnMachine - going out detection", () => {
 
       const actor = createActor(turnMachine, { input });
       actor.start();
-      actor.send({ type: "DRAW_FROM_DISCARD" });
+      actor.send({ type: "DRAW_FROM_STOCK" }); // Draw from stock since player is down
 
       // Try GO_OUT with only 1 card - should fail validation
       actor.send({
