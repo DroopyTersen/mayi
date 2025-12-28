@@ -1974,13 +1974,227 @@ describe("going out - round 6 special rules", () => {
   });
 
   describe("round 6 - normal turn with discard", () => {
-    it.todo("given: round 6, player is down, has 4 cards after drawing", () => {});
-    it.todo("and: player can lay off 1 card", () => {});
-    it.todo("when: player lays off 1 card (3 remaining)", () => {});
-    it.todo("and: no other cards can be laid off", () => {});
-    it.todo("then: player CAN discard (not going out, has 2+ cards left)", () => {});
-    it.todo("and: player discards 1 card (2 remaining)", () => {});
-    it.todo("and: turn ends normally, player did NOT go out", () => {});
+    // Set up: setMeld of 9s that player can lay off to
+    const setMeld = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+
+    it("given: round 6, player is down, has 4 cards after drawing", () => {
+      // Starting hand: 3 cards
+      const nineS = card("9", "spades"); // Can lay off to setMeld
+      const qH = card("Q", "hearts"); // Cannot lay off
+      const jD = card("J", "diamonds"); // Cannot lay off
+      const kC = card("K", "clubs"); // In stock, will draw
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, qH, jD],
+        stock: [kC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // 4 cards after drawing: 9♠, Q♥, J♦, K♣
+      expect(actor.getSnapshot().context.hand.length).toBe(4);
+    });
+
+    it("and: player can lay off 1 card", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+      const jD = card("J", "diamonds");
+      const kC = card("K", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, qH, jD],
+        stock: [kC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Verify 9♠ can be laid off to the set of 9s
+      const has9 = actor.getSnapshot().context.hand.some((c) => c.rank === "9");
+      expect(has9).toBe(true);
+    });
+
+    it("when: player lays off 1 card (3 remaining)", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+      const jD = card("J", "diamonds");
+      const kC = card("K", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, qH, jD],
+        stock: [kC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off 9♠
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // 3 cards remaining: Q♥, J♦, K♣
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+    });
+
+    it("and: no other cards can be laid off", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+      const jD = card("J", "diamonds");
+      const kC = card("K", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, qH, jD],
+        stock: [kC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Now 3 cards: Q♥, J♦, K♣ - none can be laid off to setMeld (only 9s)
+      const remainingHand = actor.getSnapshot().context.hand;
+      expect(remainingHand.length).toBe(3);
+
+      // Try to lay off each remaining card - should all fail
+      for (const handCard of remainingHand) {
+        actor.send({ type: "LAY_OFF", cardId: handCard.id, meldId: setMeld.id });
+        // Hand size should still be 3 (lay off rejected)
+        expect(actor.getSnapshot().context.hand.length).toBe(3);
+      }
+    });
+
+    it("then: player CAN discard (not going out, has 2+ cards left)", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+      const jD = card("J", "diamonds");
+      const kC = card("K", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, qH, jD],
+        stock: [kC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // In awaitingDiscard with 3 cards - can discard
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+
+      // Verify discard is allowed (will have 2 cards left, not going out)
+      const firstCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: firstCard!.id });
+
+      // Should transition (not be blocked)
+      expect(actor.getSnapshot().value).not.toBe("awaitingDiscard");
+    });
+
+    it("and: player discards 1 card (2 remaining)", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+      const jD = card("J", "diamonds");
+      const kC = card("K", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, qH, jD],
+        stock: [kC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      // Discard one card
+      const discardedCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: discardedCard!.id });
+
+      // 2 cards remaining
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("and: turn ends normally, player did NOT go out", () => {
+      const nineS = card("9", "spades");
+      const qH = card("Q", "hearts");
+      const jD = card("J", "diamonds");
+      const kC = card("K", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, qH, jD],
+        stock: [kC],
+        discard: [card("5", "clubs")],
+        roundNumber: 6 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      const discardedCard = actor.getSnapshot().context.hand[0];
+      actor.send({ type: "DISCARD", cardId: discardedCard!.id });
+
+      // Turn ended normally - turnComplete, NOT wentOut
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+
+      // Output should show player did not go out
+      const output = actor.getSnapshot().output;
+      expect(output?.wentOut).toBe(false);
+    });
   });
 
   describe("round 6 - discard allowed with 2+ cards remaining", () => {
