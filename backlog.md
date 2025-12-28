@@ -127,7 +127,7 @@ Review specs/command-line-interface.md
 - [x] Implement wrong number of melds rejection (5 tests)
 - [x] Implement invalid individual melds rejection (8 tests)
 - [x] Implement card not in hand rejection (4 tests)
-- [ ] Implement duplicate card usage rejection (2 tests)
+- [x] Implement duplicate card usage rejection (2 tests)
 - [ ] Fix typecheck errors
 - [ ] Implement already down rejection (3 tests)
 - [ ] Implement auto-transition to awaitingDiscard (3 tests)
