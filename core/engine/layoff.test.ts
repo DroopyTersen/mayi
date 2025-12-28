@@ -916,13 +916,187 @@ describe("LAY_OFF action", () => {
   });
 
   describe("multiple lay offs in one turn", () => {
-    it.todo("player can lay off first card, remain in 'drawn' state", () => {});
-    it.todo("player can lay off second card, remain in 'drawn' state", () => {});
-    it.todo("player can lay off third card, etc.", () => {});
-    it.todo("each lay off is separate command", () => {});
-    it.todo("hand decreases with each lay off", () => {});
-    it.todo("can lay off to different melds in same turn", () => {});
-    it.todo("can lay off multiple cards to same meld (one at a time)", () => {});
+    it("player can lay off first card, remain in 'drawn' state", () => {
+      const nineS = card("9", "spades");
+      const kingH = card("K", "hearts");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, kingH, card("5", "diamonds")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("player can lay off second card, remain in 'drawn' state", () => {
+      const nineS = card("9", "spades");
+      const kingH = card("K", "hearts");
+      const setMeld1 = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const setMeld2 = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, kingH, card("5", "diamonds")], [setMeld1, setMeld2]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld1.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld2.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("player can lay off third card, etc.", () => {
+      const nineS = card("9", "spades");
+      const kingH = card("K", "hearts");
+      const fiveD = card("5", "diamonds");
+      const setMeld1 = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const setMeld2 = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "spades"),
+      ]);
+      const setMeld3 = createMeld("set", [
+        card("5", "clubs"),
+        card("5", "hearts"),
+        card("5", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, kingH, fiveD, card("A", "clubs")], [setMeld1, setMeld2, setMeld3]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld1.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld2.id });
+      actor.send({ type: "LAY_OFF", cardId: fiveD.id, meldId: setMeld3.id });
+
+      expect(actor.getSnapshot().value).toBe("drawn");
+    });
+
+    it("each lay off is separate command", () => {
+      const nineS = card("9", "spades");
+      const kingH = card("K", "hearts");
+      const setMeld1 = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const setMeld2 = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, kingH, card("5", "diamonds")], [setMeld1, setMeld2]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // First lay off
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld1.id });
+      const table1 = actor.getSnapshot().context.table;
+      expect(table1.find((m) => m.id === setMeld1.id)?.cards.length).toBe(4);
+
+      // Second lay off is separate
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld2.id });
+      const table2 = actor.getSnapshot().context.table;
+      expect(table2.find((m) => m.id === setMeld2.id)?.cards.length).toBe(4);
+    });
+
+    it("hand decreases with each lay off", () => {
+      const nineS = card("9", "spades");
+      const kingH = card("K", "hearts");
+      const setMeld1 = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const setMeld2 = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, kingH, card("5", "diamonds")], [setMeld1, setMeld2]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Initial hand size after draw: 4
+      expect(actor.getSnapshot().context.hand.length).toBe(4);
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld1.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld2.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+    });
+
+    it("can lay off to different melds in same turn", () => {
+      const nineS = card("9", "spades");
+      const kingH = card("K", "hearts");
+      const setMeld1 = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const setMeld2 = createMeld("set", [
+        card("K", "clubs"),
+        card("K", "diamonds"),
+        card("K", "spades"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, kingH, card("5", "diamonds")], [setMeld1, setMeld2]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld1.id });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld2.id });
+
+      const table = actor.getSnapshot().context.table;
+      expect(table.find((m) => m.id === setMeld1.id)?.cards.length).toBe(4);
+      expect(table.find((m) => m.id === setMeld2.id)?.cards.length).toBe(4);
+    });
+
+    it("can lay off multiple cards to same meld (one at a time)", () => {
+      const nineS = card("9", "spades");
+      const myJoker = joker();
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, myJoker, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Add first card
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      expect(actor.getSnapshot().context.table.find((m) => m.id === setMeld.id)?.cards.length).toBe(4);
+
+      // Add second card to same meld
+      actor.send({ type: "LAY_OFF", cardId: myJoker.id, meldId: setMeld.id });
+      expect(actor.getSnapshot().context.table.find((m) => m.id === setMeld.id)?.cards.length).toBe(5);
+    });
   });
 
   describe("state transitions after lay off", () => {

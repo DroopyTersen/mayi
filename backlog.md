@@ -225,7 +225,7 @@ Review specs/command-line-interface.md
 - [x] Implement meld ownership - anyone can add to any meld (4 tests)
 - [x] Implement LAY_OFF action - successful lay off to set (6 tests)
 - [x] Implement LAY_OFF action - successful lay off to run (10 tests)
-- [ ] Implement multiple lay offs in one turn (7 tests)
+- [x] Implement multiple lay offs in one turn (7 tests)
 - [ ] Implement state transitions after lay off (4 tests)
 - [ ] Implement LAY_OFF rejection - player state (7 tests)
 - [ ] Implement LAY_OFF rejection - invalid card (2 tests)
