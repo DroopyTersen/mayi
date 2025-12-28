@@ -112,24 +112,94 @@ describe("TurnState structure", () => {
 });
 
 describe("createInitialGameState", () => {
-  it.todo("creates game with 3-8 players", () => {});
+  it("creates game with 3-8 players", () => {
+    // Test with 3 players (minimum)
+    const game3 = createInitialGameState({
+      playerNames: ["A", "B", "C"],
+    });
+    expect(game3.players.length).toBe(3);
 
-  it.todo("sets currentRound to 1", () => {});
+    // Test with 8 players (maximum)
+    const game8 = createInitialGameState({
+      playerNames: ["A", "B", "C", "D", "E", "F", "G", "H"],
+    });
+    expect(game8.players.length).toBe(8);
+  });
 
-  it.todo("sets dealerIndex to 0 (or random)", () => {});
+  it("sets currentRound to 1", () => {
+    const game = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    expect(game.currentRound).toBe(1);
+  });
 
-  it.todo("sets currentPlayerIndex to 1 (left of dealer)", () => {});
+  it("sets dealerIndex to 0 by default", () => {
+    const game = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    expect(game.dealerIndex).toBe(0);
+  });
 
-  it.todo(
-    "initializes all players with empty hands, isDown: false, totalScore: 0",
-    () => {}
-  );
+  it("sets currentPlayerIndex to 1 (left of dealer)", () => {
+    const game = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+      dealerIndex: 0,
+    });
+    expect(game.currentPlayerIndex).toBe(1);
 
-  it.todo("stock and discard are empty (deal happens separately)", () => {});
+    // Test wrap-around: if dealer is last player, first player starts
+    const game2 = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+      dealerIndex: 2,
+    });
+    expect(game2.currentPlayerIndex).toBe(0);
+  });
 
-  it.todo("table is empty array", () => {});
+  it("initializes all players with empty hands, isDown: false, totalScore: 0", () => {
+    const game = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    for (const player of game.players) {
+      expect(player.hand).toEqual([]);
+      expect(player.isDown).toBe(false);
+      expect(player.totalScore).toBe(0);
+    }
+  });
 
-  it.todo("throws error for fewer than 3 players", () => {});
+  it("stock and discard are empty (deal happens separately)", () => {
+    const game = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    expect(game.stock).toEqual([]);
+    expect(game.discard).toEqual([]);
+  });
 
-  it.todo("throws error for more than 8 players", () => {});
+  it("table is empty array", () => {
+    const game = createInitialGameState({
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    expect(game.table).toEqual([]);
+  });
+
+  it("throws error for fewer than 3 players", () => {
+    expect(() => {
+      createInitialGameState({ playerNames: ["Alice", "Bob"] });
+    }).toThrow("Game requires 3-8 players");
+
+    expect(() => {
+      createInitialGameState({ playerNames: ["Alice"] });
+    }).toThrow("Game requires 3-8 players");
+
+    expect(() => {
+      createInitialGameState({ playerNames: [] });
+    }).toThrow("Game requires 3-8 players");
+  });
+
+  it("throws error for more than 8 players", () => {
+    expect(() => {
+      createInitialGameState({
+        playerNames: ["A", "B", "C", "D", "E", "F", "G", "H", "I"],
+      });
+    }).toThrow("Game requires 3-8 players");
+  });
 });

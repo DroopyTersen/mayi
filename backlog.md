@@ -33,7 +33,7 @@
 - [x] Implement `GameState structure` tests (8 tests)
 - [x] Implement `Player structure` tests (5 tests)
 - [x] Implement `TurnState structure` tests (3 tests)
-- [ ] Implement `createInitialGameState` tests (9 tests)
+- [x] Implement `createInitialGameState` tests (9 tests)
 
 ### TurnMachine (47 tests in turn.machine.test.ts)
 - [ ] Create TurnMachine XState machine
