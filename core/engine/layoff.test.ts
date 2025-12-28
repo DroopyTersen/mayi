@@ -131,16 +131,63 @@ describe("canLayOffCard guard", () => {
 
   describe("laying off to sets - wild ratio edge cases", () => {
     // given: set (9♦ 9♥ 9♠) — 3 natural, 0 wild
-    it.todo("adding Joker → 3 natural, 1 wild — valid", () => {});
-    it.todo("adding 2♣ → 3 natural, 1 wild — valid", () => {});
+    it("adding Joker → 3 natural, 1 wild — valid", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"),
+      ]);
+      expect(canLayOffToSet(joker(), set)).toBe(true);
+    });
+
+    it("adding 2♣ → 3 natural, 1 wild — valid", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"),
+      ]);
+      expect(canLayOffToSet(card("2", "clubs"), set)).toBe(true);
+    });
 
     // given: set (9♦ 9♥ Joker) — 2 natural, 1 wild
-    it.todo("adding 9♠ (natural) → 3 natural, 1 wild — valid", () => {});
-    it.todo("adding 2♣ (wild) → 2 natural, 2 wild — valid (equal is OK)", () => {});
+    it("adding 9♠ (natural) → 3 natural, 1 wild — valid", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        joker(),
+      ]);
+      expect(canLayOffToSet(card("9", "spades"), set)).toBe(true);
+    });
+
+    it("adding 2♣ (wild) → 2 natural, 2 wild — valid (equal is OK)", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        joker(),
+      ]);
+      expect(canLayOffToSet(card("2", "clubs"), set)).toBe(true);
+    });
 
     // given: set (9♦ 9♥ Joker 2♣) — 2 natural, 2 wild
-    it.todo("adding 9♠ (natural) → 3 natural, 2 wild — valid", () => {});
-    it.todo("adding Joker → 2 natural, 3 wild — INVALID (wilds outnumber)", () => {});
+    it("adding 9♠ (natural) → 3 natural, 2 wild — valid", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        joker(),
+        card("2", "clubs"),
+      ]);
+      expect(canLayOffToSet(card("9", "spades"), set)).toBe(true);
+    });
+
+    it("adding Joker → 2 natural, 3 wild — INVALID (wilds outnumber)", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        joker(),
+        card("2", "clubs"),
+      ]);
+      expect(canLayOffToSet(joker(), set)).toBe(false);
+    });
   });
 
   describe("laying off to runs", () => {

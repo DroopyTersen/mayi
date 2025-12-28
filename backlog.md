@@ -217,7 +217,7 @@ Review specs/command-line-interface.md
 
 - [x] Implement canLayOffCard guard preconditions (4 tests)
 - [x] Implement laying off to sets (6 tests)
-- [ ] Implement laying off to sets - wild ratio edge cases (6 tests)
+- [x] Implement laying off to sets - wild ratio edge cases (6 tests)
 - [ ] Implement laying off to runs (8 tests)
 - [ ] Implement run extension boundaries (8 tests)
 - [ ] Implement laying off to runs - wild ratio edge cases (7 tests)
