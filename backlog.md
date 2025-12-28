@@ -317,12 +317,128 @@ Review specs/command-line-interface.md
 
 ## Phase 5 Tasks (Full Game Loop)
 
-> Break down when Phase 4 is complete
-> Review specs/command-line-ux.md and make sure we've implemented everything we need to for the cli gameplay
+> GameMachine, RoundMachine, dealing, turn/dealer advancement, stock depletion, 6-round flow
 
-- [ ] Review specs/phase-5-tests.md and and scaffold out all of those tests. Add tasks for PHase 5, centered around the tests.
+- [ ] Review specs/phase-5-tests.md and scaffold out all tests
+- [ ] Fix typecheck errors
 
-> IMPORTANT: Make sure to verify the game works as expected by playing through it manually using the CLI app. You can have multiple players and you can play manually against yourself.
+### GameMachine (66 tests in gameMachine.test.ts)
+
+- [ ] Implement setup state - initial state (6 tests)
+- [ ] Implement ADD_PLAYER command (5 tests)
+- [ ] Implement player limits (3 tests)
+- [ ] Implement START_GAME command (4 tests)
+- [ ] Implement START_GAME rejected scenarios (5 tests)
+- [ ] Implement initializePlayers action (4 tests)
+- [ ] Implement playing state - entering (3 tests)
+- [ ] Implement RoundMachine input (3 tests)
+- [ ] Implement round completion (4 tests)
+- [ ] Implement roundHistory update (3 tests)
+- [ ] Implement roundEnd state - game continuation (5 tests)
+- [ ] Implement incrementRound action (3 tests)
+- [ ] Implement advanceDealer action (4 tests)
+- [ ] Implement game end condition (3 tests)
+- [ ] Implement gameEnd state (4 tests)
+- [ ] Implement calculateFinalScores action (3 tests)
+- [ ] Implement final state output (4 tests)
+- [ ] Implement guards - hasMinPlayers, isGameOver (6 tests)
+- [ ] Implement context preservation (6 tests)
+
+### RoundMachine (67 tests in roundMachine.test.ts)
+
+- [ ] Implement initialization - context from input (9 tests)
+- [ ] Implement first player calculation (3 tests)
+- [ ] Implement player state reset (3 tests)
+- [ ] Implement dealing state - entry actions (3 tests)
+- [ ] Implement dealCards action (5 tests)
+- [ ] Implement deck configuration (5 tests)
+- [ ] Implement flipFirstDiscard action (3 tests)
+- [ ] Implement post-deal state (4 tests)
+- [ ] Implement active state structure (2 tests)
+- [ ] Implement TurnMachine invocation (7 tests)
+- [ ] Implement turn completion - normal (4 tests)
+- [ ] Implement turn completion - went out (4 tests)
+- [ ] Implement advanceTurn action (3 tests)
+- [ ] Implement state updates from turn (5 tests)
+- [ ] Implement scoring state (4 tests)
+- [ ] Implement scoreRound action (3 tests)
+- [ ] Implement RoundRecord creation (3 tests)
+- [ ] Implement output (3 tests)
+- [ ] Implement stock depletion - detection (2 tests)
+- [ ] Implement reshuffleStock action (4 tests)
+- [ ] Implement reshuffle scenario (3 tests)
+- [ ] Implement guards - someoneWentOut, stockEmpty (4 tests)
+
+### Dealing (32 tests in dealing.test.ts)
+
+- [ ] Implement createDeckForPlayerCount - 3-5 players (3 tests)
+- [ ] Implement createDeckForPlayerCount - 6-8 players (3 tests)
+- [ ] Implement boundary cases (4 tests)
+- [ ] Implement deal - card distribution (4 tests)
+- [ ] Implement dealing order (3 tests)
+- [ ] Implement remaining cards (2 tests)
+- [ ] Implement card integrity (4 tests)
+- [ ] Implement flipFirstDiscard (3 tests)
+- [ ] Implement initial round state - all player counts (5 tests)
+
+### Turn Advancement (24 tests in turnAdvancement.test.ts)
+
+- [ ] Implement clockwise rotation (4 tests)
+- [ ] Implement wrap-around (2 tests)
+- [ ] Implement formula verification (2 tests)
+- [ ] Implement full rotation (2 tests)
+- [ ] Implement first player each round (3 tests)
+- [ ] Implement dealer rotation between rounds (3 tests)
+- [ ] Implement full game dealer rotation (1 test)
+
+### Round Transition (14 tests in roundTransition.test.ts)
+
+- [ ] Implement state reset for new round (6 tests)
+- [ ] Implement preserved state (4 tests)
+- [ ] Implement round number progression (2 tests)
+- [ ] Implement contract progression (1 test)
+- [ ] Implement score accumulation (2 tests)
+- [ ] Implement round end to round start flow (2 tests)
+
+### Stock Depletion (22 tests in stockDepletion.test.ts)
+
+- [ ] Implement detection during draw (2 tests)
+- [ ] Implement guard check (1 test)
+- [ ] Implement reshuffleStock action - basic operation (4 tests)
+- [ ] Implement preserves top discard (3 tests)
+- [ ] Implement shuffle randomization (2 tests)
+- [ ] Implement card integrity (2 tests)
+- [ ] Implement mid-round reshuffle scenario (3 tests)
+- [ ] Implement discard pile size (2 tests)
+- [ ] Implement edge cases - multiple reshuffles, empty discard (3 tests)
+
+### Game End (22 tests in gameEnd.test.ts)
+
+- [ ] Implement game end trigger (3 tests)
+- [ ] Implement final score calculation (2 tests)
+- [ ] Implement determineWinner - single winner (1 test)
+- [ ] Implement determineWinner - ties (3 tests)
+- [ ] Implement determineWinner - perfect game (1 test)
+- [ ] Implement gameEnd output (2 tests)
+
+### Phase 5 Integration Tests (70 tests in fullGame.test.ts)
+
+- [ ] Implement full game flow - setup to end (4 tests)
+- [ ] Implement round 1 flow (4 tests)
+- [ ] Implement full 6 rounds (1 test)
+- [ ] Implement score accumulation through game (1 test)
+- [ ] Implement single round flow (3 tests)
+- [ ] Implement turn sequencing within round (2 tests)
+- [ ] Implement dealer and first player tracking (3 tests)
+- [ ] Implement state persistence between turns (3 tests)
+- [ ] Implement edge cases (4 tests)
+- [ ] Implement contract enforcement per round (6 tests)
+- [ ] Implement complete game simulation (3 tests)
+- [ ] Implement game state at each phase (4 tests)
+- [ ] Implement roundHistory completeness (3 tests)
+- [ ] Implement error handling (3 tests)
+
+> IMPORTANT: Make sure to verify the game works as expected by playing through it manually using the CLI app.
 
 ---
 
