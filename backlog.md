@@ -7,8 +7,8 @@
 > Card types, deck creation, shuffle, deal, meld validation
 
 - [x] Card utility functions (`isWild`, `isNatural`, `getPointValue`)
-- [~] Deck creation (`createDeck`)
-- [ ] Shuffle function (`shuffle`)
+- [x] Deck creation (`createDeck`)
+- [~] Shuffle function (`shuffle`)
 - [ ] Deal function (`deal`)
 - [ ] Set validation (`isValidSet`)
 - [ ] Run validation (`isValidRun`)
