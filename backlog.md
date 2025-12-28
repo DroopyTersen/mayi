@@ -10,9 +10,14 @@
 - [x] Deck creation (`createDeck`)
 - [x] Shuffle function (`shuffle`)
 - [x] Deal function (`deal`)
-- [ ] Review specs/phase1-tests.md and and scaffold out all of those tests. Add tasks for implementing anything the tests cover that hasn't been tasked out in Phase 1 yet.
+- [x] Review specs/phase1-tests.md and scaffold out all tests (72 todo tests in meld.validation.test.ts)
+- [ ] Helper functions: `countWildsAndNaturals`, `wildsOutnumberNaturals`
 - [ ] Set validation (`isValidSet`)
 - [ ] Run validation (`isValidRun`)
+- [ ] Rank ordering utilities (`getRankValue`, `compareRanks`) — needed for run validation
+- [ ] Joker position identification (`identifyJokerPosition`, `canSwapJokerWithCard`)
+- [ ] Run extension helpers (`canExtendRun`, `canExtendSet`)
+- [ ] Hand scoring (`calculateHandScore`)
 
 ---
 
