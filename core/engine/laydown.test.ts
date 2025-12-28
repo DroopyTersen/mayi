@@ -1182,11 +1182,174 @@ describe("TurnMachine - LAY_DOWN command", () => {
   });
 
   describe("larger than minimum melds", () => {
-    it.todo("accepts 4-card set: (9C 9D 9H 9S)", () => {});
-    it.todo("accepts 5-card set: (9C 9D 9H 9S 9C) - duplicate from multi-deck", () => {});
-    it.todo("accepts 5-card run: (5S 6S 7S 8S 9S)", () => {});
-    it.todo("accepts 6+ card run: (5S 6S 7S 8S 9S 10S)", () => {});
-    it.todo("larger melds still count as 1 set or 1 run toward contract", () => {});
+    it("accepts 4-card set: (9C 9D 9H 9S)", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const nineS = card("9", "spades");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, nineS, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id, nineS.id] }, // 4-card set
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().context.table[0]!.cards.length).toBe(4);
+    });
+
+    it("accepts 5-card set: (9C 9D 9H 9S 9C) - duplicate from multi-deck", () => {
+      // In a multi-deck game, duplicate cards of same rank+suit can exist
+      const nineC1 = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const nineS = card("9", "spades");
+      const nineC2 = card("9", "clubs"); // Duplicate from second deck
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC1, nineD, nineH, nineS, nineC2, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC1.id, nineD.id, nineH.id, nineS.id, nineC2.id] }, // 5-card set
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().context.table[0]!.cards.length).toBe(5);
+    });
+
+    it("accepts 5-card run: (5S 6S 7S 8S 9S)", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+      const nineS = card("9", "spades");
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const extra = card("K", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, sixS, sevenS, eightS, nineS, nineC, nineD, nineH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, eightS.id, nineS.id] }, // 5-card run
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().context.table[1]!.cards.length).toBe(5);
+    });
+
+    it("accepts 6+ card run: (5S 6S 7S 8S 9S 10S)", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+      const nineS = card("9", "spades");
+      const tenS = card("10", "spades");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("Q", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [fiveS, sixS, sevenS, eightS, nineS, tenS, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, eightS.id, nineS.id, tenS.id] }, // 6-card run
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().context.table[1]!.cards.length).toBe(6);
+    });
+
+    it("larger melds still count as 1 set or 1 run toward contract", () => {
+      // Round 1 requires 2 sets. A 4-card set still counts as 1 set.
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const nineS = card("9", "spades");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const kingS = card("K", "spades");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, nineD, nineH, nineS, kingC, kingD, kingH, kingS, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Two 4-card sets satisfy the 2 sets contract
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id, nineS.id] }, // 4-card set counts as 1
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id, kingS.id] }, // 4-card set counts as 1
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+      // Contract is satisfied with 2 melds (even though they're larger than minimum)
+      expect(actor.getSnapshot().context.table.length).toBe(2);
+    });
   });
 
   describe("card removal from hand", () => {

@@ -121,7 +121,7 @@ Review specs/command-line-interface.md
 - [x] Implement successful lay down - Round 6 (2 tests)
 - [x] Fix typecheck errors
 - [x] Implement melds with wilds validation (7 tests)
-- [ ] Implement larger than minimum melds (5 tests)
+- [x] Implement larger than minimum melds (5 tests)
 - [ ] Implement card removal from hand (5 tests)
 - [ ] Implement meld ownership (3 tests)
 - [ ] Implement wrong number of melds rejection (5 tests)
