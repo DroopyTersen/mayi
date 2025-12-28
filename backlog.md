@@ -301,7 +301,7 @@ Review specs/command-line-interface.md
 
 - [x] Implement complete lay off turn flow (21 tests)
 - [x] Implement going out scenarios - rounds 1-5 (21 tests)
-- [ ] Implement going out scenarios - round 6 (31 tests)
+- [x] Implement going out scenarios - round 6 (31 tests)
 - [ ] Implement scoring integration (19 tests)
 - [ ] Implement edge cases (17 tests)
 - [ ] Fix typecheck errors
