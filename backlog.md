@@ -293,7 +293,7 @@ Review specs/command-line-interface.md
 - [x] Implement wentOut state (13 tests)
 - [x] Implement turnComplete vs wentOut (9 tests)
 - [x] Implement round 6 specific behavior (24 tests)
-- [ ] Implement going out detection (12 tests)
+- [x] Implement going out detection (12 tests)
 - [ ] Implement player not down behavior (11 tests)
 - [ ] Fix typecheck errors
 
