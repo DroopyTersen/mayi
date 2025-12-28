@@ -72,8 +72,7 @@ On your turn: 1. Draw exactly one card:
 • Starting on your next turn after laying down, you may:
 • Draw
 • Then add cards to any existing melds on the table (yours or others)
-• Then discard 
-5. Discard one card to end your turn:
+• Then discard 5. Discard one card to end your turn:
 • One card face up on the discard pile
 • Exception 1: You may go out without a discard in any round if you play all your cards to melds.
 • Exception 2: In Round 6, you CANNOT discard at all (see “Hand 6”).
@@ -100,20 +99,29 @@ Once you have laid down your contract, you lose the right to perform Joker swaps
 
 ⸻
 
-7. The “May I?” rule
+7. The "May I?" rule
 
-When a player finishes their turn by discarding a card: 1. The next player in order has the normal first choice to draw that discard on their turn. 2. If they do not take it, any other player may call out “May I?” to claim that discard out of turn.
+When May I? is available:
+• A May I? can only be called when a discard is "exposed" — sitting unclaimed on the discard pile.
+• If the current player draws from the discard pile, the card is gone and no May I? is possible.
+• If the current player draws from the stock pile, the top discard remains exposed and available for May I?.
 
-Effects of “May I?”:
-• The player who said “May I?”:
-• Takes the top discard into their hand
-• Also must draw 1 penalty card from the top of the stock
-• Does not get a turn right now; turn order does not change
+Calling May I?:
+• Any player (except the current player) may call "May I?" to claim the exposed discard.
+• The caller takes the discard AND draws 1 penalty card from the stock.
+• Turn order does not change; the caller simply has more cards now.
 
-No limit on how many “May I?” per hand.
-You can keep doing it as often as you want, as long as you accept the extra penalty card each time.
+Priority and vetoing:
+• When someone calls May I?, any player closer in turn order may veto by claiming the card instead.
+• The current player has first right of refusal — but only if they have not yet drawn from the stock.
+• If the current player vetoes: they take the discard as their draw (no penalty). This counts as their draw action; they cannot also draw from stock.
+• If a non-current player vetoes: they effectively May I? themselves — taking the discard plus 1 penalty card from stock.
+• Once the current player draws from stock, they forfeit the right to veto any May I? calls on that discard.
 
-If multiple players say “May I?” at once, priority goes to whoever is closest in turn order after the current player.
+Priority tiebreaker:
+• If multiple players call May I? simultaneously, priority goes to whoever is closest in turn order after the current player.
+
+No limit on May I? usage per hand.
 
 ⸻
 
