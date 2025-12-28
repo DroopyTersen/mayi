@@ -547,18 +547,18 @@ Review specs/command-line-interface.md
 - [x] Implement turn order verification (5 tests)
 - [x] Implement strategic scenarios (12 tests)
 
-### CLI May I (30 tests in cli/mayI.test.ts)
+### CLI May I (34 tests in cli/mayI.test.ts) ✓
 
-- [ ] Implement current player decision prompt (2 tests)
-- [ ] Implement current player decision with pending May I (3 tests)
-- [ ] Implement May I prompt for other players (3 tests)
-- [ ] Implement May I resolution display - single winner (3 tests)
-- [ ] Implement May I resolution display - priority winner (4 tests)
-- [ ] Implement May I veto display - current player (3 tests)
-- [ ] Implement May I veto display - non-current player (5 tests)
-- [ ] Implement no May I claims display (3 tests)
-- [ ] Implement AI May I summary (4 tests)
-- [ ] Implement AI veto summary (4 tests)
+- [x] Implement current player decision prompt (2 tests)
+- [x] Implement current player decision with pending May I (3 tests)
+- [x] Implement May I prompt for other players (3 tests)
+- [x] Implement May I resolution display - single winner (3 tests)
+- [x] Implement May I resolution display - priority winner (4 tests)
+- [x] Implement May I veto display - current player (3 tests)
+- [x] Implement May I veto display - non-current player (5 tests)
+- [x] Implement no May I claims display (3 tests)
+- [x] Implement AI May I summary (4 tests)
+- [x] Implement AI veto summary (4 tests)
 
 ---
 
