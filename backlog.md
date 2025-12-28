@@ -53,7 +53,8 @@
 - [x] Ensure REORDER_HAND works in any turn state (5 tests)
 - [x] Implement sort by rank functionality (3 tests)
 - [x] Implement sort by suit functionality (3 tests)
-- [ ] Implement move single card functionality (3 tests)
+- [x] Implement move single card functionality (3 tests)
+- [ ] Fix typecheck errors
 - [ ] Implement validation for reorder command (6 tests)
 - [ ] Handle edge cases (3 tests)
 - [ ] Fix typecheck errors
@@ -97,8 +98,7 @@
 
 > Break down when Phase 3 is complete
 
-- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2-tests.md, and do research to create a similar file, /specs/phase4-tests.md
-- [ ] Review specs/phase4-tests.md and and scaffold out all of those tests. Add tasks for PHase 4, centered around the tests.
+- [ ] Review specs/phase-4-tests.md and and scaffold out all of those tests. Add tasks for PHase 4, centered around the tests.
 
 ---
 

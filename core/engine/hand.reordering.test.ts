@@ -258,14 +258,51 @@ describe("REORDER_HAND command", () => {
   });
 
   describe("move single card", () => {
-    it.todo("can move card from position A to position B", () => {});
+    it("can move card from position A to position B", () => {
+      const card1 = card("3", "hearts");
+      const card2 = card("5", "diamonds");
+      const card3 = card("9", "clubs");
+      const hand = [card1, card2, card3];
+      const result = moveCard(hand, 0, 2);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand[2]).toEqual(card1);
+      }
+    });
 
-    it.todo("other cards shift appropriately", () => {});
+    it("other cards shift appropriately", () => {
+      const card1 = card("3", "hearts");
+      const card2 = card("5", "diamonds");
+      const card3 = card("9", "clubs");
+      const card4 = card("K", "spades");
+      const hand = [card1, card2, card3, card4];
+      // Move card from index 0 to index 2
+      const result = moveCard(hand, 0, 2);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // card2 and card3 shift left, card1 goes to index 2
+        expect(result.hand[0]).toEqual(card2);
+        expect(result.hand[1]).toEqual(card3);
+        expect(result.hand[2]).toEqual(card1);
+        expect(result.hand[3]).toEqual(card4);
+      }
+    });
 
-    it.todo(
-      "example: (3H 5D 9C) move pos 3 to pos 1 results in (9C 3H 5D)",
-      () => {}
-    );
+    it("example: (3H 5D 9C) move pos 3 to pos 1 results in (9C 3H 5D)", () => {
+      // Note: positions in test description are 1-indexed, but function uses 0-indexed
+      const c3H = card("3", "hearts");
+      const c5D = card("5", "diamonds");
+      const c9C = card("9", "clubs");
+      const hand = [c3H, c5D, c9C];
+      // Move index 2 (pos 3) to index 0 (pos 1)
+      const result = moveCard(hand, 2, 0);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand[0]).toEqual(c9C);
+        expect(result.hand[1]).toEqual(c3H);
+        expect(result.hand[2]).toEqual(c5D);
+      }
+    });
   });
 
   describe("validation", () => {
