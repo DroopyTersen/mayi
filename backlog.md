@@ -570,18 +570,21 @@ Review specs/command-line-interface.md
 > - You may only swap Jokers if you have NOT laid down yet this hand
 > - Once you lay down your contract, you lose the right to perform Joker swaps
 
-### Joker Position Identification (8 tests in jokerSwap.test.ts)
+### Joker Position Identification (14 tests in meld.joker.test.ts) ✓
 
-- [ ] Implement identifyJokerPositions - find Jokers in runs (3 tests)
-- [ ] Implement getCardForJokerPosition - what card could replace Joker (3 tests)
-- [ ] Implement canSwapJokerWithCard - validation (2 tests)
+> Already implemented in Phase 1!
 
-### Joker Swap Guards (12 tests in jokerSwap.guards.test.ts)
+- [x] Implement identifyJokerPositions - find Jokers in runs (7 tests)
+- [x] Implement canSwapJokerWithCard - validation (7 tests)
 
-- [ ] Implement notDownForJokerSwap guard (3 tests)
-- [ ] Implement validJokerSwap guard - run only (3 tests)
-- [ ] Implement validJokerSwap guard - card fits position (3 tests)
-- [ ] Implement validJokerSwap guard - player has card in hand (3 tests)
+### Joker Swap Guards (17 tests in jokerSwap.guards.test.ts) ✓
+
+- [x] Implement notDownForJokerSwap guard (3 tests)
+- [x] Implement validJokerSwap guard - run only (3 tests)
+- [x] Implement validJokerSwap guard - card fits position (3 tests)
+- [x] Implement validJokerSwap guard - player has card in hand (3 tests)
+- [x] Implement validJokerSwap guard - Joker only (3 tests)
+- [x] Implement canPerformJokerSwap composite guard (2 tests)
 
 ### SWAP_JOKER Command (18 tests in jokerSwap.command.test.ts)
 
