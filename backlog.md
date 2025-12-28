@@ -44,8 +44,8 @@
 - [x] Implement DRAW_FROM_DISCARD command (10 tests)
 - [x] Implement DISCARD command (13 tests)
 - [x] Implement invalid command handling (6 tests)
-- [ ] Implement turn output (5 tests)
-- [ ] Fix typecheck errors
+- [x] Implement turn output (5 tests)
+- [x] Fix typecheck errors
 
 ### Hand Reordering (28 tests in hand.reordering.test.ts)
 
