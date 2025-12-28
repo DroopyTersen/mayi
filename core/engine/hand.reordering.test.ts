@@ -208,11 +208,53 @@ describe("REORDER_HAND command", () => {
   });
 
   describe("sort by suit", () => {
-    it.todo("groups cards by suit", () => {});
+    it("groups cards by suit", () => {
+      const cH5 = card("5", "hearts");
+      const cS9 = card("9", "spades");
+      const cD3 = card("3", "diamonds");
+      const cC7 = card("7", "clubs");
+      const cHK = card("K", "hearts");
+      const cSA = card("A", "spades");
+      const hand = [cH5, cSA, cD3, cC7, cHK, cS9];
+      const sorted = sortHandBySuit(hand);
+      // Order: spades, hearts, diamonds, clubs
+      expect(sorted[0].suit).toBe("spades");
+      expect(sorted[1].suit).toBe("spades");
+      expect(sorted[2].suit).toBe("hearts");
+      expect(sorted[3].suit).toBe("hearts");
+      expect(sorted[4].suit).toBe("diamonds");
+      expect(sorted[5].suit).toBe("clubs");
+    });
 
-    it.todo("within suit, ordered by rank", () => {});
+    it("within suit, ordered by rank", () => {
+      const cH5 = card("5", "hearts");
+      const cHK = card("K", "hearts");
+      const cH9 = card("9", "hearts");
+      const cHA = card("A", "hearts");
+      const hand = [cH5, cHK, cH9, cHA];
+      const sorted = sortHandBySuit(hand);
+      // All hearts, ordered A, K, 9, 5
+      expect(sorted[0].rank).toBe("A");
+      expect(sorted[1].rank).toBe("K");
+      expect(sorted[2].rank).toBe("9");
+      expect(sorted[3].rank).toBe("5");
+    });
 
-    it.todo("wilds go at end", () => {});
+    it("wilds go at end", () => {
+      const cH5 = card("5", "hearts");
+      const cS9 = card("9", "spades");
+      const c2 = card("2", "diamonds");
+      const cJoker = joker();
+      const hand = [c2, cH5, cJoker, cS9];
+      const sorted = sortHandBySuit(hand);
+      // Naturals first (spades, then hearts), then wilds (2, Joker)
+      expect(sorted[0].rank).toBe("9");
+      expect(sorted[0].suit).toBe("spades");
+      expect(sorted[1].rank).toBe("5");
+      expect(sorted[1].suit).toBe("hearts");
+      expect(sorted[2].rank).toBe("2");
+      expect(sorted[3].rank).toBe("Joker");
+    });
   });
 
   describe("move single card", () => {

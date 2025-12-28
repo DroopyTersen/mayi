@@ -52,7 +52,7 @@
 - [x] Implement REORDER_HAND command basic functionality (5 tests)
 - [x] Ensure REORDER_HAND works in any turn state (5 tests)
 - [x] Implement sort by rank functionality (3 tests)
-- [ ] Implement sort by suit functionality (3 tests)
+- [x] Implement sort by suit functionality (3 tests)
 - [ ] Implement move single card functionality (3 tests)
 - [ ] Implement validation for reorder command (6 tests)
 - [ ] Handle edge cases (3 tests)
@@ -60,6 +60,7 @@
 
 ### Game Loop (17 tests in game.loop.test.ts)
 
+- [ ] Fix typecheck errors
 - [ ] Implement turn advancement (4 tests)
 - [ ] Implement state transfer between turns (4 tests)
 - [ ] Implement initial game setup (4 tests)
