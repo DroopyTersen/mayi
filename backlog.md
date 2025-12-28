@@ -655,9 +655,9 @@ Review specs/command-line-interface.md
 
 - [ ] `goingOut.test.ts:70` - Going out ends the round immediately
 - [ ] `goingOut.test.ts:74` - Other players score their remaining cards
-- [ ] `goingOut.test.ts:201` - Exception: go out on same turn as laying down
-- [ ] `goingOut.test.ts:314` - Round ends (via discard)
-- [ ] `goingOut.test.ts:459` - Round ends (via layoff)
+- [x] `goingOut.test.ts:201` - Exception: go out on same turn as laying down
+- [x] `goingOut.test.ts:314` - Round ends (via discard)
+- [x] `goingOut.test.ts:459` - Round ends (via layoff)
 - [ ] `goingOut.test.ts:5590` - Parent machine handles wentOut flag differently
 - [ ] `goingOut.test.ts:5596` - When turn outputs wentOut: true
 - [ ] `goingOut.test.ts:5599` - Round machine transitions to scoring state

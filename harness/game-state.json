@@ -3,7 +3,7 @@
   "gameId": "fd2c798a",
   "seed": null,
   "createdAt": "2025-12-28T21:32:20.601Z",
-  "updatedAt": "2025-12-28T21:52:28.213Z",
+  "updatedAt": "2025-12-28T21:55:06.776Z",
   "currentRound": 3,
   "contract": {
     "roundNumber": 3,
@@ -15,11 +15,6 @@
       "id": "player-0",
       "name": "Alice",
       "hand": [
-        {
-          "id": "card-11",
-          "suit": "hearts",
-          "rank": "3"
-        },
         {
           "id": "card-49",
           "suit": "spades",
@@ -74,6 +69,11 @@
           "id": "card-80",
           "suit": "clubs",
           "rank": "Q"
+        },
+        {
+          "id": "card-83",
+          "suit": "clubs",
+          "rank": "9"
         }
       ],
       "isDown": false,
@@ -109,11 +109,6 @@
           "rank": "6"
         },
         {
-          "id": "card-27",
-          "suit": "clubs",
-          "rank": "K"
-        },
-        {
           "id": "card-55",
           "suit": "hearts",
           "rank": "J"
@@ -129,14 +124,19 @@
           "rank": "A"
         },
         {
-          "id": "card-24",
-          "suit": "diamonds",
-          "rank": "3"
-        },
-        {
           "id": "card-7",
           "suit": "hearts",
           "rank": "7"
+        },
+        {
+          "id": "card-28",
+          "suit": "clubs",
+          "rank": "Q"
+        },
+        {
+          "id": "card-1",
+          "suit": "hearts",
+          "rank": "K"
         }
       ],
       "isDown": false,
@@ -152,11 +152,6 @@
           "rank": "2"
         },
         {
-          "id": "card-26",
-          "suit": "clubs",
-          "rank": "A"
-        },
-        {
           "id": "card-72",
           "suit": "diamonds",
           "rank": "7"
@@ -167,11 +162,6 @@
           "rank": "9"
         },
         {
-          "id": "card-91",
-          "suit": "spades",
-          "rank": "A"
-        },
-        {
           "id": "card-73",
           "suit": "diamonds",
           "rank": "6"
@@ -180,11 +170,6 @@
           "id": "card-58",
           "suit": "hearts",
           "rank": "8"
-        },
-        {
-          "id": "card-37",
-          "suit": "clubs",
-          "rank": "3"
         },
         {
           "id": "card-103",
@@ -200,6 +185,21 @@
           "id": "card-23",
           "suit": "diamonds",
           "rank": "4"
+        },
+        {
+          "id": "card-70",
+          "suit": "diamonds",
+          "rank": "9"
+        },
+        {
+          "id": "card-46",
+          "suit": "spades",
+          "rank": "7"
+        },
+        {
+          "id": "card-24",
+          "suit": "diamonds",
+          "rank": "3"
         }
       ],
       "isDown": false,
@@ -209,46 +209,6 @@
   "currentPlayerIndex": 0,
   "dealerIndex": 2,
   "stock": [
-    {
-      "id": "card-28",
-      "suit": "clubs",
-      "rank": "Q"
-    },
-    {
-      "id": "card-70",
-      "suit": "diamonds",
-      "rank": "9"
-    },
-    {
-      "id": "card-18",
-      "suit": "diamonds",
-      "rank": "9"
-    },
-    {
-      "id": "card-3",
-      "suit": "hearts",
-      "rank": "J"
-    },
-    {
-      "id": "card-46",
-      "suit": "spades",
-      "rank": "7"
-    },
-    {
-      "id": "card-69",
-      "suit": "diamonds",
-      "rank": "10"
-    },
-    {
-      "id": "card-1",
-      "suit": "hearts",
-      "rank": "K"
-    },
-    {
-      "id": "card-83",
-      "suit": "clubs",
-      "rank": "9"
-    },
     {
       "id": "card-2",
       "suit": "hearts",
@@ -577,6 +537,46 @@
   ],
   "discard": [
     {
+      "id": "card-91",
+      "suit": "spades",
+      "rank": "A"
+    },
+    {
+      "id": "card-69",
+      "suit": "diamonds",
+      "rank": "10"
+    },
+    {
+      "id": "card-37",
+      "suit": "clubs",
+      "rank": "3"
+    },
+    {
+      "id": "card-3",
+      "suit": "hearts",
+      "rank": "J"
+    },
+    {
+      "id": "card-18",
+      "suit": "diamonds",
+      "rank": "9"
+    },
+    {
+      "id": "card-26",
+      "suit": "clubs",
+      "rank": "A"
+    },
+    {
+      "id": "card-27",
+      "suit": "clubs",
+      "rank": "K"
+    },
+    {
+      "id": "card-11",
+      "suit": "hearts",
+      "rank": "3"
+    },
+    {
       "id": "card-10",
       "suit": "hearts",
       "rank": "4"
@@ -607,6 +607,6 @@
     "phase": "AWAITING_ACTION",
     "awaitingPlayerId": "player-0",
     "mayIContext": null,
-    "turnNumber": 36
+    "turnNumber": 45
   }
 }
