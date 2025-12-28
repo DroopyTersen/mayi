@@ -9,7 +9,8 @@
 - [x] Card utility functions (`isWild`, `isNatural`, `getPointValue`)
 - [x] Deck creation (`createDeck`)
 - [x] Shuffle function (`shuffle`)
-- [~] Deal function (`deal`)
+- [x] Deal function (`deal`)
+- [ ] Review specs/phase1-tests.md and and scaffold out all of those tests. Add tasks for implementing anything the tests cover that hasn't been tasked out in Phase 1 yet.
 - [ ] Set validation (`isValidSet`)
 - [ ] Run validation (`isValidRun`)
 
@@ -19,7 +20,7 @@
 
 > Break down when Phase 1 is complete
 
-- [ ] _Pending Phase 1 completion_
+- [ ] Review specs/phase2-tests.md and and scaffold out all of those tests. Add tasks for implementing Phase 2, centered around the tests.
 
 ---
 
@@ -27,7 +28,8 @@
 
 > Break down when Phase 2 is complete
 
-- [ ] _Pending Phase 2 completion_
+- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2-tests.md, and do research to create a similar file, /specs/phase3-tests.md
+- [ ] Review specs/phase3-tests.md and and scaffold out all of those tests. Add tasks for PHase 3, centered around the tests.
 
 ---
 
@@ -35,7 +37,8 @@
 
 > Break down when Phase 3 is complete
 
-- [ ] _Pending Phase 3 completion_
+- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2-tests.md, and do research to create a similar file, /specs/phase4-tests.md
+- [ ] Review specs/phase4-tests.md and and scaffold out all of those tests. Add tasks for PHase 4, centered around the tests.
 
 ---
 
@@ -43,7 +46,8 @@
 
 > Break down when Phase 4 is complete
 
-- [ ] _Pending Phase 4 completion_
+- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2-tests.md, and do research to create a similar file, /specs/phase5-tests.md
+- [ ] Review specs/phase5-tests.md and and scaffold out all of those tests. Add tasks for PHase 5, centered around the tests.
 
 ---
 
@@ -51,7 +55,8 @@
 
 > Break down when Phase 5 is complete
 
-- [ ] _Pending Phase 5 completion_
+- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2.md, and do research to create a similar file, /specs/phase6-tests.md
+- [ ] Review specs/phase6-tests.md and and scaffold out all of those tests. Add tasks for PHase 6, centered around the tests.
 
 ---
 
@@ -59,7 +64,8 @@
 
 > Break down when Phase 6 is complete
 
-- [ ] _Pending Phase 6 completion_
+- [ ] Look at what we did for /specs/phase1-tests.md and /specs/phase2.md, and do research to create a similar file, /specs/phase7-tests.md
+- [ ] Review specs/phase7-tests.md and and scaffold out all of those tests. Add tasks for PHase 7, centered around the tests.
 
 ---
 

@@ -73,3 +73,53 @@ export function shuffle(cards: Card[]): Card[] {
 
   return shuffled;
 }
+
+const CARDS_PER_HAND = 11;
+
+export interface DealResult {
+  hands: Card[][];
+  stock: Card[];
+  discard: Card[];
+}
+
+/**
+ * Deal cards to players for May I?
+ *
+ * - Each player receives 11 cards
+ * - Remaining cards form the stock pile
+ * - Top card from stock starts the discard pile
+ *
+ * Does not mutate the original deck.
+ */
+export function deal(deck: Card[], playerCount: number): DealResult {
+  const cardsNeeded = playerCount * CARDS_PER_HAND + 1; // +1 for initial discard
+
+  if (deck.length < cardsNeeded) {
+    throw new Error(
+      `Not enough cards to deal. Need ${cardsNeeded}, have ${deck.length}`
+    );
+  }
+
+  const cards = [...deck];
+
+  // Deal 11 cards to each player
+  const hands: Card[][] = [];
+  for (let p = 0; p < playerCount; p++) {
+    hands.push([]);
+  }
+
+  // Deal one card at a time to each player (round-robin style)
+  for (let cardNum = 0; cardNum < CARDS_PER_HAND; cardNum++) {
+    for (let p = 0; p < playerCount; p++) {
+      hands[p].push(cards.shift()!);
+    }
+  }
+
+  // Top card goes to discard pile
+  const discard = [cards.shift()!];
+
+  // Remaining cards form the stock
+  const stock = cards;
+
+  return { hands, stock, discard };
+}

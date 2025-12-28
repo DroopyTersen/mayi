@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { createDeck, shuffle } from "./card.deck";
+import { createDeck, shuffle, deal } from "./card.deck";
 import type { Card } from "./card.types";
 
 describe("createDeck", () => {
@@ -102,5 +102,114 @@ describe("shuffle", () => {
 
     // Check that at least one shuffle differs from original
     expect(ids1 !== idsOriginal || ids2 !== idsOriginal).toBe(true);
+  });
+});
+
+describe("deal", () => {
+  describe("hand distribution", () => {
+    it("deals 11 cards to each player", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+      const result = deal(deck, 4);
+
+      expect(result.hands.length).toBe(4);
+      for (const hand of result.hands) {
+        expect(hand.length).toBe(11);
+      }
+    });
+
+    it("works with 3 players", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+      const result = deal(deck, 3);
+
+      expect(result.hands.length).toBe(3);
+      for (const hand of result.hands) {
+        expect(hand.length).toBe(11);
+      }
+    });
+
+    it("works with 8 players (uses 3 decks)", () => {
+      const deck = createDeck({ deckCount: 3, jokerCount: 6 });
+      const result = deal(deck, 8);
+
+      expect(result.hands.length).toBe(8);
+      for (const hand of result.hands) {
+        expect(hand.length).toBe(11);
+      }
+    });
+  });
+
+  describe("stock pile", () => {
+    it("remaining cards form the stock pile", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 }); // 108 cards
+      const result = deal(deck, 4);
+
+      // 4 players * 11 cards = 44 dealt
+      // 1 card to discard
+      // 108 - 44 - 1 = 63 in stock
+      expect(result.stock.length).toBe(63);
+    });
+  });
+
+  describe("discard pile", () => {
+    it("starts discard pile with one card from top of stock", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+      const result = deal(deck, 4);
+
+      expect(result.discard.length).toBe(1);
+    });
+  });
+
+  describe("card distribution properties", () => {
+    it("does not mutate the original deck", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+      const original = [...deck];
+      deal(deck, 4);
+
+      expect(deck).toEqual(original);
+    });
+
+    it("all cards are accounted for (hands + stock + discard)", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+      const result = deal(deck, 4);
+
+      const allDealtCards = [
+        ...result.hands.flat(),
+        ...result.stock,
+        ...result.discard,
+      ];
+
+      expect(allDealtCards.length).toBe(deck.length);
+
+      // Verify all card IDs are present
+      const originalIds = new Set(deck.map((c) => c.id));
+      const dealtIds = new Set(allDealtCards.map((c) => c.id));
+      expect(dealtIds).toEqual(originalIds);
+    });
+
+    it("each card appears in exactly one location", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+      const result = deal(deck, 4);
+
+      const allDealtCards = [
+        ...result.hands.flat(),
+        ...result.stock,
+        ...result.discard,
+      ];
+
+      const ids = allDealtCards.map((c) => c.id);
+      const uniqueIds = new Set(ids);
+
+      // No duplicates
+      expect(uniqueIds.size).toBe(ids.length);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("throws error if not enough cards for all players", () => {
+      const deck = createDeck({ deckCount: 1, jokerCount: 0 }); // 52 cards
+      // 5 players * 11 cards = 55 cards needed (plus 1 for discard)
+
+      expect(() => deal(deck, 5)).toThrow();
+    });
   });
 });
