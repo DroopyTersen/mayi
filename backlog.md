@@ -649,7 +649,7 @@ Review specs/command-line-interface.md
 - [ ] `stockDepletion.test.ts:238` - Game continues normally after reshuffle
 - [ ] `stockDepletion.test.ts:284` - Round ends immediately when reshuffle impossible
 
-### Going Out Tests (11 tests)
+### Going Out Tests (11 tests) ✓
 
 > Tests for going out scenarios and round endings
 
@@ -658,11 +658,11 @@ Review specs/command-line-interface.md
 - [x] `goingOut.test.ts:201` - Exception: go out on same turn as laying down
 - [x] `goingOut.test.ts:314` - Round ends (via discard)
 - [x] `goingOut.test.ts:459` - Round ends (via layoff)
-- [ ] `goingOut.test.ts:5590` - Parent machine handles wentOut flag differently
-- [ ] `goingOut.test.ts:5596` - When turn outputs wentOut: true
-- [ ] `goingOut.test.ts:5599` - Round machine transitions to scoring state
-- [ ] `goingOut.test.ts:5602` - No more turns for any player
-- [ ] `goingOut.test.ts:5605` - Scoring begins immediately
+- [x] `goingOut.test.ts:5590` - Parent machine handles wentOut flag differently
+- [x] `goingOut.test.ts:5596` - When turn outputs wentOut: true
+- [x] `goingOut.test.ts:5599` - Round machine transitions to scoring state
+- [x] `goingOut.test.ts:5602` - No more turns for any player
+- [x] `goingOut.test.ts:5605` - Scoring begins immediately
 
 ### Round End & Scoring Tests (6 tests) ✓
 
