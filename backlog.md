@@ -88,7 +88,7 @@ Review specs/command-line-interface.md
 
 ### Overall Rule Verification
 
-- [ ] Review the /specs/house-rules.md and make sure everything we've implemented is valid according to the rules.
+- [x] Review the /specs/house-rules.md and make sure everything we've implemented is valid according to the rules.
 
 ---
 
@@ -156,6 +156,7 @@ _(none yet)_
 ## Completed Phases
 
 - **Phase 1** (Card Foundation) — v0.1.0
+- **Phase 2** (Minimal Playable Turn) — v0.2.0
 
 ---
 
