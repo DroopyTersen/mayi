@@ -1,5 +1,11 @@
 import { describe, it, expect } from "bun:test";
-import { canLayOffCard, canLayOffToSet, canLayOffToRun } from "./layoff";
+import {
+  canLayOffCard,
+  canLayOffToSet,
+  canLayOffToRun,
+  validateCardOwnership,
+  getCardFromHand,
+} from "./layoff";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 
@@ -468,11 +474,41 @@ describe("canLayOffCard guard", () => {
   });
 
   describe("card ownership for lay off", () => {
-    it.todo("card must be in current player's hand", () => {});
-    it.todo("cannot lay off card not in hand", () => {});
-    it.todo("cannot lay off card from another player's hand", () => {});
-    it.todo("cannot lay off card already on table", () => {});
-    it.todo("cardId must exist", () => {});
+    it("card must be in current player's hand", () => {
+      const myCard = card("9", "spades");
+      const hand = [myCard, card("K", "hearts"), card("5", "diamonds")];
+      const result = validateCardOwnership(myCard.id, hand);
+      expect(result).toEqual({ valid: true });
+    });
+
+    it("cannot lay off card not in hand", () => {
+      const notMyCard = card("9", "spades");
+      const hand = [card("K", "hearts"), card("5", "diamonds")];
+      const result = validateCardOwnership(notMyCard.id, hand);
+      expect(result).toEqual({ valid: false, reason: "card_not_in_hand" });
+    });
+
+    it("cannot lay off card from another player's hand", () => {
+      // Another player's card has a different id
+      const otherPlayerCard = card("9", "spades");
+      const myHand = [card("9", "spades"), card("K", "hearts")]; // Same rank/suit but different id
+      const result = validateCardOwnership(otherPlayerCard.id, myHand);
+      expect(result).toEqual({ valid: false, reason: "card_not_in_hand" });
+    });
+
+    it("cannot lay off card already on table", () => {
+      // A card on the table has a specific id that won't be in hand
+      const cardOnTable = card("9", "spades");
+      const hand = [card("K", "hearts"), card("5", "diamonds")];
+      const result = validateCardOwnership(cardOnTable.id, hand);
+      expect(result).toEqual({ valid: false, reason: "card_not_in_hand" });
+    });
+
+    it("cardId must exist", () => {
+      const hand = [card("K", "hearts"), card("5", "diamonds")];
+      const result = validateCardOwnership("", hand);
+      expect(result).toEqual({ valid: false, reason: "card_id_required" });
+    });
   });
 
   describe("meld ownership - anyone can add to any meld", () => {

@@ -12,6 +12,47 @@ import { isWild, getRankValue } from "../card/card.utils";
 import { countWildsAndNaturals } from "../meld/meld.validation";
 
 /**
+ * Result of validating card ownership for lay off.
+ */
+export type CardOwnershipResult =
+  | { valid: true }
+  | { valid: false; reason: "card_not_in_hand" | "card_id_required" };
+
+/**
+ * Validates that a card is in the player's hand and can be laid off.
+ *
+ * @param cardId - The ID of the card to lay off
+ * @param hand - The player's current hand
+ * @returns Object with valid: true if card is in hand, or valid: false with reason
+ */
+export function validateCardOwnership(
+  cardId: string,
+  hand: Card[]
+): CardOwnershipResult {
+  if (!cardId) {
+    return { valid: false, reason: "card_id_required" };
+  }
+
+  const cardInHand = hand.find((c) => c.id === cardId);
+  if (!cardInHand) {
+    return { valid: false, reason: "card_not_in_hand" };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Gets a card from the player's hand by ID.
+ *
+ * @param cardId - The ID of the card to find
+ * @param hand - The player's current hand
+ * @returns The card if found, undefined otherwise
+ */
+export function getCardFromHand(cardId: string, hand: Card[]): Card | undefined {
+  return hand.find((c) => c.id === cardId);
+}
+
+/**
  * Context needed for lay off guard evaluation
  */
 export interface LayOffContext {
