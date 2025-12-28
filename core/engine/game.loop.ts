@@ -59,7 +59,7 @@ export function setupRound(state: GameState): GameState {
 
 /**
  * Applies the output from a completed turn to update the game state
- * Updates the player's hand, stock, and discard piles
+ * Updates the player's hand, stock, discard, table, and isDown status
  */
 export function applyTurnOutput(state: GameState, output: TurnOutput): GameState {
   const playerIndex = state.players.findIndex((p) => p.id === output.playerId);
@@ -69,7 +69,7 @@ export function applyTurnOutput(state: GameState, output: TurnOutput): GameState
 
   const updatedPlayers = state.players.map((player, index) => {
     if (index === playerIndex) {
-      return { ...player, hand: output.hand };
+      return { ...player, hand: output.hand, isDown: output.isDown };
     }
     return player;
   });
@@ -79,6 +79,7 @@ export function applyTurnOutput(state: GameState, output: TurnOutput): GameState
     players: updatedPlayers,
     stock: output.stock,
     discard: output.discard,
+    table: output.table,
     updatedAt: new Date().toISOString(),
   };
 }

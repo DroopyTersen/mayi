@@ -140,17 +140,17 @@ Review specs/command-line-interface.md
 
 ### Table Management (17 tests in table.test.ts)
 
-- [ ] Fix typecheck errors
-- [ ] Implement table initial state (2 tests)
-- [ ] Implement table after first player lays down (3 tests)
-- [ ] Implement table after multiple players lay down (4 tests)
-- [ ] Implement table persistence across turns (3 tests)
-- [ ] Fix typecheck errors
-- [ ] Implement isDown initial state (2 tests)
-- [ ] Implement isDown after laying down (3 tests)
-- [ ] Implement multiple players down tracking (3 tests)
+- [x] Fix typecheck errors
+- [x] Implement table initial state (2 tests)
+- [x] Implement table after first player lays down (3 tests)
+- [x] Implement table after multiple players lay down (4 tests)
+- [x] Implement table persistence across turns (3 tests)
+- [x] Fix typecheck errors
+- [x] Implement isDown initial state (2 tests)
+- [x] Implement isDown after laying down (3 tests)
+- [x] Implement multiple players down tracking (3 tests)
 - [ ] Implement round transition isDown reset (1 test)
-- [ ] Fix typecheck errors
+- [x] Fix typecheck errors
 
 ### Guards (39 tests in guards.test.ts)
 
