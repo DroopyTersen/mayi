@@ -641,9 +641,116 @@ describe("going out - rounds 1-5", () => {
   });
 
   describe("sequence to go out via lay off", () => {
-    it.todo("given: player is down, has 3 cards after drawing", () => {});
-    it.todo("when: player lays off all 3 cards to valid melds", () => {});
-    it.todo("then: player has 0 cards, went out, no discard occurs, round ends immediately", () => {});
+    // Setup melds that can accept all cards
+    const setMeld = createMeld("set", [
+      card("9", "clubs"),
+      card("9", "diamonds"),
+      card("9", "hearts"),
+    ]);
+    const kingMeld = createMeld("set", [
+      card("K", "clubs"),
+      card("K", "diamonds"),
+      card("K", "hearts"),
+    ]);
+    const aceMeld = createMeld("set", [
+      card("A", "clubs"),
+      card("A", "diamonds"),
+      card("A", "hearts"),
+    ]);
+
+    it("given: player is down, has 3 cards after drawing", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [card("A", "spades")], // A♠ can be laid off to aceMeld
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld, aceMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // After drawing, player has 3 cards - all can be laid off
+      expect(actor.getSnapshot().context.hand.length).toBe(3);
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
+
+    it("when: player lays off all 3 cards to valid melds", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+      const aS = card("A", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [aS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld, aceMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      // 3 cards: nineS, kS, aS
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: kingMeld.id });
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+
+      // Get the A♠ from hand
+      const aceCard = actor.getSnapshot().context.hand.find((c) => c.rank === "A");
+      actor.send({ type: "LAY_OFF", cardId: aceCard!.id, meldId: aceMeld.id });
+
+      // All cards laid off
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+    });
+
+    it("then: player has 0 cards, went out, no discard occurs, round ends immediately", () => {
+      const nineS = card("9", "spades");
+      const kS = card("K", "spades");
+      const aS = card("A", "spades");
+
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, kS],
+        stock: [aS],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: false,
+        table: [setMeld, kingMeld, aceMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+      actor.send({ type: "LAY_OFF", cardId: kS.id, meldId: kingMeld.id });
+
+      const aceCard = actor.getSnapshot().context.hand.find((c) => c.rank === "A");
+      actor.send({ type: "LAY_OFF", cardId: aceCard!.id, meldId: aceMeld.id });
+
+      // Player went out immediately - no need for SKIP_LAY_DOWN or DISCARD
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      expect(actor.getSnapshot().value).toBe("wentOut");
+
+      // Discard pile is unchanged (no discard occurred)
+      expect(actor.getSnapshot().context.discard.length).toBe(1);
+      expect(actor.getSnapshot().context.discard[0]!.rank).toBe("5");
+    });
   });
 
   describe("player choice - discard or lay off", () => {
