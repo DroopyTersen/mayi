@@ -1,9 +1,14 @@
 import { describe, it, expect } from "bun:test";
 import { createActor } from "xstate";
 import { turnMachine, type TurnOutput } from "./turn.machine";
-import type { RoundNumber } from "./engine.types";
+import type { RoundNumber, RoundRecord } from "./engine.types";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
+import {
+  processRoundEnd,
+  type RoundEndInput,
+  type RoundEndResult,
+} from "./roundEnd.engine";
 
 /**
  * Phase 4: Round End Tests
@@ -299,12 +304,143 @@ describe("round end trigger", () => {
 
 describe("round end processing", () => {
   describe("sequence of operations", () => {
-    it.todo("1. Identify winner (player who went out)", () => {});
-    it.todo("2. Calculate each player's hand score", () => {});
-    it.todo("3. Create RoundRecord", () => {});
-    it.todo("4. Update total scores", () => {});
-    it.todo("5. Add record to roundHistory", () => {});
-    it.todo("6. Determine next action (next round or game end)", () => {});
+    it("1. Identify winner (player who went out)", () => {
+      // The winner is the player who went out (empty hand)
+      const input: RoundEndInput = {
+        roundNumber: 1 as RoundNumber,
+        winnerId: "player-2",
+        players: [
+          { id: "player-1", hand: [card("K", "hearts"), card("Q", "spades")] },
+          { id: "player-2", hand: [] }, // winner
+          { id: "player-3", hand: [card("5", "diamonds")] },
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0, "player-3": 0 },
+      };
+
+      const result = processRoundEnd(input);
+
+      expect(result.roundRecord.winnerId).toBe("player-2");
+    });
+
+    it("2. Calculate each player's hand score", () => {
+      // Each player's hand is scored based on card values
+      const input: RoundEndInput = {
+        roundNumber: 2 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] }, // winner
+          { id: "player-2", hand: [card("K", "hearts"), card("Q", "spades")] }, // 10 + 10 = 20
+          { id: "player-3", hand: [card("5", "diamonds"), card("3", "clubs")] }, // 5 + 3 = 8
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0, "player-3": 0 },
+      };
+
+      const result = processRoundEnd(input);
+
+      expect(result.roundRecord.scores["player-1"]).toBe(0); // winner
+      expect(result.roundRecord.scores["player-2"]).toBe(20);
+      expect(result.roundRecord.scores["player-3"]).toBe(8);
+    });
+
+    it("3. Create RoundRecord", () => {
+      // A RoundRecord is created with roundNumber, scores, winnerId
+      const input: RoundEndInput = {
+        roundNumber: 3 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] },
+          { id: "player-2", hand: [card("A", "hearts")] }, // 15
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0 },
+      };
+
+      const result = processRoundEnd(input);
+
+      const record = result.roundRecord;
+      expect(record.roundNumber).toBe(3);
+      expect(record.winnerId).toBe("player-1");
+      expect(record.scores).toEqual({ "player-1": 0, "player-2": 15 });
+    });
+
+    it("4. Update total scores", () => {
+      // Total scores are accumulated from previous totals + round scores
+      const input: RoundEndInput = {
+        roundNumber: 2 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] },
+          { id: "player-2", hand: [card("10", "hearts")] }, // 10
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 50, "player-2": 30 }, // from previous rounds
+      };
+
+      const result = processRoundEnd(input);
+
+      expect(result.updatedTotalScores["player-1"]).toBe(50 + 0); // winner
+      expect(result.updatedTotalScores["player-2"]).toBe(30 + 10);
+    });
+
+    it("5. Add record to roundHistory", () => {
+      // The new record is appended to round history
+      const existingRecord: RoundRecord = {
+        roundNumber: 1,
+        winnerId: "player-2",
+        scores: { "player-1": 25, "player-2": 0 },
+      };
+
+      const input: RoundEndInput = {
+        roundNumber: 2 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] },
+          { id: "player-2", hand: [card("7", "clubs")] }, // 5
+        ],
+        previousRoundHistory: [existingRecord],
+        previousTotalScores: { "player-1": 25, "player-2": 0 },
+      };
+
+      const result = processRoundEnd(input);
+
+      expect(result.updatedRoundHistory.length).toBe(2);
+      expect(result.updatedRoundHistory[0]).toEqual(existingRecord);
+      expect(result.updatedRoundHistory[1]!.roundNumber).toBe(2);
+    });
+
+    it("6. Determine next action (next round or game end)", () => {
+      // After rounds 1-5: continue to next round
+      // After round 6: game ends
+      const inputRound5: RoundEndInput = {
+        roundNumber: 5 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] },
+          { id: "player-2", hand: [card("2", "hearts")] },
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0 },
+      };
+
+      const resultRound5 = processRoundEnd(inputRound5);
+      expect(resultRound5.nextAction).toBe("nextRound");
+
+      const inputRound6: RoundEndInput = {
+        roundNumber: 6 as RoundNumber,
+        winnerId: "player-1",
+        players: [
+          { id: "player-1", hand: [] },
+          { id: "player-2", hand: [card("2", "hearts")] },
+        ],
+        previousRoundHistory: [],
+        previousTotalScores: { "player-1": 0, "player-2": 0 },
+      };
+
+      const resultRound6 = processRoundEnd(inputRound6);
+      expect(resultRound6.nextAction).toBe("gameEnd");
+    });
   });
 
   describe("all players scored", () => {

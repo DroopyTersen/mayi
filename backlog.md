@@ -280,7 +280,7 @@ Review specs/command-line-interface.md
 ### Round End (64 tests in roundEnd.test.ts)
 
 - [x] Implement round end trigger (7 tests)
-- [ ] Implement round end processing (6 tests)
+- [x] Implement round end processing (6 tests)
 - [ ] Implement RoundRecord (8 tests)
 - [ ] Implement round transition - to next round (14 tests)
 - [ ] Implement round transition - to game end (6 tests)
