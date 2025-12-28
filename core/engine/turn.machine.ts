@@ -42,6 +42,8 @@ export interface TurnContext {
   isDown: boolean;
   laidDownThisTurn: boolean;
   table: Meld[];
+  /** Error message from last failed operation */
+  lastError: string | null;
 }
 
 /**
@@ -319,6 +321,72 @@ export const turnMachine = setup({
     },
   },
   actions: {
+    clearError: assign({
+      lastError: () => null,
+    }),
+    setLayDownError: assign({
+      lastError: ({ context, event }) => {
+        if (event.type !== "LAY_DOWN") return "invalid event";
+        if (context.isDown) return "already laid down this round";
+        // Check card ownership
+        for (const proposal of event.melds) {
+          for (const cardId of proposal.cardIds) {
+            if (!context.hand.find((c) => c.id === cardId)) {
+              return "card not in hand";
+            }
+          }
+        }
+        // Check contract
+        const contract = CONTRACTS[context.roundNumber];
+        const setsNeeded = contract.sets;
+        const runsNeeded = contract.runs;
+        const setsProvided = event.melds.filter((m) => m.type === "set").length;
+        const runsProvided = event.melds.filter((m) => m.type === "run").length;
+        if (setsProvided !== setsNeeded || runsProvided !== runsNeeded) {
+          return `contract requires ${setsNeeded} set(s) and ${runsNeeded} run(s)`;
+        }
+        // Check which specific meld is invalid
+        for (let i = 0; i < event.melds.length; i++) {
+          const proposal = event.melds[i]!;
+          const cards = proposal.cardIds
+            .map((id) => context.hand.find((c) => c.id === id))
+            .filter((c): c is Card => c !== undefined);
+          if (proposal.type === "set" && !isValidSet(cards)) {
+            return `meld ${i + 1} is not a valid set`;
+          }
+          if (proposal.type === "run" && !isValidRun(cards)) {
+            return `meld ${i + 1} is not a valid run`;
+          }
+        }
+        return "invalid melds";
+      },
+    }),
+    setLayOffError: assign({
+      lastError: ({ context, event }) => {
+        if (event.type !== "LAY_OFF") return "invalid event";
+        if (!context.isDown) return "must be down from a previous turn to lay off";
+        if (context.laidDownThisTurn) return "cannot lay off on same turn as laying down";
+        if (!context.hand.find((c) => c.id === event.cardId)) return "card not in hand";
+        if (!context.table.find((m) => m.id === event.meldId)) return "meld not found";
+        // Card doesn't fit
+        const card = context.hand.find((c) => c.id === event.cardId);
+        const meld = context.table.find((m) => m.id === event.meldId);
+        if (card && meld) {
+          if (meld.type === "set" && !canLayOffToSet(card, meld)) {
+            // Check if it's a wild ratio issue
+            const naturals = meld.cards.filter((c) => c.rank !== "2" && c.rank !== "Joker").length;
+            const wilds = meld.cards.filter((c) => c.rank === "2" || c.rank === "Joker").length + (card.rank === "2" || card.rank === "Joker" ? 1 : 0);
+            if (wilds > naturals) {
+              return "would make wilds outnumber naturals";
+            }
+          }
+          if (meld.type === "run" && !canLayOffToRun(card, meld)) {
+            return "card does not fit this meld";
+          }
+        }
+        return "card does not fit this meld";
+      },
+    }),
     drawFromStock: assign({
       hand: ({ context }) => {
         const topCard = context.stock[0];
@@ -477,6 +545,7 @@ export const turnMachine = setup({
     isDown: input.isDown,
     laidDownThisTurn: input.laidDownThisTurn ?? false,
     table: input.table,
+    lastError: null,
   }),
   output: ({ context }) => ({
     playerId: context.playerId,
@@ -512,7 +581,7 @@ export const turnMachine = setup({
             // If laying down uses all cards and is valid, go out immediately
             guard: "canLayDownAndGoOut",
             target: "wentOut",
-            actions: "layDown",
+            actions: ["layDown", "clearError"],
           },
           {
             // Round 6: after laying down, stay in drawn to allow lay offs
@@ -556,19 +625,29 @@ export const turnMachine = setup({
               return result.valid;
             },
             target: "drawn", // Stay in drawn for round 6
-            actions: "layDown",
+            actions: ["layDown", "clearError"],
           },
           {
             guard: "canLayDown",
             target: "awaitingDiscard",
-            actions: "layDown",
+            actions: ["layDown", "clearError"],
+          },
+          {
+            // Fallback: set error when all guards fail
+            actions: "setLayDownError",
           },
         ],
-        LAY_OFF: {
-          guard: "canLayOff",
-          target: "drawn", // Stay in drawn state to allow more lay offs
-          actions: "layOff",
-        },
+        LAY_OFF: [
+          {
+            guard: "canLayOff",
+            target: "drawn", // Stay in drawn state to allow more lay offs
+            actions: ["layOff", "clearError"],
+          },
+          {
+            // Fallback: set error when guard fails
+            actions: "setLayOffError",
+          },
+        ],
         SWAP_JOKER: {
           guard: "canSwapJoker",
           target: "drawn", // Stay in drawn state after swap

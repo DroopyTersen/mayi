@@ -1294,12 +1294,60 @@ describe("LAY_OFF rejection", () => {
       expect(actor.getSnapshot().value).toBe("awaitingDraw");
     });
 
-    it.todo("error message: 'must be down from a previous turn to lay off'", () => {
-      // Error messages require custom error handling in the machine
+    it("error message: 'must be down from a previous turn to lay off'", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player is NOT down
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, card("K", "hearts")],
+        stock: [card("K", "spades"), card("Q", "hearts")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().context.lastError).toBe("must be down from a previous turn to lay off");
     });
 
-    it.todo("error message: 'cannot lay off on same turn as laying down'", () => {
-      // Error messages require custom error handling in the machine
+    it("error message: 'cannot lay off on same turn as laying down'", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player IS down but laid down THIS turn
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, card("K", "hearts")],
+        stock: [card("K", "spades"), card("Q", "hearts")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: true, // Just laid down this turn
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().context.lastError).toBe("cannot lay off on same turn as laying down");
     });
 
     it("state unchanged on rejection", () => {
@@ -1387,7 +1435,23 @@ describe("LAY_OFF rejection", () => {
       expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
     });
 
-    it.todo("error message: 'card not in hand'", () => {});
+    it("error message: 'card not in hand'", () => {
+      const nineS = card("9", "spades");
+      const notInHand = card("9", "hearts"); // Different card, not in hand
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: notInHand.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().context.lastError).toBe("card not in hand");
+    });
   });
 
   describe("invalid meld rejections", () => {
@@ -1411,7 +1475,22 @@ describe("LAY_OFF rejection", () => {
       expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
     });
 
-    it.todo("error message: 'meld not found'", () => {});
+    it("error message: 'meld not found'", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: "non-existent-meld-id" });
+
+      expect(actor.getSnapshot().context.lastError).toBe("meld not found");
+    });
   });
 
   describe("card doesn't fit meld rejections", () => {
@@ -1477,7 +1556,22 @@ describe("LAY_OFF rejection", () => {
       expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
     });
 
-    it.todo("error message: 'card does not fit this meld'", () => {});
+    it("error message: 'card does not fit this meld'", () => {
+      const kingH = card("K", "hearts");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([kingH, card("5", "diamonds")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: kingH.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().context.lastError).toBe("card does not fit this meld");
+    });
   });
 
   describe("wild ratio rejections", () => {
@@ -1503,6 +1597,23 @@ describe("LAY_OFF rejection", () => {
       expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
     });
 
-    it.todo("error message: 'would make wilds outnumber naturals'", () => {});
+    it("error message: 'would make wilds outnumber naturals'", () => {
+      const myJoker = joker();
+      // Set with 2 naturals and 2 wilds - adding another wild would make 2 natural, 3 wild
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        joker(),
+        card("2", "hearts"), // 2 is wild
+      ]);
+
+      const input = createTurnInputForLayOff([myJoker, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: myJoker.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().context.lastError).toBe("would make wilds outnumber naturals");
+    });
   });
 });

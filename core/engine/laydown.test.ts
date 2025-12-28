@@ -1805,9 +1805,39 @@ describe("TurnMachine - invalid LAY_DOWN scenarios", () => {
       expect(actor.getSnapshot().context.isDown).toBe(false);
     });
 
-    it.todo("provides clear error message about contract requirement", () => {
-      // Note: This test requires error messaging support in the TurnMachine
-      // which is not yet implemented. Add to discovered tasks.
+    it("provides clear error message about contract requirement", () => {
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+      const threeH = card("3", "hearts");
+      const fourH = card("4", "hearts");
+      const fiveH = card("5", "hearts");
+      const sixH = card("6", "hearts");
+      const extra = card("K", "clubs");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // Round 2 requires 1 set + 1 run
+        hand: [fiveS, sixS, sevenS, eightS, threeH, fourH, fiveH, sixH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Try to lay down 2 runs (round 2 requires 1 set + 1 run)
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "run" as const, cardIds: [fiveS.id, sixS.id, sevenS.id, eightS.id] },
+          { type: "run" as const, cardIds: [threeH.id, fourH.id, fiveH.id, sixH.id] },
+        ],
+      });
+
+      // Error message should mention the contract requirement
+      expect(actor.getSnapshot().context.lastError).toContain("contract requires");
+      expect(actor.getSnapshot().context.lastError).toContain("1 set");
+      expect(actor.getSnapshot().context.lastError).toContain("1 run");
     });
   });
 
@@ -2039,9 +2069,35 @@ describe("TurnMachine - invalid LAY_DOWN scenarios", () => {
       expect(actor.getSnapshot().context.hand).toEqual(handBefore);
     });
 
-    it.todo("provides specific error about which meld is invalid", () => {
-      // Note: This test requires error messaging support in the TurnMachine
-      // which is not yet implemented. Add to discovered tasks.
+    it("provides specific error about which meld is invalid", () => {
+      const nineC = card("9", "clubs");
+      const tenD = card("10", "diamonds"); // Different rank - invalid for set
+      const jackH = card("J", "hearts"); // Different rank - invalid for set
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        hand: [nineC, tenD, jackH, kingC, kingD, kingH, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, tenD.id, jackH.id] }, // Invalid: different ranks
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] }, // Valid set
+        ],
+      });
+
+      // Error message should indicate which meld is invalid (meld 1)
+      expect(actor.getSnapshot().context.lastError).toContain("meld 1");
+      expect(actor.getSnapshot().context.lastError).toContain("valid set");
     });
   });
 
@@ -2355,9 +2411,41 @@ describe("TurnMachine - invalid LAY_DOWN scenarios", () => {
       expect(actor.getSnapshot().context.table.length).toBe(tableBefore); // No new melds
     });
 
-    it.todo("error message: already laid down this round", () => {
-      // Note: This test requires error messaging support in the TurnMachine
-      // which is not yet implemented. Add to discovered tasks.
+    it("error message: already laid down this round", () => {
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const kingC = card("K", "clubs");
+      const kingD = card("K", "diamonds");
+      const kingH = card("K", "hearts");
+      const extra = card("5", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 1 as const,
+        isDown: true, // Already down
+        hand: [nineC, nineD, nineH, kingC, kingD, kingH, extra],
+        table: [{
+          id: "existing-meld",
+          type: "set" as const,
+          cards: [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")],
+          ownerId: "player-1",
+        }],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set" as const, cardIds: [kingC.id, kingD.id, kingH.id] },
+        ],
+      });
+
+      // Error message should indicate already laid down
+      expect(actor.getSnapshot().context.lastError).toBe("already laid down this round");
     });
   });
 });

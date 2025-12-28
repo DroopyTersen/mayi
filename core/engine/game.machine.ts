@@ -23,6 +23,8 @@ export interface GameContext {
   dealerIndex: number;
   roundHistory: RoundRecord[];
   winners: string[]; // Player IDs of winners (determined at game end)
+  /** Error message from last failed operation */
+  lastError: string | null;
 }
 
 /**
@@ -108,6 +110,17 @@ export const gameMachine = setup({
         return context.players.filter((p) => p.totalScore === minScore).map((p) => p.id);
       },
     }),
+    clearError: assign({
+      lastError: () => null,
+    }),
+    setStartGameError: assign({
+      lastError: ({ context }) => {
+        if (context.players.length < 3) {
+          return "minimum 3 players required";
+        }
+        return null;
+      },
+    }),
   },
 }).createMachine({
   id: "game",
@@ -119,6 +132,7 @@ export const gameMachine = setup({
     dealerIndex: 0,
     roundHistory: [],
     winners: [],
+    lastError: null,
   },
   output: ({ context }) => ({
     finalScores: Object.fromEntries(context.players.map((p) => [p.id, p.totalScore])),
@@ -132,11 +146,17 @@ export const gameMachine = setup({
           guard: ({ context }) => context.players.length < 8,
           actions: "addPlayer",
         },
-        START_GAME: {
-          guard: "hasMinPlayers",
-          target: "playing",
-          actions: "initializePlayers",
-        },
+        START_GAME: [
+          {
+            guard: "hasMinPlayers",
+            target: "playing",
+            actions: ["initializePlayers", "clearError"],
+          },
+          {
+            // Fallback: set error when guard fails
+            actions: "setStartGameError",
+          },
+        ],
       },
     },
     playing: {

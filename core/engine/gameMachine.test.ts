@@ -217,7 +217,14 @@ describe("GameMachine - setup state", () => {
       actor.stop();
     });
 
-    it.todo("error message: 'minimum 3 players required'", () => {});
+    it("error message: 'minimum 3 players required'", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "START_GAME" });
+      expect(actor.getSnapshot().context.lastError).toBe("minimum 3 players required");
+      actor.stop();
+    });
 
     it("remains in 'setup' state on rejection", () => {
       const actor = createActor(gameMachine).start();

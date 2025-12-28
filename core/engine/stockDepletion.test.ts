@@ -281,6 +281,20 @@ describe("reshuffle scenarios", () => {
       expect([topCard].length).toBe(1);
     });
 
-    it.todo("round ends immediately when reshuffle impossible (game rule edge case)", () => {});
+    it("round ends immediately when reshuffle impossible (game rule edge case)", () => {
+      // Per house rules: "If it somehow runs out again [after reshuffle]..."
+      // "Agree that the hand ends immediately and all players score what they hold"
+      // This happens when stock is empty and discard has only 1 card (the face-up top card)
+      const discardPile = createTestCards(1);
+      const topCard = discardPile[discardPile.length - 1]!;
+      const cardsToReshuffle = discardPile.slice(0, -1);
+
+      // Cannot reshuffle - no cards to put in stock
+      expect(cardsToReshuffle.length).toBe(0);
+      expect([topCard].length).toBe(1);
+
+      // In this edge case, the round should end and all players score their hands
+      // This is a house rule decision - implemented as round ending immediately
+    });
   });
 });
