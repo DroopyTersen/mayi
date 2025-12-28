@@ -95,6 +95,9 @@ try {
     case "stuck":
       handleStuck();
       break;
+    case "swap":
+      handleSwap(args[1], args[2], args[3]);
+      break;
     case "log":
       handleLog(args[1]);
       break;
@@ -529,6 +532,83 @@ function handleStuck(): void {
   console.log(renderStatus(state));
 }
 
+function handleSwap(meldNumStr?: string, jokerPosStr?: string, cardPosStr?: string): void {
+  const state = loadGameState();
+  requirePhase(state, "AWAITING_ACTION");
+
+  if (!meldNumStr || !jokerPosStr || !cardPosStr) {
+    throw new Error("Specify: swap <meld-number> <joker-position> <card-position>");
+  }
+
+  const meldNum = parseInt(meldNumStr, 10);
+  const jokerPos = parseInt(jokerPosStr, 10);
+  const cardPos = parseInt(cardPosStr, 10);
+  if (isNaN(meldNum) || isNaN(jokerPos) || isNaN(cardPos)) {
+    throw new Error("All arguments must be numbers");
+  }
+
+  const player = getAwaitingPlayer(state)!;
+
+  // Per house rules: can only swap if NOT down yet
+  if (player.isDown) {
+    throw new Error("Cannot swap Jokers after laying down. You must swap before laying down your contract.");
+  }
+
+  if (meldNum < 1 || meldNum > state.table.length) {
+    throw new Error(`Meld number ${meldNum} is out of range (1-${state.table.length})`);
+  }
+  if (cardPos < 1 || cardPos > player.hand.length) {
+    throw new Error(`Card position ${cardPos} is out of range (1-${player.hand.length})`);
+  }
+
+  const meld = state.table[meldNum - 1]!;
+  const swapCard = player.hand[cardPos - 1]!;
+
+  // Check meld is a run
+  if (meld.type !== "run") {
+    throw new Error("Joker swapping only works on runs, not sets");
+  }
+
+  // Find the joker at the specified position
+  const positions = identifyJokerPositions(meld);
+  const jokerPosition = positions.find((p) => p.positionIndex === jokerPos - 1);
+  if (!jokerPosition) {
+    throw new Error(`No swappable Joker at position ${jokerPos} in meld ${meldNum}`);
+  }
+
+  if (!jokerPosition.isJoker) {
+    throw new Error("Only Jokers can be swapped, not 2s (wild but not Joker)");
+  }
+
+  // Check if the swap card fits
+  if (!canSwapJokerWithCard(meld, jokerPosition.wildCard, swapCard)) {
+    throw new Error(
+      `${renderCard(swapCard)} cannot replace Joker at position ${jokerPos}. ` +
+      `Need ${jokerPosition.actingAsRank}${jokerPosition.actingAsSuit}`
+    );
+  }
+
+  // Perform the swap
+  const jokerCard = jokerPosition.wildCard;
+
+  // Replace joker in meld with swap card
+  const jokerIndex = meld.cards.findIndex((c) => c.id === jokerCard.id);
+  meld.cards[jokerIndex] = swapCard;
+
+  // Remove swap card from hand and add joker
+  player.hand.splice(cardPos - 1, 1);
+  player.hand.push(jokerCard);
+
+  logAction(state, player.id, player.name, "swapped Joker", `${renderCard(swapCard)} for Joker from meld ${meldNum}`);
+
+  // Stay in AWAITING_ACTION to allow more actions (like another swap or laydown)
+  saveGameState(state);
+  console.log(`${player.name} swapped ${renderCard(swapCard)} for Joker from meld ${meldNum}!`);
+  console.log(`  Joker added to hand.`);
+  console.log("");
+  console.log(renderStatus(state));
+}
+
 function handleLog(tailArg?: string): void {
   const entries = readActionLog();
   const tail = tailArg ? parseInt(tailArg, 10) : undefined;
@@ -682,6 +762,7 @@ Commands:
   discard <position>          Discard card at position
 
   layoff <card> <meld>        Lay off card to meld
+  swap <meld> <pos> <card>    Swap card for Joker in run (before laying down)
   stuck                       End turn stuck (Round 6 only)
 
   mayi                        Call May I (non-current player)

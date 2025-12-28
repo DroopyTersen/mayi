@@ -728,8 +728,8 @@ Review specs/command-line-interface.md
 - [x] Test laying down exactly 2 sets (minimum 3 cards each)
 - [x] Test laying down sets with wilds (verify wilds don't outnumber naturals)
 - [x] Test laying down larger sets (4+ cards) — tested with 4 and 5 card sets during layoff
-- [ ] Test rejection: attempt to lay down with only 1 set
-- [ ] Test rejection: attempt to lay down with invalid set
+- [x] Test rejection: attempt to lay down with only 1 set (got "Contract requires 2 set(s), but got 1")
+- [x] Test rejection: attempt to lay down with invalid set (got "Invalid run: J♥ 9♠ 8♦")
 - [x] Test layoff after going down (add 4th card to a set)
 - [x] Verify round scoring is calculated correctly
 - [x] Verify round history is recorded
@@ -832,7 +832,7 @@ Review specs/command-line-interface.md
 
 > Record any bugs found during testing here
 
-- [ ] **Harness swap command not implemented**: The harness CLI shows `swap <meld> <pos> <card>` as an available command when player hasn't laid down, but running `bun harness/play.ts swap 2 3 1` returns "Unknown command: swap". The Joker swap logic works in the core engine (tested via unit tests in Phase 7), but the harness CLI handler is missing.
+- [x] **Harness swap command not implemented**: ~~The harness CLI shows `swap <meld> <pos> <card>` as an available command when player hasn't laid down, but running `bun harness/play.ts swap 2 3 1` returns "Unknown command: swap".~~ — Fixed: Added `handleSwap` function to harness/play.ts.
 - [ ] **Run extension bug**: After adding 8♦ to a 9♦-Q♦ run (extending low), the next extension attempt (7♦) failed with "7♦ cannot be added to that run". The run displays as "9♦ 10♦ J♦ Q♦ 8♦" which may indicate internal state issues. Need to investigate if run boundaries are tracked correctly after extension.
 - [x] **DOWN player can call May I**: ~~Carol called May I while DOWN~~ — Fixed in engine guards + harness `handleMayI()` now checks `player.isDown` before allowing May I call.
 - [x] **DOWN player can draw from discard**: ~~Carol drew from discard pile while DOWN~~ — Fixed in engine guards + harness `handleDraw()` now checks `player.isDown` before allowing discard draw.

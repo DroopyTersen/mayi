@@ -3,7 +3,7 @@
   "gameId": "69551512",
   "seed": null,
   "createdAt": "2025-12-28T20:56:13.318Z",
-  "updatedAt": "2025-12-28T20:56:58.009Z",
+  "updatedAt": "2025-12-28T21:10:24.430Z",
   "currentRound": 1,
   "contract": {
     "roundNumber": 1,
@@ -69,6 +69,11 @@
           "id": "card-80",
           "suit": "clubs",
           "rank": "Q"
+        },
+        {
+          "id": "card-73",
+          "suit": "diamonds",
+          "rank": "6"
         }
       ],
       "isDown": false,
@@ -99,9 +104,9 @@
           "rank": "J"
         },
         {
-          "id": "card-18",
+          "id": "card-74",
           "suit": "diamonds",
-          "rank": "9"
+          "rank": "5"
         }
       ],
       "isDown": true,
@@ -137,11 +142,6 @@
           "rank": "A"
         },
         {
-          "id": "card-27",
-          "suit": "clubs",
-          "rank": "K"
-        },
-        {
           "id": "card-71",
           "suit": "diamonds",
           "rank": "8"
@@ -165,25 +165,20 @@
           "id": "card-6",
           "suit": "hearts",
           "rank": "8"
+        },
+        {
+          "id": "card-18",
+          "suit": "diamonds",
+          "rank": "9"
         }
       ],
       "isDown": false,
       "totalScore": 0
     }
   ],
-  "currentPlayerIndex": 1,
+  "currentPlayerIndex": 0,
   "dealerIndex": 0,
   "stock": [
-    {
-      "id": "card-74",
-      "suit": "diamonds",
-      "rank": "5"
-    },
-    {
-      "id": "card-73",
-      "suit": "diamonds",
-      "rank": "6"
-    },
     {
       "id": "card-96",
       "suit": "spades",
@@ -537,6 +532,11 @@
   ],
   "discard": [
     {
+      "id": "card-27",
+      "suit": "clubs",
+      "rank": "K"
+    },
+    {
       "id": "card-47",
       "suit": "spades",
       "rank": "6"
@@ -600,9 +600,9 @@
   ],
   "roundHistory": [],
   "harness": {
-    "phase": "AWAITING_DRAW",
-    "awaitingPlayerId": "player-1",
+    "phase": "AWAITING_ACTION",
+    "awaitingPlayerId": "player-0",
     "mayIContext": null,
-    "turnNumber": 4
+    "turnNumber": 6
   }
 }
