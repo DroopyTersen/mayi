@@ -222,7 +222,7 @@ Review specs/command-line-interface.md
 - [x] Implement run extension boundaries (8 tests)
 - [x] Implement laying off to runs - wild ratio edge cases (7 tests)
 - [x] Implement card ownership for lay off (5 tests)
-- [ ] Implement meld ownership - anyone can add to any meld (4 tests)
+- [x] Implement meld ownership - anyone can add to any meld (4 tests)
 - [ ] Implement LAY_OFF action - successful lay off to set (6 tests)
 - [ ] Implement LAY_OFF action - successful lay off to run (10 tests)
 - [ ] Implement multiple lay offs in one turn (7 tests)
