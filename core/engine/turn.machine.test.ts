@@ -62,24 +62,82 @@ describe("TurnMachine - initial state", () => {
 
 describe("TurnMachine - drawing from stock", () => {
   describe("DRAW_FROM_STOCK command", () => {
-    it.todo("transitions from 'awaitingDraw' to 'awaitingDiscard'", () => {});
+    it("transitions from 'awaitingDraw' to 'awaitingDiscard'", () => {
+      const actor = createTurnActor();
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      actor.stop();
+    });
 
-    it.todo("sets hasDrawn to true", () => {});
+    it("sets hasDrawn to true", () => {
+      const actor = createTurnActor();
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hasDrawn).toBe(true);
+      actor.stop();
+    });
 
-    it.todo("adds top card of stock to player's hand", () => {});
+    it("adds top card of stock to player's hand", () => {
+      const hand = [card("3")];
+      const stockCard = card("K");
+      const stock = [stockCard, card("Q")];
+      const actor = createTurnActor({ hand, stock });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const newHand = actor.getSnapshot().context.hand;
+      expect(newHand).toContainEqual(stockCard);
+      actor.stop();
+    });
 
-    it.todo("removes top card from stock", () => {});
+    it("removes top card from stock", () => {
+      const stockCard1 = card("K");
+      const stockCard2 = card("Q");
+      const stock = [stockCard1, stockCard2];
+      const actor = createTurnActor({ stock });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const newStock = actor.getSnapshot().context.stock;
+      expect(newStock).not.toContainEqual(stockCard1);
+      expect(newStock).toContainEqual(stockCard2);
+      actor.stop();
+    });
 
-    it.todo("hand size increases by 1", () => {});
+    it("hand size increases by 1", () => {
+      const hand = [card("3"), card("5")];
+      const stock = [card("K"), card("Q")];
+      const actor = createTurnActor({ hand, stock });
+      actor.start();
+      const initialHandSize = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.hand.length).toBe(initialHandSize + 1);
+      actor.stop();
+    });
 
-    it.todo("stock size decreases by 1", () => {});
+    it("stock size decreases by 1", () => {
+      const stock = [card("K"), card("Q"), card("J")];
+      const actor = createTurnActor({ stock });
+      actor.start();
+      const initialStockSize = actor.getSnapshot().context.stock.length;
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.stock.length).toBe(initialStockSize - 1);
+      actor.stop();
+    });
 
-    it.todo("discard pile is unchanged", () => {});
+    it("discard pile is unchanged", () => {
+      const discard = [card("8"), card("7")];
+      const actor = createTurnActor({ discard });
+      actor.start();
+      const initialDiscard = [...actor.getSnapshot().context.discard];
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      expect(actor.getSnapshot().context.discard).toEqual(initialDiscard);
+      actor.stop();
+    });
   });
 
   describe("when stock is empty", () => {
     it.todo(
-      "reshuffles discard pile into stock (or defers to later phase)",
+      "reshuffles discard pile into stock (deferred to later phase)",
       () => {}
     );
   });
