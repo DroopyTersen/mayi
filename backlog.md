@@ -614,22 +614,22 @@ Review specs/command-line-interface.md
 
 > Tasks found during implementation that don't fit current phase
 
-### Error Message Improvements (10 tests — requires `lastError` context field)
+### Error Message Improvements (10 tests) ✓
 
 > These tests verify that specific, helpful error messages are provided to users.
-> **Architectural requirement**: Add `lastError?: string` to TurnMachine/GameMachine context that gets set when guards reject events.
+> **Implementation**: Added `lastError: string | null` to TurnContext and GameContext with setLayDownError, setLayOffError, and setStartGameError actions.
 
-- [ ] `laydown.test.ts:1808` - Contract requirement error message
-- [ ] `laydown.test.ts:2042` - Invalid meld error message (which meld is invalid)
-- [ ] `laydown.test.ts:2358` - Already laid down error message
+- [x] `laydown.test.ts:1808` - Contract requirement error message
+- [x] `laydown.test.ts:2072` - Invalid meld error message (which meld is invalid)
+- [x] `laydown.test.ts:2414` - Already laid down error message
 - [x] `laydown.test.ts:2503` - Goes out immediately if hand empty after laydown (no discard)
-- [ ] `layoff.test.ts:1297` - Error: "must be down from a previous turn to lay off"
-- [ ] `layoff.test.ts:1301` - Error: "cannot lay off on same turn as laying down"
-- [ ] `layoff.test.ts:1390` - Error: "card not in hand"
-- [ ] `layoff.test.ts:1414` - Error: "meld not found"
-- [ ] `layoff.test.ts:1480` - Error: "card does not fit this meld"
-- [ ] `layoff.test.ts:1506` - Error: "would make wilds outnumber naturals"
-- [ ] `gameMachine.test.ts:220` - Error: "minimum 3 players required"
+- [x] `layoff.test.ts:1297` - Error: "must be down from a previous turn to lay off"
+- [x] `layoff.test.ts:1325` - Error: "cannot lay off on same turn as laying down"
+- [x] `layoff.test.ts:1438` - Error: "card not in hand"
+- [x] `layoff.test.ts:1478` - Error: "meld not found"
+- [x] `layoff.test.ts:1559` - Error: "card does not fit this meld"
+- [x] `layoff.test.ts:1600` - Error: "would make wilds outnumber naturals"
+- [x] `gameMachine.test.ts:220` - Error: "minimum 3 players required"
 - [x] `layoff.test.ts:1171` - Going out triggered immediately if hand becomes empty
 
 ### Contract Validation Tests (4 tests) ✓
