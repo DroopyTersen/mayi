@@ -1177,13 +1177,157 @@ describe("LAY_OFF action", () => {
 
 describe("LAY_OFF rejection", () => {
   describe("player state rejections", () => {
-    it.todo("rejected if player not down (isDown: false)", () => {});
-    it.todo("rejected if player laid down this turn (laidDownThisTurn: true)", () => {});
-    it.todo("rejected if player hasn't drawn yet", () => {});
-    it.todo("error message: 'must be down from a previous turn to lay off'", () => {});
-    it.todo("error message: 'cannot lay off on same turn as laying down'", () => {});
-    it.todo("state unchanged on rejection", () => {});
-    it.todo("hand unchanged on rejection", () => {});
+    it("rejected if player not down (isDown: false)", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player is NOT down
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, card("K", "hearts")],
+        stock: [card("K", "spades"), card("Q", "hearts")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false, // NOT down
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const stateBefore = actor.getSnapshot().value;
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Should stay in drawn state (command rejected)
+      expect(actor.getSnapshot().value).toBe(stateBefore);
+    });
+
+    it("rejected if player laid down this turn (laidDownThisTurn: true)", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player laid down THIS turn
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, card("K", "hearts")],
+        stock: [card("K", "spades"), card("Q", "hearts")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: true,
+        laidDownThisTurn: true, // Just laid down this turn
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Hand should be unchanged (command rejected)
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+    });
+
+    it("rejected if player hasn't drawn yet", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      // Do NOT draw first
+
+      // Try to lay off without drawing
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      // Should still be in awaitingDraw state
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+    });
+
+    it.todo("error message: 'must be down from a previous turn to lay off'", () => {
+      // Error messages require custom error handling in the machine
+    });
+
+    it.todo("error message: 'cannot lay off on same turn as laying down'", () => {
+      // Error messages require custom error handling in the machine
+    });
+
+    it("state unchanged on rejection", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player is NOT down
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, card("K", "hearts")],
+        stock: [card("K", "spades"), card("Q", "hearts")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const stateBefore = actor.getSnapshot().value;
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().value).toBe(stateBefore);
+    });
+
+    it("hand unchanged on rejection", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      // Player is NOT down
+      const input = {
+        playerId: "player-1",
+        hand: [nineS, card("K", "hearts")],
+        stock: [card("K", "spades"), card("Q", "hearts")],
+        discard: [card("5", "clubs")],
+        roundNumber: 1 as RoundNumber,
+        isDown: false,
+        laidDownThisTurn: false,
+        table: [setMeld],
+      };
+
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = [...actor.getSnapshot().context.hand];
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      const handAfter = actor.getSnapshot().context.hand;
+      expect(handAfter.length).toBe(handBefore.length);
+      expect(handAfter.map((c) => c.id)).toEqual(handBefore.map((c) => c.id));
+    });
   });
 
   describe("invalid card rejections", () => {
