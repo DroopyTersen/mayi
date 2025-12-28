@@ -1,5 +1,24 @@
 import { describe, it, expect } from "bun:test";
-import { canLayOffCard } from "./layoff";
+import { canLayOffCard, canLayOffToSet } from "./layoff";
+import type { Card } from "../card/card.types";
+import type { Meld } from "../meld/meld.types";
+
+function card(rank: Card["rank"], suit: Card["suit"]): Card {
+  return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
+}
+
+function joker(): Card {
+  return { id: `Joker-${Math.random()}`, rank: "Joker", suit: null };
+}
+
+function createMeld(type: "set" | "run", cards: Card[], ownerId: string = "player-1"): Meld {
+  return {
+    id: `meld-${Math.random()}`,
+    type,
+    cards,
+    ownerId,
+  };
+}
 
 /**
  * Phase 4: Laying Off Tests
@@ -47,12 +66,67 @@ describe("canLayOffCard guard", () => {
   });
 
   describe("laying off to sets", () => {
-    it.todo("valid: adding matching rank to set (9♣ to 9♦ 9♥ 9♠)", () => {});
-    it.todo("valid: adding wild to set (Joker to 9♦ 9♥ 9♠)", () => {});
-    it.todo("valid: adding 2 (wild) to set (2♣ to 9♦ 9♥ 9♠)", () => {});
-    it.todo("valid: adding duplicate card from multi-deck (9♣ to 9♣ 9♦ 9♥)", () => {});
-    it.todo("invalid: adding wrong rank (10♣ to 9♦ 9♥ 9♠)", () => {});
-    it.todo("invalid: adding wild if it would make wilds outnumber naturals", () => {});
+    it("valid: adding matching rank to set (9♣ to 9♦ 9♥ 9♠)", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"),
+      ]);
+      const cardToAdd = card("9", "clubs");
+      expect(canLayOffToSet(cardToAdd, set)).toBe(true);
+    });
+
+    it("valid: adding wild to set (Joker to 9♦ 9♥ 9♠)", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"),
+      ]);
+      const cardToAdd = joker();
+      expect(canLayOffToSet(cardToAdd, set)).toBe(true);
+    });
+
+    it("valid: adding 2 (wild) to set (2♣ to 9♦ 9♥ 9♠)", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"),
+      ]);
+      const cardToAdd = card("2", "clubs");
+      expect(canLayOffToSet(cardToAdd, set)).toBe(true);
+    });
+
+    it("valid: adding duplicate card from multi-deck (9♣ to 9♣ 9♦ 9♥)", () => {
+      const set = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+      const cardToAdd = card("9", "clubs"); // Same suit, different deck
+      expect(canLayOffToSet(cardToAdd, set)).toBe(true);
+    });
+
+    it("invalid: adding wrong rank (10♣ to 9♦ 9♥ 9♠)", () => {
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        card("9", "spades"),
+      ]);
+      const cardToAdd = card("10", "clubs");
+      expect(canLayOffToSet(cardToAdd, set)).toBe(false);
+    });
+
+    it("invalid: adding wild if it would make wilds outnumber naturals", () => {
+      // Set with 2 naturals and 2 wilds already
+      const set = createMeld("set", [
+        card("9", "diamonds"),
+        card("9", "hearts"),
+        joker(),
+        card("2", "clubs"),
+      ]);
+      const cardToAdd = joker(); // Adding would make 2 natural, 3 wild
+      expect(canLayOffToSet(cardToAdd, set)).toBe(false);
+    });
   });
 
   describe("laying off to sets - wild ratio edge cases", () => {
