@@ -584,6 +584,36 @@ describe("TurnMachine - invalid commands", () => {
       expect(actor.getSnapshot().context.hand).toEqual(handBefore);
       actor.stop();
     });
+
+    it("LAY_DOWN command is rejected - must draw first", () => {
+      // Create hand with valid contract cards (2 sets for round 1)
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+      const eightC = card("8", "clubs");
+      const eightD = card("8", "diamonds");
+      const eightH = card("8", "hearts");
+      const extras = [card("3"), card("4"), card("5"), card("6"), card("7")];
+      const hand = [nineC, nineD, nineH, eightC, eightD, eightH, ...extras];
+
+      const actor = createTurnActor({ hand, roundNumber: 1 });
+      actor.start();
+
+      // Try to lay down without drawing first - should be rejected
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: [nineC.id, nineD.id, nineH.id] },
+          { type: "set", cardIds: [eightC.id, eightD.id, eightH.id] },
+        ],
+      });
+
+      // Must remain in awaitingDraw state
+      expect(actor.getSnapshot().value).toBe("awaitingDraw");
+      // Hand should be unchanged
+      expect(actor.getSnapshot().context.hand).toEqual(hand);
+      actor.stop();
+    });
   });
 
   describe("in awaitingDiscard state", () => {

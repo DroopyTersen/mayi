@@ -3,7 +3,7 @@
   "gameId": "fd2c798a",
   "seed": null,
   "createdAt": "2025-12-28T21:32:20.601Z",
-  "updatedAt": "2025-12-28T22:14:13.601Z",
+  "updatedAt": "2025-12-28T22:28:05.385Z",
   "currentRound": 5,
   "contract": {
     "roundNumber": 5,
@@ -26,11 +26,6 @@
           "rank": "5"
         },
         {
-          "id": "card-39",
-          "suit": "spades",
-          "rank": "A"
-        },
-        {
           "id": "card-5",
           "suit": "hearts",
           "rank": "9"
@@ -39,11 +34,6 @@
           "id": "card-57",
           "suit": "hearts",
           "rank": "9"
-        },
-        {
-          "id": "card-50",
-          "suit": "spades",
-          "rank": "3"
         },
         {
           "id": "card-96",
@@ -66,9 +56,19 @@
           "rank": "8"
         },
         {
-          "id": "card-15",
+          "id": "card-35",
+          "suit": "clubs",
+          "rank": "5"
+        },
+        {
+          "id": "card-76",
           "suit": "diamonds",
-          "rank": "Q"
+          "rank": "3"
+        },
+        {
+          "id": "card-0",
+          "suit": "hearts",
+          "rank": "A"
         }
       ],
       "isDown": false,
@@ -78,16 +78,6 @@
       "id": "player-1",
       "name": "Bob",
       "hand": [
-        {
-          "id": "card-79",
-          "suit": "clubs",
-          "rank": "K"
-        },
-        {
-          "id": "card-9",
-          "suit": "hearts",
-          "rank": "5"
-        },
         {
           "id": "card-98",
           "suit": "spades",
@@ -119,11 +109,6 @@
           "rank": "4"
         },
         {
-          "id": "card-93",
-          "suit": "spades",
-          "rank": "Q"
-        },
-        {
           "id": "card-17",
           "suit": "diamonds",
           "rank": "10"
@@ -132,6 +117,21 @@
           "id": "card-18",
           "suit": "diamonds",
           "rank": "9"
+        },
+        {
+          "id": "card-45",
+          "suit": "spades",
+          "rank": "8"
+        },
+        {
+          "id": "card-85",
+          "suit": "clubs",
+          "rank": "7"
+        },
+        {
+          "id": "card-81",
+          "suit": "clubs",
+          "rank": "J"
         }
       ],
       "isDown": false,
@@ -142,123 +142,23 @@
       "name": "Carol",
       "hand": [
         {
-          "id": "card-28",
-          "suit": "clubs",
-          "rank": "Q"
-        },
-        {
-          "id": "card-11",
-          "suit": "hearts",
-          "rank": "3"
-        },
-        {
-          "id": "card-92",
-          "suit": "spades",
-          "rank": "K"
-        },
-        {
-          "id": "card-26",
-          "suit": "clubs",
-          "rank": "A"
-        },
-        {
-          "id": "card-77",
-          "suit": "diamonds",
-          "rank": "2"
-        },
-        {
-          "id": "card-80",
-          "suit": "clubs",
-          "rank": "Q"
-        },
-        {
-          "id": "card-1",
-          "suit": "hearts",
-          "rank": "K"
-        },
-        {
-          "id": "card-105",
-          "suit": null,
-          "rank": "Joker"
-        },
-        {
-          "id": "card-74",
-          "suit": "diamonds",
-          "rank": "5"
-        },
-        {
-          "id": "card-24",
-          "suit": "diamonds",
-          "rank": "3"
-        },
-        {
-          "id": "card-23",
-          "suit": "diamonds",
-          "rank": "4"
-        },
-        {
           "id": "card-87",
           "suit": "clubs",
           "rank": "5"
+        },
+        {
+          "id": "card-48",
+          "suit": "spades",
+          "rank": "5"
         }
       ],
-      "isDown": false,
+      "isDown": true,
       "totalScore": 130
     }
   ],
-  "currentPlayerIndex": 2,
+  "currentPlayerIndex": 0,
   "dealerIndex": 1,
   "stock": [
-    {
-      "id": "card-35",
-      "suit": "clubs",
-      "rank": "5"
-    },
-    {
-      "id": "card-45",
-      "suit": "spades",
-      "rank": "8"
-    },
-    {
-      "id": "card-48",
-      "suit": "spades",
-      "rank": "5"
-    },
-    {
-      "id": "card-38",
-      "suit": "clubs",
-      "rank": "2"
-    },
-    {
-      "id": "card-76",
-      "suit": "diamonds",
-      "rank": "3"
-    },
-    {
-      "id": "card-85",
-      "suit": "clubs",
-      "rank": "7"
-    },
-    {
-      "id": "card-70",
-      "suit": "diamonds",
-      "rank": "9"
-    },
-    {
-      "id": "card-0",
-      "suit": "hearts",
-      "rank": "A"
-    },
-    {
-      "id": "card-81",
-      "suit": "clubs",
-      "rank": "J"
-    },
-    {
-      "id": "card-12",
-      "suit": "hearts",
-      "rank": "2"
-    },
     {
       "id": "card-8",
       "suit": "hearts",
@@ -577,12 +477,134 @@
   ],
   "discard": [
     {
+      "id": "card-70",
+      "suit": "diamonds",
+      "rank": "9"
+    },
+    {
+      "id": "card-93",
+      "suit": "spades",
+      "rank": "Q"
+    },
+    {
+      "id": "card-15",
+      "suit": "diamonds",
+      "rank": "Q"
+    },
+    {
+      "id": "card-1",
+      "suit": "hearts",
+      "rank": "K"
+    },
+    {
+      "id": "card-79",
+      "suit": "clubs",
+      "rank": "K"
+    },
+    {
+      "id": "card-39",
+      "suit": "spades",
+      "rank": "A"
+    },
+    {
+      "id": "card-92",
+      "suit": "spades",
+      "rank": "K"
+    },
+    {
+      "id": "card-9",
+      "suit": "hearts",
+      "rank": "5"
+    },
+    {
+      "id": "card-26",
+      "suit": "clubs",
+      "rank": "A"
+    },
+    {
       "id": "card-7",
       "suit": "hearts",
       "rank": "7"
     }
   ],
-  "table": [],
+  "table": [
+    {
+      "id": "meld-e7b741ed",
+      "type": "set",
+      "cards": [
+        {
+          "id": "card-11",
+          "suit": "hearts",
+          "rank": "3"
+        },
+        {
+          "id": "card-50",
+          "suit": "spades",
+          "rank": "3"
+        },
+        {
+          "id": "card-105",
+          "suit": null,
+          "rank": "Joker"
+        },
+        {
+          "id": "card-12",
+          "suit": "hearts",
+          "rank": "2"
+        }
+      ],
+      "ownerId": "player-2"
+    },
+    {
+      "id": "meld-939796c5",
+      "type": "set",
+      "cards": [
+        {
+          "id": "card-28",
+          "suit": "clubs",
+          "rank": "Q"
+        },
+        {
+          "id": "card-80",
+          "suit": "clubs",
+          "rank": "Q"
+        },
+        {
+          "id": "card-38",
+          "suit": "clubs",
+          "rank": "2"
+        }
+      ],
+      "ownerId": "player-2"
+    },
+    {
+      "id": "meld-a7008140",
+      "type": "run",
+      "cards": [
+        {
+          "id": "card-24",
+          "suit": "diamonds",
+          "rank": "3"
+        },
+        {
+          "id": "card-23",
+          "suit": "diamonds",
+          "rank": "4"
+        },
+        {
+          "id": "card-74",
+          "suit": "diamonds",
+          "rank": "5"
+        },
+        {
+          "id": "card-77",
+          "suit": "diamonds",
+          "rank": "2"
+        }
+      ],
+      "ownerId": "player-2"
+    }
+  ],
   "roundHistory": [
     {
       "roundNumber": 1,
@@ -622,9 +644,9 @@
     }
   ],
   "harness": {
-    "phase": "AWAITING_ACTION",
-    "awaitingPlayerId": "player-2",
+    "phase": "AWAITING_DRAW",
+    "awaitingPlayerId": "player-0",
     "mayIContext": null,
-    "turnNumber": 98
+    "turnNumber": 108
   }
 }

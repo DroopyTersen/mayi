@@ -744,7 +744,7 @@ The game works correctly with manual coordination via the CLI harness (`harness/
 
 ### Test Count Summary
 
-- **1976 passing tests** (all core game logic)
+- **1977 passing tests** (all core game logic)
 - **9 blocked todos** (XState spawning integration)
 
 ---

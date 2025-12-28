@@ -63,21 +63,33 @@ You must have the entire contract in your hand before you can lay down.
 
 Play goes clockwise.
 
-On your turn: 1. Draw exactly one card:
-• Either the top card of the stock pile
-• Or the top card of the discard pile (if it has not been taken via "May I?")
-• Important: Once you have laid down ("down"), you may only draw from the stock pile — never from the discard pile. 2. Optionally lay down:
-• If you have not laid down yet this hand
-• And you can fully satisfy the contract for that hand in one go 3. No lay off on the same turn you lay down:
-• On the turn you first lay down your contract, you lay down only the contract.
-• You can NOT immediately add extra cards to your own or others’ melds that same turn. 4. Lay off (future turns only):
-• Starting on your next turn after laying down, you may:
-• Draw
-• Then add cards to any existing melds on the table (yours or others)
-• Then discard 5. Discard one card to end your turn:
-• One card face up on the discard pile
-• Exception 1: You may go out without a discard in any round if you play all your cards to melds.
-• Exception 2: In Round 6, you cannot discard to go out — you must play all cards to melds (see "Hand 6").
+**IMPORTANT: You must always draw first.** Before you can lay down, lay off, or discard, you must draw a card. No other action is valid until you have drawn.
+
+On your turn:
+
+1. **Draw exactly one card** (REQUIRED as first action):
+   • Either the top card of the stock pile
+   • Or the top card of the discard pile (if it has not been taken via "May I?")
+   • Once you have laid down ("down"), you may only draw from the stock pile — never from the discard pile.
+
+2. **Optionally lay down** (only after drawing):
+   • If you have not laid down yet this hand
+   • And you can fully satisfy the contract for that hand in one go
+
+3. **No lay off on the same turn you lay down:**
+   • On the turn you first lay down your contract, you lay down only the contract.
+   • You may NOT immediately add extra cards to your own or others' melds that same turn.
+
+4. **Lay off** (future turns only, after drawing):
+   • Starting on your next turn after laying down, you may:
+   • Draw first (always required)
+   • Then add cards to any existing melds on the table (yours or others)
+   • Then discard
+
+5. **Discard one card to end your turn:**
+   • One card face up on the discard pile
+   • Exception 1: You may go out without a discard in any round if you play all your cards to melds.
+   • Exception 2: In Round 6, you cannot discard to go out — you must play all cards to melds (see "Hand 6").
 
 ⸻
 
