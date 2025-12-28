@@ -319,8 +319,8 @@ Review specs/command-line-interface.md
 
 > GameMachine, RoundMachine, dealing, turn/dealer advancement, stock depletion, 6-round flow
 
-- [ ] Review specs/phase-5-tests.md and scaffold out all tests
-- [ ] Fix typecheck errors
+- [x] Review specs/phase-5-tests.md and scaffold out all tests (367 todo tests across 8 files)
+- [x] Fix typecheck errors
 
 ### GameMachine (66 tests in gameMachine.test.ts)
 
