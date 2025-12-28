@@ -18,7 +18,15 @@ bun test core/card/utils.test.ts
 
 # Type check
 bun run typecheck
+
+# Play the game via CLI harness (for testing)
+bun harness/play.ts new
+bun harness/play.ts status
 ```
+
+## Agent Game Harness
+
+See [docs/agent-game-harness.md](docs/agent-game-harness.md) for full documentation on using the CLI harness to play and test the game.
 
 # Build
 

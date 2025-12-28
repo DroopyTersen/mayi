@@ -616,11 +616,130 @@ Review specs/command-line-interface.md
 
 _(none yet)_
 
-## Phase 8 Tasks Final Game End Testing
+## Phase 8 Tasks (Exhaustive Harness Testing)
 
-> Break down when Phase 7 is complete
+> End-to-end testing using the CLI harness. See [docs/agent-game-harness.md](docs/agent-game-harness.md) for harness documentation.
+>
+> **When issues are found**: Add bugs to the "Bug Tracking" section below. Add new tasks to "Discovered Tasks" section if they require implementation work. Fix bugs before continuing with testing. Ensure game follows specs/house-rules.md and CLI follows specs/command-line-ux.md.
 
-- [ ]Put everything together and test the game end to end using the CLI app. Add bugs and tasks to backlog for any issues found. Ensure CLI game follows specs/command-line-ux.md. Ensure game follows specs/house-rules.md.
+### Harness Setup
+
+- [ ] Start fresh game with `bun harness/play.ts new`
+- [ ] Verify status display shows correct initial state
+- [ ] Verify JSON output works with `status --json`
+- [ ] Verify log command works
+
+### Round 1 Testing (Contract: 2 sets)
+
+- [ ] Play through complete Round 1 with one player going out
+- [ ] Test laying down exactly 2 sets (minimum 3 cards each)
+- [ ] Test laying down sets with wilds (verify wilds don't outnumber naturals)
+- [ ] Test laying down larger sets (4+ cards)
+- [ ] Test rejection: attempt to lay down with only 1 set
+- [ ] Test rejection: attempt to lay down with invalid set
+- [ ] Test layoff after going down (add 4th card to a set)
+- [ ] Verify round scoring is calculated correctly
+- [ ] Verify round history is recorded
+
+### Round 2 Testing (Contract: 1 set + 1 run)
+
+- [ ] Play through complete Round 2
+- [ ] Test laying down 1 set + 1 run (minimum 3 + 4 cards)
+- [ ] Test run with wilds in middle positions
+- [ ] Test run with Ace-low (A-2-3)
+- [ ] Test run with Ace-high (Q-K-A)
+- [ ] Test rejection: attempt to lay down 2 sets instead
+- [ ] Test rejection: attempt to lay down 2 runs instead
+- [ ] Test layoff to run (extend at either end)
+- [ ] Verify dealer advances correctly
+
+### Round 3 Testing (Contract: 2 runs)
+
+- [ ] Play through complete Round 3
+- [ ] Test laying down 2 runs (minimum 4 cards each)
+- [ ] Test runs in different suits
+- [ ] Test layoff to both runs in same turn
+- [ ] Test rejection: attempt to lay down sets
+
+### Round 4 Testing (Contract: 3 sets)
+
+- [ ] Play through complete Round 4
+- [ ] Test laying down exactly 3 sets
+- [ ] Test sets using cards from both decks (duplicate ranks)
+- [ ] Test going out immediately after laying down
+
+### Round 5 Testing (Contract: 2 sets + 1 run)
+
+- [ ] Play through complete Round 5
+- [ ] Test laying down 2 sets + 1 run
+- [ ] Test complex meld combinations with wilds
+- [ ] Test multiple layoffs in single turn
+
+### Round 6 Testing (Contract: 1 set + 2 runs, no discard to go out)
+
+- [ ] Play through complete Round 6
+- [ ] Test laying down 1 set + 2 runs
+- [ ] Test going out via layoff (not discard)
+- [ ] Test "stuck" scenario: down with 1 card that can't be laid off
+- [ ] Test normal discard when hand > 1 card
+- [ ] Test rejection: cannot discard to go out
+- [ ] Verify game ends after Round 6
+
+### May I Mechanic Testing
+
+- [ ] Test current player takes discard (no May I window)
+- [ ] Test current player draws from stock (May I window opens)
+- [ ] Test single May I claimant wins
+- [ ] Test multiple May I claimants - priority resolution
+- [ ] Test current player vetoes May I claim
+- [ ] Test non-current player vetoes (closer to current player)
+- [ ] Test penalty card drawn with May I win
+- [ ] Test May I when stock is low (< 3 cards)
+- [ ] Test no claims - window closes normally
+- [ ] Test May I multiple times in same round
+
+### Joker Swap Testing
+
+- [ ] Test swap Joker from run before laying down
+- [ ] Test swap Joker from opponent's run
+- [ ] Test multiple swaps in same turn
+- [ ] Test rejection: cannot swap from set
+- [ ] Test rejection: cannot swap after laying down
+- [ ] Test rejection: wrong card for Joker position
+- [ ] Test swap then use Joker in own laydown
+
+### Scoring Verification
+
+- [ ] Verify number cards score face value (2-10)
+- [ ] Verify face cards score 10 points (J, Q, K)
+- [ ] Verify Aces score 15 points
+- [ ] Verify Jokers score 50 points
+- [ ] Verify Twos (wild) score 20 points
+- [ ] Verify winner scores 0 for round
+- [ ] Verify total scores accumulate across rounds
+- [ ] Verify lowest total score wins
+
+### Edge Cases
+
+- [ ] Test going out on same turn as laying down
+- [ ] Test going out with exactly 0 cards after layoff
+- [ ] Test stock depletion and reshuffle
+- [ ] Test first player after dealer rotation
+- [ ] Test 3-player priority wrap-around for May I
+
+### Game Completion
+
+- [ ] Play complete 6-round game
+- [ ] Verify final standings display
+- [ ] Verify winner determination (lowest score)
+- [ ] Verify tie-breaking if applicable
+- [ ] Start new game after completion
+
+### Bug Tracking
+
+> Record any bugs found during testing here
+
+_(none yet)_
 
 ---
 
@@ -650,3 +769,4 @@ _(none yet)_
 - Tests use Bun's built-in test runner
 - Commit after each completed task
 - Tag releases at phase completion: `v0.1.0`, `v0.2.0`, etc.
+- **Agent Game Harness**: See [docs/agent-game-harness.md](docs/agent-game-harness.md) for CLI harness documentation
