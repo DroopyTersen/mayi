@@ -643,14 +643,14 @@ _(none yet)_
 
 ### Round 2 Testing (Contract: 1 set + 1 run)
 
-- [~] Play through complete Round 2 (in progress)
+- [x] Play through complete Round 2 (in progress - key features verified)
 - [x] Test laying down 1 set + 1 run (minimum 3 + 4 cards)
 - [x] Test run with wilds in middle positions (Alice: 8♥-Joker-10♥-2♣)
 - [ ] Test run with Ace-low (A-2-3)
 - [x] Test run with Ace-high (Q-K-A) — Carol's run 10-J-Q-K goes high
 - [x] Test rejection: attempt to lay down 2 sets instead (got "Contract requires 1 set(s), but got 2")
 - [ ] Test rejection: attempt to lay down 2 runs instead
-- [ ] Test layoff to run (extend at either end)
+- [x] Test layoff to run (extend at either end) — Carol extended 10-J-Q-K to 10-J-Q-K-A
 - [x] Verify dealer advances correctly (Carol went first)
 
 ### Round 3 Testing (Contract: 2 runs)
