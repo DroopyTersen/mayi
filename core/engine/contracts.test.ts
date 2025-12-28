@@ -1,15 +1,48 @@
 import { describe, it, expect } from "bun:test";
+import { CONTRACTS, getContractForRound, getMinimumCardsForContract } from "./contracts";
 
 describe("Contract definitions", () => {
   describe("CONTRACTS constant", () => {
-    it.todo("contains exactly 6 contracts (rounds 1-6)", () => {});
-    it.todo("round 1: { sets: 2, runs: 0 }", () => {});
-    it.todo("round 2: { sets: 1, runs: 1 }", () => {});
-    it.todo("round 3: { sets: 0, runs: 2 }", () => {});
-    it.todo("round 4: { sets: 3, runs: 0 }", () => {});
-    it.todo("round 5: { sets: 2, runs: 1 }", () => {});
-    it.todo("round 6: { sets: 1, runs: 2 }", () => {});
-    it.todo("each contract has roundNumber matching its key", () => {});
+    it("contains exactly 6 contracts (rounds 1-6)", () => {
+      const keys = Object.keys(CONTRACTS).map(Number);
+      expect(keys).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    it("round 1: { sets: 2, runs: 0 }", () => {
+      expect(CONTRACTS[1].sets).toBe(2);
+      expect(CONTRACTS[1].runs).toBe(0);
+    });
+
+    it("round 2: { sets: 1, runs: 1 }", () => {
+      expect(CONTRACTS[2].sets).toBe(1);
+      expect(CONTRACTS[2].runs).toBe(1);
+    });
+
+    it("round 3: { sets: 0, runs: 2 }", () => {
+      expect(CONTRACTS[3].sets).toBe(0);
+      expect(CONTRACTS[3].runs).toBe(2);
+    });
+
+    it("round 4: { sets: 3, runs: 0 }", () => {
+      expect(CONTRACTS[4].sets).toBe(3);
+      expect(CONTRACTS[4].runs).toBe(0);
+    });
+
+    it("round 5: { sets: 2, runs: 1 }", () => {
+      expect(CONTRACTS[5].sets).toBe(2);
+      expect(CONTRACTS[5].runs).toBe(1);
+    });
+
+    it("round 6: { sets: 1, runs: 2 }", () => {
+      expect(CONTRACTS[6].sets).toBe(1);
+      expect(CONTRACTS[6].runs).toBe(2);
+    });
+
+    it("each contract has roundNumber matching its key", () => {
+      for (const key of [1, 2, 3, 4, 5, 6] as const) {
+        expect(CONTRACTS[key].roundNumber).toBe(key);
+      }
+    });
   });
 
   describe("getContractForRound", () => {
