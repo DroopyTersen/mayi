@@ -7,13 +7,16 @@
  */
 
 import * as readline from "readline";
-import { Orchestrator } from "./orchestrator";
-import { renderCard, renderHand, renderNumberedHand } from "../cli/cli.renderer";
-import type { GameStateView } from "./orchestrator";
-import type { Player } from "../core/engine/engine.types";
-import type { Card } from "../core/card/card.types";
-import type { Meld } from "../core/meld/meld.types";
-import { canLayOffToSet, canLayOffToRun } from "../core/engine/layoff";
+import { Orchestrator } from "../harness/orchestrator";
+import { renderCard, renderHand, renderNumberedHand } from "../shared/cli.renderer";
+import type { GameStateView } from "../harness/orchestrator";
+import type { Player } from "../../core/engine/engine.types";
+import type { Card } from "../../core/card/card.types";
+import type { Meld } from "../../core/meld/meld.types";
+import { canLayOffToSet, canLayOffToRun } from "../../core/engine/layoff";
+import { savedGameExists, readActionLog } from "../shared/cli.persistence";
+import { formatRecentActivity } from "../shared/cli.activity";
+import { sortHandByRank, sortHandBySuit, moveCard } from "../../core/engine/hand.reordering";
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -95,6 +98,21 @@ function printTable(state: GameStateView): void {
   console.log("");
 }
 
+function printRecentActivity(): void {
+  const entries = readActionLog();
+  const recentLines = formatRecentActivity(entries, 6);
+
+  if (recentLines.length === 0) {
+    return; // Don't show section if no activity yet
+  }
+
+  console.log("RECENT ACTIVITY");
+  for (const line of recentLines) {
+    console.log(`  ${line}`);
+  }
+  console.log("");
+}
+
 function printDiscard(state: GameStateView): void {
   const topDiscard = state.discard[0];
   const discardStr = topDiscard ? renderCard(topDiscard) : "(empty)";
@@ -142,6 +160,7 @@ function printGameView(state: GameStateView): void {
   printHeader(state);
   printPlayers(state);
   printTable(state);
+  printRecentActivity();
   printDiscard(state);
   printDivider();
   console.log("");
@@ -241,7 +260,11 @@ async function handleHumanAction(state: GameStateView): Promise<void> {
       await handleLayoff(state);
       break;
     case "discard":
-      await handleDiscard(state);
+      // If we're in AWAITING_ACTION, skip first to move to AWAITING_DISCARD
+      if (orchestrator.getStateView().phase === "AWAITING_ACTION") {
+        orchestrator.skip();
+      }
+      await handleDiscard(orchestrator.getStateView());
       break;
     case "swap":
       await handleSwap(state);
@@ -341,21 +364,38 @@ async function handleLayoff(state: GameStateView): Promise<void> {
 }
 
 async function handleDiscard(state: GameStateView): Promise<void> {
-  const human = getHumanPlayer(state);
-  console.log("");
-  printHand(human, true);
-  console.log("");
+  while (true) {
+    // Get fresh state each iteration
+    const currentState = orchestrator.getStateView();
+    const human = getHumanPlayer(currentState);
 
-  const pos = await promptNumber(`Discard which card? (1-${human.hand.length}) `, 1, human.hand.length);
-  const card = human.hand[pos - 1]!;
+    console.log("");
+    printHand(human, true);
+    console.log("");
+    console.log("Discard a card to end your turn:");
+    console.log("");
+    console.log(`  1-${human.hand.length}. Select a card to discard`);
+    console.log("  ─────────────────────────────────");
+    console.log(`  ${human.hand.length + 1}. Organize your hand`);
+    console.log("");
 
-  const result = orchestrator.discardCard(pos);
-  if (result.success) {
-    console.log("");
-    console.log(`You discarded ${renderCard(card)}.`);
-  } else {
-    console.log("");
-    console.log(`Error: ${result.message}`);
+    const choice = await promptNumber("> ", 1, human.hand.length + 1);
+
+    if (choice === human.hand.length + 1) {
+      await handleOrganizeHand(currentState);
+      continue;
+    }
+
+    const card = human.hand[choice - 1]!;
+    const result = orchestrator.discardCard(choice);
+    if (result.success) {
+      console.log("");
+      console.log(`You discarded ${renderCard(card)}.`);
+    } else {
+      console.log("");
+      console.log(`Error: ${result.message}`);
+    }
+    break;
   }
 }
 
@@ -366,6 +406,7 @@ async function handleSwap(state: GameStateView): Promise<void> {
   console.log("");
 
   const cardPos = await promptNumber(`Which card will replace the Joker? (1-${human.hand.length}) `, 1, human.hand.length);
+  const cardToSwap = human.hand[cardPos - 1]!; // Capture before swap modifies hand
 
   console.log("");
   console.log("Runs with Jokers:");
@@ -391,7 +432,7 @@ async function handleSwap(state: GameStateView): Promise<void> {
   const result = orchestrator.swap(meldNum, jokerIdx + 1, cardPos);
   if (result.success) {
     console.log("");
-    console.log(`Swapped! You gave ${renderCard(human.hand[cardPos - 1]!)} and took the Joker.`);
+    console.log(`Swapped! You gave ${renderCard(cardToSwap)} and took the Joker.`);
   } else {
     console.log("");
     console.log(`Error: ${result.message}`);
@@ -399,13 +440,63 @@ async function handleSwap(state: GameStateView): Promise<void> {
   }
 }
 
-async function handleOrganizeHand(state: GameStateView): Promise<void> {
-  // For now, just show the hand - full organization can be added later
-  const human = getHumanPlayer(state);
-  console.log("");
-  console.log("Your hand: " + renderHand(human.hand));
-  console.log("");
-  await prompt("Press Enter to continue...");
+async function handleOrganizeHand(_state: GameStateView): Promise<void> {
+  while (true) {
+    // Get fresh state each iteration
+    const currentState = orchestrator.getStateView();
+    const human = getHumanPlayer(currentState);
+
+    console.log("");
+    console.log("Your hand: " + renderHand(human.hand));
+    console.log("");
+    console.log("Organize your hand:");
+    console.log("");
+    console.log("  1. Sort by rank (3 4 5 ... 10 J Q K A, wilds at end)");
+    console.log("  2. Sort by suit (♠ ♥ ♦ ♣, wilds at end)");
+    console.log("  3. Move a card");
+    console.log("  4. Done organizing");
+    console.log("");
+
+    const choice = await promptNumber("> ", 1, 4);
+
+    if (choice === 1) {
+      // Sort by rank
+      const sorted = sortHandByRank(human.hand);
+      orchestrator.reorderHand(sorted);
+      console.log("");
+      console.log("Hand sorted by rank.");
+    } else if (choice === 2) {
+      // Sort by suit
+      const sorted = sortHandBySuit(human.hand);
+      orchestrator.reorderHand(sorted);
+      console.log("");
+      console.log("Hand sorted by suit.");
+    } else if (choice === 3) {
+      // Move a card
+      console.log("");
+      console.log("Your hand: " + renderNumberedHand(human.hand));
+      console.log("");
+
+      const fromPos = await promptNumber(`Move which card? (1-${human.hand.length}) `, 1, human.hand.length);
+      const card = human.hand[fromPos - 1]!;
+
+      const toPos = await promptNumber(`Move ${renderCard(card)} to which position? (1-${human.hand.length}) `, 1, human.hand.length);
+
+      // moveCard uses 0-indexed positions
+      const result = moveCard(human.hand, fromPos - 1, toPos - 1);
+      if (result.success) {
+        orchestrator.reorderHand(result.hand);
+        console.log("");
+        console.log(`Moved ${renderCard(card)} to position ${toPos}.`);
+      } else {
+        console.log("");
+        console.log(`Error: ${result.error}`);
+      }
+    } else {
+      // Done organizing
+      break;
+    }
+  }
 }
 
 async function handleMayIWindow(state: GameStateView): Promise<void> {
@@ -417,22 +508,36 @@ async function handleMayIWindow(state: GameStateView): Promise<void> {
     // Note: Current player's "veto" is choosing drawFromDiscard() instead of drawFromStock()
     // at the start of their turn. Once they draw from stock, the May I window opens and
     // they have already passed on the discard. Only non-current players can call May I.
-    console.log("");
-    console.log(`May I? (${renderCard(ctx.discardedCard)} + penalty card)`);
-    console.log("");
-    console.log("  1. Yes, May I!");
-    console.log("  2. No thanks");
-    console.log("");
+    while (true) {
+      const currentState = orchestrator.getStateView();
+      const human = getHumanPlayer(currentState);
+      const currentCtx = currentState.mayIContext!;
 
-    const choice = await promptNumber("> ", 1, 2);
-    if (choice === 1) {
-      orchestrator.callMayI();
       console.log("");
-      console.log(`You called "May I!" and took the ${renderCard(ctx.discardedCard)}.`);
-    } else {
-      orchestrator.pass();
+      console.log("Your hand: " + renderHand(human.hand));
       console.log("");
-      console.log("You passed.");
+      console.log(`May I? (${renderCard(currentCtx.discardedCard)} + penalty card)`);
+      console.log("");
+      console.log("  1. Yes, May I!");
+      console.log("  2. No thanks");
+      console.log("  ─────────────────────────────────");
+      console.log("  3. Organize your hand");
+      console.log("");
+
+      const choice = await promptNumber("> ", 1, 3);
+      if (choice === 1) {
+        orchestrator.callMayI();
+        console.log("");
+        console.log(`You called "May I!" and took the ${renderCard(currentCtx.discardedCard)}.`);
+        break;
+      } else if (choice === 2) {
+        orchestrator.pass();
+        console.log("");
+        console.log("You passed.");
+        break;
+      } else {
+        await handleOrganizeHand(currentState);
+      }
     }
   } else {
     // AI player's turn in May I window - auto-play (always pass for simplicity)
@@ -450,10 +555,9 @@ async function handleAITurn(state: GameStateView): Promise<void> {
   // Simple AI: draw from stock, skip, discard first card
   if (state.phase === "AWAITING_DRAW") {
     orchestrator.drawFromStock();
-    const updatedState = orchestrator.getStateView();
 
-    // Handle May I window if opened
-    while (updatedState.phase === "MAY_I_WINDOW") {
+    // Handle May I window if opened (refresh state each iteration)
+    while (orchestrator.getStateView().phase === "MAY_I_WINDOW") {
       await handleMayIWindow(orchestrator.getStateView());
     }
   }
@@ -565,6 +669,15 @@ async function startNewGame(): Promise<void> {
   await prompt("Press Enter to begin...");
 }
 
+async function resumeGame(): Promise<void> {
+  orchestrator.loadGame();
+  const state = orchestrator.getStateView();
+  console.log("");
+  console.log(`Resuming game — Round ${state.currentRound} of 6`);
+  console.log("");
+  await prompt("Press Enter to continue...");
+}
+
 async function gameLoop(): Promise<void> {
   while (true) {
     const state = orchestrator.getStateView();
@@ -628,7 +741,23 @@ async function main(): Promise<void> {
   console.log("Lowest total score after 6 rounds wins the game!");
   console.log("");
 
-  await startNewGame();
+  if (savedGameExists()) {
+    console.log("A saved game was found.");
+    console.log("");
+    console.log("  1. Resume saved game");
+    console.log("  2. Start new game");
+    console.log("");
+
+    const choice = await promptNumber("> ", 1, 2);
+    if (choice === 1) {
+      await resumeGame();
+    } else {
+      await startNewGame();
+    }
+  } else {
+    await startNewGame();
+  }
+
   await gameLoop();
 }
 

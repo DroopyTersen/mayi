@@ -21,7 +21,7 @@ The `take()` command in `harness/orchestrator.ts` (lines 597-619) allows the cur
 
 ### Correct Behavior
 
-Per `specs/house-rules.md` Section 7:
+Per `docs/house-rules.md` Section 7:
 
 > "Once the current player draws from stock, they forfeit the right to veto any May I? calls on that discard."
 
@@ -123,7 +123,7 @@ The stock pile can become empty. When a player tries to draw and there are no ca
 
 ### Correct Behavior
 
-Per `specs/house-rules.md` Section 11:
+Per `docs/house-rules.md` Section 11:
 
 > "**The stock pile should never be empty.** When the last card is drawn from the stock:"
 > 1. Immediately take the discard pile (except the top exposed card).

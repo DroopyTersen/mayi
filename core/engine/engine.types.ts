@@ -95,13 +95,15 @@ export interface GameState {
 export interface CreateGameConfig {
   playerNames: string[];
   dealerIndex?: number;
+  /** Optional gameId for deterministic testing (defaults to crypto.randomUUID()) */
+  gameId?: string;
 }
 
 /**
  * Creates an initial game state (before dealing)
  */
 export function createInitialGameState(config: CreateGameConfig): GameState {
-  const { playerNames, dealerIndex = 0 } = config;
+  const { playerNames, dealerIndex = 0, gameId } = config;
 
   if (playerNames.length < 3 || playerNames.length > 8) {
     throw new Error("Game requires 3-8 players");
@@ -121,7 +123,7 @@ export function createInitialGameState(config: CreateGameConfig): GameState {
   const now = new Date().toISOString();
 
   return {
-    gameId: crypto.randomUUID(),
+    gameId: gameId ?? crypto.randomUUID(),
     currentRound: 1,
     roundPhase: "dealing",
     players,

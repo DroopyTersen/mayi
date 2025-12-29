@@ -4,13 +4,13 @@
  * Displays game state and available commands
  */
 
-import type { Card } from "../core/card/card.types";
-import type { Meld } from "../core/meld/meld.types";
-import type { Player } from "../core/engine/engine.types";
-import type { PersistedGameState, AvailableCommands, ActionLogEntry } from "./harness.types";
-import { renderCard, renderHand, renderNumberedHand } from "../cli/cli.renderer";
+import type { Card } from "../../core/card/card.types";
+import type { Meld } from "../../core/meld/meld.types";
+import type { Player } from "../../core/engine/engine.types";
+import type { PersistedGameState, AvailableCommands, ActionLogEntry } from "../shared/cli.types";
+import { renderCard, renderHand, renderNumberedHand } from "../shared/cli.renderer";
 import { getAwaitingPlayer, getCurrentPlayer } from "./harness.state";
-import { identifyJokerPositions } from "../core/meld/meld.joker";
+import { identifyJokerPositions } from "../../core/meld/meld.joker";
 
 /**
  * Render the full game status for display

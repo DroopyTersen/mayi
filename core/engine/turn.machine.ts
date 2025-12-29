@@ -1,12 +1,14 @@
 /**
  * TurnMachine - XState machine for managing a single player's turn
  *
- * States: awaitingDraw -> drawn -> awaitingDiscard -> turnComplete
+ * States: awaitingDraw -> mayIWindow -> drawn -> awaitingDiscard -> turnComplete
  *
- * Phase 3 implementation: adds 'drawn' state for laying down
+ * When the current player draws from stock, the May I window opens for other
+ * players to claim the discarded card. The mayIWindow state invokes the
+ * mayIWindowMachine to handle this resolution.
  */
 
-import { setup, assign } from "xstate";
+import { setup, assign, sendTo } from "xstate";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
@@ -20,6 +22,11 @@ import {
   getCardFromHand,
 } from "./layoff";
 import { canSwapJokerWithCard } from "../meld/meld.joker";
+import {
+  mayIWindowMachine,
+  type MayIWindowInput,
+  type MayIWindowOutput,
+} from "./mayIWindow.machine";
 
 /**
  * Meld proposal for LAY_DOWN event
@@ -44,6 +51,17 @@ export interface TurnContext {
   table: Meld[];
   /** Error message from last failed operation */
   lastError: string | null;
+  /** All player IDs in turn order (for May I) */
+  playerOrder: string[];
+  /** Map of playerId -> isDown (for May I eligibility) */
+  playerDownStatus: Record<string, boolean>;
+  /** Tracks May I winner's received cards to include in output */
+  mayIResult: {
+    winnerId: string;
+    cardsReceived: Card[];
+  } | null;
+  /** Card on top of discard when May I window opened */
+  mayIDiscardTop: Card | null;
 }
 
 /**
@@ -58,8 +76,9 @@ export interface LayOffSpec {
  * Events that can be sent to the TurnMachine
  */
 export type TurnEvent =
-  | { type: "DRAW_FROM_STOCK" }
-  | { type: "DRAW_FROM_DISCARD" }
+  | { type: "DRAW_FROM_STOCK"; playerId?: string }
+  | { type: "DRAW_FROM_DISCARD"; playerId?: string }
+  | { type: "CALL_MAY_I"; playerId: string }
   | { type: "SKIP_LAY_DOWN" }
   | { type: "LAY_DOWN"; melds: MeldProposal[] }
   | { type: "LAY_OFF"; cardId: string; meldId: string }
@@ -79,6 +98,17 @@ export interface TurnInput {
   isDown: boolean;
   laidDownThisTurn?: boolean;
   table: Meld[];
+  /** All player IDs in turn order (for May I). If empty/missing, May I window is skipped. */
+  playerOrder?: string[];
+  /** Map of playerId -> isDown (for May I eligibility). Defaults to empty. */
+  playerDownStatus?: Record<string, boolean>;
+}
+
+/**
+ * Hand update for a player (used for May I winners)
+ */
+export interface HandUpdate {
+  added: Card[];
 }
 
 /**
@@ -93,6 +123,8 @@ export interface TurnOutput {
   table: Meld[];
   /** True if player went out (hand became empty), false otherwise */
   wentOut?: boolean;
+  /** Updates to other players' hands (e.g., May I winner) */
+  handUpdates?: Record<string, HandUpdate>;
 }
 
 export const turnMachine = setup({
@@ -101,6 +133,9 @@ export const turnMachine = setup({
     events: {} as TurnEvent,
     input: {} as TurnInput,
     output: {} as TurnOutput,
+  },
+  actors: {
+    mayIWindowMachine,
   },
   guards: {
     canDrawFromStock: ({ context }) => {
@@ -111,6 +146,18 @@ export const turnMachine = setup({
       // Cannot draw from discard if already down
       if (context.isDown) return false;
       return context.discard.length > 0;
+    },
+    shouldOpenMayIWindow: ({ context }) => {
+      // Open May I window when:
+      // - Stock is not empty (can draw)
+      // - Discard pile has a card to claim
+      // - There are other players who could claim
+      // - At least one other player is not down (eligible to claim)
+      if (context.stock.length === 0) return false;
+      if (context.discard.length === 0) return false;
+      if (context.playerOrder.length <= 1) return false;
+      const otherPlayers = context.playerOrder.filter((id) => id !== context.playerId);
+      return otherPlayers.some((id) => !context.playerDownStatus[id]);
     },
     canDiscard: ({ context, event }) => {
       if (event.type !== "DISCARD") return false;
@@ -131,7 +178,8 @@ export const turnMachine = setup({
 
       // Build melds from card IDs
       const melds: Meld[] = [];
-      for (const proposal of event.melds) {
+      for (let i = 0; i < event.melds.length; i++) {
+        const proposal = event.melds[i]!;
         const cards: Card[] = [];
         for (const cardId of proposal.cardIds) {
           const card = context.hand.find((c) => c.id === cardId);
@@ -139,7 +187,7 @@ export const turnMachine = setup({
           cards.push(card);
         }
         melds.push({
-          id: `meld-${Math.random()}`,
+          id: `validation-meld-${i}`, // Deterministic ID for validation
           type: proposal.type,
           cards,
           ownerId: context.playerId,
@@ -174,7 +222,8 @@ export const turnMachine = setup({
 
       // Build melds from card IDs
       const melds: Meld[] = [];
-      for (const proposal of event.melds) {
+      for (let i = 0; i < event.melds.length; i++) {
+        const proposal = event.melds[i]!;
         const cards: Card[] = [];
         for (const cardId of proposal.cardIds) {
           const card = context.hand.find((c) => c.id === cardId);
@@ -182,7 +231,7 @@ export const turnMachine = setup({
           cards.push(card);
         }
         melds.push({
-          id: `meld-${Math.random()}`,
+          id: `validation-meld-${i}`, // Deterministic ID for validation
           type: proposal.type,
           cards,
           ownerId: context.playerId,
@@ -425,13 +474,14 @@ export const turnMachine = setup({
       },
       table: ({ context, event }) => {
         if (event.type !== "LAY_DOWN") return context.table;
-        // Build melds and add to table
-        const newMelds: Meld[] = event.melds.map((proposal) => {
+        // Build melds and add to table with deterministic IDs
+        const tableLen = context.table.length;
+        const newMelds: Meld[] = event.melds.map((proposal, i) => {
           const cards = proposal.cardIds
             .map((id) => context.hand.find((c) => c.id === id))
             .filter((c): c is Card => c !== undefined);
           return {
-            id: `meld-${crypto.randomUUID()}`,
+            id: `meld-${context.playerId}-${tableLen + i}`,
             type: proposal.type,
             cards,
             ownerId: context.playerId,
@@ -545,22 +595,50 @@ export const turnMachine = setup({
     laidDownThisTurn: input.laidDownThisTurn ?? false,
     table: input.table,
     lastError: null,
+    playerOrder: input.playerOrder ?? [],
+    playerDownStatus: input.playerDownStatus ?? {},
+    mayIResult: null,
+    mayIDiscardTop: null,
   }),
-  output: ({ context }) => ({
-    playerId: context.playerId,
-    hand: context.hand,
-    stock: context.stock,
-    discard: context.discard,
-    isDown: context.isDown,
-    table: context.table,
-    // wentOut is true when hand is empty at end of turn (player went out)
-    wentOut: context.hand.length === 0,
-  }),
+  output: ({ context }): TurnOutput => {
+    const handUpdates: Record<string, { added: Card[] }> = {};
+    if (context.mayIResult) {
+      handUpdates[context.mayIResult.winnerId] = {
+        added: context.mayIResult.cardsReceived,
+      };
+    }
+    return {
+      playerId: context.playerId,
+      hand: context.hand,
+      stock: context.stock,
+      discard: context.discard,
+      isDown: context.isDown,
+      table: context.table,
+      // wentOut is true when hand is empty at end of turn (player went out)
+      wentOut: context.hand.length === 0,
+      // Include handUpdates only if there's a May I winner
+      ...(Object.keys(handUpdates).length > 0 ? { handUpdates } : {}),
+    };
+  },
   states: {
     awaitingDraw: {
       on: {
         DRAW_FROM_STOCK: [
           {
+            // Open May I window when there are eligible claimants
+            guard: "shouldOpenMayIWindow",
+            target: "mayIWindow",
+            actions: [
+              // Store the discard top before drawing (for May I window)
+              assign({
+                mayIDiscardTop: ({ context }) => context.discard[0] ?? null,
+              }),
+              "drawFromStock",
+              "clearError",
+            ],
+          },
+          {
+            // Skip May I window - go directly to drawn
             guard: "canDrawFromStock",
             target: "drawn",
             actions: ["drawFromStock", "clearError"],
@@ -574,6 +652,76 @@ export const turnMachine = setup({
           guard: "canDrawFromDiscard",
           target: "drawn",
           actions: "drawFromDiscard",
+        },
+      },
+    },
+    mayIWindow: {
+      invoke: {
+        id: "mayIWindow",
+        src: "mayIWindowMachine",
+        input: ({ context }): MayIWindowInput => ({
+          discardedCard: context.mayIDiscardTop!,
+          discardedByPlayerId: context.playerId, // Previous player discarded
+          currentPlayerId: context.playerId,
+          currentPlayerIndex: context.playerOrder.indexOf(context.playerId),
+          playerOrder: context.playerOrder,
+          stock: context.stock,
+          playerDownStatus: context.playerDownStatus,
+        }),
+        onDone: {
+          target: "drawn",
+          actions: assign(({ context, event }) => {
+            const output = event.output as MayIWindowOutput;
+
+            // If there's a May I winner (non-current player), record result
+            if (output.type === "MAY_I_RESOLVED" && output.winnerId && output.winnerId !== context.playerId) {
+              return {
+                // Update discard pile - remove the claimed card
+                discard: context.discard.filter((c) => c.id !== output.discardedCard.id),
+                // Update stock (penalty card was taken)
+                stock: output.updatedStock,
+                // Store May I result for output
+                mayIResult: {
+                  winnerId: output.winnerId,
+                  cardsReceived: output.winnerReceived,
+                },
+              };
+            }
+
+            // If current player claimed via DRAW_FROM_DISCARD
+            if (output.type === "CURRENT_PLAYER_CLAIMED") {
+              // Current player already drew from stock, now also gets discard
+              return {
+                hand: [...context.hand, output.discardedCard],
+                discard: context.discard.filter((c) => c.id !== output.discardedCard.id),
+              };
+            }
+
+            // No claims - just clear mayIDiscardTop
+            return {
+              mayIDiscardTop: null,
+            };
+          }),
+        },
+      },
+      on: {
+        // Forward May I events to the invoked machine
+        CALL_MAY_I: {
+          actions: sendTo("mayIWindow", ({ event }) => event),
+        },
+        DRAW_FROM_STOCK: {
+          // Current player passes on discard (closes window)
+          actions: sendTo("mayIWindow", ({ event, context }) => ({
+            type: "DRAW_FROM_STOCK" as const,
+            playerId: event.playerId ?? context.playerId,
+          })),
+        },
+        DRAW_FROM_DISCARD: {
+          // Current player claims discard (if not down)
+          actions: sendTo("mayIWindow", ({ event, context }) => ({
+            type: "DRAW_FROM_DISCARD" as const,
+            playerId: event.playerId ?? context.playerId,
+          })),
         },
       },
     },

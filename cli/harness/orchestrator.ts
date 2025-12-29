@@ -17,9 +17,9 @@
  * - Each command returns the updated state for immediate broadcast
  */
 
-import type { Card } from "../core/card/card.types";
-import type { Meld } from "../core/meld/meld.types";
-import type { Player, RoundNumber, RoundRecord } from "../core/engine/engine.types";
+import type { Card } from "../../core/card/card.types";
+import type { Meld } from "../../core/meld/meld.types";
+import type { Player, RoundNumber, RoundRecord } from "../../core/engine/engine.types";
 import type {
   DecisionPhase,
   OrchestratorSnapshot,
@@ -27,22 +27,23 @@ import type {
   MayIContext,
   CommandResult,
   PersistedGameState,
-} from "./harness.types";
-import { getDeckConfig } from "../core/engine/round.machine";
-import { CONTRACTS, type Contract } from "../core/engine/contracts";
-import { createDeck, shuffle, deal } from "../core/card/card.deck";
-import { renderCard } from "../cli/cli.renderer";
+} from "../shared/cli.types";
+import { getDeckConfig } from "../../core/engine/round.machine";
+import { CONTRACTS, type Contract } from "../../core/engine/contracts";
+import { createDeck, shuffle, deal } from "../../core/card/card.deck";
+import { renderCard } from "../shared/cli.renderer";
 import {
   saveOrchestratorSnapshot,
   loadOrchestratorSnapshot,
   appendActionLog,
   clearSavedGame,
   savedGameExists,
-} from "./orchestrator.persistence";
-import { isValidSet, isValidRun } from "../core/meld/meld.validation";
-import { canLayOffToSet, canLayOffToRun, getRunInsertPosition } from "../core/engine/layoff";
-import { canSwapJokerWithCard, identifyJokerPositions } from "../core/meld/meld.joker";
-import { calculateHandScore } from "../core/scoring/scoring";
+} from "../shared/cli.persistence";
+import { isValidSet, isValidRun } from "../../core/meld/meld.validation";
+import { canLayOffToSet, canLayOffToRun, getRunInsertPosition } from "../../core/engine/layoff";
+import { canSwapJokerWithCard, identifyJokerPositions } from "../../core/meld/meld.joker";
+import { calculateHandScore } from "../../core/scoring/scoring";
+import { gameMachine } from "../../core/engine/game.machine";
 
 /**
  * Game state view - unified view of current game state
@@ -115,6 +116,9 @@ export class Orchestrator {
   private hasDrawn: boolean = false;
   private laidDownThisTurn: boolean = false;
 
+  // Track who discarded last (null for deal discard at game start)
+  private lastDiscardedByPlayerId: string | null = null;
+
   /**
    * Static factory to create orchestrator from serialized state
    * Used for WebSocket/PartyKit: restore state from D1 or broadcast
@@ -158,7 +162,6 @@ export class Orchestrator {
     if (playerNames.length < 3 || playerNames.length > 8) {
       throw new Error("May I requires 3-8 players");
     }
-
     this.gameId = crypto.randomUUID().slice(0, 8);
     this.phase = "ROUND_ACTIVE";
     this.turnNumber = 1;
@@ -186,6 +189,7 @@ export class Orchestrator {
     this.awaitingPlayerId = this.players[this.currentPlayerIndex]!.id;
     this.hasDrawn = false;
     this.laidDownThisTurn = false;
+    this.lastDiscardedByPlayerId = null; // Deal discard doesn't belong to any player
 
     // Clear old state and log
     clearSavedGame();
@@ -204,7 +208,7 @@ export class Orchestrator {
    */
   loadGame(): GameStateView {
     if (!savedGameExists()) {
-      throw new Error("No game in progress. Run 'bun harness/play.ts new' to start a new game.");
+      throw new Error("No game in progress. Run 'bun cli/play.ts new' to start a new game.");
     }
 
     const snapshot = loadOrchestratorSnapshot();
@@ -511,6 +515,7 @@ export class Orchestrator {
 
     const card = player.hand.splice(position - 1, 1)[0]!;
     this.discard.unshift(card);
+    this.lastDiscardedByPlayerId = player.id;
 
     this.logAction(player.id, player.name, "discarded", renderCard(card));
 
@@ -674,6 +679,42 @@ export class Orchestrator {
   }
 
   /**
+   * Reorder the human player's hand
+   * This is a "free action" that can be done at any time without consuming the turn
+   */
+  reorderHand(newHand: Card[]): CommandResult {
+    const player = this.players.find((p) => p.id === "player-0");
+    if (!player) {
+      return { success: false, message: "Player not found", error: "player_not_found" };
+    }
+
+    // Validate same cards
+    if (newHand.length !== player.hand.length) {
+      return { success: false, message: "Card count mismatch", error: "card_count_mismatch" };
+    }
+
+    const oldIds = new Set(player.hand.map((c) => c.id));
+    const newIds = new Set(newHand.map((c) => c.id));
+
+    for (const id of newIds) {
+      if (!oldIds.has(id)) {
+        return { success: false, message: `Card ${id} not in hand`, error: "card_not_in_hand" };
+      }
+    }
+
+    for (const id of oldIds) {
+      if (!newIds.has(id)) {
+        return { success: false, message: `Card ${id} missing from new order`, error: "card_missing" };
+      }
+    }
+
+    player.hand = newHand;
+    this.save();
+
+    return { success: true, message: "Hand reordered." };
+  }
+
+  /**
    * Swap a Joker from a meld
    */
   swap(meldNum: number, jokerPos: number, cardPos: number): CommandResult {
@@ -800,16 +841,28 @@ export class Orchestrator {
     const currentPlayer = this.getCurrentPlayer();
     const discardedCard = this.discard[0]!;
 
-    // Build priority order
+    // Build priority order - exclude current player, player who just discarded, and down players
     const awaitingResponseFrom: string[] = [];
     for (let i = 1; i < this.players.length; i++) {
       const idx = (this.currentPlayerIndex + i) % this.players.length;
-      awaitingResponseFrom.push(this.players[idx]!.id);
+      const player = this.players[idx]!;
+      // Don't ask the player who just discarded - they wouldn't want their own card back
+      // (lastDiscardedByPlayerId is null for deal discard at game start)
+      // Don't ask down players - they cannot draw from discard pile (house rule)
+      if (player.id !== this.lastDiscardedByPlayerId && !player.isDown) {
+        awaitingResponseFrom.push(player.id);
+      }
+    }
+
+    // If no one can respond to May I, skip the window entirely
+    if (awaitingResponseFrom.length === 0) {
+      this.harnessPhase = "AWAITING_ACTION";
+      return;
     }
 
     this.mayIContext = {
       discardedCard,
-      discardedByPlayerId: this.players[(this.currentPlayerIndex - 1 + this.players.length) % this.players.length]!.id,
+      discardedByPlayerId: this.lastDiscardedByPlayerId ?? "",
       currentPlayerId: currentPlayer.id,
       currentPlayerIndex: this.currentPlayerIndex,
       awaitingResponseFrom,
@@ -936,6 +989,7 @@ export class Orchestrator {
     this.mayIContext = null;
     this.hasDrawn = false;
     this.laidDownThisTurn = false;
+    this.lastDiscardedByPlayerId = null; // Deal discard doesn't belong to any player
   }
 
   private save(): void {

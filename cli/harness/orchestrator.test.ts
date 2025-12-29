@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Orchestrator, getOrchestrator } from "./orchestrator";
-import { clearSavedGame } from "./orchestrator.persistence";
+import { clearSavedGame } from "../shared/cli.persistence";
 
 describe("Orchestrator", () => {
   let orchestrator: Orchestrator;
@@ -246,6 +246,108 @@ describe("Orchestrator", () => {
       const state = orchestrator.getStateView();
       expect(state.players[2]!.hand.length).toBeGreaterThan(11); // Carol got cards
     });
+
+    it("includes all non-current players in May I window at game start (deal discard)", () => {
+      // At game start, no player has discarded yet - the discard is from the deal
+      // So all non-current players should be in the May I responders
+      const state = orchestrator.getStateView();
+      expect(state.mayIContext!.discardedByPlayerId).toBe(""); // No player discarded
+      expect(state.mayIContext!.awaitingResponseFrom).toContain("player-0"); // Alice
+      expect(state.mayIContext!.awaitingResponseFrom).toContain("player-2"); // Carol
+      expect(state.mayIContext!.awaitingResponseFrom).not.toContain("player-1"); // Bob is current
+    });
+
+    it("excludes down players from May I window responders", () => {
+      // Down players cannot draw from discard, so they should not be in the May I window
+      // Setup: 3 players - Alice (0), Bob (1), Carol (2)
+      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+
+      // Simulate Alice (player 0) being down - she laid down on a previous turn
+      const alice = orchestrator.getStateView().players[0]!;
+      alice.isDown = true;
+
+      // Bob's turn (player 1) - draw from stock to open May I window
+      orchestrator.drawFromStock();
+
+      const state = orchestrator.getStateView();
+      expect(state.phase).toBe("MAY_I_WINDOW");
+
+      // Alice is down, so she should NOT be in the May I responders
+      // Only Carol (player 2) should be asked
+      expect(state.mayIContext!.awaitingResponseFrom).not.toContain("player-0"); // Alice is down
+      expect(state.mayIContext!.awaitingResponseFrom).toContain("player-2"); // Carol should be asked
+    });
+
+    it("skips May I window when no eligible responders exist", () => {
+      // Edge case: All non-current players are either down or just discarded
+      // Setup: 3 players - Alice (0), Bob (1), Carol (2)
+      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+
+      // Alice (player 0) is down
+      const alice = orchestrator.getStateView().players[0]!;
+      alice.isDown = true;
+
+      // Bob's turn (player 1) - draw and discard
+      orchestrator.drawFromDiscard();
+      orchestrator.skip();
+      orchestrator.discardCard(1);
+
+      // Now Carol's turn (player 2) - draw from stock
+      // At this point: Alice is down, Bob just discarded, Carol is current
+      // No one can respond to May I!
+      const stateBefore = orchestrator.getStateView();
+      expect(stateBefore.currentPlayerIndex).toBe(2); // Carol
+
+      orchestrator.drawFromStock();
+
+      // Should skip directly to AWAITING_ACTION since no one can respond
+      const state = orchestrator.getStateView();
+      expect(state.phase).toBe("AWAITING_ACTION");
+      expect(state.mayIContext).toBeNull();
+    });
+
+    it("excludes the player who discarded from May I window responders", () => {
+      // Setup: 3 players - Alice (0), Bob (1), Carol (2)
+      // Alice is dealer (0), so Bob (1) goes first
+      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+
+      // Bob's turn (player 1) - draw and discard
+      let state = orchestrator.getStateView();
+      expect(state.currentPlayerIndex).toBe(1); // Bob
+      orchestrator.drawFromDiscard();
+      orchestrator.skip();
+      orchestrator.discardCard(1);
+
+      // Now Carol's turn (player 2) - draw from stock to open May I window
+      state = orchestrator.getStateView();
+      expect(state.currentPlayerIndex).toBe(2); // Carol
+      orchestrator.drawFromStock();
+
+      state = orchestrator.getStateView();
+      expect(state.phase).toBe("MAY_I_WINDOW");
+
+      // Bob just discarded, so he should NOT be in the May I responders
+      // Only Alice should be asked (Carol is current player, Bob just discarded)
+      expect(state.mayIContext!.discardedByPlayerId).toBe("player-1"); // Bob discarded
+      expect(state.mayIContext!.awaitingResponseFrom).not.toContain("player-1"); // Bob not asked
+      expect(state.mayIContext!.awaitingResponseFrom).toContain("player-0"); // Alice should be asked
+    });
+
+    it("exits May I window immediately when caller has priority (no one ahead wants it)", () => {
+      // Bob drew from stock, Carol is first to respond
+      // Carol calls May I - since no one ahead of her claimed it, she wins immediately
+      orchestrator.callMayI();
+
+      // Alice passes (confirming she doesn't want to claim over Carol)
+      orchestrator.pass();
+
+      // May I window should now be resolved - phase should change
+      const state = orchestrator.getStateView();
+      expect(state.phase).toBe("AWAITING_ACTION");
+
+      // Calling pass again should fail because we're no longer in MAY_I_WINDOW
+      expect(() => orchestrator.pass()).toThrow("Invalid command for current phase");
+    });
   });
 
   describe("persistence", () => {
@@ -407,6 +509,53 @@ describe("Orchestrator", () => {
     });
   });
 
+  describe("swap modifies hand in place", () => {
+    it("removes swap card from hand and adds joker at the end", () => {
+      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+      orchestrator.drawFromDiscard(); // Go to AWAITING_ACTION
+
+      const player = orchestrator.getAwaitingPlayer()!;
+
+      // Set up a run with a joker on the table
+      const state = orchestrator.getStateView();
+      state.table.push({
+        id: "test-run",
+        type: "run",
+        cards: [
+          { id: "r1", suit: "hearts", rank: "5" },
+          { id: "r2", suit: "hearts", rank: "6" },
+          { id: "joker1", suit: "hearts", rank: "Joker" }, // Acting as 7♥
+          { id: "r3", suit: "hearts", rank: "8" },
+        ],
+        ownerId: "player-0",
+      });
+
+      // Give the player a 7♥ to swap
+      const sevenOfHearts = { id: "swap-card", suit: "hearts" as const, rank: "7" as const };
+      player.hand = [
+        { id: "c1", suit: "clubs", rank: "3" },
+        sevenOfHearts,  // Position 2
+        { id: "c2", suit: "diamonds", rank: "K" },
+      ];
+
+      const handBefore = [...player.hand];
+      const cardAtPos2Before = player.hand[1]; // The 7♥
+
+      // Swap the card at position 2 for the joker
+      const result = orchestrator.swap(1, 3, 2); // meld 1, joker at pos 3, card at pos 2
+
+      expect(result.success).toBe(true);
+
+      // CRITICAL: After swap, hand[1] is now a DIFFERENT card
+      // The 7♥ was removed and the Joker was added at the end
+      expect(player.hand[1]!.id).not.toBe(cardAtPos2Before!.id);
+      expect(player.hand[1]!.rank).toBe("K"); // The K♦ shifted down
+      expect(player.hand[player.hand.length - 1]!.rank).toBe("Joker"); // Joker at end
+
+      // This test documents why interactive code must capture the card BEFORE calling swap
+    });
+  });
+
   describe("stock auto-replenishment", () => {
     beforeEach(() => {
       orchestrator.newGame(["Alice", "Bob", "Carol"]);
@@ -471,6 +620,19 @@ describe("Orchestrator", () => {
       state = orchestrator.getStateView();
       expect(state.phase).toBe("AWAITING_DRAW");
       expect(state.currentPlayerIndex).toBe(2); // Carol's turn
+    });
+
+    it("requires skip() before discardCard() - cannot discard directly from AWAITING_ACTION", () => {
+      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+
+      // Draw to get to AWAITING_ACTION
+      orchestrator.drawFromDiscard();
+      const state = orchestrator.getStateView();
+      expect(state.phase).toBe("AWAITING_ACTION");
+
+      // Attempting to discard directly from AWAITING_ACTION should fail
+      // This documents why interactive mode must call skip() first
+      expect(() => orchestrator.discardCard(1)).toThrow("Invalid command for current phase");
     });
   });
 });

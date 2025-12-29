@@ -5,9 +5,9 @@ A human-friendly terminal game with numbered menus and conversational prompts. P
 ## Quick Start
 
 ```bash
-bun harness/play.ts --interactive
+bun cli/play.ts --interactive
 # or
-bun harness/play.ts -i
+bun cli/play.ts -i
 ```
 
 ## How It Works

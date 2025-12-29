@@ -1,31 +1,30 @@
 #!/usr/bin/env bun
 /**
- * May I? CLI Harness - Entry Point
+ * May I? CLI - Entry Point
  *
  * A command-line interface for Claude to play and test the game.
  * Each command is self-contained: run, execute one action, exit.
  *
  * Usage:
- *   bun harness/play.ts new                    # Start new game
- *   bun harness/play.ts status                 # Show current state
- *   bun harness/play.ts status --json          # Show state as JSON
- *   bun harness/play.ts draw stock             # Draw from stock
- *   bun harness/play.ts draw discard           # Draw from discard
- *   bun harness/play.ts laydown "1,2,3" "4,5,6,7"  # Lay down melds
- *   bun harness/play.ts skip                   # Skip laying down
- *   bun harness/play.ts discard 5              # Discard card at position 5
- *   bun harness/play.ts layoff 3 1             # Lay off card 3 to meld 1
- *   bun harness/play.ts mayi                   # Call May I
- *   bun harness/play.ts take                   # Current player takes discard
- *   bun harness/play.ts pass                   # Pass on May I
- *   bun harness/play.ts continue               # Continue to next round
- *   bun harness/play.ts log                    # Show action log
+ *   bun cli/play.ts new                    # Start new game
+ *   bun cli/play.ts status                 # Show current state
+ *   bun cli/play.ts status --json          # Show state as JSON
+ *   bun cli/play.ts draw stock             # Draw from stock
+ *   bun cli/play.ts draw discard           # Draw from discard
+ *   bun cli/play.ts laydown "1,2,3" "4,5,6,7"  # Lay down melds
+ *   bun cli/play.ts skip                   # Skip laying down
+ *   bun cli/play.ts discard 5              # Discard card at position 5
+ *   bun cli/play.ts layoff 3 1             # Lay off card 3 to meld 1
+ *   bun cli/play.ts mayi                   # Call May I
+ *   bun cli/play.ts pass                   # Pass on May I
+ *   bun cli/play.ts continue               # Continue to next round
+ *   bun cli/play.ts log                    # Show action log
  */
 
-import { Orchestrator } from "./orchestrator";
-import { readActionLog, savedGameExists } from "./orchestrator.persistence";
-import { renderStatus, renderStatusJson, renderLog } from "./harness.render";
-import type { PersistedGameState } from "./harness.types";
+import { Orchestrator } from "./harness/orchestrator";
+import { readActionLog, savedGameExists } from "./shared/cli.persistence";
+import { renderStatus, renderStatusJson, renderLog } from "./harness/harness.render";
+import type { PersistedGameState } from "./shared/cli.types";
 
 // --- Main entry point ---
 
@@ -35,7 +34,7 @@ const command = args[0]?.toLowerCase();
 // Check for interactive mode
 if (args.includes("--interactive") || args.includes("-i")) {
   // Spawn the interactive CLI
-  const proc = Bun.spawn(["bun", "harness/interactive.ts"], {
+  const proc = Bun.spawn(["bun", "cli/interactive/interactive.ts"], {
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
@@ -91,7 +90,7 @@ try {
       break;
     default:
       console.error(`Unknown command: ${command}`);
-      console.error('Run "bun harness/play.ts help" for usage.');
+      console.error('Run "bun cli/play.ts help" for usage.');
       process.exit(1);
   }
 } catch (error) {
@@ -302,9 +301,9 @@ function handleLog(tailArg?: string): void {
 
 function printHelp(): void {
   console.log(`
-May I? CLI Harness
+May I? CLI
 
-Usage: bun harness/play.ts <command> [options]
+Usage: bun cli/play.ts <command> [options]
 
 Modes:
   --interactive, -i           Start interactive human-friendly mode
@@ -332,11 +331,11 @@ Commands (command mode):
   log [n]                     Show action log (last n entries)
 
 Examples:
-  bun harness/play.ts new
-  bun harness/play.ts draw stock
-  bun harness/play.ts laydown "1,2,3" "4,5,6,7"
-  bun harness/play.ts discard 5
-  bun harness/play.ts log 10
-  bun harness/play.ts --interactive     # Start interactive mode
+  bun cli/play.ts new
+  bun cli/play.ts draw stock
+  bun cli/play.ts laydown "1,2,3" "4,5,6,7"
+  bun cli/play.ts discard 5
+  bun cli/play.ts log 10
+  bun cli/play.ts --interactive     # Start interactive mode
 `);
 }

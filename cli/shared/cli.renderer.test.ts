@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { renderCard, renderHand, renderNumberedHand, renderGameState } from "./cli.renderer";
-import type { Card } from "../core/card/card.types";
-import { createInitialGameState } from "../core/engine/engine.types";
+import type { Card } from "../../core/card/card.types";
+import { createInitialGameState } from "../../core/engine/engine.types";
 
 // Helper to create test cards
 function card(rank: Card["rank"], suit: Card["suit"] = "hearts"): Card {
@@ -65,12 +65,12 @@ describe("renderHand", () => {
     expect(result.indexOf("5♦")).toBeLessThan(result.indexOf("9♣"));
   });
 
-  it("separates cards with spaces", () => {
+  it("separates cards with double spaces for readability", () => {
     const hand = [card("3", "hearts"), card("5", "diamonds")];
-    expect(renderHand(hand)).toBe("3♥ 5♦");
+    expect(renderHand(hand)).toBe("3♥  5♦");
   });
 
-  it("example: '3♥ 5♦ 9♣ J♠ Joker'", () => {
+  it("example: '3♥  5♦  9♣  J♠  Joker'", () => {
     const hand = [
       card("3", "hearts"),
       card("5", "diamonds"),
@@ -78,7 +78,7 @@ describe("renderHand", () => {
       card("J", "spades"),
       joker(),
     ];
-    expect(renderHand(hand)).toBe("3♥ 5♦ 9♣ J♠ Joker");
+    expect(renderHand(hand)).toBe("3♥  5♦  9♣  J♠  Joker");
   });
 });
 
@@ -92,7 +92,7 @@ describe("renderNumberedHand (for selection)", () => {
     expect(result).toContain("5♦");
   });
 
-  it("example: '1:3♥ 2:5♦ 3:9♣ 4:J♠ 5:Joker'", () => {
+  it("example: '1:3♥ | 2:5♦ | 3:9♣ | 4:J♠ | 5:Joker'", () => {
     const hand = [
       card("3", "hearts"),
       card("5", "diamonds"),
@@ -100,7 +100,7 @@ describe("renderNumberedHand (for selection)", () => {
       card("J", "spades"),
       joker(),
     ];
-    expect(renderNumberedHand(hand)).toBe("1:3♥ 2:5♦ 3:9♣ 4:J♠ 5:Joker");
+    expect(renderNumberedHand(hand)).toBe("1:3♥ | 2:5♦ | 3:9♣ | 4:J♠ | 5:Joker");
   });
 
   it("positions are 1-indexed for human readability", () => {
@@ -175,6 +175,6 @@ describe("renderGameState", () => {
     state.players[1]!.hand = [card("3", "hearts"), card("K", "spades"), joker()];
 
     const result = renderGameState(state);
-    expect(result).toContain("Your hand: 3♥ K♠ Joker");
+    expect(result).toContain("Your hand: 3♥  K♠  Joker");
   });
 });

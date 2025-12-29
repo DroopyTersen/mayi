@@ -8,35 +8,36 @@ A CLI harness that allows Claude (or any agent) to play May I? via command line.
 
 ```bash
 # Start a new 3-player game
-bun harness/play.ts new
+bun cli/play.ts new
 
 # View current game state
-bun harness/play.ts status
+bun cli/play.ts status
 
 # Take actions based on the current phase
-bun harness/play.ts draw stock
-bun harness/play.ts discard 3
+bun cli/play.ts draw stock
+bun cli/play.ts discard 3
 
 # View action history
-bun harness/play.ts log
+bun cli/play.ts log
 ```
 
 ## Architecture
 
 The harness is designed for non-interactive CLI usage:
 - Each command invocation is self-contained (load state, execute, save state, exit)
-- State persists to `harness/game-state.json`
-- Action log persists to `harness/game-log.jsonl`
+- State persists to `cli/game-state.json`
+- Action log persists to `cli/game-log.jsonl`
 - No stdin required after command starts
 
 ### Files
 
 | File | Purpose |
 |------|---------|
-| `harness/play.ts` | CLI entry point with command handlers |
-| `harness/harness.types.ts` | Type definitions for persisted state |
-| `harness/harness.state.ts` | State persistence and game creation |
-| `harness/harness.render.ts` | Display rendering (text and JSON) |
+| `cli/play.ts` | CLI entry point with command handlers |
+| `cli/shared/cli.types.ts` | Type definitions for persisted state |
+| `cli/harness/harness.state.ts` | State accessors |
+| `cli/harness/harness.render.ts` | Display rendering (text and JSON) |
+| `cli/harness/orchestrator.ts` | Game state management and command execution |
 
 ## Game Phases
 
@@ -57,39 +58,36 @@ The harness tracks which player needs to act and what actions are available:
 
 ```bash
 # Start new game with default players (Alice, Bob, Carol)
-bun harness/play.ts new
-
-# Start with custom player names
-bun harness/play.ts new "Player1" "Player2" "Player3"
+bun cli/play.ts new
 
 # View help
-bun harness/play.ts help
+bun cli/play.ts help
 ```
 
 ### Status Commands
 
 ```bash
 # Human-readable status
-bun harness/play.ts status
+bun cli/play.ts status
 
 # JSON status (for programmatic parsing)
-bun harness/play.ts status --json
+bun cli/play.ts status --json
 
 # View action log (all actions)
-bun harness/play.ts log
+bun cli/play.ts log
 
 # View last N actions
-bun harness/play.ts log 10
+bun cli/play.ts log 10
 ```
 
 ### Draw Phase
 
 ```bash
 # Draw from stock pile
-bun harness/play.ts draw stock
+bun cli/play.ts draw stock
 
 # Draw from discard pile (if current player)
-bun harness/play.ts draw discard
+bun cli/play.ts draw discard
 ```
 
 ### Action Phase
@@ -99,13 +97,13 @@ After drawing, if not yet "down" (laid down contract):
 ```bash
 # Lay down contract - positions are 1-indexed from your hand
 # Round 1 requires 2 sets
-bun harness/play.ts laydown "1,2,3" "4,5,6"
+bun cli/play.ts laydown "1,2,3" "4,5,6"
 
 # Round 2 requires 1 set + 1 run
-bun harness/play.ts laydown "1,2,3" "4,5,6,7"
+bun cli/play.ts laydown "1,2,3" "4,5,6,7"
 
 # Skip laying down (proceed to discard)
-bun harness/play.ts skip
+bun cli/play.ts skip
 ```
 
 After laying down (when "down"):
@@ -113,21 +111,21 @@ After laying down (when "down"):
 ```bash
 # Lay off a card onto an existing meld
 # layoff <hand-position> <meld-number>
-bun harness/play.ts layoff 3 1
+bun cli/play.ts layoff 3 1
 
 # Swap a joker from a run (Phase 7 feature)
 # swap <meld-number> <joker-position> <hand-position>
-bun harness/play.ts swap 2 4 7
+bun cli/play.ts swap 2 4 7
 
 # Skip laying off
-bun harness/play.ts skip
+bun cli/play.ts skip
 ```
 
 ### Discard Phase
 
 ```bash
 # Discard card at position (1-indexed)
-bun harness/play.ts discard 5
+bun cli/play.ts discard 5
 ```
 
 ### May I Window
@@ -136,10 +134,10 @@ When someone draws from stock, a May I window opens for the discarded card:
 
 ```bash
 # Non-current player can call May I
-bun harness/play.ts mayi
+bun cli/play.ts mayi
 
 # Pass on claiming the card
-bun harness/play.ts pass
+bun cli/play.ts pass
 ```
 
 Note: The current player's "veto" is choosing `draw discard` instead of `draw stock` at the start of their turn. Once they draw from stock, the May I window opens and they have already passed on the discard.
@@ -148,10 +146,10 @@ Note: The current player's "veto" is choosing `draw discard` instead of `draw st
 
 ```bash
 # Continue to next round after round ends
-bun harness/play.ts continue
+bun cli/play.ts continue
 
 # Start new game after game ends
-bun harness/play.ts new
+bun cli/play.ts new
 ```
 
 ## Status Output
@@ -191,7 +189,7 @@ COMMANDS: layoff <card> <meld> | skip
 ### JSON Format
 
 ```bash
-bun harness/play.ts status --json
+bun cli/play.ts status --json
 ```
 
 Returns structured JSON with:
@@ -204,7 +202,7 @@ Returns structured JSON with:
 
 ## Action Log
 
-The action log (`harness/game-log.jsonl`) records all game actions:
+The action log (`cli/game-log.jsonl`) records all game actions:
 
 ```
 [12:35:20 PM] R1 T0: System GAME_STARTED — Players: Alice, Bob, Carol

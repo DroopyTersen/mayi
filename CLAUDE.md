@@ -19,20 +19,20 @@ bun test core/card/utils.test.ts
 # Type check
 bun run typecheck
 
-# Play the game via CLI harness (for testing)
-bun harness/play.ts new
-bun harness/play.ts status
+# Play the game via CLI (for testing)
+bun cli/play.ts new
+bun cli/play.ts status
 ```
 
-## Game Harness
+## Game CLI
 
 Two modes for playing:
 - **Command mode** (for AI agents): See [docs/agent-game-harness.md](docs/agent-game-harness.md)
 - **Interactive mode** (for humans): See [docs/interactive-mode.md](docs/interactive-mode.md)
 
 ```bash
-bun harness/play.ts new           # Command mode
-bun harness/play.ts --interactive # Interactive mode
+bun cli/play.ts new           # Command mode
+bun cli/play.ts --interactive # Interactive mode
 ```
 
 # Build
@@ -85,6 +85,14 @@ describe("feature", () => {
 2. Implement the minimum code to make the test pass
 3. Refactor while keeping tests green
 4. Repeat
+
+### Bug Fixes
+
+When fixing bugs or issues, **always try to write a failing test first** that reproduces the bug. This:
+- Confirms you understand the bug
+- Prevents regressions
+- Documents the expected behavior
+- Gives confidence the fix actually works
 
 ## File Naming
 

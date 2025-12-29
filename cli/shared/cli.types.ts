@@ -1,16 +1,16 @@
 /**
- * Type definitions for the May I? CLI harness
+ * Type definitions for the May I? CLI
  *
- * Used by Claude to play and test the game via command line
+ * Used by both agent harness and interactive modes
  */
 
-import type { Card } from "../core/card/card.types";
-import type { Meld } from "../core/meld/meld.types";
-import type { Player, RoundNumber, RoundRecord } from "../core/engine/engine.types";
-import type { Contract } from "../core/engine/contracts";
+import type { Card } from "../../core/card/card.types";
+import type { Meld } from "../../core/meld/meld.types";
+import type { Player, RoundNumber, RoundRecord } from "../../core/engine/engine.types";
+import type { Contract } from "../../core/engine/contracts";
 
 /**
- * Decision phases - what the harness is waiting for
+ * Decision phases - what the CLI is waiting for
  */
 export type DecisionPhase =
   | "AWAITING_DRAW" // Current player needs to draw

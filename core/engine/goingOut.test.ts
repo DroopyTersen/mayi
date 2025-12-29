@@ -8,9 +8,11 @@ import {
 } from "./goingOut";
 import { turnMachine } from "./turn.machine";
 import { roundMachine } from "./round.machine";
+import type { RoundInput } from "./round.machine";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
-import type { RoundNumber } from "./engine.types";
+import type { RoundNumber, Player } from "./engine.types";
+import { createCanGoOutState } from "./test.fixtures";
 
 function card(rank: Card["rank"], suit: Card["suit"]): Card {
   return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
@@ -2841,145 +2843,98 @@ describe("going out - turn output", () => {
       expect(normalActor.getSnapshot().status).toBe("done");
     });
 
-    it("parent machine (round) handles differently based on wentOut flag", () => {
-      // RoundMachine's TURN_COMPLETE event checks wentOut flag
-      // If wentOut: true → transitions to scoring
-      // If wentOut: false → advances to next turn
-      // This is verified by the RoundMachine's guard: "wentOut"
-      const roundInput = {
-        roundNumber: 1 as RoundNumber,
-        players: [
-          { id: "player-0", name: "Alice", hand: [], isDown: false, totalScore: 0 },
-          { id: "player-1", name: "Bob", hand: [], isDown: false, totalScore: 0 },
-        ],
-        dealerIndex: 0,
+    // Round-level behavior is tested via predefinedState fixtures
+    it("parent machine (round) handles wentOut flag via invoke onDone", () => {
+      const predefinedState = createCanGoOutState();
+      const players: Player[] = [
+        { id: "player-0", name: "P1", hand: [], isDown: false, totalScore: 0 },
+        { id: "player-1", name: "P2", hand: [], isDown: false, totalScore: 0 },
+        { id: "player-2", name: "P3", hand: [], isDown: false, totalScore: 0 },
+      ];
+      const input: RoundInput = {
+        roundNumber: 1,
+        players,
+        dealerIndex: 2,
+        predefinedState,
       };
-      const actor = createActor(roundMachine, { input: roundInput });
+
+      const actor = createActor(roundMachine, { input });
       actor.start();
 
-      // Simulate turn complete with wentOut: true
+      // Player 0 goes out via GO_OUT
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({
-        type: "TURN_COMPLETE",
-        wentOut: true,
-        playerId: "player-0",
-        hand: [],
-        stock: [],
-        discard: [],
-        table: [],
-        isDown: true,
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
+          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
+          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
+        ],
       });
 
-      // Should be in scoring state
+      // Round should transition to scoring when turn completes with wentOut
       expect(actor.getSnapshot().value).toBe("scoring");
     });
   });
 
-  describe("wentOut triggers round end", () => {
-    it("when turn outputs wentOut: true, round ends", () => {
-      const roundInput = {
-        roundNumber: 1 as RoundNumber,
-        players: [
-          { id: "player-0", name: "Alice", hand: [], isDown: false, totalScore: 0 },
-          { id: "player-1", name: "Bob", hand: [], isDown: false, totalScore: 0 },
-        ],
-        dealerIndex: 0,
+  // Using predefinedState to test round-level transitions
+  describe("wentOut triggers round end (via invoke)", () => {
+    function createGoOutRoundScenario() {
+      const predefinedState = createCanGoOutState();
+      const players: Player[] = [
+        { id: "player-0", name: "P1", hand: [], isDown: false, totalScore: 0 },
+        { id: "player-1", name: "P2", hand: [], isDown: false, totalScore: 0 },
+        { id: "player-2", name: "P3", hand: [], isDown: false, totalScore: 0 },
+      ];
+      const input: RoundInput = {
+        roundNumber: 1,
+        players,
+        dealerIndex: 2,
+        predefinedState,
       };
-      const actor = createActor(roundMachine, { input: roundInput });
-      actor.start();
-      expect(actor.getSnapshot().value).toBe("active");
 
+      const actor = createActor(roundMachine, { input });
+      actor.start();
+
+      // Player 0 goes out
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({
-        type: "TURN_COMPLETE",
-        wentOut: true,
-        playerId: "player-0",
-        hand: [],
-        stock: [],
-        discard: [],
-        table: [],
-        isDown: true,
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
+          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
+          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
+        ],
       });
 
-      // Round ended (in scoring state, which is final)
-      expect(actor.getSnapshot().value).toBe("scoring");
+      return actor;
+    }
+
+    it("when turn outputs wentOut: true, round ends", () => {
+      const actor = createGoOutRoundScenario();
       expect(actor.getSnapshot().status).toBe("done");
     });
 
     it("round machine transitions to scoring state", () => {
-      const roundInput = {
-        roundNumber: 1 as RoundNumber,
-        players: [
-          { id: "player-0", name: "Alice", hand: [], isDown: false, totalScore: 0 },
-        ],
-        dealerIndex: 0,
-      };
-      const actor = createActor(roundMachine, { input: roundInput });
-      actor.start();
-
-      actor.send({
-        type: "TURN_COMPLETE",
-        wentOut: true,
-        playerId: "player-0",
-        hand: [],
-        stock: [],
-        discard: [],
-        table: [],
-        isDown: true,
-      });
-
+      const actor = createGoOutRoundScenario();
       expect(actor.getSnapshot().value).toBe("scoring");
     });
 
     it("no more turns for any player (round is final)", () => {
-      const roundInput = {
-        roundNumber: 1 as RoundNumber,
-        players: [
-          { id: "player-0", name: "Alice", hand: [], isDown: false, totalScore: 0 },
-          { id: "player-1", name: "Bob", hand: [], isDown: false, totalScore: 0 },
-        ],
-        dealerIndex: 0,
-      };
-      const actor = createActor(roundMachine, { input: roundInput });
-      actor.start();
+      const actor = createGoOutRoundScenario();
+      // Round is in final state - no more turn processing possible
+      expect(actor.getSnapshot().status).toBe("done");
 
-      actor.send({
-        type: "TURN_COMPLETE",
-        wentOut: true,
-        playerId: "player-0",
-        hand: [],
-        stock: [],
-        discard: [],
-        table: [],
-        isDown: true,
-      });
-
-      // Scoring state is final - no more events accepted
+      // Sending a DRAW_FROM_STOCK should have no effect (machine is done)
+      actor.send({ type: "DRAW_FROM_STOCK" });
       expect(actor.getSnapshot().status).toBe("done");
     });
 
     it("scoring begins immediately (winner set in context)", () => {
-      const roundInput = {
-        roundNumber: 1 as RoundNumber,
-        players: [
-          { id: "player-0", name: "Alice", hand: [], isDown: false, totalScore: 0 },
-          { id: "player-1", name: "Bob", hand: [card("K", "hearts")], isDown: false, totalScore: 0 },
-        ],
-        dealerIndex: 0,
-      };
-      const actor = createActor(roundMachine, { input: roundInput });
-      actor.start();
-
-      actor.send({
-        type: "TURN_COMPLETE",
-        wentOut: true,
-        playerId: "player-0",
-        hand: [],
-        stock: [],
-        discard: [],
-        table: [],
-        isDown: true,
-      });
-
-      // Winner should be set in context
+      const actor = createGoOutRoundScenario();
+      // Winner should be player-0 who went out
       expect(actor.getSnapshot().context.winnerPlayerId).toBe("player-0");
     });
   });

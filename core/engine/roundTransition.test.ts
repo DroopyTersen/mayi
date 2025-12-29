@@ -11,6 +11,7 @@ import { roundMachine } from "./round.machine";
 import { CONTRACTS } from "./contracts";
 import type { RoundInput } from "./round.machine";
 import type { Player, RoundNumber } from "./engine.types";
+import { createCanGoOutState } from "./test.fixtures";
 
 /**
  * Helper to create test players
@@ -315,30 +316,45 @@ describe("round transition", () => {
 describe("round end to round start flow", () => {
   describe("sequence", () => {
     it("Round N ends (someone goes out) -> scores calculated -> RoundRecord created", () => {
+      // Using predefinedState for a scenario where player can go out
+      const predefinedState = createCanGoOutState();
       const input: RoundInput = {
         roundNumber: 1,
-        players: createTestPlayers(4),
-        dealerIndex: 0,
+        players: createTestPlayers(3),
+        dealerIndex: 2, // Player 0 goes first
+        predefinedState,
       };
       const actor = createActor(roundMachine, { input });
       actor.start();
 
-      // Simulate going out
+      // Verify setup: Player 0 is down with 2 cards that can be laid off
+      expect(actor.getSnapshot().context.players[0]!.isDown).toBe(true);
+      expect(actor.getSnapshot().context.players[0]!.hand.length).toBe(2);
+
+      // Player 0 draws (gets a Queen they can lay off)
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "DRAW_FROM_STOCK" }); // Close May I window
+
+      // Player 0 goes out by laying off all cards
       actor.send({
-        type: "TURN_COMPLETE",
-        wentOut: true,
-        playerId: "player-1",
-        hand: [],
-        stock: actor.getSnapshot().context.stock,
-        discard: actor.getSnapshot().context.discard,
-        table: [],
-        isDown: true,
+        type: "GO_OUT",
+        finalLayOffs: [
+          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },   // Q♠ to Queens meld
+          { cardId: "stock-Q-D", meldId: "meld-player-0-0" }, // Q♦ to Queens meld (drawn)
+          { cardId: "p0-J-C", meldId: "meld-player-0-1" },    // J♣ to Jacks meld
+        ],
       });
 
-      // Round is in scoring state (final)
+      // Round ends and transitions to scoring state
+      expect(actor.getSnapshot().value).toBe("scoring");
       expect(actor.getSnapshot().status).toBe("done");
-      expect(actor.getSnapshot().output?.roundRecord).toBeDefined();
-      expect(actor.getSnapshot().output?.roundRecord.winnerId).toBe("player-1");
+
+      // RoundRecord is created in the output (checked via output accessor)
+      const output = actor.getSnapshot().output;
+      expect(output).toBeDefined();
+      expect(output?.roundRecord?.winnerId).toBe("player-0");
+      expect(output?.roundRecord?.roundNumber).toBe(1);
+      expect(output?.roundRecord?.scores).toBeDefined();
     });
 
     it("Player totalScores updated -> increment round -> advance dealer", () => {

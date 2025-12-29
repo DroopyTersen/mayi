@@ -127,31 +127,44 @@ Once you have laid down your contract, you lose the right to perform Joker swaps
 
 7. The "May I?" rule
 
-When May I? is available:
+**When May I? is available:**
 • A May I? can only be called when a discard is "exposed" — sitting unclaimed on the discard pile.
 • If the current player draws from the discard pile, the card is gone and no May I? is possible.
 • If the current player draws from the stock pile, the top discard remains exposed and available for May I?.
 
-Calling May I?:
+**Calling May I?:**
 • Any player (except the current player) may call "May I?" to claim the exposed discard.
-• Important: You cannot call May I? if you have already laid down ("down"). Since calling May I? requires taking the discard, and down players cannot draw from the discard pile, they are ineligible to call May I?.
+• **EXCEPTION: Down players cannot call May I.** Once you have laid down, you may only draw from the stock pile, never from the discard pile. This means you are completely ineligible for May I? claims.
 • The caller takes the discard AND draws 1 penalty card from the stock.
 • Turn order does not change; the caller simply has more cards now.
 
-Priority and vetoing:
-• When someone calls May I?, any player closer in turn order may veto by claiming the card instead.
-• The current player has first right of refusal — but only if they have not yet drawn from the stock and have not laid down yet this hand.
-• Important: Down players cannot veto. Since vetoing requires taking the discard (with or without penalty), and down players cannot draw from the discard pile, they cannot veto May I? claims.
-• If the current player vetoes: they take the discard as their draw (no penalty). This counts as their draw action; they cannot also draw from stock.
-• If a non-current player vetoes: they effectively May I? themselves — taking the discard plus 1 penalty card from stock.
-• Once the current player draws from stock, they forfeit the right to veto any May I? calls on that discard.
+**Priority and claiming:**
 
-Priority tiebreaker:
-• If multiple players call May I? simultaneously, priority goes to whoever is closest in turn order after the current player.
+Think of turn order as a line. When a discard is exposed, everyone is "in line" for it. If someone behind you announces they want it, you don't need to do anything special — you simply have first dibs because you're ahead of them.
+
+How priority works:
+• The current player is first in line
+• Then the next player in turn order, then the next, and so on
+• **Down players are not in line at all.** They cannot draw from the discard pile, so they are never asked about May I? and cannot claim discards.
+
+When someone calls May I?:
+• Anyone ahead of them in line can claim the card instead
+• If you're ahead and want it, you take it — that's your right
+• If no one ahead of them claims it, the caller gets it
+
+What "claiming" costs:
+• Current player: takes the discard as their normal draw (no penalty)
+• Anyone else: takes the discard + 1 penalty card from stock (same as a May I?)
+
+The current player loses their spot in line once they draw from stock. After that, they can't claim the exposed discard even if someone behind them calls May I?.
+
+**Resolving competing claims:**
+
+If multiple players call May I? at the same time, the one closest to the front of the line (earliest in turn order after the current player) gets priority.
 
 No limit on May I? usage per hand.
 
-**Hand 6 note:** In Hand 6, since no one is ever "down" until they win, all players remain eligible for May I? and vetoing throughout the entire hand. However, May I? is extra risky in Hand 6 because each May I? adds 2 cards (discard + penalty) that must ALL be incorporated into your melds when you lay down.
+**Hand 6 note:** In Hand 6, since no one is ever "down" until they win, all players remain in line throughout the entire hand. However, May I? is extra risky in Hand 6 because each May I? adds 2 cards (discard + penalty) that must ALL be incorporated into your melds when you lay down.
 
 ⸻
 

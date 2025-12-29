@@ -288,7 +288,24 @@ describe("GameMachine - setup state", () => {
 
 describe("GameMachine - playing state", () => {
   describe("entering playing state", () => {
-    it.todo("spawns RoundMachine with current round context", () => {});
+    it("spawns RoundMachine with current round context", () => {
+      const actor = createActor(gameMachine).start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+
+      // Verify roundMachine is invoked via persisted snapshot
+      const persisted = actor.getPersistedSnapshot() as any;
+      expect(persisted.children?.round).toBeDefined();
+      expect(persisted.children?.round?.snapshot).toBeDefined();
+
+      // Round machine should have correct round number
+      const roundContext = persisted.children?.round?.snapshot?.context;
+      expect(roundContext?.roundNumber).toBe(1);
+
+      actor.stop();
+    });
 
     it("passes roundNumber (starts at 1)", () => {
       const actor = createActor(gameMachine).start();

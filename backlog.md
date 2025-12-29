@@ -88,7 +88,7 @@ Review specs/command-line-interface.md
 
 ### Overall Rule Verification
 
-- [x] Review the /specs/house-rules.md and make sure everything we've implemented is valid according to the rules.
+- [x] Review the /docs/house-rules.md and make sure everything we've implemented is valid according to the rules.
 
 ---
 
@@ -753,7 +753,7 @@ The game works correctly with manual coordination via the CLI harness (`harness/
 
 > End-to-end testing using the CLI harness. See [docs/agent-game-harness.md](docs/agent-game-harness.md) for harness documentation.
 >
-> **When issues are found**: Add bugs to the "Bug Tracking" section below. Add new tasks to "Discovered Tasks" section if they require implementation work. Fix bugs before continuing with testing. Ensure game follows specs/house-rules.md and CLI follows specs/command-line-ux.md.
+> **When issues are found**: Add bugs to the "Bug Tracking" section below. Add new tasks to "Discovered Tasks" section if they require implementation work. Fix bugs before continuing with testing. Ensure game follows docs/house-rules.md and CLI follows specs/command-line-ux.md.
 
 ### Harness Setup
 
@@ -969,7 +969,7 @@ The game works correctly with manual coordination via the CLI harness (`harness/
 
 ### Documentation Updates
 
-- [ ] Update `specs/house-rules.md` if any rules need further clarification
+- [ ] Update `docs/house-rules.md` if any rules need further clarification
 - [ ] Update `docs/orchestrator.md` with corrected command list
 
 ---

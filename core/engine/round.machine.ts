@@ -2,15 +2,51 @@
  * RoundMachine - XState machine for managing a single round
  *
  * States: dealing -> active (with TurnMachine) -> scoring
+ *
+ * The active state invokes TurnMachine for each player's turn.
+ * When a turn completes, we either advance to the next player or end the round.
  */
 
-import { setup, assign } from "xstate";
+import { setup, assign, sendTo } from "xstate";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { Player, RoundRecord, RoundNumber } from "./engine.types";
 import type { Contract } from "./contracts";
 import { CONTRACTS } from "./contracts";
 import { createDeck, shuffle, deal } from "../card/card.deck";
+import { turnMachine, type TurnInput, type TurnOutput } from "./turn.machine";
+
+/**
+ * Events that need to be forwarded to child turn actor
+ */
+type ForwardedTurnEvent =
+  | { type: "DRAW_FROM_STOCK"; playerId?: string }
+  | { type: "DRAW_FROM_DISCARD"; playerId?: string }
+  | { type: "SKIP_LAY_DOWN" }
+  | { type: "LAY_DOWN"; melds: unknown[] }
+  | { type: "LAY_OFF"; cardId: string; meldId: string }
+  | { type: "DISCARD"; cardId: string }
+  | { type: "CALL_MAY_I"; playerId: string }
+  | { type: "PASS_MAY_I" }
+  | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string }
+  | { type: "GO_OUT"; finalLayOffs: unknown[] };
+
+/**
+ * Predefined game state for testing scenarios.
+ * When provided, dealCards will use this state instead of randomly dealing.
+ */
+export interface PredefinedRoundState {
+  /** Hands for each player (indexed by player position, not ID) */
+  hands: Card[][];
+  /** Stock pile */
+  stock: Card[];
+  /** Discard pile (top card first) */
+  discard: Card[];
+  /** Melds already on table (optional) */
+  table?: Meld[];
+  /** Override isDown status per player index (optional) */
+  playerDownStatus?: boolean[];
+}
 
 /**
  * Input provided when spawning RoundMachine from GameMachine
@@ -19,6 +55,11 @@ export interface RoundInput {
   roundNumber: RoundNumber;
   players: Player[];
   dealerIndex: number;
+  /**
+   * Optional predefined state for testing.
+   * When provided, bypasses random dealing and uses this exact state.
+   */
+  predefinedState?: PredefinedRoundState;
 }
 
 /**
@@ -34,14 +75,20 @@ export interface RoundContext {
   discard: Card[];
   table: Meld[];
   winnerPlayerId: string | null;
+  /** Predefined state from input (used by dealCards action) */
+  predefinedState: PredefinedRoundState | null;
 }
 
 /**
  * Events that can be sent to the RoundMachine
+ *
+ * RoundMachine handles round-level events and forwards turn events
+ * to the invoked TurnMachine during the active state.
  */
 export type RoundEvent =
-  | { type: "TURN_COMPLETE"; wentOut: boolean; playerId: string; hand: Card[]; stock: Card[]; discard: Card[]; table: Meld[]; isDown: boolean }
-  | { type: "RESHUFFLE_STOCK" };
+  | { type: "RESHUFFLE_STOCK" }
+  // Forwarded events (sent to turn machine)
+  | ForwardedTurnEvent;
 
 /**
  * Output produced when round ends
@@ -67,12 +114,32 @@ export const roundMachine = setup({
     input: {} as RoundInput,
     output: {} as RoundOutput,
   },
+  actors: {
+    turnMachine: turnMachine,
+  },
   guards: {
-    wentOut: ({ event }) => event.type === "TURN_COMPLETE" && event.wentOut,
     stockEmpty: ({ context }) => context.stock.length === 0,
   },
   actions: {
     dealCards: assign(({ context }) => {
+      // Use predefined state if provided (for testing)
+      if (context.predefinedState) {
+        const predefined = context.predefinedState;
+        const playersWithHands = context.players.map((player, index) => ({
+          ...player,
+          hand: predefined.hands[index] ?? [],
+          isDown: predefined.playerDownStatus?.[index] ?? false,
+        }));
+
+        return {
+          players: playersWithHands,
+          stock: predefined.stock,
+          discard: predefined.discard,
+          table: predefined.table ?? [],
+        };
+      }
+
+      // Normal random dealing
       const playerCount = context.players.length;
       const deckConfig = getDeckConfig(playerCount);
       const deck = createDeck(deckConfig);
@@ -92,30 +159,10 @@ export const roundMachine = setup({
         discard: dealResult.discard,
       };
     }),
-    updateFromTurn: assign(({ context, event }) => {
-      if (event.type !== "TURN_COMPLETE") return {};
-
-      // Update the player who just took their turn
-      const updatedPlayers = context.players.map((player) =>
-        player.id === event.playerId
-          ? { ...player, hand: event.hand, isDown: event.isDown }
-          : player
-      );
-
-      return {
-        players: updatedPlayers,
-        stock: event.stock,
-        discard: event.discard,
-        table: event.table,
-      };
+    advanceTurn: assign({
+      currentPlayerIndex: ({ context }) =>
+        (context.currentPlayerIndex + 1) % context.players.length,
     }),
-    setWinner: assign(({ event }) => {
-      if (event.type !== "TURN_COMPLETE") return {};
-      return { winnerPlayerId: event.playerId };
-    }),
-    advanceTurn: assign(({ context }) => ({
-      currentPlayerIndex: (context.currentPlayerIndex + 1) % context.players.length,
-    })),
     reshuffleStock: assign(({ context }) => {
       // Keep only the top card of discard pile
       const topDiscard = context.discard[context.discard.length - 1];
@@ -145,6 +192,7 @@ export const roundMachine = setup({
     discard: [],
     table: [],
     winnerPlayerId: null,
+    predefinedState: input.predefinedState ?? null,
   }),
   output: ({ context }) => ({
     roundRecord: {
@@ -166,17 +214,100 @@ export const roundMachine = setup({
       },
     },
     active: {
-      on: {
-        TURN_COMPLETE: [
+      invoke: {
+        id: "turn",
+        src: "turnMachine",
+        input: ({ context }): TurnInput => {
+          const currentPlayer = context.players[context.currentPlayerIndex]!;
+          return {
+            playerId: currentPlayer.id,
+            hand: currentPlayer.hand,
+            stock: context.stock,
+            discard: context.discard,
+            roundNumber: context.roundNumber,
+            isDown: currentPlayer.isDown,
+            table: context.table,
+            // May I support
+            playerOrder: context.players.map((p) => p.id),
+            playerDownStatus: Object.fromEntries(
+              context.players.map((p) => [p.id, p.isDown])
+            ),
+          };
+        },
+        onDone: [
           {
-            guard: "wentOut",
+            // Player went out - end the round
+            guard: ({ event }) => (event.output as TurnOutput).wentOut === true,
             target: "scoring",
-            actions: ["updateFromTurn", "setWinner"],
+            actions: assign(({ context, event }) => {
+              const output = event.output as TurnOutput;
+              const handUpdates = output.handUpdates ?? {};
+
+              return {
+                players: context.players.map((player) => {
+                  // Current player gets their updated hand
+                  if (player.id === output.playerId) {
+                    return { ...player, hand: output.hand, isDown: output.isDown };
+                  }
+                  // Other players may have May I updates
+                  const update = handUpdates[player.id];
+                  if (update) {
+                    return { ...player, hand: [...player.hand, ...update.added] };
+                  }
+                  return player;
+                }),
+                stock: output.stock,
+                discard: output.discard,
+                table: output.table,
+                winnerPlayerId: output.playerId,
+              };
+            }),
           },
           {
-            actions: ["updateFromTurn", "advanceTurn"],
+            // Normal turn completion - advance to next player
+            target: "active",
+            actions: [
+              assign(({ context, event }) => {
+                const output = event.output as TurnOutput;
+                const handUpdates = output.handUpdates ?? {};
+
+                return {
+                  players: context.players.map((player) => {
+                    // Current player gets their updated hand
+                    if (player.id === output.playerId) {
+                      return { ...player, hand: output.hand, isDown: output.isDown };
+                    }
+                    // Other players may have May I updates
+                    const update = handUpdates[player.id];
+                    if (update) {
+                      return { ...player, hand: [...player.hand, ...update.added] };
+                    }
+                    return player;
+                  }),
+                  stock: output.stock,
+                  discard: output.discard,
+                  table: output.table,
+                };
+              }),
+              "advanceTurn",
+            ],
+            reenter: true, // Re-invoke turnMachine for next player
           },
         ],
+      },
+      on: {
+        // Forward gameplay events to the turn actor
+        DRAW_FROM_STOCK: { actions: sendTo("turn", ({ event }) => event) },
+        DRAW_FROM_DISCARD: { actions: sendTo("turn", ({ event }) => event) },
+        SKIP_LAY_DOWN: { actions: sendTo("turn", ({ event }) => event) },
+        LAY_DOWN: { actions: sendTo("turn", ({ event }) => event) },
+        LAY_OFF: { actions: sendTo("turn", ({ event }) => event) },
+        DISCARD: { actions: sendTo("turn", ({ event }) => event) },
+        CALL_MAY_I: { actions: sendTo("turn", ({ event }) => event) },
+        PASS_MAY_I: { actions: sendTo("turn", ({ event }) => event) },
+        SWAP_JOKER: { actions: sendTo("turn", ({ event }) => event) },
+        GO_OUT: { actions: sendTo("turn", ({ event }) => event) },
+        // Stock reshuffle can still be triggered externally if needed
         RESHUFFLE_STOCK: {
           guard: "stockEmpty",
           actions: "reshuffleStock",

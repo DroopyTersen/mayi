@@ -4,8 +4,8 @@
  * Renders cards, hands, and game state for terminal display
  */
 
-import type { Card } from "../core/card/card.types";
-import type { GameState } from "../core/engine/engine.types";
+import type { Card } from "../../core/card/card.types";
+import type { GameState } from "../../core/engine/engine.types";
 
 /**
  * Unicode suit symbols
@@ -36,20 +36,20 @@ export function renderCard(card: Card): string {
 }
 
 /**
- * Renders a hand of cards as a space-separated string
- * Example: "3♥ 5♦ 9♣ J♠ Joker"
+ * Renders a hand of cards as a string with visual separation
+ * Example: "3♥  5♦  9♣  J♠  Joker"
  */
 export function renderHand(hand: Card[]): string {
-  return hand.map(renderCard).join(" ");
+  return hand.map(renderCard).join("  ");
 }
 
 /**
  * Renders a hand with position numbers for card selection
- * Example: "1:3♥ 2:5♦ 3:9♣ 4:J♠ 5:Joker"
+ * Example: "1:3♥ | 2:5♦ | 3:9♣ | 4:J♠ | 5:Joker"
  * Positions are 1-indexed for human readability
  */
 export function renderNumberedHand(hand: Card[]): string {
-  return hand.map((card, index) => `${index + 1}:${renderCard(card)}`).join(" ");
+  return hand.map((card, index) => `${index + 1}:${renderCard(card)}`).join(" | ");
 }
 
 /**

@@ -34,23 +34,24 @@ function createRoundActor(input: RoundInput) {
 }
 
 /**
- * Helper function to advance turn
+ * Helper function to advance turn using proper event flow
+ * This completes a turn by: DRAW_FROM_DISCARD → SKIP_LAY_DOWN → DISCARD
  */
 function advanceTurn(actor: ReturnType<typeof createRoundActor>) {
-  const snapshot = actor.getSnapshot();
-  const currentPlayerIdx = snapshot.context.currentPlayerIndex;
-  const currentPlayer = snapshot.context.players[currentPlayerIdx]!;
+  // Draw from discard (simpler - no May I window)
+  actor.send({ type: "DRAW_FROM_DISCARD" });
 
-  actor.send({
-    type: "TURN_COMPLETE",
-    wentOut: false,
-    playerId: currentPlayer.id,
-    hand: currentPlayer.hand,
-    stock: snapshot.context.stock,
-    discard: snapshot.context.discard,
-    table: [],
-    isDown: false,
-  });
+  // Skip lay down
+  actor.send({ type: "SKIP_LAY_DOWN" });
+
+  // Get the turn context to find a card to discard
+  const persisted = actor.getPersistedSnapshot() as any;
+  const turnSnapshot = persisted.children?.turn?.snapshot;
+  const cardToDiscard = turnSnapshot?.context?.hand?.[0];
+
+  if (cardToDiscard) {
+    actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+  }
 }
 
 describe("turn advancement", () => {

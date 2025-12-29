@@ -63,7 +63,7 @@ const SUIT_ORDER: Record<string, number> = {
 };
 
 /**
- * Sorts hand by rank (A, K, Q, J, 10, 9, 8, 7, 6, 5, 4, 3), wilds at end
+ * Sorts hand by rank (3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A), wilds at end
  */
 export function sortHandByRank(hand: Card[]): Card[] {
   return [...hand].sort((a, b) => {
@@ -81,11 +81,11 @@ export function sortHandByRank(hand: Card[]): Card[] {
       return 0;
     }
 
-    // Both naturals: sort by rank value (higher first)
+    // Both naturals: sort by rank value (lower first - ascending)
     // Non-null assertions safe because we've already filtered out wilds above
     const aValue = getRankValue(a.rank)!;
     const bValue = getRankValue(b.rank)!;
-    if (aValue !== bValue) return bValue - aValue;
+    if (aValue !== bValue) return aValue - bValue;
 
     // Same rank: sort by suit
     const aSuit = SUIT_ORDER[a.suit ?? ""] ?? 4;
@@ -95,7 +95,7 @@ export function sortHandByRank(hand: Card[]): Card[] {
 }
 
 /**
- * Sorts hand by suit (spades, hearts, diamonds, clubs), within suit by rank, wilds at end
+ * Sorts hand by suit (spades, hearts, diamonds, clubs), within suit by rank (ascending), wilds at end
  */
 export function sortHandBySuit(hand: Card[]): Card[] {
   return [...hand].sort((a, b) => {
@@ -118,11 +118,11 @@ export function sortHandBySuit(hand: Card[]): Card[] {
     const bSuit = SUIT_ORDER[b.suit ?? ""] ?? 4;
     if (aSuit !== bSuit) return aSuit - bSuit;
 
-    // Same suit: sort by rank value (higher first)
+    // Same suit: sort by rank value (lower first - ascending)
     // Non-null assertions safe because we've already filtered out wilds above
     const aValue = getRankValue(a.rank)!;
     const bValue = getRankValue(b.rank)!;
-    return bValue - aValue;
+    return aValue - bValue;
   });
 }
 

@@ -86,7 +86,8 @@ export function buildMeldsFromProposals(
 ): Meld[] | null {
   const melds: Meld[] = [];
 
-  for (const proposal of proposals) {
+  for (let i = 0; i < proposals.length; i++) {
+    const proposal = proposals[i]!;
     const cards: Card[] = [];
     for (const cardId of proposal.cardIds) {
       const card = hand.find((c) => c.id === cardId);
@@ -94,7 +95,7 @@ export function buildMeldsFromProposals(
       cards.push(card);
     }
     melds.push({
-      id: `meld-${crypto.randomUUID()}`,
+      id: `validation-meld-${i}`, // Deterministic ID for validation
       type: proposal.type,
       cards,
       ownerId: playerId,

@@ -6,7 +6,7 @@ We are working on implementing a card game app that allows families to play toge
 
 Before any work, study the specifications:
 
-- `@specs/house-rules.md` — game rules as played by the family
+- `@docs/house-rules.md` — game rules as played by the family
 - `@specs/glossary.md` — terminology and data model
 - `@specs/tech-design.md` — architecture and type definitions
 - `@specs/implementation-plan.md` — phased build approach
@@ -191,7 +191,7 @@ Before moving to the next phase:
 
 ## 8. Remember
 
-You are building a card game that a family will play together over the internet. The rules in `@specs/house-rules.md` are the real rules — this is how Grandma plays. Get it right.
+You are building a card game that a family will play together over the internet. The rules in `@docs/house-rules.md` are the real rules — this is how Grandma plays. Get it right.
 
 The goal is a working game, not perfect code. Ship incrementally. Each phase should leave the codebase in a working state.
 

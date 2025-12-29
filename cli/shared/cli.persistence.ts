@@ -1,20 +1,20 @@
 /**
- * Persistence layer for the May I? orchestrator
+ * Persistence layer for the May I? CLI
  *
  * Handles saving and loading XState snapshots for game state persistence.
  * Maintains backward compatibility with v1.0 PersistedGameState format.
  */
 
 import type { Snapshot } from "xstate";
-import type { ActionLogEntry, OrchestratorSnapshot, PersistedGameState, MayIContext } from "./harness.types";
-import type { GameContext } from "../core/engine/game.machine";
-import type { RoundContext } from "../core/engine/round.machine";
-import type { TurnContext } from "../core/engine/turn.machine";
-import type { RoundNumber } from "../core/engine/engine.types";
-import { CONTRACTS } from "../core/engine/contracts";
+import type { ActionLogEntry, OrchestratorSnapshot, PersistedGameState, MayIContext } from "./cli.types";
+import type { GameContext } from "../../core/engine/game.machine";
+import type { RoundContext } from "../../core/engine/round.machine";
+import type { TurnContext } from "../../core/engine/turn.machine";
+import type { RoundNumber } from "../../core/engine/engine.types";
+import { CONTRACTS } from "../../core/engine/contracts";
 
-const STATE_FILE = "harness/game-state.json";
-const LOG_FILE = "harness/game-log.jsonl";
+const STATE_FILE = "cli/game-state.json";
+const LOG_FILE = "cli/game-log.jsonl";
 
 /**
  * Check if a saved game exists
@@ -29,7 +29,7 @@ export function savedGameExists(): boolean {
 export function loadOrchestratorSnapshot(): OrchestratorSnapshot {
   const file = Bun.file(STATE_FILE);
   if (file.size === 0) {
-    throw new Error("No game in progress. Run 'bun harness/play.ts new' to start a new game.");
+    throw new Error("No game in progress. Run 'bun cli/play.ts new' to start a new game.");
   }
 
   const content = require("fs").readFileSync(STATE_FILE, "utf-8");

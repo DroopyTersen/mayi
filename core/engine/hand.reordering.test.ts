@@ -158,7 +158,7 @@ describe("REORDER_HAND command", () => {
   });
 
   describe("sort by rank", () => {
-    it("orders cards A, K, Q, J, 10, 9, 8, 7, 6, 5, 4, 3", () => {
+    it("orders cards 3, 4, 5, 6, 7, 8, 9, 10, J, Q, K, A (ascending)", () => {
       const c3 = card("3", "hearts");
       const c5 = card("5", "hearts");
       const c9 = card("9", "hearts");
@@ -167,12 +167,12 @@ describe("REORDER_HAND command", () => {
       const cA = card("A", "hearts");
       const hand = [c3, cK, c9, cA, c5, cJ];
       const sorted = sortHandByRank(hand);
-      expect(sorted[0]!.rank).toBe("A");
-      expect(sorted[1]!.rank).toBe("K");
-      expect(sorted[2]!.rank).toBe("J");
-      expect(sorted[3]!.rank).toBe("9");
-      expect(sorted[4]!.rank).toBe("5");
-      expect(sorted[5]!.rank).toBe("3");
+      expect(sorted[0]!.rank).toBe("3");
+      expect(sorted[1]!.rank).toBe("5");
+      expect(sorted[2]!.rank).toBe("9");
+      expect(sorted[3]!.rank).toBe("J");
+      expect(sorted[4]!.rank).toBe("K");
+      expect(sorted[5]!.rank).toBe("A");
     });
 
     it("wilds (2s, Jokers) go at end", () => {
@@ -183,10 +183,10 @@ describe("REORDER_HAND command", () => {
       const cK = card("K", "hearts");
       const hand = [c2, c5, cJoker, cK, c9];
       const sorted = sortHandByRank(hand);
-      // Naturals first (K, 9, 5), then wilds (2, Joker)
-      expect(sorted[0]!.rank).toBe("K");
+      // Naturals first (5, 9, K ascending), then wilds (2, Joker)
+      expect(sorted[0]!.rank).toBe("5");
       expect(sorted[1]!.rank).toBe("9");
-      expect(sorted[2]!.rank).toBe("5");
+      expect(sorted[2]!.rank).toBe("K");
       expect(sorted[3]!.rank).toBe("2");
       expect(sorted[4]!.rank).toBe("Joker");
     });
@@ -226,18 +226,18 @@ describe("REORDER_HAND command", () => {
       expect(sorted[5]!.suit).toBe("clubs");
     });
 
-    it("within suit, ordered by rank", () => {
+    it("within suit, ordered by rank (ascending)", () => {
       const cH5 = card("5", "hearts");
       const cHK = card("K", "hearts");
       const cH9 = card("9", "hearts");
       const cHA = card("A", "hearts");
       const hand = [cH5, cHK, cH9, cHA];
       const sorted = sortHandBySuit(hand);
-      // All hearts, ordered A, K, 9, 5
-      expect(sorted[0]!.rank).toBe("A");
-      expect(sorted[1]!.rank).toBe("K");
-      expect(sorted[2]!.rank).toBe("9");
-      expect(sorted[3]!.rank).toBe("5");
+      // All hearts, ordered 5, 9, K, A (ascending)
+      expect(sorted[0]!.rank).toBe("5");
+      expect(sorted[1]!.rank).toBe("9");
+      expect(sorted[2]!.rank).toBe("K");
+      expect(sorted[3]!.rank).toBe("A");
     });
 
     it("wilds go at end", () => {

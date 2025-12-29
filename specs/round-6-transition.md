@@ -2,7 +2,7 @@
 
 ## Overview
 
-The current Round 6 implementation is fundamentally incorrect. This document describes the required changes to align with the correct rules as documented in `specs/house-rules.md`.
+The current Round 6 implementation is fundamentally incorrect. This document describes the required changes to align with the correct rules as documented in `docs/house-rules.md`.
 
 ## Current (Incorrect) Behavior
 
