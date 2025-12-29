@@ -6,6 +6,7 @@ import {
   canLayOffToRun,
   validateCardOwnership,
   getCardFromHand,
+  getRunInsertPosition,
 } from "./layoff";
 import { turnMachine } from "./turn.machine";
 import type { Card } from "../card/card.types";
@@ -1619,6 +1620,240 @@ describe("LAY_OFF rejection", () => {
       // Meld should now have 5 cards (2 natural, 3 wild)
       const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === setMeld.id);
       expect(updatedMeld?.cards.length).toBe(5);
+    });
+  });
+});
+
+/**
+ * Tests for getRunInsertPosition - determines where to insert a card when laying off to a run
+ */
+describe("getRunInsertPosition", () => {
+  describe("natural card positioning", () => {
+    it("returns 'low' when card extends low end of run", () => {
+      // Run: 4♥-5♥-6♥, Card: 3♥ should extend at low
+      const run = createMeld("run", [
+        card("4", "hearts"),
+        card("5", "hearts"),
+        card("6", "hearts"),
+      ]);
+      const threeH = card("3", "hearts");
+
+      expect(getRunInsertPosition(threeH, run)).toBe("low");
+    });
+
+    it("returns 'high' when card extends high end of run", () => {
+      // Run: 4♥-5♥-6♥, Card: 7♥ should extend at high
+      const run = createMeld("run", [
+        card("4", "hearts"),
+        card("5", "hearts"),
+        card("6", "hearts"),
+      ]);
+      const sevenH = card("7", "hearts");
+
+      expect(getRunInsertPosition(sevenH, run)).toBe("high");
+    });
+
+    it("returns null when card cannot extend run (wrong rank)", () => {
+      // Run: 4♥-5♥-6♥, Card: 9♥ doesn't fit either end
+      const run = createMeld("run", [
+        card("4", "hearts"),
+        card("5", "hearts"),
+        card("6", "hearts"),
+      ]);
+      const nineH = card("9", "hearts");
+
+      expect(getRunInsertPosition(nineH, run)).toBeNull();
+    });
+
+    it("returns null when card has wrong suit", () => {
+      // Run: 4♥-5♥-6♥, Card: 7♠ wrong suit
+      const run = createMeld("run", [
+        card("4", "hearts"),
+        card("5", "hearts"),
+        card("6", "hearts"),
+      ]);
+      const sevenS = card("7", "spades");
+
+      expect(getRunInsertPosition(sevenS, run)).toBeNull();
+    });
+
+    it("returns null when card rank already in run (duplicate)", () => {
+      // Run: 4♥-5♥-6♥, Card: 5♥ already in run
+      const run = createMeld("run", [
+        card("4", "hearts"),
+        card("5", "hearts"),
+        card("6", "hearts"),
+      ]);
+      const fiveH = card("5", "hearts");
+
+      expect(getRunInsertPosition(fiveH, run)).toBeNull();
+    });
+  });
+
+  describe("wild card positioning", () => {
+    it("returns 'high' when wild card can fit both ends (prefers high)", () => {
+      // Run: 5♥-6♥-7♥, Joker can extend to 4♥ or 8♥
+      // Per code comment: prefer high (append is more natural)
+      const run = createMeld("run", [
+        card("5", "hearts"),
+        card("6", "hearts"),
+        card("7", "hearts"),
+      ]);
+      const myJoker = joker();
+
+      expect(getRunInsertPosition(myJoker, run)).toBe("high");
+    });
+
+    it("returns 'low' when wild card can only extend low", () => {
+      // Run: Q♥-K♥-A♥ (high end maxed out at Ace=14)
+      // Wild can only extend low
+      const run = createMeld("run", [
+        card("Q", "hearts"),
+        card("K", "hearts"),
+        card("A", "hearts"),
+      ]);
+      const wild = card("2", "diamonds"); // 2 is wild
+
+      expect(getRunInsertPosition(wild, run)).toBe("low");
+    });
+
+    it("returns 'high' when wild card can only extend high", () => {
+      // Run: 3♥-4♥-5♥ (low end at minimum 3)
+      // Wild can only extend high
+      const run = createMeld("run", [
+        card("3", "hearts"),
+        card("4", "hearts"),
+        card("5", "hearts"),
+      ]);
+      const myJoker = joker();
+
+      expect(getRunInsertPosition(myJoker, run)).toBe("high");
+    });
+
+    it("returns null when wild cannot extend full run (3 to A)", () => {
+      // Full run from 3 to A - cannot extend in either direction
+      const run = createMeld("run", [
+        card("3", "spades"),
+        card("4", "spades"),
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+        card("9", "spades"),
+        card("10", "spades"),
+        card("J", "spades"),
+        card("Q", "spades"),
+        card("K", "spades"),
+        card("A", "spades"),
+      ]);
+      const myJoker = joker();
+
+      expect(getRunInsertPosition(myJoker, run)).toBeNull();
+    });
+  });
+
+  describe("meld type validation", () => {
+    it("returns null for SET meld type", () => {
+      const set = createMeld("set", [
+        card("K", "hearts"),
+        card("K", "spades"),
+        card("K", "diamonds"),
+      ]);
+      const kingC = card("K", "clubs");
+
+      expect(getRunInsertPosition(kingC, set)).toBeNull();
+    });
+  });
+
+  describe("run with wild cards in the middle", () => {
+    it("correctly determines bounds with joker in middle", () => {
+      // Run: 4♥-JOKER-6♥ (Joker represents 5♥)
+      const run = createMeld("run", [
+        card("4", "hearts"),
+        joker(),
+        card("6", "hearts"),
+      ]);
+
+      // 3♥ should extend low
+      expect(getRunInsertPosition(card("3", "hearts"), run)).toBe("low");
+      // 7♥ should extend high
+      expect(getRunInsertPosition(card("7", "hearts"), run)).toBe("high");
+    });
+  });
+
+  describe("all-wild run edge case", () => {
+    it("returns null for all-wild run (no bounds determinable)", () => {
+      // Run with no natural cards - can't determine suit or bounds
+      const allWildRun = createMeld("run", [
+        joker(),
+        card("2", "hearts"),
+        card("2", "spades"),
+      ]);
+
+      // Any card should fail because we can't determine the run's bounds
+      expect(getRunInsertPosition(card("5", "hearts"), allWildRun)).toBeNull();
+      expect(getRunInsertPosition(joker(), allWildRun)).toBeNull();
+    });
+  });
+});
+
+/**
+ * Tests for edge cases with all-wildcard melds
+ */
+describe("all-wildcard meld edge cases", () => {
+  describe("all-wild sets", () => {
+    it("canLayOffToSet returns true for wild card to all-wild set", () => {
+      // Set of only wilds (Joker, 2♥, 2♠)
+      const allWildSet = createMeld("set", [
+        joker(),
+        card("2", "hearts"),
+        card("2", "spades"),
+      ]);
+
+      // Adding another wild should still be allowed
+      const anotherJoker = joker();
+      expect(canLayOffToSet(anotherJoker, allWildSet)).toBe(true);
+    });
+
+    it("canLayOffToSet allows natural card to all-wild set (any rank works)", () => {
+      // When a set is all wilds, getSetRank returns null
+      // A natural card of any rank should be allowed (it establishes the rank)
+      const allWildSet = createMeld("set", [
+        joker(),
+        card("2", "hearts"),
+        card("2", "spades"),
+      ]);
+
+      const kingCard = card("K", "hearts");
+      // Since setRank is null and card is not wild, the check `setRank !== null && card.rank !== setRank` is false
+      // So it should return true
+      expect(canLayOffToSet(kingCard, allWildSet)).toBe(true);
+    });
+  });
+
+  describe("all-wild runs", () => {
+    it("canLayOffToRun returns false for all-wild run (no bounds)", () => {
+      // Run with no natural cards - can't determine suit or bounds
+      const allWildRun = createMeld("run", [
+        joker(),
+        card("2", "hearts"),
+        card("2", "spades"),
+      ]);
+
+      // Any card should fail because we can't determine the run's bounds
+      const naturalCard = card("5", "hearts");
+      expect(canLayOffToRun(naturalCard, allWildRun)).toBe(false);
+    });
+
+    it("canLayOffToRun returns false even for wild to all-wild run", () => {
+      const allWildRun = createMeld("run", [
+        joker(),
+        card("2", "hearts"),
+        card("2", "spades"),
+      ]);
+
+      // Even a wild card can't be added because we can't determine valid positions
+      expect(canLayOffToRun(joker(), allWildRun)).toBe(false);
     });
   });
 });
