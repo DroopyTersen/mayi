@@ -744,7 +744,7 @@ The game works correctly with manual coordination via the CLI harness (`harness/
 
 ### Test Count Summary
 
-- **1977 passing tests** (all core game logic)
+- **1849 passing tests** (all core game logic, after Round 6 rewrite)
 - **9 blocked todos** (XState spawning integration)
 
 ---
@@ -792,6 +792,7 @@ The game works correctly with manual coordination via the CLI harness (`harness/
 - [x] Test wild card extending run (2♥ wild extending run at high end)
 - [x] Test layoff to run (extend at either end) — Carol extended 10-J-Q-K to 10-J-Q-K-A
 - [x] Verify dealer advances correctly (Carol went first)
+- [x] Test duplicate card rejection in run (6♠ cannot be added when 6♠ already in run - got "6♠ cannot be added to that run")
 
 ### Round 3 Testing (Contract: 2 runs)
 
@@ -817,19 +818,19 @@ The game works correctly with manual coordination via the CLI harness (`harness/
 - [x] Test wild layoff to run (2♦ laid off as 7♦, extending run)
 - [x] Test going out via discard in Round 5 (confirmed working)
 
-### Round 6 Testing (Contract: 1 set + 2 runs, no discard to go out)
+### Round 6 Testing (Contract: 1 set + 2 runs, must lay down ALL cards to win)
 
-> Contract (1 set + 2 runs = 11 cards minimum) is very difficult to achieve organically.
-> Unit tests (176 passing in goingOut.test.ts) comprehensively cover all Round 6 scenarios.
-> Harness correctly shows "⚠️ No discard to go out this round!" warning banner.
+> Round 6 was rewritten: must lay down ALL 12 cards at once to win. No layoff, no swap, no "stuck".
+> See `specs/round-6-transition.md` for the corrected rules.
+> Harness correctly shows "⚠️ Must lay down ALL cards to win!" warning banner.
 
-- [x] Verify harness shows Round 6 special warning (confirmed: "⚠️ No discard to go out this round!")
-- [x] Verify unit tests cover "cannot discard to go out" (goingOut.test.ts:1344-1431)
-- [x] Verify unit tests cover "stuck" scenarios (goingOut.test.ts:3159-3598)
-- [x] Verify unit tests cover "must lay off all cards" (goingOut.test.ts:1597-1727)
-- [x] Verify harness blocks discard for last card (harness/play.ts:323-327)
-- [x] Verify "stuck" command implemented (harness/play.ts:522-528)
-- [ ] (Optional) Play through complete Round 6 manually - contract is difficult
+- [x] Verify harness shows Round 6 special warning (confirmed: "⚠️ Must lay down ALL cards to win!")
+- [x] Verify layDown requires ALL cards in Round 6
+- [x] Verify layOff blocked in Round 6 (no melds on table until someone wins)
+- [x] Verify swap blocked in Round 6 (no melds on table)
+- [x] Verify "stuck" command removed (was incorrect behavior)
+- [x] Unit tests updated for correct Round 6 behavior
+- [ ] (Optional) Play through complete Round 6 manually - requires all 12 cards in valid melds
 - [ ] Verify game ends after Round 6
 
 ### May I Mechanic Testing
@@ -895,6 +896,81 @@ The game works correctly with manual coordination via the CLI harness (`harness/
 - [x] **DOWN player can draw from discard**: ~~Carol drew from discard pile while DOWN~~ — Fixed in engine guards + harness `handleDraw()` now checks `player.isDown` before allowing discard draw.
 - [x] **Round 6 discard not fully blocked**: ~~Harness only blocked discard for down players with 1 card~~ — Fixed: Round 6 now properly blocks ALL discarding. `skip` ends turn immediately in Round 6, and `stuck` command available for down players with 1 card.
 - [ ] **Minor UX: mayi shown to DOWN players**: Harness shows "mayi | pass" commands during May I window even for DOWN players who cannot call May I. Low priority - the engine correctly rejects the call, but showing the option is confusing.
+
+---
+
+## Phase 9 Tasks (Implementation Fixes)
+
+> Critical bug fixes and rule corrections discovered during play-testing. See specs for details:
+> - `specs/round-6-transition.md` — Round 6 is fundamentally broken
+> - `specs/implementation-fixes.md` — Additional bugs
+
+### Round 6 Complete Rewrite (CRITICAL) ✓
+
+> Round 6 is fundamentally broken. See `specs/round-6-transition.md` for full details.
+
+**Current (Wrong)**: Players lay down contract, then lay off cards on subsequent turns. "stuck" command exists.
+
+**Correct**: No one is ever "down" until victory. Must lay down ALL 12+ cards at once. Laying down = going out.
+
+- [x] Remove `stuck()` command entirely from orchestrator
+- [x] Remove `stuck` from CLI commands and help text
+- [x] Modify `layDown()` for Round 6: require ALL cards form valid melds
+- [x] Round 6 `layDown()` should end round immediately (no discard phase)
+- [x] Disable `layOff()` in Round 6 (return error: no melds on table)
+- [x] Disable `swap()` in Round 6 (return error: no melds on table)
+- [x] Ensure all players can draw from discard in Round 6 (no one is "down")
+- [x] Ensure all players can call May I in Round 6 (no one is "down")
+- [x] Update tests for new Round 6 behavior
+- [x] Update harness rendering for Round 6 (no layoff/swap options)
+- [ ] Update `docs/orchestrator.md` to reflect changes
+
+### May I "Take" Command Bug (HIGH)
+
+> Current player can draw from stock AND take discard = 2 cards. Wrong!
+> See `specs/implementation-fixes.md` Section 1.
+
+- [ ] Remove `take()` command or fix to prevent double-draw
+- [ ] Current player vetoes by calling `drawFromDiscard()` instead of `drawFromStock()`
+- [ ] Once player draws from stock, they forfeit veto rights
+- [ ] Update harness CLI to not show "take" during May I window
+- [ ] Add test: current player cannot take after drawing from stock
+
+### Exact Contract Enforcement (MEDIUM)
+
+> Rounds 1-5: Sets must be exactly 3 cards, runs exactly 4 cards when laying down.
+> See `specs/implementation-fixes.md` Section 2.
+
+- [ ] Add meld size validation in `layDown()` for Rounds 1-5
+- [ ] Sets must be exactly 3 cards when laying down contract
+- [ ] Runs must be exactly 4 cards when laying down contract
+- [ ] Round 6 can have extended melds (since all cards must be used)
+- [ ] Add tests for exact contract enforcement
+
+### Wild Ratio Only Applies to Laydown (MEDIUM)
+
+> When laying off, wild ratio rule does NOT apply. You can add wilds freely.
+> See `specs/implementation-fixes.md` Section 4.
+
+- [ ] Remove wild ratio check from `canLayOffToSet()` in `core/engine/layoff.ts`
+- [ ] Remove wild ratio check from `canLayOffToRun()` in `core/engine/layoff.ts`
+- [ ] Remove wild ratio check from `getRunInsertPosition()` in `core/engine/layoff.ts`
+- [ ] Update tests that expect wild ratio enforcement on layoff
+
+### Stock Auto-Replenishment (LOW)
+
+> Stock should never be empty. Auto-reshuffle discard when depleted.
+> See `specs/implementation-fixes.md` Section 3.
+
+- [ ] Add `replenishStockIfNeeded()` helper method
+- [ ] Call after every stock draw (including May I penalty)
+- [ ] Keep top discard exposed, shuffle rest into new stock
+- [ ] Add tests for stock replenishment
+
+### Documentation Updates
+
+- [ ] Update `specs/house-rules.md` if any rules need further clarification
+- [ ] Update `docs/orchestrator.md` with corrected command list
 
 ---
 

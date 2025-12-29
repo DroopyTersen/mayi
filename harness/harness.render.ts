@@ -23,7 +23,7 @@ export function renderStatus(state: PersistedGameState): string {
   lines.push(centerText(`MAY I? — Round ${state.currentRound} of 6`, 66));
   lines.push(centerText(formatContract(state.contract), 66));
   if (state.currentRound === 6) {
-    lines.push(centerText("⚠️  No discard to go out this round!", 66));
+    lines.push(centerText("⚠️  Must lay down ALL cards to win!", 66));
   }
   lines.push("═".repeat(66));
   lines.push("");
@@ -219,13 +219,16 @@ export function getAvailableCommands(state: PersistedGameState): AvailableComman
       if (awaitingPlayer && !awaitingPlayer.isDown) {
         commands.push('laydown "<meld1>" "<meld2>"');
 
-        // Check for joker swaps available
-        const swappableJokers = findSwappableJokers(state);
-        if (swappableJokers.length > 0) {
-          commands.push("swap <meld> <pos> <card>");
+        // Check for joker swaps available (not in Round 6 - no melds on table)
+        if (state.currentRound !== 6) {
+          const swappableJokers = findSwappableJokers(state);
+          if (swappableJokers.length > 0) {
+            commands.push("swap <meld> <pos> <card>");
+          }
         }
       }
-      if (awaitingPlayer?.isDown) {
+      // Lay off is only available in Rounds 1-5 when player is down
+      if (awaitingPlayer?.isDown && state.currentRound !== 6) {
         commands.push("layoff <card> <meld>");
       }
       commands.push("skip");
@@ -237,14 +240,10 @@ export function getAvailableCommands(state: PersistedGameState): AvailableComman
     }
 
     case "AWAITING_DISCARD": {
-      const commands = ["discard <position>"];
-      if (state.currentRound === 6 && awaitingPlayer?.isDown && awaitingPlayer.hand.length === 1) {
-        commands.push("stuck");
-      }
       return {
         phase: "AWAITING_DISCARD",
         description: `${awaitingPlayer?.name} to discard`,
-        commands,
+        commands: ["discard <position>"],
       };
     }
 

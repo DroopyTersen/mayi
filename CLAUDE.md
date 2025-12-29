@@ -24,9 +24,16 @@ bun harness/play.ts new
 bun harness/play.ts status
 ```
 
-## Agent Game Harness
+## Game Harness
 
-See [docs/agent-game-harness.md](docs/agent-game-harness.md) for full documentation on using the CLI harness to play and test the game.
+Two modes for playing:
+- **Command mode** (for AI agents): See [docs/agent-game-harness.md](docs/agent-game-harness.md)
+- **Interactive mode** (for humans): See [docs/interactive-mode.md](docs/interactive-mode.md)
+
+```bash
+bun harness/play.ts new           # Command mode
+bun harness/play.ts --interactive # Interactive mode
+```
 
 # Build
 

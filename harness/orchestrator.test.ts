@@ -328,6 +328,125 @@ describe("Orchestrator", () => {
     });
   });
 
+  describe("layDown exact contract enforcement", () => {
+    beforeEach(() => {
+      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+      orchestrator.drawFromDiscard(); // Go to AWAITING_ACTION
+    });
+
+    it("rejects set with more than 3 cards in Rounds 1-5", () => {
+      const player = orchestrator.getAwaitingPlayer()!;
+      // Replace hand with 4 cards of same rank (oversized set)
+      player.hand = [
+        { id: "c1", suit: "hearts", rank: "7" },
+        { id: "c2", suit: "diamonds", rank: "7" },
+        { id: "c3", suit: "clubs", rank: "7" },
+        { id: "c4", suit: "spades", rank: "7" },
+        // Second set - valid
+        { id: "c5", suit: "hearts", rank: "9" },
+        { id: "c6", suit: "diamonds", rank: "9" },
+        { id: "c7", suit: "clubs", rank: "9" },
+        // Extra cards
+        { id: "c8", suit: "hearts", rank: "K" },
+      ];
+
+      // Try to lay down with a 4-card set (should fail)
+      const result = orchestrator.layDown([[1, 2, 3, 4], [5, 6, 7]]);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("set_wrong_size");
+      expect(result.message).toContain("exactly 3 cards");
+    });
+
+    it("rejects run with more than 4 cards in Rounds 1-5", () => {
+      const player = orchestrator.getAwaitingPlayer()!;
+      // Set up hand for Round 2 (1 set + 1 run)
+      // Manipulate to Round 2
+      (orchestrator as unknown as { currentRound: number }).currentRound = 2;
+
+      player.hand = [
+        // Valid set
+        { id: "c1", suit: "hearts", rank: "7" },
+        { id: "c2", suit: "diamonds", rank: "7" },
+        { id: "c3", suit: "clubs", rank: "7" },
+        // Oversized run - 5 cards
+        { id: "c4", suit: "spades", rank: "5" },
+        { id: "c5", suit: "spades", rank: "6" },
+        { id: "c6", suit: "spades", rank: "7" },
+        { id: "c7", suit: "spades", rank: "8" },
+        { id: "c8", suit: "spades", rank: "9" },
+        // Extra
+        { id: "c9", suit: "hearts", rank: "K" },
+      ];
+
+      // Try to lay down with a 5-card run (should fail)
+      const result = orchestrator.layDown([[1, 2, 3], [4, 5, 6, 7, 8]]);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("run_wrong_size");
+      expect(result.message).toContain("exactly 4 cards");
+    });
+
+    it("accepts exactly 3-card sets and 4-card runs in Rounds 1-5", () => {
+      const player = orchestrator.getAwaitingPlayer()!;
+      // Set up hand for Round 1 (2 sets)
+      player.hand = [
+        // Set 1 - exactly 3 cards
+        { id: "c1", suit: "hearts", rank: "7" },
+        { id: "c2", suit: "diamonds", rank: "7" },
+        { id: "c3", suit: "clubs", rank: "7" },
+        // Set 2 - exactly 3 cards
+        { id: "c4", suit: "hearts", rank: "9" },
+        { id: "c5", suit: "diamonds", rank: "9" },
+        { id: "c6", suit: "clubs", rank: "9" },
+        // Extra cards
+        { id: "c7", suit: "hearts", rank: "K" },
+        { id: "c8", suit: "hearts", rank: "Q" },
+      ];
+
+      const result = orchestrator.layDown([[1, 2, 3], [4, 5, 6]]);
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("stock auto-replenishment", () => {
+    beforeEach(() => {
+      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+    });
+
+    it("replenishes stock from discard when stock is empty", () => {
+      // Simulate empty stock with multiple discard cards
+      const state = orchestrator.getStateView();
+      (orchestrator as unknown as { stock: typeof state.stock }).stock = [];
+      (orchestrator as unknown as { discard: typeof state.discard }).discard = [
+        { id: "d1", suit: "hearts", rank: "7" },
+        { id: "d2", suit: "diamonds", rank: "8" },
+        { id: "d3", suit: "clubs", rank: "9" },
+        { id: "d4", suit: "spades", rank: "10" },
+      ];
+
+      // Draw from stock should trigger replenishment
+      const result = orchestrator.drawFromStock();
+      expect(result.success).toBe(true);
+
+      // After replenishment: top discard stays, rest becomes stock
+      const afterState = orchestrator.getStateView();
+      expect(afterState.discard.length).toBe(1);
+      expect(afterState.discard[0]!.id).toBe("d1"); // Top discard preserved
+    });
+
+    it("fails when stock empty and only 1 discard card", () => {
+      // Simulate empty stock with only 1 discard card (cannot replenish)
+      const state = orchestrator.getStateView();
+      (orchestrator as unknown as { stock: typeof state.stock }).stock = [];
+      (orchestrator as unknown as { discard: typeof state.discard }).discard = [
+        { id: "d1", suit: "hearts", rank: "7" },
+      ];
+
+      const result = orchestrator.drawFromStock();
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("stock_empty");
+    });
+  });
+
   describe("full turn flow", () => {
     it("completes a basic turn: draw, skip, discard", () => {
       orchestrator.newGame(["Alice", "Bob", "Carol"]);

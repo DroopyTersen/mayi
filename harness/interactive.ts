@@ -414,45 +414,25 @@ async function handleMayIWindow(state: GameStateView): Promise<void> {
 
   if (awaitingPlayer.id === HUMAN_PLAYER_ID) {
     // Human player's turn in May I window
-    const isCurrentPlayer = ctx.currentPlayerId === HUMAN_PLAYER_ID;
+    // Note: Current player's "veto" is choosing drawFromDiscard() instead of drawFromStock()
+    // at the start of their turn. Once they draw from stock, the May I window opens and
+    // they have already passed on the discard. Only non-current players can call May I.
+    console.log("");
+    console.log(`May I? (${renderCard(ctx.discardedCard)} + penalty card)`);
+    console.log("");
+    console.log("  1. Yes, May I!");
+    console.log("  2. No thanks");
     console.log("");
 
-    if (isCurrentPlayer && !ctx.currentPlayerPassed) {
-      // Human is current player, can take or pass
-      console.log(`Do you want the ${renderCard(ctx.discardedCard)}?`);
+    const choice = await promptNumber("> ", 1, 2);
+    if (choice === 1) {
+      orchestrator.callMayI();
       console.log("");
-      console.log("  1. Yes, take it");
-      console.log("  2. No, draw from the stock instead");
-      console.log("");
-
-      const choice = await promptNumber("> ", 1, 2);
-      if (choice === 1) {
-        orchestrator.take();
-        console.log("");
-        console.log(`You took the ${renderCard(ctx.discardedCard)}.`);
-      } else {
-        orchestrator.pass();
-        console.log("");
-        console.log(`You passed on the ${renderCard(ctx.discardedCard)}.`);
-      }
+      console.log(`You called "May I!" and took the ${renderCard(ctx.discardedCard)}.`);
     } else {
-      // Human can call May I or pass
-      console.log(`May I? (${renderCard(ctx.discardedCard)} + penalty card)`);
+      orchestrator.pass();
       console.log("");
-      console.log("  1. Yes, May I!");
-      console.log("  2. No thanks");
-      console.log("");
-
-      const choice = await promptNumber("> ", 1, 2);
-      if (choice === 1) {
-        orchestrator.callMayI();
-        console.log("");
-        console.log(`You called "May I!" and took the ${renderCard(ctx.discardedCard)}.`);
-      } else {
-        orchestrator.pass();
-        console.log("");
-        console.log("You passed.");
-      }
+      console.log("You passed.");
     }
   } else {
     // AI player's turn in May I window - auto-play (always pass for simplicity)

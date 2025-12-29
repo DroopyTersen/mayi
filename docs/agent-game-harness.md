@@ -2,6 +2,8 @@
 
 A CLI harness that allows Claude (or any agent) to play May I? via command line. State persists to the filesystem between commands, enabling turn-by-turn gameplay.
 
+> **Looking for human-friendly play?** See [Interactive Mode](interactive-mode.md) for numbered menus and visual feedback.
+
 ## Quick Start
 
 ```bash
@@ -45,7 +47,7 @@ The harness tracks which player needs to act and what actions are available:
 | `AWAITING_DRAW` | Current player must draw | `draw stock`, `draw discard` |
 | `AWAITING_ACTION` | Player has drawn, can act | `laydown`, `layoff`, `swap`, `skip` |
 | `AWAITING_DISCARD` | Player must discard | `discard <position>` |
-| `MAY_I_WINDOW` | Waiting for May I responses | `mayi`, `take`, `pass` |
+| `MAY_I_WINDOW` | Waiting for May I responses | `mayi`, `pass` |
 | `ROUND_END` | Round complete | `continue` |
 | `GAME_END` | Game over | `new` |
 
@@ -126,9 +128,6 @@ bun harness/play.ts skip
 ```bash
 # Discard card at position (1-indexed)
 bun harness/play.ts discard 5
-
-# Round 6 special: declare stuck if down with 1 card and can't discard
-bun harness/play.ts stuck
 ```
 
 ### May I Window
@@ -136,15 +135,14 @@ bun harness/play.ts stuck
 When someone draws from stock, a May I window opens for the discarded card:
 
 ```bash
-# Current player can take the discard
-bun harness/play.ts take
-
 # Non-current player can call May I
 bun harness/play.ts mayi
 
 # Pass on claiming the card
 bun harness/play.ts pass
 ```
+
+Note: The current player's "veto" is choosing `draw discard` instead of `draw stock` at the start of their turn. Once they draw from stock, the May I window opens and they have already passed on the discard.
 
 ### Round/Game Transitions
 
@@ -220,12 +218,13 @@ The action log (`harness/game-log.jsonl`) records all game actions:
 
 When a player draws from stock:
 1. A May I window opens for the top discard
-2. Each other player (in turn order) can call "May I" or pass
-3. The current player can "take" the discard or pass
-4. If anyone called May I:
+2. Each non-current player (in turn order) can call "May I" or pass
+3. If anyone called May I:
    - Highest priority claimant (closest to current player) wins
    - Winner receives the discard + 1 penalty card from stock
-5. If no claims, the window closes and play continues
+4. If no claims, the window closes and play continues
+
+Note: The current player vetoes by drawing from discard at turn start, not during the May I window.
 
 ## Round Contracts
 

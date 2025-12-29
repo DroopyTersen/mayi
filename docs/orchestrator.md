@@ -119,9 +119,6 @@ bun harness/play.ts mayi
 # Pass on May I
 bun harness/play.ts pass
 
-# Current player takes discard (vetoes May I)
-bun harness/play.ts take
-
 # Continue to next round
 bun harness/play.ts continue
 ```
@@ -165,7 +162,6 @@ await db.put(`game:${gameId}`, JSON.stringify(newState));
 | `discardCard(position)` | AWAITING_DISCARD | Discard to end turn |
 | `layOff(cardPos, meldNum)` | AWAITING_ACTION | Add card to existing meld |
 | `swap(meldNum, jokerPos, cardPos)` | AWAITING_ACTION | Swap Joker from run |
-| `stuck()` | AWAITING_ACTION | End turn stuck (Round 6 only) |
 
 ### May I Window
 
@@ -173,7 +169,8 @@ await db.put(`game:${gameId}`, JSON.stringify(newState));
 |--------|----------------|-------------|
 | `callMayI()` | MAY_I_WINDOW | Non-current player claims discard |
 | `pass()` | MAY_I_WINDOW | Pass on claiming discard |
-| `take()` | MAY_I_WINDOW | Current player vetoes by taking discard |
+
+Note: The current player's "veto" is choosing `drawFromDiscard()` instead of `drawFromStock()` at the start of their turn. Once they draw from stock, the May I window opens and they have already passed on the discard.
 
 ### Game Flow
 
@@ -190,6 +187,9 @@ await db.put(`game:${gameId}`, JSON.stringify(newState));
 3. **No layoff on laydown turn**: Cannot lay off cards on the same turn you lay down
 4. **Joker swap before laydown only**: Can only swap Jokers from runs before laying down your contract
 5. **Round 6 no discard out**: Cannot discard your last card in Round 6
+6. **Exact contract sizes**: In Rounds 1-5, sets must be exactly 3 cards and runs must be exactly 4 cards
+7. **Wild ratio on laydown only**: Wild ratio (1:2) is enforced during initial laydown, but NOT during layoff
+8. **Stock auto-replenishment**: When stock is empty, the discard pile (except top card) is shuffled to form a new stock
 
 ## State Flow
 

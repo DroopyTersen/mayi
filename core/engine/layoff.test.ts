@@ -125,7 +125,7 @@ describe("canLayOffCard guard", () => {
       expect(canLayOffToSet(cardToAdd, set)).toBe(false);
     });
 
-    it("invalid: adding wild if it would make wilds outnumber naturals", () => {
+    it("valid: adding wild even if wilds would outnumber naturals (ratio not enforced on layoff)", () => {
       // Set with 2 naturals and 2 wilds already
       const set = createMeld("set", [
         card("9", "diamonds"),
@@ -133,8 +133,9 @@ describe("canLayOffCard guard", () => {
         joker(),
         card("2", "clubs"),
       ]);
-      const cardToAdd = joker(); // Adding would make 2 natural, 3 wild
-      expect(canLayOffToSet(cardToAdd, set)).toBe(false);
+      const cardToAdd = joker(); // Adding makes 2 natural, 3 wild — allowed during layoff
+      // Per house rules: wild ratio only applies to initial laydown, not layoff
+      expect(canLayOffToSet(cardToAdd, set)).toBe(true);
     });
   });
 
@@ -188,14 +189,15 @@ describe("canLayOffCard guard", () => {
       expect(canLayOffToSet(card("9", "spades"), set)).toBe(true);
     });
 
-    it("adding Joker → 2 natural, 3 wild — INVALID (wilds outnumber)", () => {
+    it("adding Joker → 2 natural, 3 wild — VALID (wild ratio not enforced on layoff)", () => {
       const set = createMeld("set", [
         card("9", "diamonds"),
         card("9", "hearts"),
         joker(),
         card("2", "clubs"),
       ]);
-      expect(canLayOffToSet(joker(), set)).toBe(false);
+      // Per house rules: wild ratio only applies to initial laydown, not layoff
+      expect(canLayOffToSet(joker(), set)).toBe(true);
     });
   });
 
@@ -464,15 +466,15 @@ describe("canLayOffCard guard", () => {
       expect(canLayOffToRun(card("9", "spades"), run)).toBe(true);
     });
 
-    it("adding Joker → 2 natural, 3 wild — INVALID", () => {
+    it("adding Joker → 2 natural, 3 wild — VALID (wild ratio not enforced on layoff)", () => {
       const run = createMeld("run", [
         card("5", "spades"),
         joker(), // represents 6
         card("7", "spades"),
         card("2", "clubs"), // wild representing 8
       ]);
-      // Adding another Joker → 2 natural, 3 wild — INVALID (wilds outnumber)
-      expect(canLayOffToRun(joker(), run)).toBe(false);
+      // Per house rules: wild ratio only applies to initial laydown, not layoff
+      expect(canLayOffToRun(joker(), run)).toBe(true);
     });
   });
 
@@ -1574,10 +1576,10 @@ describe("LAY_OFF rejection", () => {
     });
   });
 
-  describe("wild ratio rejections", () => {
-    it("rejected if adding wild would make wilds > naturals", () => {
+  describe("wild ratio NOT enforced on layoff", () => {
+    it("accepted: adding wild even when wilds would outnumber naturals", () => {
       const myJoker = joker();
-      // Set with 2 naturals and 2 wilds - adding another wild would make 2 natural, 3 wild
+      // Set with 2 naturals and 2 wilds - adding another wild makes 2 natural, 3 wild
       const setMeld = createMeld("set", [
         card("9", "clubs"),
         card("9", "diamonds"),
@@ -1593,13 +1595,14 @@ describe("LAY_OFF rejection", () => {
       const handBefore = actor.getSnapshot().context.hand.length;
       actor.send({ type: "LAY_OFF", cardId: myJoker.id, meldId: setMeld.id });
 
-      // Hand should be unchanged (would make wilds outnumber naturals)
-      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+      // Per house rules: wild ratio only applies to initial laydown, not layoff
+      // Layoff should succeed - hand decreases by 1
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore - 1);
     });
 
-    it("error message: 'would make wilds outnumber naturals'", () => {
+    it("meld grows when adding wild that outnumbers naturals", () => {
       const myJoker = joker();
-      // Set with 2 naturals and 2 wilds - adding another wild would make 2 natural, 3 wild
+      // Set with 2 naturals and 2 wilds - adding another wild makes 2 natural, 3 wild
       const setMeld = createMeld("set", [
         card("9", "clubs"),
         card("9", "diamonds"),
@@ -1613,7 +1616,9 @@ describe("LAY_OFF rejection", () => {
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "LAY_OFF", cardId: myJoker.id, meldId: setMeld.id });
 
-      expect(actor.getSnapshot().context.lastError).toBe("would make wilds outnumber naturals");
+      // Meld should now have 5 cards (2 natural, 3 wild)
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === setMeld.id);
+      expect(updatedMeld?.cards.length).toBe(5);
     });
   });
 });

@@ -65,7 +65,6 @@ export type TurnEvent =
   | { type: "LAY_OFF"; cardId: string; meldId: string }
   | { type: "DISCARD"; cardId: string }
   | { type: "GO_OUT"; finalLayOffs: LayOffSpec[] }
-  | { type: "END_TURN_STUCK" }
   | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string };
 
 /**
@@ -117,14 +116,15 @@ export const turnMachine = setup({
       if (event.type !== "DISCARD") return false;
       // Card must be in hand
       if (!context.hand.some((card) => card.id === event.cardId)) return false;
-      // In round 6, cannot discard last card to go out
-      if (context.roundNumber === 6 && context.hand.length === 1 && context.isDown) {
-        return false;
-      }
+      // Note: In Round 6, players in awaitingDiscard are never "down"
+      // because laying down = going out. No special Round 6 logic needed here.
       return true;
     },
     canLayDown: ({ context, event }) => {
       if (event.type !== "LAY_DOWN") return false;
+
+      // Round 6: must use ALL cards (handled by canLayDownAndGoOut, not here)
+      if (context.roundNumber === 6) return false;
 
       // Cannot lay down if already down this round
       if (context.isDown) return false;
@@ -207,6 +207,9 @@ export const turnMachine = setup({
     canLayOff: ({ context, event }) => {
       if (event.type !== "LAY_OFF") return false;
 
+      // Round 6: laying off is not allowed (no melds on table until someone wins)
+      if (context.roundNumber === 6) return false;
+
       // Check player state preconditions
       const layOffContext = {
         isDown: context.isDown,
@@ -285,19 +288,12 @@ export const turnMachine = setup({
     isRound6: ({ context }) => {
       return context.roundNumber === 6;
     },
-    // Check if player can end turn when stuck (round 6 only)
-    canEndTurnStuck: ({ context }) => {
-      // Only in round 6
-      if (context.roundNumber !== 6) return false;
-      // Player must be down
-      if (!context.isDown) return false;
-      // Must have exactly 1 card (stuck with unlayable card)
-      if (context.hand.length !== 1) return false;
-      return true;
-    },
     // Check if player can swap a Joker from a meld
     canSwapJoker: ({ context, event }) => {
       if (event.type !== "SWAP_JOKER") return false;
+
+      // Round 6: swapping is not allowed (no melds on table)
+      if (context.roundNumber === 6) return false;
 
       // Player must not be down yet (per house rules)
       if (context.isDown) return false;
@@ -332,6 +328,15 @@ export const turnMachine = setup({
       lastError: ({ context, event }) => {
         if (event.type !== "LAY_DOWN") return "invalid event";
         if (context.isDown) return "already laid down this round";
+
+        // Round 6: must use ALL cards
+        if (context.roundNumber === 6) {
+          const usedCardIds = new Set(event.melds.flatMap((m) => m.cardIds));
+          if (usedCardIds.size !== context.hand.length) {
+            return `Round 6 requires laying down ALL ${context.hand.length} cards at once`;
+          }
+        }
+
         // Check card ownership
         for (const proposal of event.melds) {
           for (const cardId of proposal.cardIds) {
@@ -368,26 +373,13 @@ export const turnMachine = setup({
     setLayOffError: assign({
       lastError: ({ context, event }) => {
         if (event.type !== "LAY_OFF") return "invalid event";
+        if (context.roundNumber === 6) return "laying off is not allowed in Round 6";
         if (!context.isDown) return "must be down from a previous turn to lay off";
         if (context.laidDownThisTurn) return "cannot lay off on same turn as laying down";
         if (!context.hand.find((c) => c.id === event.cardId)) return "card not in hand";
         if (!context.table.find((m) => m.id === event.meldId)) return "meld not found";
-        // Card doesn't fit
-        const card = context.hand.find((c) => c.id === event.cardId);
-        const meld = context.table.find((m) => m.id === event.meldId);
-        if (card && meld) {
-          if (meld.type === "set" && !canLayOffToSet(card, meld)) {
-            // Check if it's a wild ratio issue
-            const naturals = meld.cards.filter((c) => c.rank !== "2" && c.rank !== "Joker").length;
-            const wilds = meld.cards.filter((c) => c.rank === "2" || c.rank === "Joker").length + (card.rank === "2" || card.rank === "Joker" ? 1 : 0);
-            if (wilds > naturals) {
-              return "would make wilds outnumber naturals";
-            }
-          }
-          if (meld.type === "run" && !canLayOffToRun(card, meld)) {
-            return "card does not fit this meld";
-          }
-        }
+        // Card doesn't fit the meld (wrong rank for set, or doesn't extend run)
+        // Note: Wild ratio is NOT enforced during layoff per house rules
         return "card does not fit this meld";
       },
     }),
@@ -593,55 +585,14 @@ export const turnMachine = setup({
         LAY_DOWN: [
           {
             // If laying down uses all cards and is valid, go out immediately
+            // In Round 6, this is the ONLY way to lay down (must use all cards)
             guard: "canLayDownAndGoOut",
             target: "wentOut",
             actions: ["layDown", "clearError"],
           },
           {
-            // Round 6: after laying down, stay in drawn to allow lay offs
-            guard: ({ context, event }) => {
-              if (event.type !== "LAY_DOWN") return false;
-              if (context.roundNumber !== 6) return false;
-
-              // Cannot lay down if already down this round
-              if (context.isDown) return false;
-
-              // Build melds from card IDs and validate
-              const melds: Meld[] = [];
-              for (const proposal of event.melds) {
-                const cards: Card[] = [];
-                for (const cardId of proposal.cardIds) {
-                  const card = context.hand.find((c) => c.id === cardId);
-                  if (!card) return false;
-                  cards.push(card);
-                }
-                melds.push({
-                  id: `meld-${Math.random()}`,
-                  type: proposal.type,
-                  cards,
-                  ownerId: context.playerId,
-                });
-              }
-
-              // Validate each meld individually
-              for (const meld of melds) {
-                if (meld.type === "set" && !isValidSet(meld.cards)) {
-                  return false;
-                }
-                if (meld.type === "run" && !isValidRun(meld.cards)) {
-                  return false;
-                }
-              }
-
-              // Validate contract requirements
-              const contract = CONTRACTS[context.roundNumber];
-              const result = validateContractMelds(contract, melds);
-              return result.valid;
-            },
-            target: "drawn", // Stay in drawn for round 6
-            actions: ["layDown", "clearError"],
-          },
-          {
+            // Rounds 1-5: lay down contract, then go to discard phase
+            // Round 6 is blocked here - must use all cards via canLayDownAndGoOut
             guard: "canLayDown",
             target: "awaitingDiscard",
             actions: ["layDown", "clearError"],
@@ -683,31 +634,20 @@ export const turnMachine = setup({
       on: {
         DISCARD: [
           {
-            // If discarding last card, go out (rounds 1-5 only)
-            // In round 6, cannot discard last card to go out
-            guard: ({ context, event }) => {
-              if (event.type !== "DISCARD") return false;
-              // In round 6 when down, cannot discard to go out
-              if (context.roundNumber === 6 && context.hand.length === 1 && context.isDown) {
-                return false;
-              }
-              return context.hand.length === 1;
-            },
+            // If discarding last card, go out
+            // Note: In Round 6, you can never be "down" without going out,
+            // so players in awaitingDiscard are never down in Round 6
+            guard: "willGoOutAfterDiscard",
             target: "wentOut",
             actions: "discardCard",
           },
           {
-            // Normal discard (including round 6 when not going out)
+            // Normal discard
             guard: "canDiscard",
             target: "turnComplete",
             actions: "discardCard",
           },
         ],
-        END_TURN_STUCK: {
-          // Round 6 only: end turn when stuck with 1 unlayable card
-          guard: "canEndTurnStuck",
-          target: "turnComplete",
-        },
       },
     },
     turnComplete: {

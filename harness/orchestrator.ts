@@ -288,14 +288,20 @@ export class Orchestrator {
   drawFromStock(): CommandResult {
     this.requirePhase("AWAITING_DRAW");
 
+    // Try to replenish stock first if empty
+    this.replenishStockIfNeeded();
+
     if (this.stock.length === 0) {
-      return { success: false, message: "Stock is empty!", error: "stock_empty" };
+      return { success: false, message: "Stock is empty and cannot be replenished!", error: "stock_empty" };
     }
 
     const player = this.getAwaitingPlayer()!;
     const card = this.stock.shift()!;
     player.hand.push(card);
     this.hasDrawn = true;
+
+    // Replenish again after drawing in case that was the last card
+    this.replenishStockIfNeeded();
 
     this.logAction(player.id, player.name, "drew from stock", renderCard(card));
 
@@ -369,6 +375,15 @@ export class Orchestrator {
       return { success: false, message: "Duplicate card positions in melds", error: "duplicate_positions" };
     }
 
+    // Round 6: must use ALL cards in hand
+    if (this.currentRound === 6 && allPositions.length !== player.hand.length) {
+      return {
+        success: false,
+        message: `Round 6 requires laying down ALL ${player.hand.length} cards. You specified ${allPositions.length}.`,
+        error: "round_6_incomplete",
+      };
+    }
+
     // Build melds
     const melds: Meld[] = [];
     for (const group of meldGroups) {
@@ -401,6 +416,27 @@ export class Orchestrator {
       });
     }
 
+    // Rounds 1-5: Melds must be exact minimum size (sets = 3, runs = 4)
+    // Round 6: Melds can be any valid size since you must use ALL cards
+    if (this.currentRound !== 6) {
+      for (const meld of melds) {
+        if (meld.type === "set" && meld.cards.length !== 3) {
+          return {
+            success: false,
+            message: `Sets in the contract must be exactly 3 cards. You provided ${meld.cards.length} cards: ${meld.cards.map(renderCard).join(" ")}`,
+            error: "set_wrong_size",
+          };
+        }
+        if (meld.type === "run" && meld.cards.length !== 4) {
+          return {
+            success: false,
+            message: `Runs in the contract must be exactly 4 cards. You provided ${meld.cards.length} cards: ${meld.cards.map(renderCard).join(" ")}`,
+            error: "run_wrong_size",
+          };
+        }
+      }
+    }
+
     // Validate contract
     const contract = CONTRACTS[this.currentRound];
     const setsNeeded = contract.sets;
@@ -431,10 +467,11 @@ export class Orchestrator {
     );
 
     // Check if went out
+    // In Round 6, hand will always be empty after laying down (required to use all cards)
     if (player.hand.length === 0) {
       this.handleWentOut(player.id);
     } else {
-      // Go to discard phase. In Round 6, discardCard() prevents discarding to go out.
+      // Rounds 1-5: go to discard phase
       this.harnessPhase = "AWAITING_DISCARD";
     }
 
@@ -469,14 +506,8 @@ export class Orchestrator {
     const posError = this.validatePosition(position, player.hand.length, "Position");
     if (posError) return posError;
 
-    // Round 6: Cannot discard to go out
-    if (this.currentRound === 6 && player.isDown && player.hand.length === 1) {
-      return {
-        success: false,
-        message: "Round 6: Cannot discard to go out. You must play all cards to melds, or use 'stuck' if you can't.",
-        error: "round6_no_discard_out",
-      };
-    }
+    // Note: In Round 6, players in AWAITING_DISCARD are never "down" because
+    // laying down = going out. No special Round 6 logic needed here.
 
     const card = player.hand.splice(position - 1, 1)[0]!;
     this.discard.unshift(card);
@@ -499,6 +530,15 @@ export class Orchestrator {
    */
   layOff(cardPos: number, meldNum: number): CommandResult {
     this.requirePhase("AWAITING_ACTION");
+
+    // Round 6: laying off is not allowed (no melds on table until someone wins)
+    if (this.currentRound === 6) {
+      return {
+        success: false,
+        message: "Laying off is not allowed in Round 6. You must lay down all cards at once to win.",
+        error: "round_6_no_layoff",
+      };
+    }
 
     const player = this.getAwaitingPlayer()!;
     if (!player.isDown) {
@@ -592,33 +632,6 @@ export class Orchestrator {
   }
 
   /**
-   * Take discard (current player in May I window)
-   */
-  take(): CommandResult {
-    this.requirePhase("MAY_I_WINDOW");
-
-    const ctx = this.mayIContext!;
-    const player = this.getAwaitingPlayer()!;
-
-    if (player.id !== ctx.currentPlayerId) {
-      return { success: false, message: "Only the current player can 'take'. Other players should use 'mayi'.", error: "wrong_command" };
-    }
-
-    const card = this.discard.shift()!;
-    player.hand.push(card);
-
-    this.logAction(player.id, player.name, "took discard (vetoed May I)", renderCard(card));
-
-    // Close May I window
-    this.mayIContext = null;
-    this.harnessPhase = "AWAITING_ACTION";
-    this.awaitingPlayerId = player.id;
-
-    this.save();
-    return { success: true, message: `${player.name} took ${renderCard(card)} from discard (vetoing any May I claims).` };
-  }
-
-  /**
    * Pass on May I
    */
   pass(): CommandResult {
@@ -661,36 +674,19 @@ export class Orchestrator {
   }
 
   /**
-   * End turn stuck (Round 6 only)
-   */
-  stuck(): CommandResult {
-    this.requirePhase("AWAITING_ACTION");
-
-    if (this.currentRound !== 6) {
-      return { success: false, message: "'stuck' command only valid in Round 6", error: "not_round6" };
-    }
-
-    const player = this.getAwaitingPlayer()!;
-    if (!player.isDown) {
-      return { success: false, message: "Must be down to use 'stuck'", error: "not_down" };
-    }
-    if (player.hand.length !== 1) {
-      return { success: false, message: "Can only use 'stuck' when you have exactly 1 card left", error: "not_one_card" };
-    }
-
-    this.logAction(player.id, player.name, "ended turn stuck", `with ${renderCard(player.hand[0]!)}`);
-
-    this.advanceToNextPlayer();
-    this.save();
-
-    return { success: true, message: `${player.name} is stuck with ${renderCard(player.hand[0]!)} and ends their turn.` };
-  }
-
-  /**
    * Swap a Joker from a meld
    */
   swap(meldNum: number, jokerPos: number, cardPos: number): CommandResult {
     this.requirePhase("AWAITING_ACTION");
+
+    // Round 6: swapping is not allowed (no melds on table)
+    if (this.currentRound === 6) {
+      return {
+        success: false,
+        message: "Joker swapping is not allowed in Round 6 (no melds on table until someone wins).",
+        error: "round_6_no_swap",
+      };
+    }
 
     const player = this.getAwaitingPlayer()!;
 
@@ -847,9 +843,14 @@ export class Orchestrator {
       const discardCard = this.discard.shift()!;
       winner.hand.push(discardCard);
 
+      // Try to replenish stock before drawing penalty card
+      this.replenishStockIfNeeded();
+
       if (this.stock.length > 0) {
         const penaltyCard = this.stock.shift()!;
         winner.hand.push(penaltyCard);
+        // Replenish after penalty draw in case that was the last card
+        this.replenishStockIfNeeded();
         this.logAction(winnerId, winner.name, "won May I", `${renderCard(discardCard)} + penalty ${renderCard(penaltyCard)}`);
       } else {
         this.logAction(winnerId, winner.name, "won May I", `${renderCard(discardCard)} (no penalty - stock empty)`);
@@ -872,6 +873,25 @@ export class Orchestrator {
     this.turnNumber++;
     this.hasDrawn = false;
     this.laidDownThisTurn = false;
+  }
+
+  /**
+   * Replenish the stock pile from the discard pile if needed.
+   * Per house rules: When the stock is empty, take all but the top discard card,
+   * shuffle them, and place them face down as the new stock.
+   */
+  private replenishStockIfNeeded(): void {
+    if (this.stock.length === 0 && this.discard.length > 1) {
+      // Keep the top discard exposed
+      const exposedDiscard = this.discard.shift()!;
+
+      // Take remaining discard pile and shuffle into new stock
+      const cardsToShuffle = [...this.discard];
+      this.discard = [exposedDiscard];
+      this.stock = shuffle(cardsToShuffle);
+
+      this.logAction("system", "System", "reshuffled stock", `${cardsToShuffle.length} cards from discard pile`);
+    }
   }
 
   private handleWentOut(winnerId: string): void {

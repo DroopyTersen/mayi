@@ -9,7 +9,6 @@
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import { isWild, getRankValue } from "../card/card.utils";
-import { countWildsAndNaturals } from "../meld/meld.validation";
 
 /**
  * Result of validating card ownership for lay off.
@@ -129,13 +128,8 @@ export function canLayOffToSet(card: Card, meld: Meld): boolean {
     }
   }
 
-  // Check if adding this card would make wilds outnumber naturals
-  const newCards = [...meld.cards, card];
-  const { wilds, naturals } = countWildsAndNaturals(newCards);
-
-  if (wilds > naturals) {
-    return false;
-  }
+  // Note: Wild ratio is NOT enforced during layoff (only during initial laydown)
+  // Per house rules, you can add wilds freely to existing melds even if wilds outnumber naturals
 
   return true;
 }
@@ -238,13 +232,8 @@ export function canLayOffToRun(card: Card, meld: Meld): boolean {
     return false;
   }
 
-  // Check if adding this card would make wilds outnumber naturals
-  const newCards = [...meld.cards, card];
-  const { wilds, naturals } = countWildsAndNaturals(newCards);
-
-  if (wilds > naturals) {
-    return false;
-  }
+  // Note: Wild ratio is NOT enforced during layoff (only during initial laydown)
+  // Per house rules, you can add wilds freely to existing melds even if wilds outnumber naturals
 
   return true;
 }
@@ -301,12 +290,7 @@ export function getRunInsertPosition(card: Card, meld: Meld): "low" | "high" | n
     fitsHigh = canExtendHigh && cardValue === highExtensionValue;
   }
 
-  // Check wild ratio first
-  const newCards = [...meld.cards, card];
-  const { wilds, naturals } = countWildsAndNaturals(newCards);
-  if (wilds > naturals) {
-    return null;
-  }
+  // Note: Wild ratio is NOT enforced during layoff (only during initial laydown)
 
   // For natural cards, return whichever end they fit
   if (fitsLow && !fitsHigh) {

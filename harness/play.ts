@@ -77,17 +77,11 @@ try {
     case "mayi":
       handleMayI();
       break;
-    case "take":
-      handleTake();
-      break;
     case "pass":
       handlePass();
       break;
     case "continue":
       handleContinue();
-      break;
-    case "stuck":
-      handleStuck();
       break;
     case "swap":
       handleSwap(args[1], args[2], args[3]);
@@ -250,19 +244,6 @@ function handleMayI(): void {
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleTake(): void {
-  orchestrator.loadGame();
-
-  const result = orchestrator.take();
-  if (!result.success) {
-    throw new Error(result.message);
-  }
-
-  console.log(result.message);
-  console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
-}
-
 function handlePass(): void {
   orchestrator.loadGame();
 
@@ -280,19 +261,6 @@ function handleContinue(): void {
   orchestrator.loadGame();
 
   const result = orchestrator.continue();
-  if (!result.success) {
-    throw new Error(result.message);
-  }
-
-  console.log(result.message);
-  console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
-}
-
-function handleStuck(): void {
-  orchestrator.loadGame();
-
-  const result = orchestrator.stuck();
   if (!result.success) {
     throw new Error(result.message);
   }
@@ -354,12 +322,10 @@ Commands (command mode):
   skip                        Skip laying down
   discard <position>          Discard card at position
 
-  layoff <card> <meld>        Lay off card to meld
-  swap <meld> <pos> <card>    Swap card for Joker in run (before laying down)
-  stuck                       End turn stuck (Round 6 only)
+  layoff <card> <meld>        Lay off card to meld (not in Round 6)
+  swap <meld> <pos> <card>    Swap card for Joker in run (not in Round 6)
 
   mayi                        Call May I (non-current player)
-  take                        Take discard (current player in May I window)
   pass                        Pass on May I
 
   continue                    Continue to next round
