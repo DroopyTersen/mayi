@@ -18,21 +18,21 @@
 - [x] 3.1.8 Update lobby.types.ts with new types - Plan lines 195-207
 - [x] 3.1.9 Add server handlers: ADD_AI_PLAYER, REMOVE_AI_PLAYER, SET_STARTING_ROUND - Plan lines 237-246
 - [x] 3.1.10 Update mayi-room.ts with Phase 3 message handling
-- [x] 3.1.11 Use the CLAUDE Chrome extension to verify what you've built in the browser via end-to-end testing. The dev server is already running at http://localhost:5173/. Make sure it looks good on all three devices, so test it in desktop, tablet, and phone viewports. **IN PROGRESS**
-- [ ] 3.1.12 Commit changes to source control
-- [ ] End of Phase 3.1
+- [x] 3.1.11 Use the CLAUDE Chrome extension to verify what you've built in the browser via end-to-end testing. The dev server is already running at http://localhost:5173/. Make sure it looks good on all three devices, so test it in desktop, tablet, and phone viewports.
+- [x] 3.1.12 Commit changes to source control
+- [x] End of Phase 3.1
 
 ## Phase 3.2: Game Initialization (Plan lines 444-449)
 
-- [ ] 3.2.1 Create PartyGameAdapter (`app/party/party-game-adapter.ts`) - wraps GameEngine for server
-- [ ] 3.2.2 Implement START_GAME handler - Plan lines 248-255
-- [ ] 3.2.3 Initialize AIPlayerRegistry with AI configs
-- [ ] 3.2.4 Persist game state to Durable Object storage - Plan lines 84-89
-- [ ] 3.2.5 Broadcast GAME_STARTED with PlayerView to each player
-- [ ] 3.2.6 Update client route to handle GAME_STARTED message
-- [ ] 3.2.7 Use the CLAUDE Chrome extension to verify what you've built in the browser via end-to-end testing. The dev server is already running at http://localhost:5173/. Make sure it looks good on all three devices, so test it in desktop, tablet, and phone viewports.
-- [ ] 3.2.8 Commit changes to source control
-- [ ] End of Phase 3.2
+- [x] 3.2.1 Create PartyGameAdapter (`app/party/party-game-adapter.ts`) - wraps GameEngine for server
+- [x] 3.2.2 Implement START_GAME handler - Plan lines 248-255
+- [x] 3.2.3 Initialize AIPlayerRegistry with AI configs (handled via PartyGameAdapter)
+- [x] 3.2.4 Persist game state to Durable Object storage - Plan lines 84-89
+- [x] 3.2.5 Broadcast GAME_STARTED with PlayerView to each player
+- [x] 3.2.6 Update client route to handle GAME_STARTED message
+- [x] 3.2.7 Use the CLAUDE Chrome extension to verify what you've built in the browser via end-to-end testing. The dev server is already running at http://localhost:5173/. Make sure it looks good on all three devices, so test it in desktop, tablet, and phone viewports.
+- [x] 3.2.8 Commit changes to source control
+- [x] End of Phase 3.2
 
 ## Phase 3.3: Game View Layout (Plan lines 451-456)
 
@@ -126,5 +126,5 @@ _(Add tasks here as they are discovered)_
 
 ## Progress Tracking
 
-**Current Task**: Starting Phase 3.1.1
-**Last Updated**: Starting implementation
+**Current Task**: Phase 3.3.1 - Create GameView component
+**Last Updated**: Phase 3.2 complete

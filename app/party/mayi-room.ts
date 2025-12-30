@@ -19,6 +19,7 @@ import {
   setStartingRound,
   buildLobbyStatePayload,
   storedPlayersToHumanPlayerInfo,
+  canStartGame,
   type LobbyState,
 } from "./mayi-room.lobby";
 
@@ -29,12 +30,21 @@ import {
   type HumanPlayerInfo,
 } from "./protocol.types";
 
+import {
+  PartyGameAdapter,
+  type StoredGameState,
+} from "./party-game-adapter";
+
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const MIN_NAME_LEN = 1;
 const MAX_NAME_LEN = 24;
 const MAX_PLAYER_ID_LEN = 64;
 
 const LOBBY_STATE_KEY = "lobby:state";
+const GAME_STATE_KEY = "game:state";
+const ROOM_PHASE_KEY = "room:phase";
+
+type RoomPhase = "lobby" | "playing";
 
 type MayIRoomConnectionState = { playerId: string };
 
@@ -61,13 +71,27 @@ export class MayIRoom extends Server {
     const players = await this.readPlayersSnapshot();
     conn.send(JSON.stringify({ type: "PLAYERS", players } satisfies ServerMessage));
 
-    // Send current lobby state (Phase 3)
-    const lobbyState = await this.getLobbyState();
-    const humanPlayers = storedPlayersToHumanPlayerInfo(
-      await this.getStoredPlayers()
-    );
-    const lobbyPayload = buildLobbyStatePayload(humanPlayers, lobbyState);
-    conn.send(JSON.stringify({ type: "LOBBY_STATE", lobbyState: lobbyPayload } satisfies ServerMessage));
+    // Check room phase
+    const roomPhase = await this.getRoomPhase();
+
+    if (roomPhase === "playing") {
+      // Game in progress - send game state (will be sent on JOIN when player ID is known)
+      // For now, just send lobby state for reference
+      const lobbyState = await this.getLobbyState();
+      const humanPlayers = storedPlayersToHumanPlayerInfo(
+        await this.getStoredPlayers()
+      );
+      const lobbyPayload = buildLobbyStatePayload(humanPlayers, lobbyState);
+      conn.send(JSON.stringify({ type: "LOBBY_STATE", lobbyState: lobbyPayload } satisfies ServerMessage));
+    } else {
+      // Lobby phase - send lobby state
+      const lobbyState = await this.getLobbyState();
+      const humanPlayers = storedPlayersToHumanPlayerInfo(
+        await this.getStoredPlayers()
+      );
+      const lobbyPayload = buildLobbyStatePayload(humanPlayers, lobbyState);
+      conn.send(JSON.stringify({ type: "LOBBY_STATE", lobbyState: lobbyPayload } satisfies ServerMessage));
+    }
   }
 
   override async onMessage(conn: Connection<MayIRoomConnectionState>, message: WSMessage) {
@@ -137,14 +161,7 @@ export class MayIRoom extends Server {
         break;
 
       case "START_GAME":
-        // Phase 3.2 - to be implemented
-        conn.send(
-          JSON.stringify({
-            type: "ERROR",
-            error: "NOT_IMPLEMENTED",
-            message: "START_GAME not yet implemented",
-          } satisfies ServerMessage)
-        );
+        await this.handleStartGame(conn);
         break;
 
       case "GAME_ACTION":
@@ -222,6 +239,24 @@ export class MayIRoom extends Server {
     );
 
     await this.broadcastPlayersAndLobby();
+
+    // If game is in progress, send game state to this player
+    const roomPhase = await this.getRoomPhase();
+    if (roomPhase === "playing") {
+      const gameState = await this.getGameState();
+      if (gameState) {
+        const adapter = PartyGameAdapter.fromStoredState(gameState);
+        const playerView = adapter.getPlayerView(playerId);
+        if (playerView) {
+          conn.send(
+            JSON.stringify({
+              type: "GAME_STARTED",
+              state: playerView,
+            } satisfies ServerMessage)
+          );
+        }
+      }
+    }
   }
 
   private async handleAddAIPlayer(
@@ -293,6 +328,84 @@ export class MayIRoom extends Server {
     await this.broadcastLobbyState();
   }
 
+  private async handleStartGame(
+    conn: Connection<MayIRoomConnectionState>
+  ) {
+    // Check if already in a game
+    const roomPhase = await this.getRoomPhase();
+    if (roomPhase === "playing") {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "GAME_ALREADY_STARTED",
+          message: "Game has already started",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Verify caller is the host (first player)
+    const callerPlayerId = conn.state?.playerId;
+    if (!callerPlayerId) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "NOT_JOINED",
+          message: "You must join before starting the game",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    const storedPlayers = await this.getStoredPlayers();
+    // Sort by join time to find the host (first player to join)
+    const sortedPlayers = [...storedPlayers].sort((a, b) => a.joinedAt - b.joinedAt);
+    const hostPlayerId = sortedPlayers[0]?.playerId;
+
+    if (callerPlayerId !== hostPlayerId) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "NOT_HOST",
+          message: "Only the host can start the game",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Check player count
+    const lobbyState = await this.getLobbyState();
+    const humanPlayers = storedPlayersToHumanPlayerInfo(storedPlayers);
+    const humanCount = humanPlayers.length;
+    const aiCount = lobbyState.aiPlayers.length;
+
+    if (!canStartGame(humanCount, aiCount)) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "INVALID_PLAYER_COUNT",
+          message: "Need 3-8 players to start the game",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Create game from lobby state
+    const adapter = PartyGameAdapter.createFromLobby({
+      roomId: this.name,
+      humanPlayers,
+      aiPlayers: lobbyState.aiPlayers,
+      startingRound: lobbyState.startingRound,
+    });
+
+    // Store game state
+    await this.setGameState(adapter.getStoredState());
+    await this.setRoomPhase("playing");
+
+    // Broadcast GAME_STARTED to each player with their specific view
+    await this.broadcastPlayerViews(adapter);
+  }
+
   override async onClose(
     conn: Connection<MayIRoomConnectionState>,
     _code: number,
@@ -327,6 +440,23 @@ export class MayIRoom extends Server {
 
   private async setLobbyState(state: LobbyState): Promise<void> {
     await this.ctx.storage.put(LOBBY_STATE_KEY, state);
+  }
+
+  private async getRoomPhase(): Promise<RoomPhase> {
+    const phase = await this.ctx.storage.get<RoomPhase>(ROOM_PHASE_KEY);
+    return phase ?? "lobby";
+  }
+
+  private async setRoomPhase(phase: RoomPhase): Promise<void> {
+    await this.ctx.storage.put(ROOM_PHASE_KEY, phase);
+  }
+
+  private async getGameState(): Promise<StoredGameState | null> {
+    return await this.ctx.storage.get<StoredGameState>(GAME_STATE_KEY) ?? null;
+  }
+
+  private async setGameState(state: StoredGameState): Promise<void> {
+    await this.ctx.storage.put(GAME_STATE_KEY, state);
   }
 
   private async getStoredPlayers(): Promise<StoredPlayer[]> {
@@ -375,5 +505,50 @@ export class MayIRoom extends Server {
   private async broadcastPlayersAndLobby(): Promise<void> {
     await this.broadcastPlayers();
     await this.broadcastLobbyState();
+  }
+
+  /**
+   * Broadcast GAME_STARTED to each connected player with their specific PlayerView
+   */
+  private async broadcastPlayerViews(adapter: PartyGameAdapter): Promise<void> {
+    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
+      const lobbyPlayerId = conn.state?.playerId;
+      if (!lobbyPlayerId) continue;
+
+      const playerView = adapter.getPlayerView(lobbyPlayerId);
+      if (!playerView) continue;
+
+      conn.send(
+        JSON.stringify({
+          type: "GAME_STARTED",
+          state: playerView,
+        } satisfies ServerMessage)
+      );
+    }
+  }
+
+  /**
+   * Broadcast GAME_STATE to each connected player with their specific PlayerView
+   */
+  private async broadcastGameState(): Promise<void> {
+    const gameState = await this.getGameState();
+    if (!gameState) return;
+
+    const adapter = PartyGameAdapter.fromStoredState(gameState);
+
+    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
+      const lobbyPlayerId = conn.state?.playerId;
+      if (!lobbyPlayerId) continue;
+
+      const playerView = adapter.getPlayerView(lobbyPlayerId);
+      if (!playerView) continue;
+
+      conn.send(
+        JSON.stringify({
+          type: "GAME_STATE",
+          state: playerView,
+        } satisfies ServerMessage)
+      );
+    }
   }
 }

@@ -12,6 +12,9 @@ import type { PlayerView, MeldSpec } from "../../core/engine/game-engine.types";
 import type { RoundNumber } from "../../core/engine/engine.types";
 import type { Contract } from "../../core/engine/contracts";
 
+// Re-export types needed by clients
+export type { PlayerView } from "../../core/engine/game-engine.types";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AI Player Types
 // ═══════════════════════════════════════════════════════════════════════════

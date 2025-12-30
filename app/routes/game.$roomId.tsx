@@ -15,7 +15,10 @@ import type {
 import type {
   ClientMessage,
   ServerMessage,
+  PlayerView,
 } from "~/party/protocol.types";
+
+type RoomPhase = "lobby" | "playing";
 
 function getPlayerIdKey(roomId: string) {
   return `mayi:room:${roomId}:playerId`;
@@ -73,6 +76,10 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     canStart: false,
   });
   const [isStartingGame, setIsStartingGame] = useState(false);
+
+  // Phase 3.2: Room phase and game state
+  const [roomPhase, setRoomPhase] = useState<RoomPhase>("lobby");
+  const [gameState, setGameState] = useState<PlayerView | null>(null);
 
   // Check if current player is the host (first player to join)
   const isHost = useMemo(() => {
@@ -225,10 +232,16 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           });
           return;
         }
-        // Phase 3: Game started (to be fully implemented in Phase 3.2)
+        // Phase 3: Game started
         case "GAME_STARTED": {
           setIsStartingGame(false);
-          // TODO: Navigate to game view
+          setRoomPhase("playing");
+          setGameState(msg.state);
+          return;
+        }
+        // Phase 3.4: Game state updates
+        case "GAME_STATE": {
+          setGameState(msg.state);
           return;
         }
       }
@@ -241,6 +254,79 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       socketRef.current = null;
     };
   }, [roomId, sendJoin]);
+
+  // Phase 3.2: Render lobby or game based on room phase
+  if (roomPhase === "playing" && gameState) {
+    // Placeholder GameView - will be replaced in Phase 3.3
+    return (
+      <main className="p-6 max-w-3xl mx-auto">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Game: {roomId}</h1>
+            <span className="text-sm text-muted-foreground">
+              Round {gameState.currentRound} -{" "}
+              {gameState.contract.sets > 0 &&
+                `${gameState.contract.sets} set${gameState.contract.sets > 1 ? "s" : ""}`}
+              {gameState.contract.sets > 0 && gameState.contract.runs > 0 && " + "}
+              {gameState.contract.runs > 0 &&
+                `${gameState.contract.runs} run${gameState.contract.runs > 1 ? "s" : ""}`}
+            </span>
+          </div>
+
+          <div className="rounded-lg border bg-card p-6">
+            <h2 className="font-semibold mb-4">Game Started!</h2>
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="text-muted-foreground">Your turn:</span>{" "}
+                {gameState.isYourTurn ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Your hand:</span>{" "}
+                {gameState.yourHand.length} cards
+              </p>
+              <p>
+                <span className="text-muted-foreground">Stock:</span>{" "}
+                {gameState.stockCount} cards
+              </p>
+              <p>
+                <span className="text-muted-foreground">Discard:</span>{" "}
+                {gameState.topDiscard
+                  ? `${gameState.topDiscard.rank} of ${gameState.topDiscard.suit}`
+                  : "Empty"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Phase:</span>{" "}
+                {gameState.phase} / {gameState.turnPhase}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-card p-6">
+            <h3 className="font-semibold mb-3">Players</h3>
+            <ul className="space-y-2 text-sm">
+              {gameState.opponents.map((opponent) => (
+                <li key={opponent.id} className="flex justify-between">
+                  <span>
+                    {opponent.name}
+                    {opponent.isCurrentPlayer && " (Current)"}
+                    {opponent.isDealer && " (Dealer)"}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {opponent.handCount} cards
+                    {opponent.isDown && " - Down"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="text-center text-sm text-muted-foreground">
+            Full game view coming in Phase 3.3...
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="p-6 max-w-3xl mx-auto">
