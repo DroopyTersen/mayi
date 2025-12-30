@@ -2,7 +2,7 @@
 
 > **Status**: Ready to Start
 > **Depends on**: Phase 0 (Server-Safe Engine) ✅ Complete
-> **Estimated scope**: New `app/` folder with basic RR7 + PartyServer
+> **Estimated scope**: Add RR7 + Cloudflare Workers + PartyServer to existing project
 
 ## Phase 0 Complete
 
@@ -11,27 +11,6 @@ The GameEngine wrapper (`core/engine/game-engine.ts`) is complete and provides:
 - Full serialization via `getPersistedSnapshot()` / `fromPersistedSnapshot()`
 - PlayerView with per-player information hiding
 - Zero Node.js dependencies (runs on Cloudflare Workers)
-
-Key APIs for Phase 1 integration:
-```typescript
-import { GameEngine } from "../core/engine/game-engine";
-
-// Create new game
-const engine = GameEngine.createGame({ playerNames: ["Alice", "Bob"] });
-
-// Get snapshot for persistence (Durable Object storage)
-const snapshot = engine.getPersistedSnapshot();
-
-// Restore from snapshot
-const restored = GameEngine.fromPersistedSnapshot(snapshot, gameId);
-
-// Execute commands
-engine.drawFromStock(playerId);
-engine.discard(playerId, cardId);
-
-// Get player-specific view (hides other hands)
-const view = engine.getPlayerView(playerId);
-```
 
 ---
 
@@ -43,58 +22,227 @@ Create a minimal web app that:
 3. Receives "CONNECTED" message from server
 4. No game logic yet - just proving the stack works
 
-## Architecture
+## Approach
 
-Single Cloudflare Worker running both React Router 7 and PartyServer:
+**Integrate directly into the existing project** - no monorepo, no separate package.json. Config files go at project root, new folders for app code.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                 Single Cloudflare Worker                 │
-├─────────────────────────────────────────────────────────┤
-│  workers/app.ts                                          │
-│  ├── routePartykitRequest() → MayIRoom (Durable Object) │
-│  └── reactRouterHandler()   → React Router 7            │
-└─────────────────────────────────────────────────────────┘
+### Reference the Template
+
+Scaffold the Cloudflare React Router template to a temp directory for reference:
+
+```bash
+bun create cloudflare@latest -- /tmp/rr7-template --framework=react-router --no-deploy
 ```
 
-## Project Structure
+Then cherry-pick files and adapt them to our project structure.
+
+## Project Structure (After Phase 1)
 
 ```
-app/                              # NEW folder at project root
-├── workers/
-│   └── app.ts                    # Worker entry point
-│
-├── party/
-│   └── mayi-room.ts              # MayIRoom (stub - just sends CONNECTED)
-│
-├── app/                          # React Router 7 app
-│   ├── root.tsx
-│   ├── routes.ts
+mayi/
+├── app/                         # NEW: React Router app
+│   ├── routes.ts                # Route definitions
+│   ├── root.tsx                 # Root layout
+│   ├── app.css                  # Styles (Tailwind from template)
+│   ├── entry.server.tsx         # SSR entry
 │   └── routes/
-│       ├── home.tsx              # / - create/join buttons
-│       └── game.$roomId.tsx      # /game/:roomId - WebSocket test
+│       ├── home.tsx             # / - create/join UI
+│       └── game.$roomId.tsx     # /game/:roomId - WebSocket test
 │
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-├── react-router.config.ts
-└── wrangler.jsonc
+├── workers/                     # NEW: Cloudflare Worker entry
+│   └── app.ts                   # Handles RR7 + PartyServer routing
+│
+├── party/                       # NEW: PartyServer rooms
+│   └── mayi-room.ts             # MayIRoom Durable Object stub
+│
+├── core/                        # EXISTING: Game engine
+├── cli/                         # EXISTING: CLI harness
+├── ai/                          # EXISTING: AI agent
+├── docs/                        # EXISTING: Documentation
+├── specs/                       # EXISTING: Planning
+│
+├── public/                      # NEW: Static assets
+│   └── favicon.ico
+│
+├── vite.config.ts               # NEW: Vite + Cloudflare + RR7
+├── react-router.config.ts       # NEW: RR7 config
+├── wrangler.jsonc               # NEW: Cloudflare Workers config
+│
+├── tsconfig.json                # MODIFY: Add DOM lib, project refs
+├── tsconfig.web.json            # NEW: For app/, workers/
+├── tsconfig.node.json           # NEW: For vite.config.ts
+│
+├── package.json                 # MODIFY: Add web dependencies
+└── ...
 ```
 
-## Configuration Files
+## Files to Create/Modify
 
-### `app/wrangler.jsonc`
+### From Template (copy and adapt)
+
+| Template File | Project Location | Notes |
+|---------------|------------------|-------|
+| `vite.config.ts` | `vite.config.ts` | Copy as-is |
+| `react-router.config.ts` | `react-router.config.ts` | Copy as-is |
+| `app/entry.server.tsx` | `app/entry.server.tsx` | Copy as-is |
+| `app/root.tsx` | `app/root.tsx` | Copy as-is |
+| `app/app.css` | `app/app.css` | Copy as-is |
+| `public/favicon.ico` | `public/favicon.ico` | Copy as-is |
+| `worker-configuration.d.ts` | `worker-configuration.d.ts` | Generated by wrangler |
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `wrangler.jsonc` | Cloudflare config with DO binding |
+| `workers/app.ts` | Worker entry with PartyServer routing |
+| `party/mayi-room.ts` | PartyServer stub |
+| `app/routes.ts` | Route definitions |
+| `app/routes/home.tsx` | Create/join UI |
+| `app/routes/game.$roomId.tsx` | WebSocket test page |
+| `tsconfig.web.json` | TypeScript config for web code |
+| `tsconfig.node.json` | TypeScript config for vite.config |
+
+### Modify Existing
+
+| File | Changes |
+|------|---------|
+| `package.json` | Add web dependencies and scripts |
+| `tsconfig.json` | Add project references |
+
+## Implementation Details
+
+### 1. `package.json` - Add dependencies and scripts
+
+```bash
+# Add web dependencies
+bun add react react-dom react-router isbot
+bun add -d @react-router/dev @cloudflare/vite-plugin vite vite-tsconfig-paths wrangler tailwindcss @tailwindcss/vite @types/react @types/react-dom
+
+# Add PartyServer
+bun add partyserver partysocket nanoid
+```
+
+Add scripts:
+```json
+{
+  "scripts": {
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "preview": "bun run build && vite preview",
+    "deploy": "bun run build && wrangler deploy",
+    "cf-typegen": "wrangler types"
+  }
+}
+```
+
+### 2. `tsconfig.json` - Add project references
+
+```json
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.web.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true
+  }
+}
+```
+
+### 3. `tsconfig.web.json` - For app/ and workers/
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    ".react-router/types/**/*",
+    "app/**/*",
+    "workers/**/*",
+    "party/**/*",
+    "core/**/*",
+    "worker-configuration.d.ts"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "types": ["vite/client"],
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "rootDirs": [".", "./.react-router/types"],
+    "paths": {
+      "~/*": ["./app/*"]
+    },
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  }
+}
+```
+
+### 4. `tsconfig.node.json` - For vite.config.ts
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "include": ["vite.config.ts"],
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node"],
+    "lib": ["ES2022"],
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler"
+  }
+}
+```
+
+### 5. `vite.config.ts` - From template
+
+```typescript
+import { reactRouter } from "@react-router/dev/vite";
+import { cloudflare } from "@cloudflare/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
+
+export default defineConfig({
+  plugins: [
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    tailwindcss(),
+    reactRouter(),
+    tsconfigPaths(),
+  ],
+});
+```
+
+### 6. `react-router.config.ts` - From template
+
+```typescript
+import type { Config } from "@react-router/dev/config";
+
+export default {
+  ssr: true,
+  future: {
+    v8_viteEnvironmentApi: true,
+  },
+} satisfies Config;
+```
+
+### 7. `wrangler.jsonc` - Cloudflare config
 
 ```jsonc
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "mayi-web",
+  "name": "mayi",
+  "compatibility_date": "2025-04-04",
   "main": "./workers/app.ts",
-  "compatibility_date": "2024-12-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "assets": {
-    "directory": "./build/client"
-  },
   "durable_objects": {
     "bindings": [
       { "name": "MayIRoom", "class_name": "MayIRoom" }
@@ -107,74 +255,7 @@ app/                              # NEW folder at project root
 }
 ```
 
-### `app/vite.config.ts`
-
-```typescript
-import { reactRouter } from "@react-router/dev/vite";
-import { cloudflare } from "@cloudflare/vite-plugin";
-import { defineConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
-
-export default defineConfig({
-  plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
-    reactRouter(),
-    tsconfigPaths(),
-  ],
-});
-```
-
-### `app/react-router.config.ts`
-
-```typescript
-import type { Config } from "@react-router/dev/config";
-
-export default {
-  ssr: true,
-  future: {
-    unstable_viteEnvironmentApi: true,
-  },
-} satisfies Config;
-```
-
-### `app/package.json`
-
-```json
-{
-  "name": "mayi-web",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "react-router dev",
-    "build": "react-router build",
-    "start": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "typecheck": "react-router typegen && tsc"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router": "^7.1.0",
-    "partysocket": "^1.0.0",
-    "partyserver": "^0.0.59",
-    "nanoid": "^5.0.0"
-  },
-  "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.0.0",
-    "@react-router/dev": "^7.1.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.0",
-    "vite": "^6.0.0",
-    "vite-tsconfig-paths": "^5.0.0",
-    "wrangler": "^3.99.0"
-  }
-}
-```
-
-## Implementation
-
-### `app/workers/app.ts`
+### 8. `workers/app.ts` - Worker entry
 
 ```typescript
 import { createRequestHandler } from "react-router";
@@ -188,25 +269,24 @@ declare module "react-router" {
   }
 }
 
-interface Env {
-  MayIRoom: DurableObjectNamespace;
-}
-
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
   import.meta.env.MODE
 );
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  async fetch(request, env, ctx) {
+    // Try PartyServer first (WebSocket upgrades)
     const partyResponse = await routePartykitRequest(request, env);
     if (partyResponse) return partyResponse;
+
+    // Fall through to React Router
     return requestHandler(request, { cloudflare: { env, ctx } });
   },
 } satisfies ExportedHandler<Env>;
 ```
 
-### `app/party/mayi-room.ts` (Stub)
+### 9. `party/mayi-room.ts` - PartyServer stub
 
 ```typescript
 import { Server, type Connection, type ConnectionContext } from "partyserver";
@@ -215,7 +295,6 @@ export class MayIRoom extends Server {
   static options = { hibernate: true };
 
   onConnect(conn: Connection, ctx: ConnectionContext) {
-    // Phase 1: Just acknowledge connection
     conn.send(JSON.stringify({
       type: "CONNECTED",
       roomId: this.name,
@@ -224,7 +303,6 @@ export class MayIRoom extends Server {
   }
 
   onMessage(conn: Connection, message: string) {
-    // Phase 1: Echo back for testing
     conn.send(JSON.stringify({
       type: "ECHO",
       received: message
@@ -233,13 +311,27 @@ export class MayIRoom extends Server {
 }
 ```
 
-### `app/app/routes/home.tsx`
+### 10. `app/routes.ts` - Route definitions
 
 ```typescript
-import { Form } from "react-router";
-import { redirect } from "react-router";
+import { type RouteConfig, index, route } from "@react-router/dev/routes";
+
+export default [
+  index("routes/home.tsx"),
+  route("game/:roomId", "routes/game.$roomId.tsx"),
+] satisfies RouteConfig;
+```
+
+### 11. `app/routes/home.tsx` - Create/join UI
+
+```typescript
+import { Form, redirect } from "react-router";
 import { nanoid } from "nanoid";
 import type { Route } from "./+types/home";
+
+export function meta() {
+  return [{ title: "May I?" }];
+}
 
 export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
@@ -255,36 +347,41 @@ export async function action({ request }: Route.ActionArgs) {
       return redirect(`/game/${roomId}`);
     }
   }
-
   return null;
 }
 
 export default function Home() {
   return (
-    <main>
-      <h1>May I?</h1>
+    <main className="flex flex-col items-center justify-center min-h-screen gap-8">
+      <h1 className="text-4xl font-bold">May I?</h1>
 
       <Form method="post">
         <input type="hidden" name="intent" value="create" />
-        <button type="submit">Create New Game</button>
+        <button type="submit" className="px-6 py-3 bg-blue-600 text-white rounded-lg">
+          Create New Game
+        </button>
       </Form>
 
-      <Form method="post">
+      <Form method="post" className="flex gap-2">
         <input type="hidden" name="intent" value="join" />
-        <input type="text" name="roomId" placeholder="Room ID" />
-        <button type="submit">Join Game</button>
+        <input type="text" name="roomId" placeholder="Room ID" className="px-4 py-2 border rounded-lg" />
+        <button type="submit" className="px-4 py-2 bg-gray-600 text-white rounded-lg">Join</button>
       </Form>
     </main>
   );
 }
 ```
 
-### `app/app/routes/game.$roomId.tsx`
+### 12. `app/routes/game.$roomId.tsx` - WebSocket test
 
 ```typescript
 import type { Route } from "./+types/game.$roomId";
 import usePartySocket from "partysocket/react";
 import { useState } from "react";
+
+export function meta({ params }: Route.MetaArgs) {
+  return [{ title: `Game: ${params.roomId}` }];
+}
 
 export async function loader({ params }: Route.LoaderArgs) {
   return { roomId: params.roomId };
@@ -298,36 +395,29 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   const socket = usePartySocket({
     host: typeof window !== "undefined" ? window.location.host : "",
     room: roomId,
-    party: "may-i-room",  // kebab-case of MayIRoom
+    party: "may-i-room",
 
-    onOpen() {
-      setStatus("Connected");
-    },
-
-    onMessage(event) {
-      setMessages(prev => [...prev, event.data]);
-    },
-
-    onClose() {
-      setStatus("Disconnected");
-    },
+    onOpen() { setStatus("Connected"); },
+    onMessage(event) { setMessages(prev => [...prev, event.data]); },
+    onClose() { setStatus("Disconnected"); },
   });
 
-  const sendTest = () => {
-    socket?.send(JSON.stringify({ type: "TEST", timestamp: Date.now() }));
-  };
-
   return (
-    <main>
-      <h1>Game: {roomId}</h1>
-      <p>Status: {status}</p>
+    <main className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Game: {roomId}</h1>
+      <p className="mb-4">Status: <span className="font-mono">{status}</span></p>
 
-      <button onClick={sendTest}>Send Test Message</button>
+      <button
+        onClick={() => socket?.send(JSON.stringify({ type: "TEST", timestamp: Date.now() }))}
+        className="px-4 py-2 bg-blue-600 text-white rounded mb-8"
+      >
+        Send Test Message
+      </button>
 
-      <h2>Messages</h2>
-      <ul>
+      <h2 className="text-xl font-bold mb-2">Messages</h2>
+      <ul className="space-y-2">
         {messages.map((msg, i) => (
-          <li key={i}><pre>{msg}</pre></li>
+          <li key={i} className="font-mono bg-gray-100 p-2 rounded">{msg}</li>
         ))}
       </ul>
     </main>
@@ -337,140 +427,62 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
 ## Tasks
 
-1. [ ] Create `app/` directory structure
-2. [ ] Add config files (wrangler.jsonc, vite.config.ts, etc.)
-3. [ ] Add package.json and run `bun install`
-4. [ ] Create Worker entry point
-5. [ ] Create MayIRoom stub
-6. [ ] Create home page with create/join
-7. [ ] Create game page with WebSocket test
-8. [ ] Verify `bun run dev` works
-9. [ ] Verify WebSocket connection receives CONNECTED
+1. [ ] Scaffold template to `/tmp/rr7-template` for reference
+2. [ ] Add dependencies to `package.json`
+3. [ ] Create `tsconfig.web.json` and `tsconfig.node.json`
+4. [ ] Update `tsconfig.json` with project references
+5. [ ] Create `vite.config.ts` (from template)
+6. [ ] Create `react-router.config.ts` (from template)
+7. [ ] Create `wrangler.jsonc` with DO binding
+8. [ ] Create `workers/app.ts` with PartyServer routing
+9. [ ] Create `party/mayi-room.ts` stub
+10. [ ] Copy `app/entry.server.tsx`, `app/root.tsx`, `app/app.css` from template
+11. [ ] Create `app/routes.ts`
+12. [ ] Create `app/routes/home.tsx`
+13. [ ] Create `app/routes/game.$roomId.tsx`
+14. [ ] Copy `public/favicon.ico` from template
+15. [ ] Run `bun install`
+16. [ ] Run `bun run cf-typegen` to generate worker types
+17. [ ] Verify `bun run dev` starts
+18. [ ] Verify WebSocket connection works
 
-## Verification Criteria
-
-### Unit Tests (TDD)
-
-```typescript
-// app/party/mayi-room.test.ts
-import { describe, it, expect } from "bun:test";
-// Note: Full DO testing requires miniflare, but we can test message parsing
-
-describe("MayIRoom message handling", () => {
-  it("sends CONNECTED on connect", () => {
-    // Test the message format
-    const msg = { type: "CONNECTED", roomId: "test123", message: "Phase 1 stub" };
-    expect(msg.type).toBe("CONNECTED");
-    expect(msg.roomId).toBe("test123");
-  });
-
-  it("echoes messages back", () => {
-    const input = { type: "TEST", data: "hello" };
-    const output = { type: "ECHO", received: JSON.stringify(input) };
-    expect(output.type).toBe("ECHO");
-  });
-});
-```
-
-### Browser Verification (Manual + Chrome Extension)
-
-Use Claude Code's Chrome extension to verify browser behavior:
+## Verification
 
 ```bash
-# 1. Start dev server
-cd app && bun run dev
+bun run dev
 ```
 
-**Test 1: Home Page Loads**
-```
-Navigate to http://localhost:5173/
-Verify:
-- Page title contains "May I?"
-- "Create New Game" button visible
-- "Join Game" input and button visible
-```
-
-**Test 2: Create Game Flow**
-```
-Click "Create New Game"
-Verify:
-- URL changes to /game/[8-char-id]
-- Game page loads
+- Navigate to http://localhost:5173/
+- Click "Create New Game" → redirects to /game/[id]
 - Status shows "Connected"
-```
-
-**Test 3: WebSocket Connection**
-```
-On game page, check:
-- Status: "Connected"
-- Messages list contains: {"type":"CONNECTED","roomId":"..."}
-```
-
-**Test 4: Message Echo**
-```
-Click "Send Test Message"
-Verify:
-- New message appears in list
-- Message contains: {"type":"ECHO","received":"..."}
-```
-
-**Test 5: Join Existing Game**
-```
-Copy room ID from URL
-Go back to home page
-Paste room ID in "Join Game" input
-Click "Join"
-Verify: Redirects to same game room
-```
-
-### CLI Verification
-
-```bash
-cd app
-
-# Dev server starts without errors
-bun run dev &
-sleep 3
-
-# TypeScript compiles
-bun run typecheck
-
-# Kill dev server
-kill %1
-```
-
-### Definition of Done
-
-- [ ] `bun run dev` starts without errors
-- [ ] `bun run typecheck` passes
-- [ ] Home page renders with create/join UI
-- [ ] "Create New Game" redirects to /game/:roomId
-- [ ] Game page shows "Connected" status
-- [ ] CONNECTED message appears in message list
-- [ ] Echo test works (send message, see ECHO response)
-- [ ] Join by room ID works
-
-## Out of Scope
-
-- Identity/authentication (Phase 2)
-- Game logic (Phase 3)
-- Styling/UI polish (Phase 4)
-- Deployment to production
-
----
+- Message list shows `{"type":"CONNECTED",...}`
+- "Send Test Message" → shows `{"type":"ECHO",...}`
 
 ## Notes
 
-### Party Name Gotcha
+### TypeScript Strategy
 
-`routePartykitRequest` converts your DO binding name to kebab-case:
-- Binding: `MayIRoom` → party name: `may-i-room`
+The project now uses project references:
+- `tsconfig.json` - Root config (references only)
+- `tsconfig.web.json` - For app/, workers/, party/, core/ (includes DOM)
+- `tsconfig.node.json` - For vite.config.ts (Node types)
 
-The client must use `party: "may-i-room"` to connect.
+The existing `tsgo --noEmit` typecheck will need updating to handle project references, or we switch to `tsc -b`.
+
+### Scripts
+
+```bash
+bun run dev       # Start Vite dev server
+bun run build     # Build for production
+bun run deploy    # Deploy to Cloudflare
+bun run cf-typegen # Generate worker-configuration.d.ts
+```
+
+### Party Name Convention
+
+`routePartykitRequest` converts DO binding to kebab-case:
+- Binding: `MayIRoom` → party: `may-i-room`
 
 ### Same-Origin WebSocket
 
-Because RR7 and PartyServer run in the same Worker:
-- No CORS configuration needed
-- `host: window.location.host` works in dev and prod
-- WebSocket upgrades happen on same origin
+RR7 and PartyServer share the same Worker - no CORS needed.

@@ -40,3 +40,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 cli/game-state.json
 cli/game-log.jsonl
 .devtools
+
+# React Router / Cloudflare generated
+.react-router/
+.wrangler/
+build/
