@@ -19,7 +19,7 @@ import type { ToolExecutionResult } from "./mayIAgent.types";
 /**
  * Stop condition: stop when turn is complete or max steps reached
  */
-function stopWhenTurnComplete(
+export function stopWhenTurnComplete(
   maxSteps: number
 ): (options: { steps: StepResult<MayITools>[] }) => boolean {
   return ({ steps }) => {

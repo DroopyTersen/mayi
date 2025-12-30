@@ -136,7 +136,13 @@ export function getAvailableToolNames(snapshot: GameSnapshot, playerId: string):
     case "AWAITING_DRAW":
       return isDown ? ["draw_from_stock"] : ["draw_from_stock", "draw_from_discard"];
     case "AWAITING_ACTION":
-      return isDown ? ["lay_off", "discard"] : ["lay_down", "swap_joker", "discard"];
+      if (isDown) {
+        return ["lay_off", "discard"];
+      }
+      // Joker swap requires melds on table. In Round 6, no melds exist until someone wins.
+      const hasMeldsOnTable = snapshot.table.length > 0;
+      const canSwapJoker = hasMeldsOnTable && snapshot.currentRound < 6;
+      return canSwapJoker ? ["lay_down", "swap_joker", "discard"] : ["lay_down", "discard"];
     case "AWAITING_DISCARD":
       return ["discard"];
   }
