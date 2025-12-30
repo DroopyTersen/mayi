@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mayi",
+  "account_id": "bfdf9c3d5020465d9dd2fa73937b29a6",
   "compatibility_date": "2025-04-04",
   "main": "./workers/app.ts",
   "durable_objects": {
