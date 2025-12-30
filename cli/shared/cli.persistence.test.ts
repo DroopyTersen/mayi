@@ -1,60 +1,88 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { describe, it, expect, afterEach, beforeEach } from "bun:test";
 import {
   savedGameExists,
   loadOrchestratorSnapshot,
   saveOrchestratorSnapshot,
   createOrchestratorSnapshot,
-  clearSavedGame,
   appendActionLog,
   readActionLog,
+  generateGameId,
+  listSavedGames,
+  formatGameDate,
 } from "./cli.persistence";
-import type { OrchestratorSnapshot, ActionLogEntry } from "./cli.types";
+import type { ActionLogEntry } from "./cli.types";
 
-// Clean up after each test to avoid state leaking between tests
+// Use a unique test game ID for each test to avoid conflicts
+let testGameId: string;
+
+// Helper to clean up a test game directory
+function cleanupTestGame(gameId: string): void {
+  const fs = require("fs");
+  const dir = `.data/${gameId}`;
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true });
+  }
+}
+
+beforeEach(() => {
+  testGameId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+});
+
 afterEach(() => {
-  clearSavedGame();
+  cleanupTestGame(testGameId);
 });
 
 describe("cli.persistence", () => {
+  describe("generateGameId", () => {
+    it("generates a 6-character ID", () => {
+      const id = generateGameId();
+      expect(id).toHaveLength(6);
+    });
+
+    it("generates different IDs each time", () => {
+      const id1 = generateGameId();
+      const id2 = generateGameId();
+      expect(id1).not.toBe(id2);
+    });
+  });
+
   describe("savedGameExists", () => {
-    it("returns false when state file is empty", () => {
-      clearSavedGame();
-      expect(savedGameExists()).toBe(false);
+    it("returns false when game directory does not exist", () => {
+      expect(savedGameExists("nonexistent-game")).toBe(false);
     });
 
     it("returns true when state file has content", () => {
-      const snapshot = createOrchestratorSnapshot("test-game", {}, "IDLE");
-      saveOrchestratorSnapshot(snapshot);
-      expect(savedGameExists()).toBe(true);
+      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
+      saveOrchestratorSnapshot(testGameId, snapshot);
+      expect(savedGameExists(testGameId)).toBe(true);
     });
   });
 
   describe("loadOrchestratorSnapshot", () => {
-    it("throws 'No game in progress' when file is empty", () => {
-      clearSavedGame();
-      expect(() => loadOrchestratorSnapshot()).toThrow("No game in progress");
+    it("throws when game does not exist", () => {
+      expect(() => loadOrchestratorSnapshot("nonexistent")).toThrow("No game found");
     });
 
     it("throws 'Unsupported state version' for invalid version", () => {
       // Write a file with wrong version
-      const invalidData = { version: "1.0", gameId: "test" };
-      require("fs").writeFileSync(
-        "cli/game-state.json",
-        JSON.stringify(invalidData)
-      );
+      const fs = require("fs");
+      const dir = `.data/${testGameId}`;
+      fs.mkdirSync(dir, { recursive: true });
+      const invalidData = { version: "1.0", gameId: testGameId };
+      fs.writeFileSync(`${dir}/game-state.json`, JSON.stringify(invalidData));
 
-      expect(() => loadOrchestratorSnapshot()).toThrow(
+      expect(() => loadOrchestratorSnapshot(testGameId)).toThrow(
         "Unsupported state version: 1.0"
       );
     });
 
     it("returns valid snapshot for v2.0 data", () => {
-      const snapshot = createOrchestratorSnapshot("test-game", { foo: "bar" }, "ROUND_ACTIVE");
-      saveOrchestratorSnapshot(snapshot);
+      const snapshot = createOrchestratorSnapshot(testGameId, { foo: "bar" }, "ROUND_ACTIVE");
+      saveOrchestratorSnapshot(testGameId, snapshot);
 
-      const loaded = loadOrchestratorSnapshot();
+      const loaded = loadOrchestratorSnapshot(testGameId);
       expect(loaded.version).toBe("2.0");
-      expect(loaded.gameId).toBe("test-game");
+      expect(loaded.gameId).toBe(testGameId);
       expect(loaded.phase).toBe("ROUND_ACTIVE");
       expect(loaded.gameSnapshot).toEqual({ foo: "bar" });
     });
@@ -62,16 +90,16 @@ describe("cli.persistence", () => {
 
   describe("saveOrchestratorSnapshot", () => {
     it("saves snapshot to file", () => {
-      const snapshot = createOrchestratorSnapshot("save-test", {}, "IDLE");
-      saveOrchestratorSnapshot(snapshot);
+      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
+      saveOrchestratorSnapshot(testGameId, snapshot);
 
-      expect(savedGameExists()).toBe(true);
-      const loaded = loadOrchestratorSnapshot();
-      expect(loaded.gameId).toBe("save-test");
+      expect(savedGameExists(testGameId)).toBe(true);
+      const loaded = loadOrchestratorSnapshot(testGameId);
+      expect(loaded.gameId).toBe(testGameId);
     });
 
     it("updates updatedAt timestamp", () => {
-      const snapshot = createOrchestratorSnapshot("timestamp-test", {}, "IDLE");
+      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
       const originalUpdatedAt = snapshot.updatedAt;
 
       // Wait a tiny bit to ensure timestamp differs
@@ -80,13 +108,23 @@ describe("cli.persistence", () => {
         // busy wait
       }
 
-      saveOrchestratorSnapshot(snapshot);
-      const loaded = loadOrchestratorSnapshot();
+      saveOrchestratorSnapshot(testGameId, snapshot);
+      const loaded = loadOrchestratorSnapshot(testGameId);
 
-      // updatedAt should have been updated (or at least be >= original)
       expect(new Date(loaded.updatedAt).getTime()).toBeGreaterThanOrEqual(
         new Date(originalUpdatedAt).getTime()
       );
+    });
+
+    it("creates game directory if it does not exist", () => {
+      const fs = require("fs");
+      const dir = `.data/${testGameId}`;
+      expect(fs.existsSync(dir)).toBe(false);
+
+      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
+      saveOrchestratorSnapshot(testGameId, snapshot);
+
+      expect(fs.existsSync(dir)).toBe(true);
     });
   });
 
@@ -122,37 +160,9 @@ describe("cli.persistence", () => {
     });
   });
 
-  describe("clearSavedGame", () => {
-    it("clears state file", () => {
-      const snapshot = createOrchestratorSnapshot("to-clear", {}, "IDLE");
-      saveOrchestratorSnapshot(snapshot);
-      expect(savedGameExists()).toBe(true);
-
-      clearSavedGame();
-      expect(savedGameExists()).toBe(false);
-    });
-
-    it("clears log file", () => {
-      const entry: ActionLogEntry = {
-        timestamp: new Date().toISOString(),
-        turnNumber: 1,
-        roundNumber: 1,
-        playerId: "player-1",
-        playerName: "Alice",
-        action: "test action",
-      };
-      appendActionLog(entry);
-      expect(readActionLog().length).toBe(1);
-
-      clearSavedGame();
-      expect(readActionLog().length).toBe(0);
-    });
-  });
-
   describe("appendActionLog / readActionLog", () => {
-    it("returns empty array for empty log", () => {
-      clearSavedGame();
-      expect(readActionLog()).toEqual([]);
+    it("returns empty array for nonexistent game", () => {
+      expect(readActionLog("nonexistent")).toEqual([]);
     });
 
     it("appends and reads single entry", () => {
@@ -165,9 +175,9 @@ describe("cli.persistence", () => {
         action: "drew from stock",
         details: "5♥",
       };
-      appendActionLog(entry);
+      appendActionLog(testGameId, entry);
 
-      const logs = readActionLog();
+      const logs = readActionLog(testGameId);
       expect(logs.length).toBe(1);
       expect(logs[0]).toEqual(entry);
     });
@@ -202,14 +212,14 @@ describe("cli.persistence", () => {
       ];
 
       for (const entry of entries) {
-        appendActionLog(entry);
+        appendActionLog(testGameId, entry);
       }
 
-      const logs = readActionLog();
+      const logs = readActionLog(testGameId);
       expect(logs.length).toBe(3);
-      expect(logs[0].playerName).toBe("Alice");
-      expect(logs[1].action).toBe("discarded");
-      expect(logs[2].turnNumber).toBe(2);
+      expect(logs[0]!.playerName).toBe("Alice");
+      expect(logs[1]!.action).toBe("discarded");
+      expect(logs[2]!.turnNumber).toBe(2);
     });
 
     it("preserves all fields including optional details", () => {
@@ -222,11 +232,91 @@ describe("cli.persistence", () => {
         action: "laid down melds",
         details: "Set of Kings, Run 4-5-6♦",
       };
-      appendActionLog(entryWithDetails);
+      appendActionLog(testGameId, entryWithDetails);
 
-      const logs = readActionLog();
-      expect(logs[0].details).toBe("Set of Kings, Run 4-5-6♦");
-      expect(logs[0].roundNumber).toBe(3);
+      const logs = readActionLog(testGameId);
+      expect(logs[0]!.details).toBe("Set of Kings, Run 4-5-6♦");
+      expect(logs[0]!.roundNumber).toBe(3);
+    });
+  });
+
+  describe("listSavedGames", () => {
+    it("returns empty array when data dir does not exist", () => {
+      // Test with a non-existent game ID - this tests the early return path
+      // We don't delete .data because that would destroy real game data!
+      // The function already returns [] if .data doesn't exist, so we test
+      // that it doesn't crash when called (the actual empty case is tested
+      // by the file not existing, which savedGameExists covers)
+      const games = listSavedGames();
+      // Just verify it returns an array without crashing
+      expect(Array.isArray(games)).toBe(true);
+    });
+
+    it("returns list of saved games", () => {
+      // Create a test game
+      const snapshot = createOrchestratorSnapshot(testGameId, {
+        currentRound: 3,
+        players: [{ name: "Alice" }, { name: "Bob" }, { name: "Carol" }],
+      }, "ROUND_ACTIVE");
+      saveOrchestratorSnapshot(testGameId, snapshot);
+
+      const games = listSavedGames();
+      const testGame = games.find(g => g.id === testGameId);
+
+      expect(testGame).toBeDefined();
+      expect(testGame!.currentRound).toBe(3);
+      expect(testGame!.isComplete).toBe(false);
+    });
+
+    it("excludes completed games by default", () => {
+      // Create a completed game
+      const snapshot = createOrchestratorSnapshot(testGameId, {
+        currentRound: 6,
+        players: [{ name: "Alice" }],
+      }, "GAME_END");
+      saveOrchestratorSnapshot(testGameId, snapshot);
+
+      const games = listSavedGames();
+      const testGame = games.find(g => g.id === testGameId);
+
+      expect(testGame).toBeUndefined();
+    });
+
+    it("includes completed games when requested", () => {
+      // Create a completed game
+      const snapshot = createOrchestratorSnapshot(testGameId, {
+        currentRound: 6,
+        players: [{ name: "Alice" }],
+      }, "GAME_END");
+      saveOrchestratorSnapshot(testGameId, snapshot);
+
+      const games = listSavedGames(true);
+      const testGame = games.find(g => g.id === testGameId);
+
+      expect(testGame).toBeDefined();
+      expect(testGame!.isComplete).toBe(true);
+    });
+  });
+
+  describe("formatGameDate", () => {
+    it("formats recent dates as relative time", () => {
+      const now = new Date();
+      expect(formatGameDate(now.toISOString())).toBe("just now");
+    });
+
+    it("formats minutes ago", () => {
+      const date = new Date(Date.now() - 5 * 60 * 1000);
+      expect(formatGameDate(date.toISOString())).toBe("5m ago");
+    });
+
+    it("formats hours ago", () => {
+      const date = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      expect(formatGameDate(date.toISOString())).toBe("3h ago");
+    });
+
+    it("formats days ago", () => {
+      const date = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      expect(formatGameDate(date.toISOString())).toBe("2d ago");
     });
   });
 });

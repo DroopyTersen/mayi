@@ -8,15 +8,68 @@
 
 import * as readline from "readline";
 import { Orchestrator } from "../harness/orchestrator";
-import { renderCard, renderHand, renderNumberedHand } from "../shared/cli.renderer";
+import { renderCard, renderHand, renderNumberedHand, renderHandGroupedBySuit } from "../shared/cli.renderer";
 import type { GameStateView } from "../harness/orchestrator";
-import type { Player } from "../../core/engine/engine.types";
+import type { Player, RoundNumber } from "../../core/engine/engine.types";
 import type { Card } from "../../core/card/card.types";
 import type { Meld } from "../../core/meld/meld.types";
 import { canLayOffToSet, canLayOffToRun } from "../../core/engine/layoff";
-import { savedGameExists, readActionLog } from "../shared/cli.persistence";
+import { listSavedGames, readActionLog, formatGameDate, saveAIPlayerConfigs, loadAIPlayerConfigs } from "../shared/cli.persistence";
 import { formatRecentActivity } from "../shared/cli.activity";
 import { sortHandByRank, sortHandBySuit, moveCard } from "../../core/engine/hand.reordering";
+import { AIPlayerRegistry, setupGameWithAI } from "../../ai/aiPlayer.registry";
+import { executeAITurn } from "../../ai/mayIAgent";
+import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
+import type { ModelId } from "../../ai/modelRegistry";
+
+// Track the current game ID for persistence
+let currentGameId: string = "";
+
+// AI player registry for the current game
+// Enable devtools middleware to capture AI runs (view at http://localhost:4983)
+const aiRegistry = new AIPlayerRegistry().enableDevTools();
+
+/**
+ * First names for AI players
+ */
+const AI_FIRST_NAMES = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace"];
+
+/**
+ * Available AI models for player selection
+ */
+const MODEL_OPTIONS: readonly { id: ModelId; name: string; provider: string }[] = [
+  { id: "xai:grok-4-1-fast-reasoning", name: "Grok", provider: "xAI" },
+  { id: "anthropic:claude-haiku-4-5", name: "Claude", provider: "Anthropic" },
+  { id: "openai:gpt-5-mini", name: "GPT", provider: "OpenAI" },
+  { id: "gemini:gemini-3-flash-preview", name: "Gemini", provider: "Google" },
+];
+
+const DEFAULT_MODEL_INDEX = 0; // Grok is default (fastest)
+
+/**
+ * Get the display name for a model ID from MODEL_OPTIONS
+ */
+function getModelDisplayName(modelId: ModelId): string {
+  const option = MODEL_OPTIONS.find((opt) => opt.id === modelId);
+  return option?.name ?? "AI";
+}
+
+/**
+ * Create AI player configs with random first names and model-based last names
+ * Each player can have a different model
+ */
+function createAIPlayerConfigs(modelIds: ModelId[]): AIPlayerConfig[] {
+  const shuffledNames = [...AI_FIRST_NAMES].sort(() => Math.random() - 0.5);
+
+  return modelIds.map((modelId, index) => {
+    const lastName = getModelDisplayName(modelId);
+    const firstName = shuffledNames[index] ?? `Player${index + 1}`;
+    return {
+      name: `${firstName} ${lastName}`,
+      modelId,
+    };
+  });
+}
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -47,6 +100,44 @@ async function promptNumber(question: string, min: number, max: number): Promise
   }
 }
 
+/**
+ * Prompt user to select an AI model for a player
+ */
+async function promptModelSelection(playerNumber: number): Promise<ModelId> {
+  const defaultModel = MODEL_OPTIONS[DEFAULT_MODEL_INDEX];
+  if (!defaultModel) {
+    throw new Error("No default model configured");
+  }
+
+  console.log("");
+  console.log(`Select model for AI Player ${playerNumber}:`);
+  console.log("");
+  for (let i = 0; i < MODEL_OPTIONS.length; i++) {
+    const opt = MODEL_OPTIONS[i];
+    if (!opt) continue;
+    const defaultLabel = i === DEFAULT_MODEL_INDEX ? " ← default" : "";
+    console.log(`  ${i + 1}. ${opt.name} (${opt.provider})${defaultLabel}`);
+  }
+  console.log("");
+
+  const answer = await prompt("> ");
+  const num = parseInt(answer, 10);
+
+  // Valid selection
+  if (!isNaN(num) && num >= 1 && num <= MODEL_OPTIONS.length) {
+    const selected = MODEL_OPTIONS[num - 1];
+    if (selected) {
+      return selected.id;
+    }
+  }
+
+  // Empty or invalid input = use default
+  if (answer.trim() !== "") {
+    console.log(`Invalid choice, using default (${defaultModel.name}).`);
+  }
+  return defaultModel.id;
+}
+
 function clearScreen(): void {
   console.clear();
 }
@@ -68,9 +159,11 @@ function printPlayers(state: GameStateView): void {
     const player = state.players[i]!;
     const isCurrentTurn = i === state.currentPlayerIndex;
     const indicator = isCurrentTurn ? "→ " : "  ";
-    const name = i === 0 ? "You" : player.name;
+    const isHuman = i === 0;
+    const name = isHuman ? "You" : player.name;
     const downStatus = player.isDown ? " ✓ DOWN" : "";
-    const scoreStr = player.totalScore > 0 ? ` (${player.totalScore} pts)` : "";
+    // Only show cumulative score for human player - showing for others is confusing
+    const scoreStr = isHuman && player.totalScore > 0 ? ` (${player.totalScore} pts)` : "";
     console.log(`${indicator}${name}: ${player.hand.length} cards${downStatus}${scoreStr}`);
   }
   console.log("");
@@ -99,7 +192,7 @@ function printTable(state: GameStateView): void {
 }
 
 function printRecentActivity(): void {
-  const entries = readActionLog();
+  const entries = readActionLog(currentGameId);
   const recentLines = formatRecentActivity(entries, 6);
 
   if (recentLines.length === 0) {
@@ -162,6 +255,12 @@ function printGameView(state: GameStateView): void {
   printTable(state);
   printRecentActivity();
   printDiscard(state);
+  // Always show the human player's hand
+  const human = state.players.find((p) => p.id === HUMAN_PLAYER_ID);
+  if (human) {
+    console.log("");
+    console.log(`YOUR HAND: ${renderHand(human.hand)}`);
+  }
   printDivider();
   console.log("");
 }
@@ -188,19 +287,20 @@ async function handleHumanDraw(state: GameStateView): Promise<void> {
   const choice = await promptNumber("> ", 1, max);
 
   if (choice === 1) {
-    const result = orchestrator.drawFromStock();
+    orchestrator.drawFromStock();
     console.log("");
-    console.log(`You drew the ${getDrawnCard(state)} from the stock.`);
+    console.log(`You drew the ${getDrawnCard()} from the stock.`);
   } else if (choice === 2 && state.discard.length > 0) {
-    const result = orchestrator.drawFromDiscard();
+    const discardCard = state.discard[0]!; // Capture before drawing
+    orchestrator.drawFromDiscard();
     console.log("");
-    console.log(`You took the ${renderCard(state.discard[0]!)} from the discard.`);
+    console.log(`You took the ${renderCard(discardCard)} from the discard.`);
   } else if (choice === 3) {
     await handleOrganizeHand(state);
   }
 }
 
-function getDrawnCard(state: GameStateView): string {
+function getDrawnCard(): string {
   // The card that was just drawn is the last card in the player's hand
   const human = getHumanPlayer(orchestrator.getStateView());
   return renderCard(human.hand[human.hand.length - 1]!);
@@ -471,6 +571,8 @@ async function handleOrganizeHand(_state: GameStateView): Promise<void> {
       orchestrator.reorderHand(sorted);
       console.log("");
       console.log("Hand sorted by suit.");
+      console.log("");
+      console.log("Your hand: " + renderHandGroupedBySuit(sorted));
     } else if (choice === 3) {
       // Move a card
       console.log("");
@@ -540,23 +642,86 @@ async function handleMayIWindow(state: GameStateView): Promise<void> {
       }
     }
   } else {
-    // AI player's turn in May I window - auto-play (always pass for simplicity)
-    console.log("");
-    console.log(`${awaitingPlayer.name} passed.`);
-    orchestrator.pass();
+    // AI player's turn in May I window
+    if (aiRegistry.isAI(awaitingPlayer.id)) {
+      console.log("");
+      console.log(`${awaitingPlayer.name} is considering...`);
+
+      const result = await executeAITurn({
+        orchestrator,
+        playerId: awaitingPlayer.id,
+        registry: aiRegistry,
+        debug: false,
+      });
+
+      if (!result.success) {
+        // Fallback: pass
+        orchestrator.pass();
+        console.log(`${awaitingPlayer.name} passed.`);
+      } else {
+        // AI made a decision (either called May I or passed)
+        const calledMayI = result.actions.some((a) => a.includes("call_may_i"));
+        if (calledMayI) {
+          console.log(`${awaitingPlayer.name} called "May I!"`);
+        } else {
+          console.log(`${awaitingPlayer.name} passed.`);
+        }
+      }
+    } else {
+      // Non-AI player fallback
+      console.log("");
+      console.log(`${awaitingPlayer.name} passed.`);
+      orchestrator.pass();
+    }
   }
 }
 
 async function handleAITurn(state: GameStateView): Promise<void> {
   const currentPlayer = state.players[state.currentPlayerIndex]!;
   console.log("");
-  console.log(`${currentPlayer.name}'s turn...`);
+  console.log(`${currentPlayer.name} is thinking...`);
 
-  // Simple AI: draw from stock, skip, discard first card
+  // Use the real AI agent if this player is registered
+  if (aiRegistry.isAI(currentPlayer.id)) {
+    const result = await executeAITurn({
+      orchestrator,
+      playerId: currentPlayer.id,
+      registry: aiRegistry,
+      debug: false,
+    });
+
+    if (!result.success) {
+      console.log(`AI error: ${result.error}`);
+      // Fallback to simple behavior
+      await handleSimpleAITurn(state);
+      return;
+    }
+
+    // Show what the AI did
+    if (result.actions.length > 0) {
+      const lastAction = result.actions[result.actions.length - 1];
+      console.log(`${currentPlayer.name} completed their turn.`);
+    }
+
+    // Handle May I window if it opened after AI's draw
+    while (orchestrator.getStateView().phase === "MAY_I_WINDOW") {
+      await handleMayIWindow(orchestrator.getStateView());
+    }
+  } else {
+    // Fallback for non-AI players (shouldn't happen normally)
+    await handleSimpleAITurn(state);
+  }
+}
+
+/**
+ * Simple fallback AI behavior (draw, skip, discard first card)
+ */
+async function handleSimpleAITurn(state: GameStateView): Promise<void> {
+  const currentPlayer = state.players[state.currentPlayerIndex]!;
+
   if (state.phase === "AWAITING_DRAW") {
     orchestrator.drawFromStock();
 
-    // Handle May I window if opened (refresh state each iteration)
     while (orchestrator.getStateView().phase === "MAY_I_WINDOW") {
       await handleMayIWindow(orchestrator.getStateView());
     }
@@ -660,20 +825,133 @@ async function handleGameEnd(state: GameStateView): Promise<void> {
 }
 
 async function startNewGame(): Promise<void> {
-  // For now, human is always player 0, with AI opponents
-  orchestrator.newGame(["You", "Alice", "Bob"]);
+  // Ask for player count
   console.log("");
-  console.log("Starting a new game of May I?");
-  console.log("You're playing against Alice and Bob.");
+  console.log("How many players? (3-8, default: 3)");
+  let playerCountAnswer = await prompt("> ");
+  let playerCount = 3;
+  if (playerCountAnswer.trim() !== "") {
+    const parsed = parseInt(playerCountAnswer, 10);
+    if (parsed >= 3 && parsed <= 8) {
+      playerCount = parsed;
+    }
+  }
+
+  // Ask for starting round
+  console.log("");
+  console.log("Start at which round? (1-6, default: 1)");
+  const roundAnswer = await prompt("> ");
+  let startingRound: RoundNumber = 1;
+  if (roundAnswer.trim() !== "") {
+    const parsed = parseInt(roundAnswer, 10);
+    if (parsed >= 1 && parsed <= 6) {
+      startingRound = parsed as RoundNumber;
+    }
+  }
+
+  // Prompt for each AI player's model
+  const aiCount = playerCount - 1;
+  const modelIds: ModelId[] = [];
+  for (let i = 0; i < aiCount; i++) {
+    const modelId = await promptModelSelection(i + 1);
+    modelIds.push(modelId);
+  }
+
+  // Create AI player configs with per-player models
+  const aiPlayers = createAIPlayerConfigs(modelIds);
+
+  // Setup game with human + AI players
+  const playerNames = setupGameWithAI(
+    { humanName: "You", aiPlayers },
+    aiRegistry
+  );
+
+  const state = orchestrator.newGame(playerNames, startingRound);
+  currentGameId = state.gameId;
+
+  // Persist AI player configs so they can be restored on resume
+  const persistedAIPlayers = aiPlayers.map((config, index) => ({
+    playerId: `player-${index + 1}`,
+    config,
+  }));
+  saveAIPlayerConfigs(currentGameId, persistedAIPlayers);
+
+  console.log("");
+  const roundMsg = startingRound > 1 ? ` (starting at Round ${startingRound})` : "";
+  console.log(`Starting a new game of May I?${roundMsg} (Game ID: ${currentGameId})`);
+  const aiNames = aiPlayers.map((p) => p.name).join(", ");
+  console.log(`You're playing against ${aiNames}.`);
   console.log("");
   await prompt("Press Enter to begin...");
 }
 
-async function resumeGame(): Promise<void> {
-  orchestrator.loadGame();
+async function resumeGame(gameId: string): Promise<void> {
+  orchestrator.loadGame(gameId);
+  currentGameId = gameId;
   const state = orchestrator.getStateView();
   console.log("");
-  console.log(`Resuming game — Round ${state.currentRound} of 6`);
+  console.log(`Resuming game ${gameId} — Round ${state.currentRound} of 6`);
+
+  // Restore AI player configs from persisted file
+  const persistedAIPlayers = loadAIPlayerConfigs(gameId);
+
+  if (persistedAIPlayers.length > 0) {
+    // Auto-register AI players from saved configs
+    aiRegistry.clear();
+    for (const { playerId, config } of persistedAIPlayers) {
+      aiRegistry.register(playerId, config);
+    }
+    const modelNames = persistedAIPlayers.map((p) => {
+      const modelOpt = MODEL_OPTIONS.find((m) => m.id === p.config.modelId);
+      return modelOpt?.name ?? p.config.modelId;
+    });
+    console.log(`AI players restored: ${modelNames.join(", ")}`);
+  } else {
+    // Legacy game without AI config - prompt user to select models
+    const aiPlayerCount = state.players.length - 1;
+    if (aiPlayerCount > 0) {
+      console.log("");
+      console.log("No saved AI config found. Select AI models for each player:");
+
+      aiRegistry.clear();
+      for (let i = 0; i < aiPlayerCount; i++) {
+        const player = state.players[i + 1]!;
+        const playerId = `player-${i + 1}`;
+
+        console.log("");
+        console.log(`${player.name}:`);
+        for (let j = 0; j < MODEL_OPTIONS.length; j++) {
+          const opt = MODEL_OPTIONS[j];
+          if (!opt) continue;
+          const defaultLabel = j === DEFAULT_MODEL_INDEX ? " ← default" : "";
+          console.log(`  ${j + 1}. ${opt.name} (${opt.provider})${defaultLabel}`);
+        }
+
+        const answer = await prompt("> ");
+        const num = parseInt(answer, 10);
+
+        let modelId: ModelId;
+        if (!isNaN(num) && num >= 1 && num <= MODEL_OPTIONS.length && MODEL_OPTIONS[num - 1]) {
+          modelId = MODEL_OPTIONS[num - 1]!.id;
+        } else {
+          modelId = MODEL_OPTIONS[DEFAULT_MODEL_INDEX]!.id;
+        }
+
+        aiRegistry.register(playerId, { name: player.name, modelId });
+      }
+
+      // Save the configs for future resumes
+      const newPersistedPlayers = Array.from({ length: aiPlayerCount }, (_, i) => ({
+        playerId: `player-${i + 1}`,
+        config: {
+          name: state.players[i + 1]!.name,
+          modelId: aiRegistry.getModelId(`player-${i + 1}`)!,
+        },
+      }));
+      saveAIPlayerConfigs(gameId, newPersistedPlayers);
+    }
+  }
+
   console.log("");
   await prompt("Press Enter to continue...");
 }
@@ -741,16 +1019,23 @@ async function main(): Promise<void> {
   console.log("Lowest total score after 6 rounds wins the game!");
   console.log("");
 
-  if (savedGameExists()) {
-    console.log("A saved game was found.");
+  const savedGames = listSavedGames();
+
+  if (savedGames.length > 0) {
+    console.log("Saved games found:");
     console.log("");
-    console.log("  1. Resume saved game");
-    console.log("  2. Start new game");
+    for (let i = 0; i < savedGames.length; i++) {
+      const game = savedGames[i]!;
+      const dateStr = formatGameDate(game.updatedAt);
+      console.log(`  ${i + 1}. ${game.id} — Round ${game.currentRound}/6 (${dateStr})`);
+    }
+    console.log("");
+    console.log(`  ${savedGames.length + 1}. Start new game`);
     console.log("");
 
-    const choice = await promptNumber("> ", 1, 2);
-    if (choice === 1) {
-      await resumeGame();
+    const choice = await promptNumber("> ", 1, savedGames.length + 1);
+    if (choice <= savedGames.length) {
+      await resumeGame(savedGames[choice - 1]!.id);
     } else {
       await startNewGame();
     }

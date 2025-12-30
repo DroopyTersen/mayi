@@ -4,10 +4,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "cli": "bun run cli/mayi.ts",
+    "cli": "bun cli/play.ts --interactive",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsgo --noEmit",
+    "devtools": "bunx @ai-sdk/devtools",
+    "devtools:test": "bun ai/devtools-test.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -17,6 +19,13 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "xstate": "^5.25.0"
+    "@ai-sdk/anthropic": "^3.0.1",
+    "@ai-sdk/devtools": "^0.0.2",
+    "@ai-sdk/google": "^3.0.1",
+    "@ai-sdk/openai": "^3.0.1",
+    "@ai-sdk/xai": "^3.0.2",
+    "ai": "^6.0.3",
+    "xstate": "^5.25.0",
+    "zod": "^4.2.1"
   }
 }

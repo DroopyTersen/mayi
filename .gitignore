@@ -32,3 +32,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Game data (multi-game persistence)
+.data/
+
+# Legacy single-game files (can be removed after migration)
+cli/game-state.json
+cli/game-log.jsonl
+.devtools

@@ -6,30 +6,31 @@
  * Each command is self-contained: run, execute one action, exit.
  *
  * Usage:
- *   bun cli/play.ts new                    # Start new game
- *   bun cli/play.ts status                 # Show current state
- *   bun cli/play.ts status --json          # Show state as JSON
- *   bun cli/play.ts draw stock             # Draw from stock
- *   bun cli/play.ts draw discard           # Draw from discard
- *   bun cli/play.ts laydown "1,2,3" "4,5,6,7"  # Lay down melds
- *   bun cli/play.ts skip                   # Skip laying down
- *   bun cli/play.ts discard 5              # Discard card at position 5
- *   bun cli/play.ts layoff 3 1             # Lay off card 3 to meld 1
- *   bun cli/play.ts mayi                   # Call May I
- *   bun cli/play.ts pass                   # Pass on May I
- *   bun cli/play.ts continue               # Continue to next round
- *   bun cli/play.ts log                    # Show action log
+ *   bun cli/play.ts new                         # Start new game
+ *   bun cli/play.ts <game-id> status            # Show current state
+ *   bun cli/play.ts <game-id> status --json     # Show state as JSON
+ *   bun cli/play.ts <game-id> draw stock        # Draw from stock
+ *   bun cli/play.ts <game-id> draw discard      # Draw from discard
+ *   bun cli/play.ts <game-id> laydown "1,2,3" "4,5,6,7"  # Lay down melds
+ *   bun cli/play.ts <game-id> skip              # Skip laying down
+ *   bun cli/play.ts <game-id> discard 5         # Discard card at position 5
+ *   bun cli/play.ts <game-id> layoff 3 1        # Lay off card 3 to meld 1
+ *   bun cli/play.ts <game-id> mayi              # Call May I
+ *   bun cli/play.ts <game-id> pass              # Pass on May I
+ *   bun cli/play.ts <game-id> continue          # Continue to next round
+ *   bun cli/play.ts <game-id> log               # Show action log
  */
 
 import { Orchestrator } from "./harness/orchestrator";
-import { readActionLog, savedGameExists } from "./shared/cli.persistence";
+import { readActionLog, listSavedGames, formatGameDate } from "./shared/cli.persistence";
 import { renderStatus, renderStatusJson, renderLog } from "./harness/harness.render";
+import { generatePlayerNames } from "./shared/cli.players";
 import type { PersistedGameState } from "./shared/cli.types";
+import type { RoundNumber } from "../core/engine/engine.types";
 
 // --- Main entry point ---
 
 const args = process.argv.slice(2);
-const command = args[0]?.toLowerCase();
 
 // Check for interactive mode
 if (args.includes("--interactive") || args.includes("-i")) {
@@ -43,50 +44,70 @@ if (args.includes("--interactive") || args.includes("-i")) {
   process.exit(0);
 }
 
-if (!command || command === "help" || command === "--help") {
+// Check for help
+if (args.length === 0 || args[0] === "help" || args[0] === "--help") {
   printHelp();
   process.exit(0);
+}
+
+// Check for 'new' command (special case - no game ID needed)
+if (args[0]?.toLowerCase() === "new") {
+  handleNew();
+  process.exit(0);
+}
+
+// Check for 'list' command (list saved games)
+if (args[0]?.toLowerCase() === "list") {
+  handleList();
+  process.exit(0);
+}
+
+// All other commands require: <game-id> <command> [args]
+const gameId = args[0];
+const command = args[1]?.toLowerCase();
+
+if (!gameId || !command) {
+  console.error("Usage: bun cli/play.ts <game-id> <command> [args]");
+  console.error('Run "bun cli/play.ts help" for usage.');
+  process.exit(1);
 }
 
 const orchestrator = new Orchestrator();
 
 try {
   switch (command) {
-    case "new":
-      handleNew();
-      break;
     case "status":
-      handleStatus(args.includes("--json"));
+      handleStatus(gameId, args.includes("--json"));
       break;
     case "draw":
-      handleDraw(args[1]);
+      handleDraw(gameId, args[2]);
       break;
     case "laydown":
-      handleLaydown(args.slice(1));
+      handleLaydown(gameId, args.slice(2));
       break;
     case "skip":
-      handleSkip();
+      handleSkip(gameId);
       break;
     case "discard":
-      handleDiscard(args[1]);
+      handleDiscard(gameId, args[2]);
       break;
     case "layoff":
-      handleLayoff(args[1], args[2]);
+      handleLayoff(gameId, args[2], args[3]);
       break;
     case "mayi":
-      handleMayI();
+      handleMayI(gameId);
       break;
     case "pass":
-      handlePass();
+      handlePass(gameId);
       break;
     case "continue":
-      handleContinue();
+      handleContinue(gameId);
       break;
     case "swap":
-      handleSwap(args[1], args[2], args[3]);
+      handleSwap(gameId, args[2], args[3], args[4]);
       break;
     case "log":
-      handleLog(args[1]);
+      handleLog(gameId, args[2]);
       break;
     default:
       console.error(`Unknown command: ${command}`);
@@ -101,29 +122,91 @@ try {
 // --- Command handlers ---
 
 function handleNew(): void {
-  const players: [string, string, string] = ["Alice", "Bob", "Carol"];
-  orchestrator.newGame(players);
+  const orchestrator = new Orchestrator();
+
+  // Parse --players flag (default: 3)
+  const playersIdx = args.indexOf("--players");
+  let playerCount = 3;
+  if (playersIdx !== -1) {
+    const playersArg = args[playersIdx + 1];
+    if (playersArg === undefined) {
+      console.error("Error: --players requires a value (3-8)");
+      process.exit(1);
+    }
+    const parsed = parseInt(playersArg, 10);
+    if (parsed >= 3 && parsed <= 8) {
+      playerCount = parsed;
+    } else {
+      console.error("Error: Player count must be between 3 and 8");
+      process.exit(1);
+    }
+  }
+
+  // Parse --round flag (default: 1)
+  const roundIdx = args.indexOf("--round");
+  let startingRound: RoundNumber = 1;
+  if (roundIdx !== -1) {
+    const roundArg = args[roundIdx + 1];
+    if (roundArg === undefined) {
+      console.error("Error: --round requires a value (1-6)");
+      process.exit(1);
+    }
+    const parsed = parseInt(roundArg, 10);
+    if (parsed >= 1 && parsed <= 6) {
+      startingRound = parsed as RoundNumber;
+    } else {
+      console.error("Error: Round must be between 1 and 6");
+      process.exit(1);
+    }
+  }
+
+  const players = generatePlayerNames(playerCount, false);
+  orchestrator.newGame(players, startingRound);
   const state = orchestrator.getPersistedState();
 
-  console.log(`New game started! Game ID: ${state.gameId}`);
-  console.log(`Players: ${players.join(", ")}`);
+  console.log("");
+  console.log(`  Game ID: ${state.gameId}`);
+  console.log("");
+  const roundMsg = startingRound > 1 ? ` (starting at Round ${startingRound})` : "";
+  console.log(`New game started! Players: ${players.join(", ")}${roundMsg}`);
   console.log("");
   console.log(renderStatus(state));
 }
 
-function handleStatus(asJson: boolean): void {
-  orchestrator.loadGame();
+function handleList(): void {
+  const games = listSavedGames();
+
+  if (games.length === 0) {
+    console.log("No saved games found.");
+    console.log('Run "bun cli/play.ts new" to start a new game.');
+    return;
+  }
+
+  console.log("Saved games:");
+  console.log("");
+  for (const game of games) {
+    const dateStr = formatGameDate(game.updatedAt);
+    console.log(`  ${game.id}  Round ${game.currentRound}/6  (${dateStr})`);
+  }
+  console.log("");
+  console.log('Use "bun cli/play.ts <game-id> status" to view a game.');
+}
+
+function handleStatus(gameId: string, asJson: boolean): void {
+  orchestrator.loadGame(gameId);
   const state = orchestrator.getPersistedState();
 
   if (asJson) {
     console.log(renderStatusJson(state));
   } else {
+    console.log(`Game: ${gameId}`);
+    console.log("");
     console.log(renderStatus(state));
   }
 }
 
-function handleDraw(source?: string): void {
-  orchestrator.loadGame();
+function handleDraw(gameId: string, source?: string): void {
+  orchestrator.loadGame(gameId);
 
   if (source === "stock") {
     const result = orchestrator.drawFromStock();
@@ -142,11 +225,13 @@ function handleDraw(source?: string): void {
   }
 
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleLaydown(meldArgs: string[]): void {
-  orchestrator.loadGame();
+function handleLaydown(gameId: string, meldArgs: string[]): void {
+  orchestrator.loadGame(gameId);
 
   if (meldArgs.length === 0) {
     throw new Error('Specify melds: laydown "1,2,3" "4,5,6,7"');
@@ -169,11 +254,13 @@ function handleLaydown(meldArgs: string[]): void {
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleSkip(): void {
-  orchestrator.loadGame();
+function handleSkip(gameId: string): void {
+  orchestrator.loadGame(gameId);
 
   const result = orchestrator.skip();
   if (!result.success) {
@@ -182,11 +269,13 @@ function handleSkip(): void {
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleDiscard(positionStr?: string): void {
-  orchestrator.loadGame();
+function handleDiscard(gameId: string, positionStr?: string): void {
+  orchestrator.loadGame(gameId);
 
   if (!positionStr) {
     throw new Error("Specify position: discard <position>");
@@ -204,11 +293,13 @@ function handleDiscard(positionStr?: string): void {
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleLayoff(cardPosStr?: string, meldNumStr?: string): void {
-  orchestrator.loadGame();
+function handleLayoff(gameId: string, cardPosStr?: string, meldNumStr?: string): void {
+  orchestrator.loadGame(gameId);
 
   if (!cardPosStr || !meldNumStr) {
     throw new Error("Specify: layoff <card-position> <meld-number>");
@@ -227,11 +318,13 @@ function handleLayoff(cardPosStr?: string, meldNumStr?: string): void {
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleMayI(): void {
-  orchestrator.loadGame();
+function handleMayI(gameId: string): void {
+  orchestrator.loadGame(gameId);
 
   const result = orchestrator.callMayI();
   if (!result.success) {
@@ -240,11 +333,13 @@ function handleMayI(): void {
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handlePass(): void {
-  orchestrator.loadGame();
+function handlePass(gameId: string): void {
+  orchestrator.loadGame(gameId);
 
   const result = orchestrator.pass();
   if (!result.success) {
@@ -253,11 +348,13 @@ function handlePass(): void {
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleContinue(): void {
-  orchestrator.loadGame();
+function handleContinue(gameId: string): void {
+  orchestrator.loadGame(gameId);
 
   const result = orchestrator.continue();
   if (!result.success) {
@@ -266,11 +363,13 @@ function handleContinue(): void {
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleSwap(meldNumStr?: string, jokerPosStr?: string, cardPosStr?: string): void {
-  orchestrator.loadGame();
+function handleSwap(gameId: string, meldNumStr?: string, jokerPosStr?: string, cardPosStr?: string): void {
+  orchestrator.loadGame(gameId);
 
   if (!meldNumStr || !jokerPosStr || !cardPosStr) {
     throw new Error("Specify: swap <meld-number> <joker-position> <card-position>");
@@ -290,12 +389,16 @@ function handleSwap(meldNumStr?: string, jokerPosStr?: string, cardPosStr?: stri
 
   console.log(result.message);
   console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderStatus(orchestrator.getPersistedState()));
 }
 
-function handleLog(tailArg?: string): void {
-  const entries = readActionLog();
+function handleLog(gameId: string, tailArg?: string): void {
+  const entries = readActionLog(gameId);
   const tail = tailArg ? parseInt(tailArg, 10) : undefined;
+  console.log(`Game: ${gameId}`);
+  console.log("");
   console.log(renderLog(entries, tail));
 }
 
@@ -309,33 +412,41 @@ Modes:
   --interactive, -i           Start interactive human-friendly mode
   (default)                   Command mode for AI agents
 
-Commands (command mode):
+Game Management:
   new                         Start a new 3-player game
-  status                      Show current game state
-  status --json               Show state as JSON
+  new --players <3-8>         Start game with N players
+  new --round <1-6>           Start game at specific round
+  list                        List all saved games
 
-  draw stock                  Draw from stock pile
-  draw discard                Draw from discard pile
+Commands (require game ID):
+  <game-id> status            Show current game state
+  <game-id> status --json     Show state as JSON
 
-  laydown "1,2,3" "4,5,6,7"   Lay down melds (card positions)
-  skip                        Skip laying down
-  discard <position>          Discard card at position
+  <game-id> draw stock        Draw from stock pile
+  <game-id> draw discard      Draw from discard pile
 
-  layoff <card> <meld>        Lay off card to meld (not in Round 6)
-  swap <meld> <pos> <card>    Swap card for Joker in run (not in Round 6)
+  <game-id> laydown "1,2,3" "4,5,6,7"   Lay down melds (card positions)
+  <game-id> skip              Skip laying down
+  <game-id> discard <pos>     Discard card at position
 
-  mayi                        Call May I (non-current player)
-  pass                        Pass on May I
+  <game-id> layoff <card> <meld>        Lay off card to meld
+  <game-id> swap <meld> <pos> <card>    Swap card for Joker in run
 
-  continue                    Continue to next round
-  log [n]                     Show action log (last n entries)
+  <game-id> mayi              Call May I (non-current player)
+  <game-id> pass              Pass on May I
+
+  <game-id> continue          Continue to next round
+  <game-id> log [n]           Show action log (last n entries)
 
 Examples:
   bun cli/play.ts new
-  bun cli/play.ts draw stock
-  bun cli/play.ts laydown "1,2,3" "4,5,6,7"
-  bun cli/play.ts discard 5
-  bun cli/play.ts log 10
-  bun cli/play.ts --interactive     # Start interactive mode
+  bun cli/play.ts new --players 5
+  bun cli/play.ts new --players 4 --round 6
+  bun cli/play.ts list
+  bun cli/play.ts a1b2c3 status
+  bun cli/play.ts a1b2c3 draw stock
+  bun cli/play.ts a1b2c3 laydown "1,2,3" "4,5,6,7"
+  bun cli/play.ts a1b2c3 discard 5
+  bun cli/play.ts --interactive
 `);
 }

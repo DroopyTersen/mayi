@@ -52,7 +52,27 @@ Run `bun run typecheck` to verify your types are correct. In test file we can be
 
 ## Testing
 
-We prefer TDD. Write tests first, then implement to make them pass.
+### ⚠️ MANDATORY: Test-Driven Development (TDD)
+
+**ALWAYS write a failing test FIRST before writing ANY implementation code. No exceptions.**
+
+When a bug is reported or a feature is requested:
+1. **STOP.** Do NOT touch implementation code yet.
+2. **Write a failing test** that reproduces the bug or specifies the new behavior.
+3. **Run the test** to confirm it fails (red).
+4. **Only then** write the implementation to make it pass (green).
+5. **Refactor** if needed while keeping tests green.
+
+**Even if the fix seems "obvious" — write the test first.**
+
+This is critical because:
+- Confirms you actually understand the problem before solving it
+- Prevents regressions forever
+- Documents expected behavior as executable specifications
+- Gives confidence the fix actually works
+- Often reveals edge cases or misunderstandings early
+
+**If you skip writing a test first, you are doing it wrong. Go back and write the test.**
 
 ### Test Runner
 
@@ -86,13 +106,22 @@ describe("feature", () => {
 3. Refactor while keeping tests green
 4. Repeat
 
-### Bug Fixes
+### Bug Fixes — TEST FIRST, NO EXCEPTIONS
 
-When fixing bugs or issues, **always try to write a failing test first** that reproduces the bug. This:
-- Confirms you understand the bug
-- Prevents regressions
-- Documents the expected behavior
-- Gives confidence the fix actually works
+When fixing bugs: **STOP. Write a failing test FIRST.**
+
+Do NOT:
+- Jump straight to reading implementation code
+- Start "exploring" where the bug might be
+- Write a fix and then add a test after
+
+DO:
+1. Write a test that fails because of the bug
+2. Run it, see it fail
+3. Only then fix the code
+4. Run the test, see it pass
+
+This applies even if you think you know exactly what's wrong. The test comes first.
 
 ## File Naming
 
@@ -115,3 +144,9 @@ Never create barrel files (`index.ts` files that re-export from multiple files).
 Why: Barrel files create circular import issues, hurt tree-shaking, slow build times, and break IDE tooling.
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+
+## Command Execution
+
+- Never run commands with long timeouts that cause waiting/blocking
+- If a test suite is large or slow, run specific tests with `--test-name-pattern` instead of the whole file
+- Prefer `| head -N` to limit output rather than waiting for full completion

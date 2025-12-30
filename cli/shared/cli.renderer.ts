@@ -44,6 +44,54 @@ export function renderHand(hand: Card[]): string {
 }
 
 /**
+ * Checks if a card is wild (2 or Joker)
+ */
+function isWild(card: Card): boolean {
+  return card.rank === "2" || card.rank === "Joker";
+}
+
+/**
+ * Renders a hand grouped by suit with | separators between groups
+ * Assumes hand is already sorted by suit. Wilds are treated as their own group.
+ * Example: "10♠  K♠  A♠ | 8♥  10♥  J♥ | 7♦  K♦ | 5♣  7♣ | 2♠"
+ */
+export function renderHandGroupedBySuit(hand: Card[]): string {
+  if (hand.length === 0) return "";
+
+  const groups: Card[][] = [];
+  let currentGroup: Card[] = [];
+  let currentSuit: string | null | "wild" = null;
+
+  for (const card of hand) {
+    const cardCategory = isWild(card) ? "wild" : card.suit;
+
+    if (currentSuit === null) {
+      // First card
+      currentSuit = cardCategory;
+      currentGroup.push(card);
+    } else if (cardCategory === currentSuit) {
+      // Same group
+      currentGroup.push(card);
+    } else {
+      // New group
+      groups.push(currentGroup);
+      currentGroup = [card];
+      currentSuit = cardCategory;
+    }
+  }
+
+  // Don't forget the last group
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup);
+  }
+
+  // Render each group and join with " | "
+  return groups
+    .map((group) => group.map(renderCard).join("  "))
+    .join(" | ");
+}
+
+/**
  * Renders a hand with position numbers for card selection
  * Example: "1:3♥ | 2:5♦ | 3:9♣ | 4:J♠ | 5:Joker"
  * Positions are 1-indexed for human readability

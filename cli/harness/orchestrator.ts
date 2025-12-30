@@ -36,8 +36,8 @@ import {
   saveOrchestratorSnapshot,
   loadOrchestratorSnapshot,
   appendActionLog,
-  clearSavedGame,
   savedGameExists,
+  generateGameId,
 } from "../shared/cli.persistence";
 import { isValidSet, isValidRun } from "../../core/meld/meld.validation";
 import { canLayOffToSet, canLayOffToRun, getRunInsertPosition } from "../../core/engine/layoff";
@@ -88,6 +88,7 @@ export interface SerializableGameState {
   mayIContext: MayIContext | null;
   hasDrawn: boolean;
   laidDownThisTurn: boolean;
+  lastDiscardedByPlayerId: string | null;
 }
 
 /**
@@ -152,24 +153,28 @@ export class Orchestrator {
       mayIContext: this.mayIContext,
       hasDrawn: this.hasDrawn,
       laidDownThisTurn: this.laidDownThisTurn,
+      lastDiscardedByPlayerId: this.lastDiscardedByPlayerId,
     };
   }
 
   /**
    * Create a new game with the specified players
+   * @param playerNames - Array of player names (3-8 players)
+   * @param startingRound - Optional round to start at (1-6, default: 1)
    */
-  newGame(playerNames: string[]): GameStateView {
+  newGame(playerNames: string[], startingRound: RoundNumber = 1): GameStateView {
     if (playerNames.length < 3 || playerNames.length > 8) {
       throw new Error("May I requires 3-8 players");
     }
-    this.gameId = crypto.randomUUID().slice(0, 8);
+    this.gameId = generateGameId();
     this.phase = "ROUND_ACTIVE";
     this.turnNumber = 1;
     this.mayIContext = null;
-    this.currentRound = 1;
-    this.dealerIndex = 0;
-    this.roundHistory = [];
+    this.currentRound = startingRound;
     this.table = [];
+
+    // Calculate dealer position (rotates each round, so advance by startingRound - 1)
+    this.dealerIndex = (startingRound - 1) % playerNames.length;
 
     // Create players
     this.players = playerNames.map((name, index) => ({
@@ -180,22 +185,34 @@ export class Orchestrator {
       totalScore: 0,
     }));
 
+    // Fabricate round history for previous rounds (all zero scores)
+    this.roundHistory = [];
+    for (let r = 1; r < startingRound; r++) {
+      const fabricatedScores: Record<string, number> = {};
+      for (const player of this.players) {
+        fabricatedScores[player.id] = 0;
+      }
+      this.roundHistory.push({
+        roundNumber: r as RoundNumber,
+        scores: fabricatedScores,
+        winnerId: this.players[0]!.id,
+      });
+    }
+
     // Deal cards
     this.dealRound();
 
     // First player is left of dealer
-    this.currentPlayerIndex = 1;
+    this.currentPlayerIndex = (this.dealerIndex + 1) % this.players.length;
     this.harnessPhase = "AWAITING_DRAW";
     this.awaitingPlayerId = this.players[this.currentPlayerIndex]!.id;
     this.hasDrawn = false;
     this.laidDownThisTurn = false;
     this.lastDiscardedByPlayerId = null; // Deal discard doesn't belong to any player
 
-    // Clear old state and log
-    clearSavedGame();
-
     // Log game start
-    this.logAction("system", "System", "GAME_STARTED", `Players: ${playerNames.join(", ")}`);
+    const roundSuffix = startingRound > 1 ? ` (starting at Round ${startingRound})` : "";
+    this.logAction("system", "System", "GAME_STARTED", `Players: ${playerNames.join(", ")}${roundSuffix}`);
 
     // Save state
     this.save();
@@ -206,12 +223,12 @@ export class Orchestrator {
   /**
    * Load existing game from persistence
    */
-  loadGame(): GameStateView {
-    if (!savedGameExists()) {
-      throw new Error("No game in progress. Run 'bun cli/play.ts new' to start a new game.");
+  loadGame(gameId: string): GameStateView {
+    if (!savedGameExists(gameId)) {
+      throw new Error(`No game found with ID: ${gameId}`);
     }
 
-    const snapshot = loadOrchestratorSnapshot();
+    const snapshot = loadOrchestratorSnapshot(gameId);
     this.restoreFromSnapshot(snapshot);
 
     return this.getStateView();
@@ -810,7 +827,7 @@ export class Orchestrator {
   }
 
   private logAction(playerId: string, playerName: string, action: string, details?: string): void {
-    appendActionLog({
+    appendActionLog(this.gameId, {
       timestamp: new Date().toISOString(),
       turnNumber: this.turnNumber,
       roundNumber: this.currentRound,
@@ -904,7 +921,8 @@ export class Orchestrator {
         winner.hand.push(penaltyCard);
         // Replenish after penalty draw in case that was the last card
         this.replenishStockIfNeeded();
-        this.logAction(winnerId, winner.name, "won May I", `${renderCard(discardCard)} + penalty ${renderCard(penaltyCard)}`);
+        // Only show the discard card publicly - penalty card is private to the winner
+        this.logAction(winnerId, winner.name, "won May I", `${renderCard(discardCard)} + penalty card`);
       } else {
         this.logAction(winnerId, winner.name, "won May I", `${renderCard(discardCard)} (no penalty - stock empty)`);
       }
@@ -994,7 +1012,7 @@ export class Orchestrator {
 
   private save(): void {
     const snapshot = this.createSnapshot();
-    saveOrchestratorSnapshot(snapshot);
+    saveOrchestratorSnapshot(this.gameId, snapshot);
   }
 
   private createSnapshot(): OrchestratorSnapshot {
@@ -1064,6 +1082,7 @@ export class Orchestrator {
     this.mayIContext = state.mayIContext;
     this.hasDrawn = state.hasDrawn;
     this.laidDownThisTurn = state.laidDownThisTurn;
+    this.lastDiscardedByPlayerId = state.lastDiscardedByPlayerId;
   }
 }
 

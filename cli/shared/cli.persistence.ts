@@ -1,31 +1,141 @@
 /**
  * Persistence layer for the May I? CLI
  *
- * Handles saving and loading XState snapshots for game state persistence.
+ * Supports multiple concurrent games stored in .data/<game-id>/ directories.
  */
 
+import * as fs from "node:fs";
 import type { ActionLogEntry, OrchestratorSnapshot } from "./cli.types";
+import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
 
-const STATE_FILE = "cli/game-state.json";
-const LOG_FILE = "cli/game-log.jsonl";
+const DATA_DIR = ".data";
+
+/**
+ * Get the directory path for a specific game
+ */
+function getGameDir(gameId: string): string {
+  return `${DATA_DIR}/${gameId}`;
+}
+
+/**
+ * Get the state file path for a specific game
+ */
+function getStateFilePath(gameId: string): string {
+  return `${getGameDir(gameId)}/game-state.json`;
+}
+
+/**
+ * Get the log file path for a specific game
+ */
+function getLogFilePath(gameId: string): string {
+  return `${getGameDir(gameId)}/game-log.jsonl`;
+}
+
+/**
+ * Generate a new 6-character game ID
+ */
+export function generateGameId(): string {
+  return crypto.randomUUID().slice(0, 6);
+}
+
+/**
+ * Ensure the data directory exists for a game
+ */
+function ensureGameDir(gameId: string): void {
+  const dir = getGameDir(gameId);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
 
 /**
  * Check if a saved game exists
  */
-export function savedGameExists(): boolean {
-  return Bun.file(STATE_FILE).size > 0;
+export function savedGameExists(gameId: string): boolean {
+  const stateFile = getStateFilePath(gameId);
+  return fs.existsSync(stateFile) && fs.statSync(stateFile).size > 0;
 }
 
 /**
- * Load saved orchestrator snapshot
+ * Game summary for listing available games
  */
-export function loadOrchestratorSnapshot(): OrchestratorSnapshot {
-  const file = Bun.file(STATE_FILE);
-  if (file.size === 0) {
-    throw new Error("No game in progress. Run 'bun cli/play.ts new' to start a new game.");
+export interface GameSummary {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  currentRound: number;
+  isComplete: boolean;
+  playerNames: string[];
+}
+
+/**
+ * List all saved games with their metadata
+ * Returns games sorted by most recently updated first
+ * Excludes completed games by default
+ */
+export function listSavedGames(includeCompleted: boolean = false): GameSummary[] {
+  if (!fs.existsSync(DATA_DIR)) {
+    return [];
   }
 
-  const content = require("fs").readFileSync(STATE_FILE, "utf-8");
+  const entries = fs.readdirSync(DATA_DIR, { withFileTypes: true });
+  const games: GameSummary[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const gameId = entry.name;
+    const stateFile = getStateFilePath(gameId);
+
+    if (!fs.existsSync(stateFile)) continue;
+
+    try {
+      const content = fs.readFileSync(stateFile, "utf-8");
+      const data = JSON.parse(content) as OrchestratorSnapshot;
+
+      if (data.version !== "2.0") continue;
+
+      const gameSnapshot = data.gameSnapshot as {
+        currentRound?: number;
+        players?: Array<{ name: string }>;
+      };
+
+      const isComplete = data.phase === "GAME_END";
+
+      if (!includeCompleted && isComplete) continue;
+
+      games.push({
+        id: gameId,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        currentRound: gameSnapshot.currentRound ?? 1,
+        isComplete,
+        playerNames: gameSnapshot.players?.map((p) => p.name) ?? [],
+      });
+    } catch (error) {
+      // Log warning for corrupted games, but don't fail the listing
+      console.error(`Warning: Could not load game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
+  }
+
+  // Sort by most recently updated first
+  games.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  return games;
+}
+
+/**
+ * Load saved orchestrator snapshot for a specific game
+ */
+export function loadOrchestratorSnapshot(gameId: string): OrchestratorSnapshot {
+  const stateFile = getStateFilePath(gameId);
+
+  if (!fs.existsSync(stateFile) || fs.statSync(stateFile).size === 0) {
+    throw new Error(`No game found with ID: ${gameId}`);
+  }
+
+  const content = fs.readFileSync(stateFile, "utf-8");
   const data = JSON.parse(content);
 
   if (data.version !== "2.0") {
@@ -38,10 +148,11 @@ export function loadOrchestratorSnapshot(): OrchestratorSnapshot {
 /**
  * Save orchestrator snapshot to file
  */
-export function saveOrchestratorSnapshot(snapshot: OrchestratorSnapshot): void {
+export function saveOrchestratorSnapshot(gameId: string, snapshot: OrchestratorSnapshot): void {
+  ensureGameDir(gameId);
   snapshot.updatedAt = new Date().toISOString();
   const content = JSON.stringify(snapshot, null, 2);
-  require("fs").writeFileSync(STATE_FILE, content);
+  fs.writeFileSync(getStateFilePath(gameId), content);
 }
 
 /**
@@ -66,31 +177,81 @@ export function createOrchestratorSnapshot(
 }
 
 /**
- * Clear saved game state (for starting fresh)
- */
-export function clearSavedGame(): void {
-  require("fs").writeFileSync(STATE_FILE, "");
-  require("fs").writeFileSync(LOG_FILE, "");
-}
-
-/**
  * Append an entry to the action log
  */
-export function appendActionLog(entry: ActionLogEntry): void {
+export function appendActionLog(gameId: string, entry: ActionLogEntry): void {
+  ensureGameDir(gameId);
   const line = JSON.stringify(entry) + "\n";
-  require("fs").appendFileSync(LOG_FILE, line);
+  fs.appendFileSync(getLogFilePath(gameId), line);
 }
 
 /**
- * Read the action log
+ * Read the action log for a specific game
  */
-export function readActionLog(): ActionLogEntry[] {
-  const file = Bun.file(LOG_FILE);
-  if (file.size === 0) {
+export function readActionLog(gameId: string): ActionLogEntry[] {
+  const logFile = getLogFilePath(gameId);
+
+  if (!fs.existsSync(logFile) || fs.statSync(logFile).size === 0) {
     return [];
   }
-  const content = require("fs").readFileSync(LOG_FILE, "utf-8");
+
+  const content = fs.readFileSync(logFile, "utf-8");
   const lines = content.trim().split("\n").filter((l: string) => l.length > 0);
   return lines.map((line: string) => JSON.parse(line) as ActionLogEntry);
 }
 
+/**
+ * Get the AI players config file path for a specific game
+ */
+function getAIPlayersFilePath(gameId: string): string {
+  return `${getGameDir(gameId)}/ai-players.json`;
+}
+
+/**
+ * Persisted AI player config with player ID mapping
+ */
+export interface PersistedAIPlayer {
+  playerId: string;
+  config: AIPlayerConfig;
+}
+
+/**
+ * Save AI player configurations for a game
+ */
+export function saveAIPlayerConfigs(gameId: string, players: PersistedAIPlayer[]): void {
+  ensureGameDir(gameId);
+  const content = JSON.stringify(players, null, 2);
+  fs.writeFileSync(getAIPlayersFilePath(gameId), content);
+}
+
+/**
+ * Load AI player configurations for a game
+ * Returns empty array if no config file exists
+ */
+export function loadAIPlayerConfigs(gameId: string): PersistedAIPlayer[] {
+  const filePath = getAIPlayersFilePath(gameId);
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
+  const content = fs.readFileSync(filePath, "utf-8");
+  return JSON.parse(content) as PersistedAIPlayer[];
+}
+
+/**
+ * Format a date string for friendly display
+ */
+export function formatGameDate(isoDate: string): string {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}

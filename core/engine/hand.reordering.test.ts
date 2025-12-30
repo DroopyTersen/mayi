@@ -255,6 +255,52 @@ describe("REORDER_HAND command", () => {
       expect(sorted[2]!.rank).toBe("2");
       expect(sorted[3]!.rank).toBe("Joker");
     });
+
+    it("user-reported bug: sorts user's exact hand correctly by suit then rank", () => {
+      // User's original hand: A♠ 5♣ 7♦ K♦ J♥ K♠ 2♠ 8♥ 10♠ 10♥ 7♣
+      const cAS = card("A", "spades");
+      const c5C = card("5", "clubs");
+      const c7D = card("7", "diamonds");
+      const cKD = card("K", "diamonds");
+      const cJH = card("J", "hearts");
+      const cKS = card("K", "spades");
+      const c2S = card("2", "spades"); // wild
+      const c8H = card("8", "hearts");
+      const c10S = card("10", "spades");
+      const c10H = card("10", "hearts");
+      const c7C = card("7", "clubs");
+
+      const hand = [cAS, c5C, c7D, cKD, cJH, cKS, c2S, c8H, c10S, c10H, c7C];
+      const sorted = sortHandBySuit(hand);
+
+      // Expected order:
+      // Spades (ascending): 10♠, K♠, A♠
+      // Hearts (ascending): 8♥, 10♥, J♥
+      // Diamonds (ascending): 7♦, K♦
+      // Clubs (ascending): 5♣, 7♣
+      // Wilds at end: 2♠
+
+      // Spades
+      expect(sorted[0]).toEqual(c10S);
+      expect(sorted[1]).toEqual(cKS);
+      expect(sorted[2]).toEqual(cAS);
+
+      // Hearts - should be 8, 10, J (ascending)
+      expect(sorted[3]).toEqual(c8H);
+      expect(sorted[4]).toEqual(c10H);
+      expect(sorted[5]).toEqual(cJH);
+
+      // Diamonds
+      expect(sorted[6]).toEqual(c7D);
+      expect(sorted[7]).toEqual(cKD);
+
+      // Clubs
+      expect(sorted[8]).toEqual(c5C);
+      expect(sorted[9]).toEqual(c7C);
+
+      // Wild at end
+      expect(sorted[10]).toEqual(c2S);
+    });
   });
 
   describe("move single card", () => {

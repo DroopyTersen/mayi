@@ -6,7 +6,40 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { Orchestrator, getOrchestrator } from "./orchestrator";
-import { clearSavedGame } from "../shared/cli.persistence";
+
+// Track games that existed before tests started, so we only clean up test-created ones
+let preExistingGames: Set<string> = new Set();
+
+// Capture existing games before any tests run
+function captureExistingGames(): void {
+  const fs = require("fs");
+  preExistingGames = new Set();
+  if (fs.existsSync(".data")) {
+    const entries = fs.readdirSync(".data");
+    for (const entry of entries) {
+      preExistingGames.add(entry);
+    }
+  }
+}
+
+// Clean up only games created during tests (not pre-existing ones)
+function cleanupTestGames(): void {
+  const fs = require("fs");
+  if (fs.existsSync(".data")) {
+    const entries = fs.readdirSync(".data");
+    for (const entry of entries) {
+      if (!preExistingGames.has(entry)) {
+        const dir = `.data/${entry}`;
+        if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+          fs.rmSync(dir, { recursive: true });
+        }
+      }
+    }
+  }
+}
+
+// Capture existing games before any tests in this file run
+captureExistingGames();
 
 describe("Orchestrator", () => {
   let orchestrator: Orchestrator;
@@ -16,7 +49,8 @@ describe("Orchestrator", () => {
   });
 
   afterEach(() => {
-    clearSavedGame();
+    // Clean up any games created during this test
+    cleanupTestGames();
   });
 
   describe("serialization (WebSocket/D1 support)", () => {
@@ -352,14 +386,15 @@ describe("Orchestrator", () => {
 
   describe("persistence", () => {
     it("saves and loads game state", () => {
-      orchestrator.newGame(["Alice", "Bob", "Carol"]);
+      const state = orchestrator.newGame(["Alice", "Bob", "Carol"]);
+      const gameId = state.gameId;
       orchestrator.drawFromDiscard();
 
-      // Create new orchestrator and load
+      // Create new orchestrator and load using the game ID
       const newOrchestrator = new Orchestrator();
-      const loadedState = newOrchestrator.loadGame();
+      const loadedState = newOrchestrator.loadGame(gameId);
 
-      expect(loadedState.gameId).toBeDefined();
+      expect(loadedState.gameId).toBe(gameId);
       expect(loadedState.phase).toBe("AWAITING_ACTION");
       expect(loadedState.players).toHaveLength(3);
     });

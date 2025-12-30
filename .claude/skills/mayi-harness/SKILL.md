@@ -21,18 +21,24 @@ Before playing, you MUST read these files to understand the rules and strategy:
 ## Quick Command Reference
 
 ```bash
-bun cli/play.ts new              # Start new game
-bun cli/play.ts status           # View current state
-bun cli/play.ts draw stock       # Draw from stock
-bun cli/play.ts draw discard     # Draw from discard (if not down)
-bun cli/play.ts laydown "1,2,3" "4,5,6,7"  # Lay down melds
-bun cli/play.ts skip             # Skip laying down
-bun cli/play.ts discard 5        # Discard card at position
-bun cli/play.ts layoff 3 1       # Lay off card to meld
-bun cli/play.ts mayi             # Call May I
-bun cli/play.ts pass             # Pass on May I
-bun cli/play.ts continue         # Next round
-bun cli/play.ts log              # View action log
+# Game management
+bun cli/play.ts new                      # Start new game (returns game ID)
+bun cli/play.ts new --players 5          # Start game with 5 players (3-8)
+bun cli/play.ts new --round 6            # Start game at specific round (1-6)
+bun cli/play.ts list                     # List saved games
+
+# All other commands require game ID (shown when game starts)
+bun cli/play.ts abc123 status            # View current state
+bun cli/play.ts abc123 draw stock        # Draw from stock
+bun cli/play.ts abc123 draw discard      # Draw from discard (if not down)
+bun cli/play.ts abc123 laydown "1,2,3" "4,5,6,7"  # Lay down melds
+bun cli/play.ts abc123 skip              # Skip laying down
+bun cli/play.ts abc123 discard 5         # Discard card at position
+bun cli/play.ts abc123 layoff 3 1        # Lay off card to meld
+bun cli/play.ts abc123 mayi              # Call May I
+bun cli/play.ts abc123 pass              # Pass on May I
+bun cli/play.ts abc123 continue          # Next round
+bun cli/play.ts abc123 log               # View action log
 ```
 
 ## Gameplay Loop

@@ -28,15 +28,14 @@ export function renderStatus(state: PersistedGameState): string {
   lines.push("═".repeat(66));
   lines.push("");
 
-  // Players
+  // Players (scores omitted during play to avoid confusion with hand values)
   lines.push("PLAYERS");
   for (let i = 0; i < state.players.length; i++) {
     const player = state.players[i]!;
     const isCurrentTurn = i === state.currentPlayerIndex;
     const indicator = isCurrentTurn ? "→ " : "  ";
     const downStatus = player.isDown ? " ✓ DOWN" : "";
-    const scoreStr = player.totalScore > 0 ? ` (${player.totalScore} pts)` : "";
-    lines.push(`${indicator}${player.name}: ${player.hand.length} cards${downStatus}${scoreStr}`);
+    lines.push(`${indicator}${player.name}: ${player.hand.length} cards${downStatus}`);
   }
   lines.push("");
 

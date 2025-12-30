@@ -111,6 +111,65 @@ describe("renderNumberedHand (for selection)", () => {
   });
 });
 
+describe("renderHandGroupedBySuit", () => {
+  // Import will be added after we create the function
+  const { renderHandGroupedBySuit } = require("./cli.renderer");
+
+  it("separates different suits with | delimiter", () => {
+    // Hand already sorted by suit: spades, hearts, diamonds, clubs, wilds
+    const hand = [
+      card("10", "spades"),
+      card("K", "spades"),
+      card("8", "hearts"),
+      card("J", "hearts"),
+      card("7", "diamonds"),
+      card("5", "clubs"),
+    ];
+    const result = renderHandGroupedBySuit(hand);
+    expect(result).toBe("10♠  K♠ | 8♥  J♥ | 7♦ | 5♣");
+  });
+
+  it("puts wilds in separate group at end", () => {
+    const hand = [
+      card("10", "spades"),
+      card("8", "hearts"),
+      card("2", "diamonds"), // wild
+      joker(),
+    ];
+    const result = renderHandGroupedBySuit(hand);
+    expect(result).toBe("10♠ | 8♥ | 2♦  Joker");
+  });
+
+  it("handles single suit with no separators", () => {
+    const hand = [
+      card("5", "hearts"),
+      card("9", "hearts"),
+      card("K", "hearts"),
+    ];
+    const result = renderHandGroupedBySuit(hand);
+    expect(result).toBe("5♥  9♥  K♥");
+  });
+
+  it("handles user's exact sorted hand with visual separation", () => {
+    // User's sorted hand: 10♠ K♠ A♠ | 8♥ 10♥ J♥ | 7♦ K♦ | 5♣ 7♣ | 2♠
+    const hand = [
+      card("10", "spades"),
+      card("K", "spades"),
+      card("A", "spades"),
+      card("8", "hearts"),
+      card("10", "hearts"),
+      card("J", "hearts"),
+      card("7", "diamonds"),
+      card("K", "diamonds"),
+      card("5", "clubs"),
+      card("7", "clubs"),
+      card("2", "spades"), // wild
+    ];
+    const result = renderHandGroupedBySuit(hand);
+    expect(result).toBe("10♠  K♠  A♠ | 8♥  10♥  J♥ | 7♦  K♦ | 5♣  7♣ | 2♠");
+  });
+});
+
 describe("renderGameState", () => {
   it("shows current round", () => {
     const state = createInitialGameState({

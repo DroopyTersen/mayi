@@ -54,9 +54,10 @@ describe("formatActivityEntry", () => {
     expect(formatActivityEntry(entry)).toBe("Alice: called May I on 7♥");
   });
 
-  it("formats won May I with penalty", () => {
-    const entry = makeEntry("player-1", "Alice", "won May I", "7♥ + penalty 3♠");
-    expect(formatActivityEntry(entry)).toBe("Alice: won May I (7♥ + penalty 3♠)");
+  it("formats won May I with penalty hidden", () => {
+    // Penalty card should be hidden from other players - only the discard is public
+    const entry = makeEntry("player-1", "Alice", "won May I", "7♥ + penalty card");
+    expect(formatActivityEntry(entry)).toBe("Alice: won May I (7♥ + penalty card)");
   });
 
   it("formats swapped Joker", () => {

@@ -38,7 +38,7 @@ function shouldSkipEntry(entry: ActionLogEntry): boolean {
  * - "Carol: discarded K♣"
  * - "Alice: laid down contract"
  * - "Bob: laid off 2♦ to meld 2"
- * - "Carol: won May I (7♥ + 3♠)"
+ * - "Carol: won May I (7♥ + penalty card)"
  * - "Alice: went out!"
  */
 export function formatActivityEntry(entry: ActionLogEntry): string | null {
