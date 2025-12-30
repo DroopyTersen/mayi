@@ -1,8 +1,37 @@
 # Phase 1: Web App Scaffolding
 
-> **Status**: Not Started
-> **Depends on**: Phase 0 (Server-Safe Engine)
+> **Status**: Ready to Start
+> **Depends on**: Phase 0 (Server-Safe Engine) ✅ Complete
 > **Estimated scope**: New `app/` folder with basic RR7 + PartyServer
+
+## Phase 0 Complete
+
+The GameEngine wrapper (`core/engine/game-engine.ts`) is complete and provides:
+- ID-based commands (not position-based)
+- Full serialization via `getPersistedSnapshot()` / `fromPersistedSnapshot()`
+- PlayerView with per-player information hiding
+- Zero Node.js dependencies (runs on Cloudflare Workers)
+
+Key APIs for Phase 1 integration:
+```typescript
+import { GameEngine } from "../core/engine/game-engine";
+
+// Create new game
+const engine = GameEngine.createGame({ playerNames: ["Alice", "Bob"] });
+
+// Get snapshot for persistence (Durable Object storage)
+const snapshot = engine.getPersistedSnapshot();
+
+// Restore from snapshot
+const restored = GameEngine.fromPersistedSnapshot(snapshot, gameId);
+
+// Execute commands
+engine.drawFromStock(playerId);
+engine.discard(playerId, cardId);
+
+// Get player-specific view (hides other hands)
+const view = engine.getPlayerView(playerId);
+```
 
 ---
 

@@ -34,7 +34,7 @@ function createTestPlayers(count: number): Player[] {
  * Helper to create and start a game with players
  */
 function createGameWithPlayers(playerCount: number) {
-  const actor = createActor(gameMachine);
+  const actor = createActor(gameMachine, { input: { startingRound: 1 } });
   actor.start();
 
   for (let i = 0; i < playerCount; i++) {
@@ -98,7 +98,7 @@ function completeTurnFromStock(actor: ReturnType<typeof createRoundActor>) {
 describe("full game flow - setup to end", () => {
   describe("game initialization", () => {
     it("when: create new game, add 4 players, START_GAME, then: game transitions to 'playing'", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       expect(actor.getSnapshot().value).toBe("setup");
@@ -1087,7 +1087,7 @@ describe("complete game simulation", () => {
     });
 
     it("all 6 rounds completed, winner determined", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
@@ -1130,7 +1130,7 @@ describe("complete game simulation", () => {
     });
 
     it("all 6 rounds completed, winner determined", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       for (let i = 0; i < 8; i++) {
@@ -1158,7 +1158,7 @@ describe("complete game simulation", () => {
 describe("game state at each phase", () => {
   describe("setup", () => {
     it("players being added, game not started, no rounds played", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       expect(actor.getSnapshot().value).toBe("setup");
@@ -1475,7 +1475,7 @@ describe("roundHistory completeness", () => {
 describe("error handling", () => {
   describe("invalid commands in setup", () => {
     it("START_GAME with < 3 players rejected (stays in setup)", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
@@ -1489,7 +1489,7 @@ describe("error handling", () => {
     });
 
     it("ADD_PLAYER with > 8 players rejected", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       // Add 8 players
@@ -1506,7 +1506,7 @@ describe("error handling", () => {
     });
 
     it("game stays in setup until valid start", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       // Only 1 player

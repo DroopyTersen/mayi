@@ -277,7 +277,7 @@ describe("first player each round", () => {
 describe("dealer rotation between rounds", () => {
   describe("advancement", () => {
     it("given: 4 players, dealer = 0 in round 1, when: round 1 ends, then: dealer = 1 for round 2", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       // Add 4 players
@@ -305,7 +305,7 @@ describe("dealer rotation between rounds", () => {
     });
 
     it("given: 4 players, dealer = 1 in round 2, when: round 2 ends, then: dealer = 2 for round 3", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       // Add 4 players
@@ -329,7 +329,7 @@ describe("dealer rotation between rounds", () => {
     });
 
     it("continues through round 6", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       // Add 4 players
@@ -361,7 +361,7 @@ describe("dealer rotation between rounds", () => {
 
   describe("wrap-around", () => {
     it("given: 4 players, dealer = 3 in round 4, when: round 4 ends, then: dealer = 0 for round 5", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       // Add 4 players
@@ -390,7 +390,7 @@ describe("dealer rotation between rounds", () => {
 
   describe("full game dealer rotation", () => {
     it("round 1: dealer = 0, round 2: dealer = 1, ... through round 6", () => {
-      const actor = createActor(gameMachine);
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } });
       actor.start();
 
       // Add 4 players

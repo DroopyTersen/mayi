@@ -29,7 +29,8 @@ type ForwardedTurnEvent =
   | { type: "CALL_MAY_I"; playerId: string }
   | { type: "PASS_MAY_I" }
   | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string }
-  | { type: "GO_OUT"; finalLayOffs: unknown[] };
+  | { type: "GO_OUT"; finalLayOffs: unknown[] }
+  | { type: "REORDER_HAND"; newOrder: string[] };
 
 /**
  * Predefined game state for testing scenarios.
@@ -307,6 +308,7 @@ export const roundMachine = setup({
         PASS_MAY_I: { actions: sendTo("turn", ({ event }) => event) },
         SWAP_JOKER: { actions: sendTo("turn", ({ event }) => event) },
         GO_OUT: { actions: sendTo("turn", ({ event }) => event) },
+        REORDER_HAND: { actions: sendTo("turn", ({ event }) => event) },
         // Stock reshuffle can still be triggered externally if needed
         RESHUFFLE_STOCK: {
           guard: "stockEmpty",

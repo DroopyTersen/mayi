@@ -22,7 +22,7 @@ describe("Machine Hierarchy Integration", () => {
    * Helper to create a started game with 3 players
    */
   function createStartedGame() {
-    const actor = createActor(gameMachine).start();
+    const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
     actor.send({ type: "ADD_PLAYER", name: "Alice" });
     actor.send({ type: "ADD_PLAYER", name: "Bob" });
     actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -318,7 +318,7 @@ describe("Machine Hierarchy Integration", () => {
 
 describe("RoundMachine → TurnMachine invocation", () => {
   it("round starts with correct player (left of dealer)", () => {
-    const actor = createActor(gameMachine).start();
+    const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
     actor.send({ type: "ADD_PLAYER", name: "Alice" }); // index 0
     actor.send({ type: "ADD_PLAYER", name: "Bob" }); // index 1
     actor.send({ type: "ADD_PLAYER", name: "Carol" }); // index 2
@@ -340,7 +340,7 @@ describe("TurnMachine → MayIWindowMachine invocation", () => {
    * Helper to create a started game with 3 players
    */
   function createStartedGame() {
-    const actor = createActor(gameMachine).start();
+    const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
     actor.send({ type: "ADD_PLAYER", name: "Alice" });
     actor.send({ type: "ADD_PLAYER", name: "Bob" });
     actor.send({ type: "ADD_PLAYER", name: "Carol" });

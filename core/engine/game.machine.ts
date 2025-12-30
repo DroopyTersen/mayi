@@ -15,7 +15,7 @@ import { roundMachine, type RoundInput, type RoundOutput } from "./round.machine
  * Events that need to be forwarded to child round actor
  */
 type ForwardedEvent =
-  | { type: "DRAW_FROM_STOCK" }
+  | { type: "DRAW_FROM_STOCK"; playerId?: string }
   | { type: "DRAW_FROM_DISCARD" }
   | { type: "SKIP_LAY_DOWN" }
   | { type: "LAY_DOWN"; melds: unknown[] }
@@ -25,7 +25,8 @@ type ForwardedEvent =
   | { type: "PASS_MAY_I" }
   | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string }
   | { type: "GO_OUT"; finalLayOffs: unknown[] }
-  | { type: "RESHUFFLE_STOCK" };
+  | { type: "RESHUFFLE_STOCK" }
+  | { type: "REORDER_HAND"; newOrder: string[] };
 
 /**
  * Internal round number that allows 7 to signal game over
@@ -75,10 +76,18 @@ export interface GameOutput {
   roundHistory: RoundRecord[];
 }
 
+/**
+ * Input for creating a new game
+ */
+export interface GameInput {
+  startingRound?: RoundNumber;
+}
+
 export const gameMachine = setup({
   types: {
     context: {} as GameContext,
     events: {} as GameEvent,
+    input: {} as GameInput,
     output: {} as GameOutput,
   },
   actors: {
@@ -145,15 +154,15 @@ export const gameMachine = setup({
 }).createMachine({
   id: "game",
   initial: "setup",
-  context: {
+  context: ({ input }) => ({
     gameId: "",
     players: [],
-    currentRound: 1 as GameRoundNumber,
+    currentRound: (input?.startingRound ?? 1) as GameRoundNumber,
     dealerIndex: 0,
     roundHistory: [],
     winners: [],
     lastError: null,
-  },
+  }),
   output: ({ context }) => ({
     finalScores: Object.fromEntries(context.players.map((p) => [p.id, p.totalScore])),
     winners: context.winners,
@@ -219,6 +228,7 @@ export const gameMachine = setup({
         SWAP_JOKER: { actions: sendTo("round", ({ event }) => event) },
         GO_OUT: { actions: sendTo("round", ({ event }) => event) },
         RESHUFFLE_STOCK: { actions: sendTo("round", ({ event }) => event) },
+        REORDER_HAND: { actions: sendTo("round", ({ event }) => event) },
         // @internal Testing utility - see GameEvent type documentation
         ROUND_COMPLETE: {
           target: "roundEnd",

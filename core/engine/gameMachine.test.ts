@@ -12,38 +12,38 @@ import { gameMachine } from "./game.machine";
 describe("GameMachine - setup state", () => {
   describe("initial state", () => {
     it("starts in 'setup' state", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       expect(actor.getSnapshot().value).toBe("setup");
       actor.stop();
     });
 
     it("gameId is empty or generated", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       // Default gameId is empty string
       expect(actor.getSnapshot().context.gameId).toBe("");
       actor.stop();
     });
 
     it("players array is empty", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       expect(actor.getSnapshot().context.players).toEqual([]);
       actor.stop();
     });
 
     it("currentRound is 1", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       expect(actor.getSnapshot().context.currentRound).toBe(1);
       actor.stop();
     });
 
     it("dealerIndex is 0", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       expect(actor.getSnapshot().context.dealerIndex).toBe(0);
       actor.stop();
     });
 
     it("roundHistory is empty array", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       expect(actor.getSnapshot().context.roundHistory).toEqual([]);
       actor.stop();
     });
@@ -51,7 +51,7 @@ describe("GameMachine - setup state", () => {
 
   describe("ADD_PLAYER command", () => {
     it("adds player to players array", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       expect(actor.getSnapshot().context.players.length).toBe(1);
       expect(actor.getSnapshot().context.players[0]!.name).toBe("Alice");
@@ -59,7 +59,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("player has id, name, hand: [], isDown: false, totalScore: 0", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       const player = actor.getSnapshot().context.players[0]!;
       expect(player.id).toBe("player-0");
@@ -71,7 +71,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("can add multiple players sequentially", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -82,7 +82,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("players array grows with each ADD_PLAYER", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       expect(actor.getSnapshot().context.players.length).toBe(0);
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       expect(actor.getSnapshot().context.players.length).toBe(1);
@@ -94,7 +94,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("remains in 'setup' state after adding player", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       expect(actor.getSnapshot().value).toBe("setup");
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
@@ -105,7 +105,7 @@ describe("GameMachine - setup state", () => {
 
   describe("player limits", () => {
     it("minimum 3 players required", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       // Try to start with only 2 players - should stay in setup
@@ -119,7 +119,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("maximum 8 players allowed", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       // Add 8 players
       for (let i = 0; i < 8; i++) {
         actor.send({ type: "ADD_PLAYER", name: `Player${i}` });
@@ -129,7 +129,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("ADD_PLAYER rejected if already at 8 players", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       // Add 8 players
       for (let i = 0; i < 8; i++) {
         actor.send({ type: "ADD_PLAYER", name: `Player${i}` });
@@ -144,7 +144,7 @@ describe("GameMachine - setup state", () => {
 
   describe("START_GAME command", () => {
     it("requires minimum 3 players (guard: hasMinPlayers)", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       // 2 players - should not transition
@@ -154,7 +154,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("rejected if fewer than 3 players", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       // 0 players
       actor.send({ type: "START_GAME" });
       expect(actor.getSnapshot().value).toBe("setup");
@@ -166,7 +166,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("transitions to 'playing' state when valid", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -176,7 +176,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("triggers initializePlayers action", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -194,14 +194,14 @@ describe("GameMachine - setup state", () => {
 
   describe("START_GAME rejected scenarios", () => {
     it("rejected with 0 players", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "START_GAME" });
       expect(actor.getSnapshot().value).toBe("setup");
       actor.stop();
     });
 
     it("rejected with 1 player", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "START_GAME" });
       expect(actor.getSnapshot().value).toBe("setup");
@@ -209,7 +209,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("rejected with 2 players", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "START_GAME" });
@@ -218,7 +218,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("error message: 'minimum 3 players required'", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "START_GAME" });
@@ -227,7 +227,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("remains in 'setup' state on rejection", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "START_GAME" });
       expect(actor.getSnapshot().value).toBe("setup");
@@ -238,7 +238,7 @@ describe("GameMachine - setup state", () => {
 
   describe("initializePlayers action", () => {
     it("sets initial totalScore to 0 for all players", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -250,7 +250,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("sets isDown to false for all players", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -262,7 +262,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("clears any existing hand data", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -274,7 +274,7 @@ describe("GameMachine - setup state", () => {
     });
 
     it("prepares players for round 1", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -289,7 +289,7 @@ describe("GameMachine - setup state", () => {
 describe("GameMachine - playing state", () => {
   describe("entering playing state", () => {
     it("spawns RoundMachine with current round context", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -308,7 +308,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("passes roundNumber (starts at 1)", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -318,7 +318,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("passes dealerIndex", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -330,7 +330,7 @@ describe("GameMachine - playing state", () => {
 
   describe("RoundMachine input", () => {
     it("roundNumber: context.currentRound", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -341,7 +341,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("players: context.players (with current totalScores)", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -355,7 +355,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("dealerIndex: context.dealerIndex", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -367,7 +367,7 @@ describe("GameMachine - playing state", () => {
 
   describe("round completion", () => {
     it("when RoundMachine reaches final state", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -387,7 +387,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("receives roundRecord from RoundMachine output", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -404,7 +404,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("adds roundRecord to roundHistory", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -424,7 +424,7 @@ describe("GameMachine - playing state", () => {
     it("transitions to 'roundEnd' state", () => {
       // Note: roundEnd has always transitions, so it immediately moves to playing or gameEnd
       // We can verify by checking context changes that happen in roundEnd
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -445,7 +445,7 @@ describe("GameMachine - playing state", () => {
 
   describe("roundHistory update", () => {
     it("appends new RoundRecord to existing history", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -467,7 +467,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("preserves all previous round records", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -482,7 +482,7 @@ describe("GameMachine - playing state", () => {
     });
 
     it("roundHistory.length increases by 1", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -501,7 +501,7 @@ describe("GameMachine - playing state", () => {
 describe("GameMachine - roundEnd state", () => {
   // Helper to start a game with 3 players
   function startGame() {
-    const actor = createActor(gameMachine).start();
+    const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
     actor.send({ type: "ADD_PLAYER", name: "Alice" });
     actor.send({ type: "ADD_PLAYER", name: "Bob" });
     actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -613,7 +613,7 @@ describe("GameMachine - roundEnd state", () => {
     });
 
     it("with 4 players: 0 -> 1 -> 2 -> 3 -> 0 -> 1 ...", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -682,7 +682,7 @@ describe("GameMachine - roundEnd state", () => {
 describe("GameMachine - gameEnd state", () => {
   // Helper to play a full game
   function playFullGame() {
-    const actor = createActor(gameMachine).start();
+    const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
     actor.send({ type: "ADD_PLAYER", name: "Alice" });
     actor.send({ type: "ADD_PLAYER", name: "Bob" });
     actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -759,7 +759,7 @@ describe("GameMachine - gameEnd state", () => {
     });
 
     it("handles ties (multiple winners)", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -818,7 +818,7 @@ describe("GameMachine - gameEnd state", () => {
 describe("GameMachine - guards", () => {
   describe("hasMinPlayers", () => {
     it("returns false when players.length < 3", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "START_GAME" });
@@ -827,7 +827,7 @@ describe("GameMachine - guards", () => {
     });
 
     it("returns true when players.length >= 3", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -837,7 +837,7 @@ describe("GameMachine - guards", () => {
     });
 
     it("returns true when players.length === 8", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       for (let i = 0; i < 8; i++) {
         actor.send({ type: "ADD_PLAYER", name: `Player${i}` });
       }
@@ -850,7 +850,7 @@ describe("GameMachine - guards", () => {
 
   describe("isGameOver", () => {
     it("returns false when currentRound < 6", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -868,7 +868,7 @@ describe("GameMachine - guards", () => {
     });
 
     it("returns true when currentRound >= 6", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -886,7 +886,7 @@ describe("GameMachine - guards", () => {
     });
 
     it("checked in roundEnd state", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -908,7 +908,7 @@ describe("GameMachine - guards", () => {
 describe("GameMachine - context preservation", () => {
   describe("across rounds", () => {
     it("players array persists", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -927,7 +927,7 @@ describe("GameMachine - context preservation", () => {
     });
 
     it("player.totalScore accumulates", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -948,7 +948,7 @@ describe("GameMachine - context preservation", () => {
     });
 
     it("roundHistory grows", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -971,7 +971,7 @@ describe("GameMachine - context preservation", () => {
     });
 
     it("gameId unchanged", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -991,7 +991,7 @@ describe("GameMachine - context preservation", () => {
 
   describe("player scores", () => {
     it("totalScore updated after each round", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -1018,7 +1018,7 @@ describe("GameMachine - context preservation", () => {
     });
 
     it("scores from roundRecord added to player.totalScore", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });
@@ -1036,7 +1036,7 @@ describe("GameMachine - context preservation", () => {
     });
 
     it("cumulative across all 6 rounds", () => {
-      const actor = createActor(gameMachine).start();
+      const actor = createActor(gameMachine, { input: { startingRound: 1 } }).start();
       actor.send({ type: "ADD_PLAYER", name: "Alice" });
       actor.send({ type: "ADD_PLAYER", name: "Bob" });
       actor.send({ type: "ADD_PLAYER", name: "Carol" });

@@ -84,7 +84,8 @@ export type TurnEvent =
   | { type: "LAY_OFF"; cardId: string; meldId: string }
   | { type: "DISCARD"; cardId: string }
   | { type: "GO_OUT"; finalLayOffs: LayOffSpec[] }
-  | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string };
+  | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string }
+  | { type: "REORDER_HAND"; newOrder: string[] };
 
 /**
  * Input required to create a TurnMachine actor
@@ -138,6 +139,41 @@ export const turnMachine = setup({
     mayIWindowMachine,
   },
   guards: {
+    isCurrentPlayer: ({ context, event }) => {
+      // Validate that the event's playerId matches the current turn's player
+      // If playerId is not provided, assume it's the current player (legacy behavior)
+      if ("playerId" in event && event.playerId !== undefined) {
+        return event.playerId === context.playerId;
+      }
+      return true;
+    },
+    canDrawFromStockAsPlayer: ({ context, event }) => {
+      // Must be current player and stock must not be empty
+      if ("playerId" in event && event.playerId !== undefined) {
+        if (event.playerId !== context.playerId) return false;
+      }
+      return context.stock.length > 0;
+    },
+    canDrawFromDiscardAsPlayer: ({ context, event }) => {
+      // Must be current player, not already down, and discard not empty
+      if ("playerId" in event && event.playerId !== undefined) {
+        if (event.playerId !== context.playerId) return false;
+      }
+      if (context.isDown) return false;
+      return context.discard.length > 0;
+    },
+    shouldOpenMayIWindowAsPlayer: ({ context, event }) => {
+      // Must be current player first
+      if ("playerId" in event && event.playerId !== undefined) {
+        if (event.playerId !== context.playerId) return false;
+      }
+      // Then check May I window conditions
+      if (context.stock.length === 0) return false;
+      if (context.discard.length === 0) return false;
+      if (context.playerOrder.length <= 1) return false;
+      const otherPlayers = context.playerOrder.filter((id) => id !== context.playerId);
+      return otherPlayers.some((id) => !context.playerDownStatus[id]);
+    },
     canDrawFromStock: ({ context }) => {
       // Cannot draw from stock if stock is empty
       return context.stock.length > 0;
@@ -368,6 +404,21 @@ export const turnMachine = setup({
       // Check if swap is valid using the meld.joker utility
       return canSwapJokerWithCard(meld, jokerCard, swapCard);
     },
+    // Check if hand can be reordered (free action)
+    canReorderHand: ({ context, event }) => {
+      if (event.type !== "REORDER_HAND") return false;
+      // Must have same number of cards
+      if (event.newOrder.length !== context.hand.length) return false;
+      // All cards in newOrder must be in hand
+      const handIds = new Set(context.hand.map((c) => c.id));
+      for (const cardId of event.newOrder) {
+        if (!handIds.has(cardId)) return false;
+      }
+      // All cards in hand must be in newOrder (no duplicates, no missing)
+      const orderIds = new Set(event.newOrder);
+      if (orderIds.size !== event.newOrder.length) return false;
+      return true;
+    },
   },
   actions: {
     clearError: assign({
@@ -580,6 +631,44 @@ export const turnMachine = setup({
         });
       },
     }),
+    // REORDER_HAND action - reorder cards in hand (free action)
+    reorderHand: assign({
+      hand: ({ context, event }) => {
+        if (event.type !== "REORDER_HAND") return context.hand;
+
+        // Reorder hand according to newOrder
+        const cardMap = new Map(context.hand.map((c) => [c.id, c]));
+        const reordered: Card[] = [];
+        for (const cardId of event.newOrder) {
+          const card = cardMap.get(cardId);
+          if (card) {
+            reordered.push(card);
+          }
+        }
+        return reordered;
+      },
+    }),
+    setReorderError: assign({
+      lastError: ({ context, event }) => {
+        if (event.type !== "REORDER_HAND") return "invalid event";
+        if (event.newOrder.length !== context.hand.length) {
+          return "card count mismatch";
+        }
+        const handIds = new Set(context.hand.map((c) => c.id));
+        for (const cardId of event.newOrder) {
+          if (!handIds.has(cardId)) {
+            return "card not in hand";
+          }
+        }
+        const orderIds = new Set(event.newOrder);
+        for (const card of context.hand) {
+          if (!orderIds.has(card.id)) {
+            return "card missing from new order";
+          }
+        }
+        return "invalid reorder";
+      },
+    }),
   },
 }).createMachine({
   id: "turn",
@@ -620,13 +709,15 @@ export const turnMachine = setup({
       ...(Object.keys(handUpdates).length > 0 ? { handUpdates } : {}),
     };
   },
+  // Note: REORDER_HAND is handled in individual states (awaitingDraw, drawn, awaitingDiscard)
+  // to ensure proper event handling with nested invoked actors
   states: {
     awaitingDraw: {
       on: {
         DRAW_FROM_STOCK: [
           {
             // Open May I window when there are eligible claimants
-            guard: "shouldOpenMayIWindow",
+            guard: "shouldOpenMayIWindowAsPlayer",
             target: "mayIWindow",
             actions: [
               // Store the discard top before drawing (for May I window)
@@ -639,20 +730,26 @@ export const turnMachine = setup({
           },
           {
             // Skip May I window - go directly to drawn
-            guard: "canDrawFromStock",
+            guard: "canDrawFromStockAsPlayer",
             target: "drawn",
             actions: ["drawFromStock", "clearError"],
           },
           {
-            // Fallback: set error when stock is empty
+            // Fallback: set error when stock is empty (for debugging)
+            guard: "isCurrentPlayer",
             actions: "setStockEmptyError",
           },
+          // Wrong player - silently ignore (XState philosophy)
         ],
         DRAW_FROM_DISCARD: {
-          guard: "canDrawFromDiscard",
+          guard: "canDrawFromDiscardAsPlayer",
           target: "drawn",
           actions: "drawFromDiscard",
         },
+        REORDER_HAND: [
+          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
+          { actions: "setReorderError" },
+        ],
       },
     },
     mayIWindow: {
@@ -723,6 +820,11 @@ export const turnMachine = setup({
             playerId: event.playerId ?? context.playerId,
           })),
         },
+        // Allow hand reordering even during May I window (free action)
+        REORDER_HAND: [
+          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
+          { actions: "setReorderError" },
+        ],
       },
     },
     drawn: {
@@ -771,6 +873,10 @@ export const turnMachine = setup({
           target: "wentOut",
           actions: "goOut",
         },
+        REORDER_HAND: [
+          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
+          { actions: "setReorderError" },
+        ],
       },
       always: {
         // After lay off, if hand is empty, go out immediately
@@ -795,6 +901,10 @@ export const turnMachine = setup({
             target: "turnComplete",
             actions: "discardCard",
           },
+        ],
+        REORDER_HAND: [
+          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
+          { actions: "setReorderError" },
         ],
       },
     },

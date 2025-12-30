@@ -80,6 +80,8 @@ export interface GameActorInput {
   playerNames?: string[];
   /** Whether to auto-start the game after adding players */
   autoStart?: boolean;
+  /** Starting round number (1-6) */
+  startingRound?: 1 | 2 | 3 | 4 | 5 | 6;
 }
 
 /**
@@ -170,6 +172,7 @@ export function createGameActor(
   const actor = createActor(gameMachine, {
     snapshot: options?.snapshot,
     inspect: options?.onInspect,
+    input: { startingRound: input?.startingRound ?? 1 },
   });
 
   actor.start();
@@ -333,6 +336,7 @@ export function restoreGameActor(
   const actor = createActor(gameMachine, {
     snapshot,
     inspect: options?.onInspect,
+    input: { startingRound: restoredContext.currentRound as 1 | 2 | 3 | 4 | 5 | 6 },
   });
 
   actor.start();

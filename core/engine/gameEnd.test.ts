@@ -13,7 +13,7 @@ import type { RoundNumber } from "./engine.types";
  * Helper to create and start a game with players
  */
 function createGameWithPlayers(playerCount: number) {
-  const actor = createActor(gameMachine);
+  const actor = createActor(gameMachine, { input: { startingRound: 1 } });
   actor.start();
 
   for (let i = 0; i < playerCount; i++) {

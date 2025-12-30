@@ -176,7 +176,7 @@ export function outputGameStateForLLM(
   // Recent action log (last 10 actions from current turn)
   const actionLog = readActionLog(state.gameId);
   const recentActions = actionLog
-    .filter((entry) => entry.round === state.currentRound)
+    .filter((entry) => entry.roundNumber === state.currentRound)
     .slice(-10);
 
   if (recentActions.length > 0) {

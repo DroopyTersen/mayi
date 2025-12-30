@@ -46,7 +46,7 @@ const state = {
 };
 
 class TestOrchestrator extends Orchestrator {
-  static fromState(s: typeof state): TestOrchestrator {
+  static override fromState(s: typeof state): TestOrchestrator {
     const o = new TestOrchestrator();
     // @ts-expect-error - accessing private method
     o.restoreFromState(s);
