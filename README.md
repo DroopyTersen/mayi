@@ -75,6 +75,14 @@ specs/    Design specs and plans
 
 ```bash
 bun install           # Install dependencies
-bun test              # Run tests (~2000)
+bun test              # Run tests (~2000, fast)
 bun run typecheck     # Type check
+```
+
+### Integration Tests
+
+AI integration tests (real LLM API calls) are skipped by default for speed. To run them:
+
+```bash
+RUN_INTEGRATION_TESTS=1 bun test ai/
 ```

@@ -14,6 +14,9 @@
  */
 
 import { describe, it, expect, test } from "bun:test";
+
+// Skip LLM tests by default - run with: RUN_INTEGRATION_TESTS=1 bun test ai/mayIAgent.llm.test.ts
+const skipLLM = !process.env.RUN_INTEGRATION_TESTS;
 import { executeTurn, executeAITurn } from "./mayIAgent";
 import { AIPlayerRegistry } from "./aiPlayer.registry";
 import { modelRegistry } from "./modelRegistry";
@@ -187,7 +190,7 @@ describe("AI Agent Error Handling", () => {
 // Phase-Specific Scenario Tests
 // ============================================================================
 
-describe("AWAITING_DRAW phase", () => {
+describe.skipIf(skipLLM)("AWAITING_DRAW phase", () => {
   it("should draw when it's the AI's turn", async () => {
     const state = createTestState({
       phase: "AWAITING_DRAW",
@@ -218,7 +221,7 @@ describe("AWAITING_DRAW phase", () => {
   }, 30000);
 });
 
-describe("AWAITING_ACTION phase", () => {
+describe.skipIf(skipLLM)("AWAITING_ACTION phase", () => {
   it("should skip when hand has no valid melds", async () => {
     const hand = [
       card("3", "hearts"), card("5", "diamonds"), card("7", "clubs"),
@@ -278,7 +281,7 @@ describe("AWAITING_ACTION phase", () => {
   }, 30000);
 });
 
-describe("AWAITING_DISCARD phase", () => {
+describe.skipIf(skipLLM)("AWAITING_DISCARD phase", () => {
   it("should discard a card", async () => {
     const hand = [
       card("3", "hearts"), card("5", "diamonds"), card("7", "clubs"),
@@ -310,7 +313,7 @@ describe("AWAITING_DISCARD phase", () => {
   }, 30000);
 });
 
-describe("MAY_I_WINDOW phase", () => {
+describe.skipIf(skipLLM)("MAY_I_WINDOW phase", () => {
   it("should pass when discard doesn't help", async () => {
     const hand = [
       card("3", "hearts"), card("5", "diamonds"), card("7", "clubs"),
@@ -393,7 +396,7 @@ describe("MAY_I_WINDOW phase", () => {
 // Multi-Model Compatibility Tests
 // ============================================================================
 
-describe("Multi-Model Compatibility", () => {
+describe.skipIf(skipLLM)("Multi-Model Compatibility", () => {
   const models = [
     { name: "OpenAI GPT-5 Mini", id: "openai:gpt-5-mini" },
     { name: "Anthropic Claude Haiku 4.5", id: "anthropic:claude-haiku-4-5" },
@@ -439,7 +442,7 @@ describe("Multi-Model Compatibility", () => {
 // executeAITurn Integration Tests
 // ============================================================================
 
-describe("executeAITurn with Registry", () => {
+describe.skipIf(skipLLM)("executeAITurn with Registry", () => {
   it("should execute turn for registered AI player", async () => {
     const registry = new AIPlayerRegistry();
     registry.register("player-1", { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" });

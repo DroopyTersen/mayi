@@ -19,7 +19,8 @@ const MODELS_TO_TEST = [
   { name: "xAI Grok 4.1 Fast", id: "xai:grok-4-1-fast-reasoning" },
 ] as const;
 
-describe("Model Connectivity", () => {
+// Skip by default - run with: RUN_INTEGRATION_TESTS=1 bun test ai/models.test.ts
+describe.skipIf(!process.env.RUN_INTEGRATION_TESTS)("Model Connectivity", () => {
   for (const { name, id } of MODELS_TO_TEST) {
     it(`${name} identifies itself`, async () => {
       const model = modelRegistry.languageModel(id);

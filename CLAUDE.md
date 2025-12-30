@@ -10,11 +10,14 @@ alwaysApply: false
 # Install dependencies
 bun install
 
-# Run all tests
+# Run all tests (fast, skips integration tests)
 bun test
 
 # Run specific test file
 bun test core/card/utils.test.ts
+
+# Run integration tests (makes real LLM API calls, slow)
+RUN_INTEGRATION_TESTS=1 bun test ai/
 
 # Type check
 bun run typecheck
