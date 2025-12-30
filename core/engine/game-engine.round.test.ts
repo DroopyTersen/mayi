@@ -23,6 +23,77 @@ describe("GameEngine round advancement", () => {
       expect(snapshot.currentRound).toBe(1);
     });
   });
+
+  describe("turn number tracking", () => {
+    /**
+     * Helper to complete a full turn including May I window resolution.
+     *
+     * May I window flow:
+     * 1. Current player sends DRAW_FROM_STOCK → opens May I window
+     * 2. Current player sends DRAW_FROM_STOCK again → closes window (passes on claiming discard)
+     * 3. Continue with skip/discard
+     */
+    function completeTurn(engine: GameEngine): void {
+      let snapshot = engine.getSnapshot();
+      const turnOwner = snapshot.awaitingPlayerId;
+
+      // Draw from stock (may open May I window)
+      engine.drawFromStock(turnOwner);
+
+      // If May I window opened, the turn owner must pass to close it
+      snapshot = engine.getSnapshot();
+      if (snapshot.phase === "MAY_I_WINDOW") {
+        engine.drawFromStock(turnOwner); // Pass on claiming the exposed discard
+      }
+
+      // Skip laying down, discard
+      engine.skip(turnOwner);
+      const hand = engine.getSnapshot().players.find((p) => p.id === turnOwner)!.hand;
+      engine.discard(turnOwner, hand[0]!.id);
+
+      // After discard, we should be at the next player's turn (no May I window after discard)
+    }
+
+    it("turn number starts at 1", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      expect(snapshot.turnNumber).toBe(1);
+    });
+
+    it("turn number increments after a complete turn", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      const before = engine.getSnapshot();
+      expect(before.turnNumber).toBe(1);
+      const firstPlayer = before.awaitingPlayerId;
+
+      completeTurn(engine);
+
+      const after = engine.getSnapshot();
+      expect(after.turnNumber).toBe(2);
+      expect(after.awaitingPlayerId).not.toBe(firstPlayer); // Next player's turn
+    });
+
+    it("turn number continues incrementing through multiple turns", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      // Complete 3 turns (one full round of players)
+      for (let expectedTurn = 1; expectedTurn <= 3; expectedTurn++) {
+        const snapshot = engine.getSnapshot();
+        expect(snapshot.turnNumber).toBe(expectedTurn);
+        completeTurn(engine);
+      }
+
+      expect(engine.getSnapshot().turnNumber).toBe(4);
+    });
+  });
 });
 
 describe("GameEngine.reorderHand", () => {

@@ -55,6 +55,8 @@ export interface TurnContext {
   playerOrder: string[];
   /** Map of playerId -> isDown (for May I eligibility) */
   playerDownStatus: Record<string, boolean>;
+  /** Who discarded the top card of the discard pile (previous player) */
+  lastDiscardedByPlayerId: string | null;
   /** Tracks May I winner's received cards to include in output */
   mayIResult: {
     winnerId: string;
@@ -103,6 +105,8 @@ export interface TurnInput {
   playerOrder?: string[];
   /** Map of playerId -> isDown (for May I eligibility). Defaults to empty. */
   playerDownStatus?: Record<string, boolean>;
+  /** Who discarded the top card of the discard pile (previous player). Used to prevent calling May I on your own discard. */
+  lastDiscardedByPlayerId?: string;
 }
 
 /**
@@ -686,6 +690,7 @@ export const turnMachine = setup({
     lastError: null,
     playerOrder: input.playerOrder ?? [],
     playerDownStatus: input.playerDownStatus ?? {},
+    lastDiscardedByPlayerId: input.lastDiscardedByPlayerId ?? null,
     mayIResult: null,
     mayIDiscardTop: null,
   }),
@@ -758,7 +763,7 @@ export const turnMachine = setup({
         src: "mayIWindowMachine",
         input: ({ context }): MayIWindowInput => ({
           discardedCard: context.mayIDiscardTop!,
-          discardedByPlayerId: context.playerId, // Previous player discarded
+          discardedByPlayerId: context.lastDiscardedByPlayerId ?? context.playerId,
           currentPlayerId: context.playerId,
           currentPlayerIndex: context.playerOrder.indexOf(context.playerId),
           playerOrder: context.playerOrder,

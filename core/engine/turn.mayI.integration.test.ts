@@ -39,9 +39,11 @@ function createCard(
 function createTurnInput(overrides?: Partial<TurnInput> & {
   playerOrder?: string[];
   playerDownStatus?: Record<string, boolean>;
+  lastDiscardedByPlayerId?: string;
 }): TurnInput & {
   playerOrder: string[];
   playerDownStatus: Record<string, boolean>;
+  lastDiscardedByPlayerId: string;
 } {
   const playerId = overrides?.playerId ?? "player-1";
   return {
@@ -72,6 +74,8 @@ function createTurnInput(overrides?: Partial<TurnInput> & {
       "player-1": false,
       "player-2": false,
     },
+    // Who discarded the top card (previous player)
+    lastDiscardedByPlayerId: overrides?.lastDiscardedByPlayerId ?? "player-0",
   };
 }
 
@@ -187,6 +191,8 @@ describe("TurnMachine → MayIWindowMachine Integration", () => {
           "player-2": false,
           "player-3": false,
         },
+        // player-3 discarded, so player-0 and player-2 can both call May I
+        lastDiscardedByPlayerId: "player-3",
       });
       const actor = createActor(turnMachine, { input }).start();
 
@@ -673,5 +679,72 @@ describe("TurnInput extensions for May I", () => {
       playerDownStatus: { p0: true, p1: false, p2: false },
     });
     expect(input.playerDownStatus).toEqual({ p0: true, p1: false, p2: false });
+  });
+
+  it("TurnInput accepts lastDiscardedByPlayerId field", () => {
+    const input = createTurnInput({
+      lastDiscardedByPlayerId: "player-0",
+    });
+    expect(input.lastDiscardedByPlayerId).toBe("player-0");
+  });
+});
+
+describe("May I window receives correct discardedByPlayerId", () => {
+  it("discardedByPlayerId should be the previous player who discarded, not the current player", () => {
+    // Scenario: player-0 discarded, now it's player-1's turn
+    // When player-1 draws from stock, the May I window should know that player-0 discarded
+    const discardedCard = createCard("hearts", "8", "discard-top");
+    const input = createTurnInput({
+      playerId: "player-1", // Current player
+      lastDiscardedByPlayerId: "player-0", // Previous player discarded the top card
+      discard: [discardedCard, createCard("clubs", "9")],
+      playerOrder: ["player-0", "player-1", "player-2"],
+    });
+
+    const actor = createActor(turnMachine, { input });
+    actor.start();
+
+    // Draw from stock to open May I window
+    actor.send({ type: "DRAW_FROM_STOCK" });
+
+    // Get the May I window's context
+    const snapshot = actor.getSnapshot();
+    expect(snapshot.value).toBe("mayIWindow");
+
+    // The persisted snapshot contains the invoked May I window's context
+    const persisted = actor.getPersistedSnapshot() as any;
+    const mayIContext = persisted.children?.mayIWindow?.snapshot?.context;
+
+    // The key assertion: discardedByPlayerId should be player-0 (who discarded)
+    // NOT player-1 (the current player)
+    expect(mayIContext.discardedByPlayerId).toBe("player-0");
+    expect(mayIContext.currentPlayerId).toBe("player-1");
+  });
+
+  it("player cannot call May I on their own discard", () => {
+    // player-0 discarded, now it's player-1's turn
+    // player-0 should not be able to call May I on their own discard
+    const discardedCard = createCard("hearts", "8", "discard-top");
+    const input = createTurnInput({
+      playerId: "player-1",
+      lastDiscardedByPlayerId: "player-0",
+      discard: [discardedCard],
+      playerOrder: ["player-0", "player-1", "player-2"],
+    });
+
+    const actor = createActor(turnMachine, { input });
+    actor.start();
+
+    // Draw from stock to open May I window
+    actor.send({ type: "DRAW_FROM_STOCK" });
+    expect(actor.getSnapshot().value).toBe("mayIWindow");
+
+    // player-0 tries to call May I on their own discard - should be rejected
+    actor.send({ type: "CALL_MAY_I", playerId: "player-0" });
+
+    // Check that player-0 is NOT in the claimants
+    const persisted = actor.getPersistedSnapshot() as any;
+    const mayIContext = persisted.children?.mayIWindow?.snapshot?.context;
+    expect(mayIContext.claimants).not.toContain("player-0");
   });
 });

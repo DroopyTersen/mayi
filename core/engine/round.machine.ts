@@ -76,6 +76,10 @@ export interface RoundContext {
   discard: Card[];
   table: Meld[];
   winnerPlayerId: string | null;
+  /** Current turn number within this round (starts at 1) */
+  turnNumber: number;
+  /** Who discarded the top card (previous player). Used for May I eligibility. */
+  lastDiscardedByPlayerId: string | null;
   /** Predefined state from input (used by dealCards action) */
   predefinedState: PredefinedRoundState | null;
 }
@@ -163,6 +167,7 @@ export const roundMachine = setup({
     advanceTurn: assign({
       currentPlayerIndex: ({ context }) =>
         (context.currentPlayerIndex + 1) % context.players.length,
+      turnNumber: ({ context }) => context.turnNumber + 1,
     }),
     reshuffleStock: assign(({ context }) => {
       // Keep only the top card of discard pile
@@ -193,6 +198,8 @@ export const roundMachine = setup({
     discard: [],
     table: [],
     winnerPlayerId: null,
+    turnNumber: 1,
+    lastDiscardedByPlayerId: null,
     predefinedState: input.predefinedState ?? null,
   }),
   output: ({ context }) => ({
@@ -233,6 +240,7 @@ export const roundMachine = setup({
             playerDownStatus: Object.fromEntries(
               context.players.map((p) => [p.id, p.isDown])
             ),
+            lastDiscardedByPlayerId: context.lastDiscardedByPlayerId ?? undefined,
           };
         },
         onDone: [
@@ -288,6 +296,8 @@ export const roundMachine = setup({
                   stock: output.stock,
                   discard: output.discard,
                   table: output.table,
+                  // Track who discarded (for May I - can't claim your own discard)
+                  lastDiscardedByPlayerId: output.playerId,
                 };
               }),
               "advanceTurn",

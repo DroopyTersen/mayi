@@ -47,6 +47,8 @@ interface RoundContext {
   discard: Card[];
   table: Meld[];
   roundNumber: RoundNumber;
+  turnNumber: number;
+  lastDiscardedByPlayerId: string | null;
 }
 
 interface TurnContext {
@@ -166,18 +168,6 @@ export class GameEngine {
   static fromJSON(json: string, gameId?: string, createdAt?: string): GameEngine {
     const persistedSnapshot = JSON.parse(json);
     return GameEngine.fromPersistedSnapshot(persistedSnapshot, gameId, createdAt);
-  }
-
-  /**
-   * Restore from a GameSnapshot (our custom format)
-   *
-   * Note: This requires converting back to XState's persisted format,
-   * which is complex. For now, prefer using fromPersistedSnapshot.
-   */
-  static fromSnapshot(snapshot: GameSnapshot): GameEngine {
-    throw new Error(
-      "fromSnapshot not yet implemented. Use fromPersistedSnapshot or fromJSON instead."
-    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -461,7 +451,8 @@ export class GameEngine {
       gameId: this.gameId,
       phase,
       turnPhase,
-      turnNumber: 1, // TODO: Track turn number
+      turnNumber: roundContext?.turnNumber ?? 1,
+      lastDiscardedByPlayerId: roundContext?.lastDiscardedByPlayerId ?? null,
       currentRound,
       contract: getContractForRound(currentRound)!,
       players: updatedPlayers,

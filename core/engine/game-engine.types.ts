@@ -82,8 +82,11 @@ export interface GameSnapshot {
   /** Turn phase (only meaningful when phase is ROUND_ACTIVE) */
   turnPhase: TurnPhase;
 
-  /** Turn counter within the game */
+  /** Turn counter within the round */
   turnNumber: number;
+
+  /** Who discarded the top card of the discard pile (for May I eligibility) */
+  lastDiscardedByPlayerId: string | null;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Round State
