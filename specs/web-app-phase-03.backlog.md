@@ -36,16 +36,16 @@
 
 ## Phase 3.3: Game View Layout (Plan lines 451-456)
 
-- [ ] 3.3.1 Create GameView component (`app/ui/game-view/GameView.tsx`) - Plan lines 336-402
-- [ ] 3.3.2 Create AIThinkingIndicator component - Plan lines 528-530
-- [ ] 3.3.3 Integrate GameHeader, TableDisplay, HandDisplay, DiscardPileDisplay
-- [ ] 3.3.4 Integrate PlayersTableDisplay with card counts
-- [ ] 3.3.5 Create ActivityLog display component
-- [ ] 3.3.6 Implement responsive layout (stacked mobile, 2-column desktop)
-- [ ] 3.3.7 Update game route to conditionally render GameView vs LobbyView
-- [ ] 3.3.8 Use the CLAUDE Chrome extension to verify what you've built in the browser via end-to-end testing. The dev server is already running at http://localhost:5173/. Make sure it looks good on all three devices, so test it in desktop, tablet, and phone viewports.
-- [ ] 3.3.9 Commit changes to source control
-- [ ] End of Phase 3.3
+- [x] 3.3.1 Create GameView component (`app/ui/game-view/GameView.tsx`) - Plan lines 336-402
+- [x] 3.3.2 Create AIThinkingIndicator component - Plan lines 528-530
+- [x] 3.3.3 Integrate GameHeader, TableDisplay, HandDisplay, DiscardPileDisplay
+- [x] 3.3.4 Integrate PlayersTableDisplay with card counts
+- [x] 3.3.5 Create ActivityLog display component
+- [x] 3.3.6 Implement responsive layout (stacked mobile, 2-column desktop)
+- [x] 3.3.7 Update game route to conditionally render GameView vs LobbyView
+- [x] 3.3.8 Use the CLAUDE Chrome extension to verify what you've built in the browser via end-to-end testing. The dev server is already running at http://localhost:5173/. Make sure it looks good on all three devices, so test it in desktop, tablet, and phone viewports.
+- [x] 3.3.9 Commit changes to source control
+- [x] End of Phase 3.3
 
 ## Phase 3.4: Turn Flow - Human Players (Plan lines 458-462)
 
@@ -126,5 +126,5 @@ _(Add tasks here as they are discovered)_
 
 ## Progress Tracking
 
-**Current Task**: Phase 3.3.1 - Create GameView component
-**Last Updated**: Phase 3.2 complete
+**Current Task**: Phase 3.4.1 - Create game-actions validation
+**Last Updated**: Phase 3.3 complete
