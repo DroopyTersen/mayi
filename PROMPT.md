@@ -7,7 +7,7 @@ We are working on implementing a card game app that allows families to play toge
 Before any work, study the specifications:
 
 - `@docs/house-rules.md` — game rules as played by the family
-- `@specs/glossary.md` — terminology and data model
+- `@docs/glossary.md` — terminology and data model
 - `@specs/tech-design.md` — architecture and type definitions
 - `@specs/implementation-plan.md` — phased build approach
 

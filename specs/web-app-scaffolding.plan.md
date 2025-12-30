@@ -2,384 +2,431 @@
 
 > **Status**: Planning Complete
 > **Date**: December 29, 2024
-> **Decision**: React Router 7 + PartyKit, both deployed to user's Cloudflare account
+> **Decision**: React Router 7 + PartyServer consolidated in a single Cloudflare Worker
 
 ---
 
 ## Table of Contents
 
 1. [Executive Summary](#executive-summary)
-2. [Technology Choices & Rationale](#technology-choices--rationale)
-3. [Architecture](#architecture)
-4. [Decisions Made](#decisions-made)
-5. [How PartyKit Works](#how-partykit-works)
-6. [How React Router 7 Framework Mode Works](#how-react-router-7-framework-mode-works)
-7. [Project Structure](#project-structure)
-8. [Scaffolding Commands](#scaffolding-commands)
-9. [Configuration Files](#configuration-files)
-10. [Implementation Code Examples](#implementation-code-examples)
-11. [Development Workflow](#development-workflow)
-12. [Deployment](#deployment)
-13. [Type Sharing Strategy](#type-sharing-strategy)
-14. [Hello-World Features](#hello-world-features)
-15. [Future Considerations](#future-considerations)
-16. [References](#references)
+2. [Architecture Overview](#architecture-overview)
+3. [State Synchronization Strategy](#state-synchronization-strategy)
+4. [Technology Decisions](#technology-decisions)
+5. [How the Consolidated Architecture Works](#how-the-consolidated-architecture-works)
+6. [Project Structure](#project-structure)
+7. [Configuration Files](#configuration-files)
+8. [Implementation Code Examples](#implementation-code-examples)
+9. [Development Workflow](#development-workflow)
+10. [Deployment](#deployment)
+11. [Hello-World Features](#hello-world-features)
+12. [Future Considerations](#future-considerations)
+13. [References](#references)
 
 ---
 
 ## Executive Summary
 
-This document outlines the complete plan for scaffolding a web application for the "May I" card game. After extensive research into PartyKit, React Router 7, Cloudflare Workers, and various deployment strategies, we've decided on:
+This document outlines the complete plan for scaffolding a web application for the "May I?" card game. After extensive research, we've decided on a **consolidated architecture**:
 
-- **React Router 7** (framework mode) for the web application
-- **PartyKit** for real-time WebSocket communication (abstracts Durable Objects)
-- **Cloudflare Workers** as the deployment target for both (cloud-prem mode)
+- **Single Cloudflare Worker** running both React Router 7 AND PartyServer
+- **Server-authoritative state** with full state broadcast to clients
+- **XState stays on server only** — clients are "dumb renderers" that receive state and send commands
+- **No separate PartyKit deployment** — use `partyserver` package directly in the Worker
 
-### Key Insight
+### Key Architectural Decisions
 
-PartyKit is built on top of Cloudflare Durable Objects, but **we don't need to touch Durable Objects directly**. PartyKit provides a clean `Party.Server` API that handles all the complexity of WebSocket connections, room management, and state persistence.
-
----
-
-## Technology Choices & Rationale
-
-### Why PartyKit (Not Raw Durable Objects)?
-
-| Aspect | PartyKit | Raw Durable Objects |
-|--------|----------|---------------------|
-| **API** | Clean `Party.Server` class with lifecycle hooks | Low-level `DurableObject` class |
-| **WebSocket** | Built-in `onConnect`, `onMessage`, `onClose` | Manual `acceptWebSocket`, hibernation handling |
-| **Room concept** | Native - each "party" is a room | Must implement yourself |
-| **Broadcast** | `room.broadcast()` one-liner | Manual iteration over connections |
-| **Storage** | `room.storage` key-value API | Same underlying API, but more setup |
-| **Development** | `npx partykit dev` with hot reload | Wrangler with more configuration |
-| **Learning curve** | Lower | Higher |
-
-**Decision**: Use PartyKit. It's purpose-built for real-time multiplayer applications and abstracts all the Durable Objects complexity.
-
-### Why React Router 7 Framework Mode (Not Remix)?
-
-- **Remix is now React Router 7**: The Remix team merged Remix into React Router 7 "framework mode"
-- **Active development**: React Router 7 is the current focus, not Remix
-- **Cloudflare support**: Official Cloudflare template and Vite plugin support
-- **Server-side capabilities**: Full loaders (GET) and actions (POST) for server-side logic
-
-### Why Cloudflare Workers (Not Vercel/Netlify)?
-
-- **PartyKit compatibility**: PartyKit is built on Cloudflare's infrastructure
-- **Cloud-prem**: Can deploy PartyKit to our own Cloudflare account (no platform fees)
-- **Single vendor**: Both web app and PartyKit on same Cloudflare account
-- **Edge performance**: ~50ms from 95% of internet users
-
-### Why Not the Remix Starter?
-
-The [partykit/remix-starter](https://github.com/partykit/remix-starter) uses Remix and a special `partymix` package. Since Remix has evolved into React Router 7, we'll start fresh with:
-1. Official Cloudflare React Router 7 template
-2. Add PartyKit separately with `partysocket` for client connections
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Deployment model** | Single consolidated Worker | Simpler ops, no CORS, same-origin WebSocket |
+| **State ownership** | Server-authoritative | Turn-based game; no client prediction needed |
+| **State sync pattern** | Full state broadcast | Simple, debuggable, ~5KB state is trivial |
+| **XState location** | Server only (in Orchestrator) | Clients don't need machine complexity |
+| **Client role** | Dumb renderer + command sender | Receive `SerializableGameState`, send commands |
 
 ---
 
-## Architecture
+## Architecture Overview
 
-### High-Level Overview
+### Consolidated Single-Worker Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     Single Cloudflare Worker                              │
+│                        (Your Cloudflare Account)                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐ │
+│  │                        workers/app.ts                                │ │
+│  │                      (Entry Point)                                   │ │
+│  │                                                                      │ │
+│  │   export default {                                                   │ │
+│  │     async fetch(request, env) {                                      │ │
+│  │       // 1. Try PartyServer first (WebSocket + /parties/* routes)    │ │
+│  │       const partyResponse = await routePartykitRequest(request, env);│ │
+│  │       if (partyResponse) return partyResponse;                       │ │
+│  │                                                                      │ │
+│  │       // 2. Fall back to React Router (everything else)              │ │
+│  │       return reactRouterHandler(request, env);                       │ │
+│  │     }                                                                │ │
+│  │   }                                                                  │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│            │                                    │                         │
+│            ▼                                    ▼                         │
+│  ┌──────────────────────┐          ┌──────────────────────────────────┐  │
+│  │  React Router 7 App  │          │   MayIRoom (Durable Object)      │  │
+│  │                      │          │   extends PartyServer.Server     │  │
+│  │  Routes:             │          │                                  │  │
+│  │  /         (home)    │          │   • Orchestrator instance        │  │
+│  │  /game/:id (game)    │          │   • XState machine (internal)    │  │
+│  │                      │          │   • WebSocket connections        │  │
+│  │  Loaders/Actions:    │          │   • State persistence            │  │
+│  │  • SSR rendering     │          │                                  │  │
+│  │  • Form handling     │          │   Lifecycle:                     │  │
+│  │                      │          │   • onStart() - load state       │  │
+│  └──────────────────────┘          │   • onConnect() - new player     │  │
+│                                    │   • onMessage() - game commands  │  │
+│                                    │   • onClose() - player left      │  │
+│                                    └──────────────────────────────────┘  │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+                    │                              ▲
+                    │ HTTP (pages)                 │ WebSocket (game state)
+                    ▼                              │
+              ┌─────────────────────────────────────┐
+              │              Browser                │
+              │                                     │
+              │  • React Router handles navigation  │
+              │  • usePartySocket() for real-time   │
+              │  • Receives full game state         │
+              │  • Sends commands (not XState events)│
+              │  • NO local XState machine          │
+              └─────────────────────────────────────┘
+```
+
+### Why Consolidation Works
+
+The `partyserver` npm package is designed to be embedded in any Cloudflare Worker. It's a library, not a separate service. Key insight from [threepointone/partyvite](https://github.com/threepointone/partyvite):
+
+```typescript
+import { routePartykitRequest, Server } from "partyserver";
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (
+      (await routePartykitRequest(request, env)) ||  // PartyServer handles /parties/*
+      new Response("Not Found", { status: 404 })     // Fallback
+    );
+  }
+}
+```
+
+**Benefits of consolidation:**
+- Single deployment to Cloudflare
+- No CORS between web app and WebSocket server
+- Same-origin WebSocket connections
+- Unified environment (env.DB, env.KV all available to both)
+- Simpler development (one process, not two)
+
+---
+
+## State Synchronization Strategy
+
+### Decision: Server-Authoritative with Full State Broadcast
+
+For a turn-based card game like May I?, we use **Pattern A: Authoritative Server with Full State Broadcast**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Your Cloudflare Account                       │
-├─────────────────────────────────────────────────────────────────┤
+│ MayIRoom (Durable Object)                                        │
 │                                                                  │
-│  ┌────────────────────────┐      ┌────────────────────────────┐ │
-│  │   React Router 7 App   │      │      PartyKit Server       │ │
-│  │   (Cloudflare Worker)  │      │      (Cloud-Prem Mode)     │ │
-│  │                        │      │                            │ │
-│  │  Routes:               │      │  Rooms:                    │ │
-│  │  /           (home)    │      │  /party/main/:roomId       │ │
-│  │  /game/:id   (game)    │      │                            │ │
-│  │                        │      │  Lifecycle:                │ │
-│  │  Server-side:          │      │  • onConnect()             │ │
-│  │  • loader() - fetch    │      │  • onMessage()             │ │
-│  │  • action() - mutate   │      │  • onClose()               │ │
-│  │                        │      │  • onRequest() (HTTP)      │ │
-│  └────────────────────────┘      └────────────────────────────┘ │
-│            │                                ▲                    │
-│            │ HTTP                           │ WebSocket          │
-│            ▼                                │                    │
-└────────────┬────────────────────────────────┼────────────────────┘
-             │                                │
-             ▼                                │
-       ┌───────────────────────────────────────┐
-       │              Browser                  │
-       │                                       │
-       │  • React Router handles navigation   │
-       │  • usePartySocket() for real-time    │
-       │  • Forms trigger server actions      │
-       └───────────────────────────────────────┘
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ Orchestrator                                                │ │
+│  │ • XState machine hierarchy (GameMachine → RoundMachine →   │ │
+│  │   TurnMachine → MayIWindowMachine)                          │ │
+│  │ • Source of truth for all game state                        │ │
+│  │ • Validates all commands                                    │ │
+│  │ • Serializes state via getSerializableState()               │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  onMessage(cmd) {                                                │
+│    // 1. Execute command on Orchestrator                         │
+│    const result = this.orchestrator.executeCommand(cmd);         │
+│                                                                  │
+│    // 2. If successful, send per-player views (NOT broadcast!)   │
+│    if (result.success) {                                         │
+│      for (const conn of this.room.getConnections()) {            │
+│        const view = this.computePlayerView(conn.playerId);       │
+│        conn.send(JSON.stringify({ type: "STATE_UPDATE", view }));│
+│      }                         ↑ Each player sees only their hand │
+│    }                                                             │
+│  }                                                               │
+└─────────────────────────────────────────────────────────────────┘
+                              ↑
+               Commands       │        ↓ Per-player views
+               (draw, discard,│        (public state + YOUR hand only)
+                lay down)     │
+                              │
+┌─────────────────────────────┴────────────────────────────────────┐
+│                         Clients                                   │
+│                                                                   │
+│   • NO local XState machine                                       │
+│   • Receive YOUR view → replace local state → re-render           │
+│   • Send commands: { type: "DRAW_FROM_STOCK", playerId: "..." }   │
+│   • Wait for new state from server                                │
+│   • You see: your hand, card counts, table, discard               │
+│   • You DON'T see: other players' hands                           │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-### Request Flow
+### Why This Pattern for May I?
 
-**Page Load (HTTP):**
-1. Browser requests `/game/abc123`
-2. Cloudflare Worker runs React Router
-3. `loader()` executes (can fetch from PartyKit via HTTP if needed)
-4. Server renders HTML, sends to browser
-5. React hydrates on client
+| Aspect | Full State Broadcast | Event Forwarding |
+|--------|---------------------|------------------|
+| **Complexity** | Simple | Complex (need determinism) |
+| **Debugging** | Easy (see full state) | Hard (state depends on history) |
+| **Bandwidth** | ~5KB per update | Lower |
+| **Client prediction** | Not needed | Enables it |
+| **Best for** | Turn-based games | Real-time games (FPS, racing) |
 
-**Real-time Connection (WebSocket):**
-1. React component mounts with `usePartySocket({ room: "abc123" })`
-2. PartySocket connects to PartyKit server at `party.yourdomain.com/party/main/abc123`
-3. PartyKit calls `onConnect()` on the GameRoom class
-4. Bidirectional messages via `send()` and `onMessage()`
+**May I? is turn-based** — one player acts at a time. There's no need for client-side prediction or event forwarding. Full state broadcast is simpler and perfectly adequate.
 
-**Game Action (Hybrid):**
-1. Player plays a card → UI sends message via WebSocket
-2. PartyKit `onMessage()` validates and broadcasts state change
-3. All connected clients receive update instantly
+### What Clients Send vs. Receive
 
-**OR (using React Router action):**
-1. Player submits form → triggers `action()`
-2. Server action could call PartyKit via HTTP
-3. PartyKit broadcasts to other clients
-4. Page revalidates via loader
+**Clients send COMMANDS (not XState events):**
+```typescript
+// Commands map to Orchestrator methods
+{ type: "DRAW_FROM_STOCK" }           → orchestrator.drawFromStock()
+{ type: "DRAW_FROM_DISCARD" }         → orchestrator.drawFromDiscard()
+{ type: "LAY_DOWN", meldGroups: [...] } → orchestrator.layDown(meldGroups)
+{ type: "DISCARD", position: 3 }      → orchestrator.discardCard(3)
+{ type: "LAY_OFF", cardPos, meldNum } → orchestrator.layOff(cardPos, meldNum)
+{ type: "CALL_MAY_I" }                → orchestrator.callMayI()
+{ type: "PASS" }                      → orchestrator.pass()
+```
+
+**Clients receive PER-PLAYER VIEWS (not raw state):**
+
+> **Important**: You can't broadcast the full authoritative state to everyone — hands are secret! The server must compute a per-player "view" and send it per-connection.
+
+```typescript
+// Each player receives a personalized view
+interface PlayerView {
+  gameId: string;
+
+  // Public information (same for everyone)
+  public: {
+    currentPlayerIndex: number;
+    turnPhase: "DRAW" | "PLAY" | "DISCARD" | "MAY_I_WINDOW";
+    round: number;
+    discard: Card[];              // Top card(s) visible
+    stockCount: number;           // How many cards in stock (not contents!)
+    table: Meld[];                // Melds on table
+    scores: Record<string, number>;
+  };
+
+  // Per-player information
+  players: Array<{
+    name: string;
+    cardCount: number;            // How many cards they have (not contents!)
+    hasLaidDown: boolean;
+  }>;
+
+  // Private: only YOUR hand (sent only to you)
+  yourHand: Card[];
+  yourPlayerIndex: number;
+}
+```
+
+**Two approaches for sending views:**
+
+1. **Per-connection send** (simpler): Loop through connections, compute view for each, send individually
+   ```typescript
+   for (const conn of this.room.getConnections()) {
+     const playerId = this.connectionToPlayer.get(conn.id);
+     const view = this.computePlayerView(playerId);
+     conn.send(JSON.stringify({ type: "STATE_UPDATE", state: view }));
+   }
+   ```
+
+2. **Broadcast public + unicast private**: Broadcast public state to all, then send private hand to each
+   ```typescript
+   // Everyone gets public state
+   this.room.broadcast(JSON.stringify({ type: "PUBLIC_STATE", state: publicState }));
+
+   // Each player gets their private hand
+   for (const conn of this.room.getConnections()) {
+     const playerId = this.connectionToPlayer.get(conn.id);
+     conn.send(JSON.stringify({ type: "YOUR_HAND", hand: getHand(playerId) }));
+   }
+   ```
+
+For May I?, approach #1 (per-connection send) is simpler since state is small.
+
+### XState Is a Server-Side Implementation Detail
+
+The XState actor hierarchy (GameMachine → RoundMachine → TurnMachine → MayIWindowMachine) stays entirely on the server. Clients never see XState events — they see serialized game state.
+
+This is the "black box" approach: XState manages game logic internally, but the Orchestrator exposes a simple command-based API.
+
+**Optional: Client-side UI state machine**
+
+You can optionally use XState on the client for UI/connection concerns (not game rules):
+
+```typescript
+// Client-side machine for UI state only
+const connectionMachine = createMachine({
+  id: 'connection',
+  initial: 'connecting',
+  states: {
+    connecting: { on: { CONNECTED: 'lobby' } },
+    lobby: { on: { GAME_STARTED: 'playing' } },
+    playing: { on: { GAME_ENDED: 'results' } },
+    results: { on: { NEW_GAME: 'lobby' } },
+    disconnected: { on: { RECONNECT: 'connecting' } }
+  }
+});
+```
+
+This is separate from the authoritative game state machine on the server. The client UI machine tracks connection state, screen transitions, and local UI concerns — not game rules.
 
 ---
 
-## Decisions Made
+## Technology Decisions
 
-Based on our discussion, here are the decisions:
+### Final Decisions Table
 
-| Question | Decision |
-|----------|----------|
-| **PartyKit deployment** | Cloud-prem (to our own Cloudflare account) |
-| **Web app deployment** | Cloudflare Workers |
-| **Web app location** | `app/` folder at project root |
-| **Type sharing** | Direct imports via tsconfig paths from `../core` |
-| **Hello-world features** | "Create Game" + "Join by ID" (no lobby list yet) |
-| **Framework** | React Router 7 framework mode (not Remix) |
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| **Deployment model** | Single consolidated Worker | No separate PartyKit deployment; simpler ops |
+| **Framework** | React Router 7 framework mode | Latest version, Cloudflare support |
+| **Real-time** | `partyserver` package (embedded) | Library, not platform; no platform fees |
+| **State sync** | Server-authoritative, full broadcast | Turn-based game; simple and debuggable |
+| **XState location** | Server only | Clients don't need machine complexity |
+| **Web app location** | `app/` folder at project root | Contains both RR7 routes and PartyServer |
+| **Type sharing** | Direct imports via tsconfig paths | Same repo; no workspace needed initially |
 
 ### Rejected Alternatives
 
 | Alternative | Why Rejected |
 |-------------|--------------|
-| PartyKit managed hosting | Want everything in our own Cloudflare account |
-| Raw Durable Objects | PartyKit abstracts this; no need for complexity |
-| Remix | Evolved into React Router 7; use the latest |
-| Cloudflare Pages | Workers gives more flexibility for SSR |
-| Separate repository | Type sharing is easier in monorepo |
+| Separate PartyKit deployment | Consolidation is simpler, no CORS |
+| PartyKit managed platform | Want control; cloud-prem in own account |
+| Event forwarding to clients | Overkill for turn-based game |
+| XState on client | Adds complexity; server is source of truth |
+| Remix | Evolved into React Router 7 |
+| Two terminal dev workflow | Consolidated = single process |
 
 ---
 
-## How PartyKit Works
+## How the Consolidated Architecture Works
 
-### The Mental Model
+### Request Routing
 
-PartyKit runs on Cloudflare's edge network using Durable Objects under the hood. Each "room" is a single Durable Object instance that:
-- Maintains in-memory state
-- Handles WebSocket connections
-- Can persist data to storage
-- Runs in one location (migrates to where clients are)
+The Worker entry point (`workers/app.ts`) routes requests:
 
-### Party.Server API
+1. **PartyServer routes** (`/parties/:server/:name`) → Durable Object
+2. **Everything else** → React Router
 
 ```typescript
-import type * as Party from "partykit/server";
+// workers/app.ts
+import { routePartykitRequest } from "partyserver";
+import { createRequestHandler } from "@react-router/cloudflare";
 
-export default class GameRoom implements Party.Server {
-  constructor(readonly room: Party.Room) {}
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // PartyServer handles WebSocket upgrades and /parties/* routes
+    const partyResponse = await routePartykitRequest(request, env);
+    if (partyResponse) return partyResponse;
 
-  // Room object provides:
-  // - room.id: string - the room identifier
-  // - room.storage: PartyKitStorage - persistent key-value store
-  // - room.broadcast(msg, without?) - send to all connections
-  // - room.getConnections() - iterate over connections
-
-  // Called when server starts or wakes from hibernation
-  onStart() {}
-
-  // Called when a WebSocket connects
-  onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    // ctx.request has the upgrade request (headers, etc.)
-  }
-
-  // Called when a message is received
-  onMessage(message: string | ArrayBuffer, sender: Party.Connection) {}
-
-  // Called when a WebSocket closes
-  onClose(conn: Party.Connection) {}
-
-  // Called when a WebSocket errors
-  onError(conn: Party.Connection, error: Error) {}
-
-  // Handle HTTP requests (not WebSocket)
-  onRequest(request: Party.Request) {
-    return new Response("OK");
+    // React Router handles all other routes
+    return createRequestHandler({ build: ... })(request, { env, ctx });
   }
 }
 ```
 
-### Rooms Are Created On-Demand
+### PartyServer Lifecycle
 
-When a client connects to `/party/main/my-room-id`:
-- If no room exists with that ID, PartyKit creates one
-- If room exists, client joins it
-- Room persists as long as there are connections (then may hibernate)
+The `partyserver` package provides a `Server` class that manages:
 
-This means the client can "create" a room just by connecting to a new ID.
-
-### PartySocket Client
+- **Room creation**: Rooms are created on-demand when clients connect
+- **WebSocket handling**: `onConnect`, `onMessage`, `onClose` lifecycle hooks
+- **State persistence**: `this.room.storage` for key-value persistence
+- **Broadcasting**: `this.room.broadcast()` to send to all connections
 
 ```typescript
-import PartySocket from "partysocket";
+import { Server, type Connection, type ConnectionContext } from "partyserver";
 
-const socket = new PartySocket({
-  host: "your-project.your-username.partykit.dev",
-  room: "my-room-id",
-});
+export class MayIRoom extends Server {
+  orchestrator: Orchestrator;
 
-socket.addEventListener("open", () => {
-  console.log("Connected!");
-});
+  async onStart() {
+    // Load persisted state if exists
+    const saved = await this.room.storage.get("game:state");
+    if (saved) {
+      this.orchestrator = Orchestrator.fromState(JSON.parse(saved));
+    }
+  }
 
-socket.addEventListener("message", (event) => {
-  console.log("Received:", event.data);
-});
+  onConnect(conn: Connection, ctx: ConnectionContext) {
+    // Send current state to new connection
+    if (this.orchestrator) {
+      conn.send(JSON.stringify({
+        type: "STATE_UPDATE",
+        state: this.orchestrator.getSerializableState()
+      }));
+    }
+  }
 
-socket.send("Hello from client!");
+  onMessage(message: string, sender: Connection) {
+    const cmd = JSON.parse(message);
+    const result = this.executeCommand(cmd);
+
+    if (result.success) {
+      // Send per-player views (not broadcast!) because hands are private
+      for (const conn of this.room.getConnections()) {
+        const view = this.computePlayerView(conn.id);
+        conn.send(JSON.stringify({ type: "STATE_UPDATE", state: view }));
+      }
+      this.room.storage.put("game:state", JSON.stringify(this.orchestrator.getSerializableState()));
+    }
+  }
+}
 ```
 
-### React Hook
+### React Router Integration
+
+React Router 7 handles:
+
+- **SSR**: Server-side rendering for initial page loads
+- **Loaders**: Data fetching on GET requests
+- **Actions**: Form handling on POST requests
+- **Client navigation**: SPA-style navigation after hydration
+
+The game page establishes a WebSocket connection via `usePartySocket`:
 
 ```typescript
+// routes/game.$roomId.tsx
 import usePartySocket from "partysocket/react";
 
-function GameComponent({ roomId }) {
+export default function Game({ loaderData }) {
+  const { roomId } = loaderData;
+  const [gameState, setGameState] = useState(null);
+
   const socket = usePartySocket({
-    host: "your-project.partykit.dev",
+    host: window.location.host,  // Same origin!
     room: roomId,
-    onOpen() {
-      console.log("Connected!");
-    },
+    party: "mayi",  // Maps to MayIRoom Durable Object
+
     onMessage(event) {
-      const data = JSON.parse(event.data);
-      // Handle incoming message
-    },
-    onClose() {
-      console.log("Disconnected");
-    },
+      const msg = JSON.parse(event.data);
+      if (msg.type === "STATE_UPDATE") {
+        setGameState(msg.state);  // Replace entire state
+      }
+    }
   });
 
-  // socket.send() to send messages
-  // Hook handles cleanup on unmount
-}
-```
-
----
-
-## How React Router 7 Framework Mode Works
-
-### Overview
-
-React Router 7 "framework mode" provides:
-- **File-based or config-based routing**
-- **Loaders**: Server-side data fetching (runs on GET requests)
-- **Actions**: Server-side mutations (runs on POST/PUT/DELETE)
-- **SSR**: Server-side rendering out of the box
-- **Type safety**: Auto-generated route types
-
-### Route Configuration
-
-Routes are defined in `app/routes.ts`:
-
-```typescript
-import { type RouteConfig, route, index } from "@react-router/dev/routes";
-
-export default [
-  index("./routes/home.tsx"),                    // /
-  route("game/:roomId", "./routes/game.tsx"),    // /game/:roomId
-] satisfies RouteConfig;
-```
-
-### Loaders (Server-side GET)
-
-```typescript
-// app/routes/game.tsx
-import type { Route } from "./+types/game";
-
-// Runs on the SERVER when the route is requested
-// Removed from client bundle - can use server-only APIs
-export async function loader({ params, context }: Route.LoaderArgs) {
-  const roomId = params.roomId;
-
-  // Could fetch game state from PartyKit via HTTP
-  // Or from a database, or anywhere
-
-  return {
-    roomId,
-    // data...
-  };
-}
-
-// Component receives loader data automatically
-export default function Game({ loaderData }: Route.ComponentProps) {
-  const { roomId } = loaderData;
-  return <div>Game: {roomId}</div>;
-}
-```
-
-### Actions (Server-side POST)
-
-```typescript
-// app/routes/home.tsx
-import type { Route } from "./+types/home";
-import { redirect, Form } from "react-router";
-
-// Runs on the SERVER when a form is submitted
-export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
-  const intent = formData.get("intent");
-
-  if (intent === "create") {
-    const roomId = generateRoomId(); // nanoid or similar
-    // Could initialize game state in PartyKit here
-    return redirect(`/game/${roomId}`);
-  }
-
-  if (intent === "join") {
-    const roomId = formData.get("roomId");
-    return redirect(`/game/${roomId}`);
-  }
-}
-
-export default function Home() {
-  return (
-    <Form method="post">
-      <input type="hidden" name="intent" value="create" />
-      <button type="submit">Start New Game</button>
-    </Form>
-  );
-}
-```
-
-### Key Points
-
-1. **Loaders and actions run on the server** - They're stripped from client bundles
-2. **Automatic revalidation** - After an action, loaders re-run to refresh data
-3. **Type safety** - Route types are generated in `+types/` folders
-4. **Progressive enhancement** - Forms work without JavaScript
-
-### Cloudflare-Specific Context
-
-On Cloudflare Workers, you get access to Cloudflare bindings:
-
-```typescript
-export async function loader({ context }: Route.LoaderArgs) {
-  // Access Cloudflare bindings
-  const env = context.cloudflare.env;
-
-  // Example: if you had D1 database bound
-  // const db = env.DB;
-
-  return { /* ... */ };
+  // Render based on gameState
+  // Send commands via socket.send(JSON.stringify({ type: "DRAW_FROM_STOCK" }))
 }
 ```
 
@@ -389,135 +436,100 @@ export async function loader({ context }: Route.LoaderArgs) {
 
 ```
 mayi/                              # Existing project root
-├── core/                          # Existing game engine
+├── core/                          # Existing game engine (unchanged)
 │   ├── engine/
+│   │   ├── game.machine.ts
+│   │   ├── round.machine.ts
+│   │   ├── turn.machine.ts
+│   │   └── ...
 │   ├── card/
 │   └── ...
 │
-├── app/                           # NEW: React Router 7 web app
-│   ├── routes.ts                  # Route definitions
-│   ├── root.tsx                   # Root layout (html, head, body)
-│   ├── routes/
-│   │   ├── home.tsx               # / - create/join game
-│   │   └── game.$roomId.tsx       # /game/:roomId - game room
-│   ├── components/
-│   │   └── ...
+├── cli/                           # Existing CLI (unchanged)
+│   ├── harness/
+│   │   └── orchestrator.ts        # Reused by PartyServer!
+│   └── ...
+│
+├── app/                           # NEW: Consolidated web application
+│   ├── workers/
+│   │   └── app.ts                 # Worker entry: routes to Party or RR7
+│   │
+│   ├── party/
+│   │   └── mayi-room.ts           # MayIRoom extends Server (uses Orchestrator)
+│   │
+│   ├── app/                       # React Router 7 app source
+│   │   ├── root.tsx               # Root layout
+│   │   ├── routes.ts              # Route definitions
+│   │   └── routes/
+│   │       ├── home.tsx           # / - create/join game
+│   │       └── game.$roomId.tsx   # /game/:roomId - game UI
+│   │
 │   ├── lib/
-│   │   └── partykit.client.ts     # PartyKit client utilities
-│   ├── .env                       # Environment variables
-│   ├── .env.example
+│   │   ├── game-client.ts         # WebSocket client wrapper
+│   │   └── game.types.ts          # Shared types for client/server messages
+│   │
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── vite.config.ts
 │   ├── react-router.config.ts
-│   └── wrangler.jsonc
+│   └── wrangler.jsonc             # Durable Object bindings here!
 │
-├── party/                         # NEW: PartyKit server
-│   ├── main.ts                    # Main party server (game rooms)
-│   └── partykit.json              # PartyKit configuration
-│
-├── specs/                         # Documentation
+├── specs/
 │   └── web-app-scaffolding.plan.md
 │
-└── package.json                   # Root package.json (workspace?)
+└── package.json                   # Root (optional workspace config)
 ```
 
-### Notes on Structure
+### Key Differences from Original Plan
 
-- **`app/`** contains the React Router 7 application with its own `package.json`
-- **`party/`** contains the PartyKit server (could be inside `app/` but keeping separate for clarity)
-- **`core/`** is imported by both via TypeScript paths
-- Consider making this a **Bun workspace** for shared dependencies
-
----
-
-## Scaffolding Commands
-
-### Step 1: Create React Router 7 App with Cloudflare
-
-```bash
-# From project root
-cd /Users/drew/code/mayi
-
-# Create the app using Cloudflare's template
-# This creates app/ folder with everything configured
-npm create cloudflare@latest -- app --framework=react-router
-
-# Or with Bun:
-bun create cloudflare app --framework=react-router
-```
-
-This scaffolds:
-- `app/package.json` - Dependencies (react-router, vite, wrangler)
-- `app/vite.config.ts` - Vite with Cloudflare plugin
-- `app/react-router.config.ts` - SSR enabled
-- `app/wrangler.jsonc` - Cloudflare Workers config
-- `app/workers/app.ts` - Worker entry point
-- `app/app/` - React app source (routes, root.tsx)
-
-### Step 2: Install Dependencies
-
-```bash
-cd app
-bun install
-
-# Add PartyKit client library
-bun add partysocket
-
-# Add nanoid for room ID generation
-bun add nanoid
-```
-
-### Step 3: Initialize PartyKit
-
-```bash
-# From project root (not app/)
-cd /Users/drew/code/mayi
-
-# Initialize PartyKit
-npx partykit init --typescript
-
-# This creates:
-# - partykit.json
-# - party/index.ts (rename to main.ts)
-```
-
-Or manually create the files (see Configuration Files section).
-
-### Step 4: Install PartyKit Dev Dependency
-
-```bash
-# In root or wherever you want to run PartyKit from
-bun add -d partykit
-```
+| Original Plan | New Consolidated Plan |
+|--------------|----------------------|
+| Separate `party/` folder at root | `app/party/` inside the app |
+| `partykit.json` config | `wrangler.jsonc` with DO bindings |
+| Two dev processes | Single `bun run dev` |
+| Separate PartyKit deployment | Single Worker deployment |
 
 ---
 
 ## Configuration Files
 
-### `partykit.json` (Project Root)
+### `app/wrangler.jsonc`
 
-```json
+```jsonc
 {
-  "$schema": "https://www.partykit.io/schema.json",
-  "name": "mayi-game",
-  "main": "party/main.ts",
-  "compatibilityDate": "2024-12-01",
-  "port": 1999
-}
-```
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mayi-web",
+  "main": "./workers/app.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
 
-### `app/react-router.config.ts`
-
-```typescript
-import type { Config } from "@react-router/dev/config";
-
-export default {
-  ssr: true, // Enable server-side rendering
-  future: {
-    unstable_viteEnvironmentApi: true, // Required for Cloudflare
+  // Static assets (client-side JS, CSS, etc.)
+  "assets": {
+    "directory": "./build/client"
   },
-} satisfies Config;
+
+  // Durable Object bindings for PartyServer
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MayIRoom",
+        "class_name": "MayIRoom"
+      }
+    ]
+  },
+
+  // Required for new Durable Object classes
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["MayIRoom"]
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}
 ```
 
 ### `app/vite.config.ts`
@@ -537,32 +549,17 @@ export default defineConfig({
 });
 ```
 
-### `app/wrangler.jsonc`
+### `app/react-router.config.ts`
 
-```jsonc
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "mayi-web",
-  "main": "./workers/app.ts",
-  "compatibility_date": "2024-12-01",
-  "compatibility_flags": ["nodejs_compat"],
-  "assets": {
-    "directory": "./build/client"
+```typescript
+import type { Config } from "@react-router/dev/config";
+
+export default {
+  ssr: true,
+  future: {
+    unstable_viteEnvironmentApi: true,
   },
-  "observability": {
-    "enabled": true
-  }
-}
-```
-
-### `app/.env.example`
-
-```env
-# PartyKit host for development
-VITE_PARTYKIT_HOST=localhost:1999
-
-# For production (after cloud-prem deployment)
-# VITE_PARTYKIT_HOST=party.yourdomain.com
+} satisfies Config;
 ```
 
 ### `app/tsconfig.json`
@@ -581,10 +578,45 @@ VITE_PARTYKIT_HOST=localhost:1999
     "isolatedModules": true,
     "noEmit": true,
     "paths": {
-      "~/core/*": ["../core/*"]
+      "~/core/*": ["../core/*"],
+      "~/cli/*": ["../cli/*"]
     }
   },
-  "include": ["app", "workers", "../core"]
+  "include": ["app", "workers", "party", "../core", "../cli"]
+}
+```
+
+### `app/package.json`
+
+```json
+{
+  "name": "mayi-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "bun run build && wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router": "^7.0.0",
+    "partysocket": "^1.0.0",
+    "partyserver": "^0.0.0",
+    "nanoid": "^5.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.0.0",
+    "@react-router/cloudflare": "^7.0.0",
+    "@react-router/dev": "^7.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0",
+    "vite-tsconfig-paths": "^5.0.0",
+    "wrangler": "^3.0.0"
+  }
 }
 ```
 
@@ -592,378 +624,245 @@ VITE_PARTYKIT_HOST=localhost:1999
 
 ## Implementation Code Examples
 
-### PartyKit Server: `party/main.ts`
+### Worker Entry Point: `app/workers/app.ts`
 
 ```typescript
-import type * as Party from "partykit/server";
+import { routePartykitRequest } from "partyserver";
+import { createRequestHandler } from "@react-router/cloudflare";
+// @ts-expect-error - virtual module from React Router build
+import * as build from "virtual:react-router/server-build";
 
-// Message types (could import from shared types)
-type ClientMessage =
+// Re-export the Durable Object class
+export { MayIRoom } from "../party/mayi-room";
+
+// Environment type with Durable Object bindings
+interface Env {
+  MayIRoom: DurableObjectNamespace;
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // 1. Try PartyServer first
+    // Routes matching /parties/:server/:name go to Durable Objects
+    const partyResponse = await routePartykitRequest(request, env);
+    if (partyResponse) return partyResponse;
+
+    // 2. Everything else goes to React Router
+    const requestHandler = createRequestHandler(build, "production");
+    return requestHandler(request, { env, ctx });
+  },
+};
+```
+
+### PartyServer Room: `app/party/mayi-room.ts`
+
+```typescript
+import { Server, type Connection, type ConnectionContext } from "partyserver";
+import { Orchestrator, type SerializableGameState } from "~/cli/harness/orchestrator";
+
+// Command types from client
+type ClientCommand =
   | { type: "JOIN"; playerName: string }
-  | { type: "GAME_ACTION"; action: unknown };
+  | { type: "START_GAME"; playerNames: string[] }
+  | { type: "DRAW_FROM_STOCK" }
+  | { type: "DRAW_FROM_DISCARD" }
+  | { type: "LAY_DOWN"; meldGroups: number[][] }
+  | { type: "DISCARD"; position: number }
+  | { type: "LAY_OFF"; cardPos: number; meldNum: number }
+  | { type: "CALL_MAY_I" }
+  | { type: "PASS" };
 
+// Messages to client
 type ServerMessage =
-  | { type: "WELCOME"; roomId: string; players: string[] }
-  | { type: "PLAYER_JOINED"; playerName: string }
-  | { type: "PLAYER_LEFT"; playerId: string }
-  | { type: "STATE_UPDATE"; state: unknown };
+  | { type: "STATE_UPDATE"; state: SerializableGameState }
+  | { type: "ERROR"; error: string; message: string }
+  | { type: "WELCOME"; roomId: string; players: string[] };
 
-export default class GameRoom implements Party.Server {
-  // In-memory state for the room
+export class MayIRoom extends Server {
+  orchestrator: Orchestrator | null = null;
   players: Map<string, string> = new Map(); // connectionId -> playerName
 
-  constructor(readonly room: Party.Room) {}
-
   async onStart() {
-    // Could load persisted state from storage
-    // const saved = await this.room.storage.get("gameState");
+    // Try to load persisted game state
+    const saved = await this.room.storage.get<string>("game:state");
+    if (saved) {
+      try {
+        const state = JSON.parse(saved) as SerializableGameState;
+        this.orchestrator = Orchestrator.fromState(state);
+        console.log(`[${this.room.id}] Loaded game state`);
+      } catch (e) {
+        console.error(`[${this.room.id}] Failed to load state:`, e);
+      }
+    }
   }
 
-  onConnect(conn: Party.Connection, ctx: Party.ConnectionContext) {
-    console.log(`[${this.room.id}] Connection opened: ${conn.id}`);
+  onConnect(conn: Connection, ctx: ConnectionContext) {
+    console.log(`[${this.room.id}] Connection: ${conn.id}`);
 
-    // Send welcome message with current room state
-    const message: ServerMessage = {
+    // Send welcome with current state
+    const welcome: ServerMessage = {
       type: "WELCOME",
       roomId: this.room.id,
       players: Array.from(this.players.values()),
     };
-    conn.send(JSON.stringify(message));
+    conn.send(JSON.stringify(welcome));
+
+    // If game exists, send current state
+    if (this.orchestrator) {
+      const stateMsg: ServerMessage = {
+        type: "STATE_UPDATE",
+        state: this.orchestrator.getSerializableState(),
+      };
+      conn.send(JSON.stringify(stateMsg));
+    }
   }
 
-  onMessage(message: string, sender: Party.Connection) {
-    let data: ClientMessage;
+  onMessage(message: string, sender: Connection) {
+    let cmd: ClientCommand;
     try {
-      data = JSON.parse(message);
+      cmd = JSON.parse(message);
     } catch {
-      console.error("Invalid JSON:", message);
+      this.sendError(sender, "PARSE_ERROR", "Invalid JSON");
       return;
     }
 
-    switch (data.type) {
-      case "JOIN": {
-        this.players.set(sender.id, data.playerName);
-
-        // Broadcast to all other players
-        const joinMsg: ServerMessage = {
-          type: "PLAYER_JOINED",
-          playerName: data.playerName,
-        };
-        this.room.broadcast(JSON.stringify(joinMsg), [sender.id]);
+    switch (cmd.type) {
+      case "JOIN":
+        this.handleJoin(cmd.playerName, sender);
         break;
-      }
 
-      case "GAME_ACTION": {
-        // TODO: Validate action, update game state
-        // For now, just broadcast to all
-        const update: ServerMessage = {
-          type: "STATE_UPDATE",
-          state: data.action,
-        };
-        this.room.broadcast(JSON.stringify(update));
+      case "START_GAME":
+        this.handleStartGame(cmd.playerNames, sender);
         break;
-      }
+
+      default:
+        this.handleGameCommand(cmd, sender);
     }
   }
 
-  onClose(conn: Party.Connection) {
+  onClose(conn: Connection) {
     const playerName = this.players.get(conn.id);
     this.players.delete(conn.id);
+    console.log(`[${this.room.id}] Disconnected: ${conn.id} (${playerName})`);
+  }
 
-    if (playerName) {
-      const leftMsg: ServerMessage = {
-        type: "PLAYER_LEFT",
-        playerId: conn.id,
-      };
-      this.room.broadcast(JSON.stringify(leftMsg));
+  private handleJoin(playerName: string, sender: Connection) {
+    this.players.set(sender.id, playerName);
+
+    // Broadcast to all other players
+    this.room.broadcast(
+      JSON.stringify({ type: "PLAYER_JOINED", playerName }),
+      [sender.id]
+    );
+  }
+
+  private handleStartGame(playerNames: string[], sender: Connection) {
+    if (this.orchestrator) {
+      this.sendError(sender, "GAME_EXISTS", "Game already started");
+      return;
     }
 
-    console.log(`[${this.room.id}] Connection closed: ${conn.id}`);
+    // Create new game
+    this.orchestrator = new Orchestrator();
+    this.orchestrator.startGame(playerNames);
+
+    this.sendStateToAll();
+    this.persistState();
   }
 
-  // Optional: Handle HTTP requests to the room
-  async onRequest(request: Party.Request) {
-    if (request.method === "GET") {
-      return new Response(
-        JSON.stringify({
-          roomId: this.room.id,
-          playerCount: this.players.size,
-        }),
-        { headers: { "Content-Type": "application/json" } }
-      );
-    }
-    return new Response("Method not allowed", { status: 405 });
-  }
-}
-```
-
-### React Router Home Page: `app/app/routes/home.tsx`
-
-```typescript
-import type { Route } from "./+types/home";
-import { Form, useActionData } from "react-router";
-import { redirect } from "react-router";
-import { nanoid } from "nanoid";
-import { useState } from "react";
-
-// Server-side action - runs on POST
-export async function action({ request }: Route.ActionArgs) {
-  const formData = await request.formData();
-  const intent = formData.get("intent");
-
-  if (intent === "create") {
-    // Generate a short, URL-friendly room ID
-    const roomId = nanoid(8);
-    // Room is created automatically when first client connects to PartyKit
-    return redirect(`/game/${roomId}`);
-  }
-
-  if (intent === "join") {
-    const roomId = formData.get("roomId");
-
-    if (!roomId || typeof roomId !== "string") {
-      return { error: "Please enter a room ID" };
+  private handleGameCommand(cmd: ClientCommand, sender: Connection) {
+    if (!this.orchestrator) {
+      this.sendError(sender, "NO_GAME", "Game not started");
+      return;
     }
 
-    // Basic validation
-    if (!/^[a-zA-Z0-9_-]+$/.test(roomId)) {
-      return { error: "Invalid room ID format" };
+    let result: { success: boolean; error?: string; message?: string };
+
+    switch (cmd.type) {
+      case "DRAW_FROM_STOCK":
+        result = this.orchestrator.drawFromStock();
+        break;
+      case "DRAW_FROM_DISCARD":
+        result = this.orchestrator.drawFromDiscard();
+        break;
+      case "LAY_DOWN":
+        result = this.orchestrator.layDown(cmd.meldGroups);
+        break;
+      case "DISCARD":
+        result = this.orchestrator.discardCard(cmd.position);
+        break;
+      case "LAY_OFF":
+        result = this.orchestrator.layOff(cmd.cardPos, cmd.meldNum);
+        break;
+      case "CALL_MAY_I":
+        result = this.orchestrator.callMayI();
+        break;
+      case "PASS":
+        result = this.orchestrator.pass();
+        break;
+      default:
+        result = { success: false, error: "UNKNOWN", message: "Unknown command" };
     }
 
-    return redirect(`/game/${roomId}`);
+    if (!result.success) {
+      this.sendError(sender, result.error || "ERROR", result.message || "Command failed");
+      return;
+    }
+
+    // Send per-player views to all clients (not broadcast - hands are private!)
+    this.sendStateToAll();
+    this.persistState();
   }
 
-  return { error: "Unknown action" };
-}
+  private sendStateToAll() {
+    if (!this.orchestrator) return;
 
-export default function Home() {
-  const actionData = useActionData<typeof action>();
-  const [showJoinForm, setShowJoinForm] = useState(false);
-
-  return (
-    <main className="container">
-      <h1>May I?</h1>
-      <p>A fun card game for friends and family</p>
-
-      {/* Error display */}
-      {actionData?.error && (
-        <div className="error" role="alert">
-          {actionData.error}
-        </div>
-      )}
-
-      {/* Create New Game */}
-      <section>
-        <Form method="post">
-          <input type="hidden" name="intent" value="create" />
-          <button type="submit" className="primary">
-            Start New Game
-          </button>
-        </Form>
-      </section>
-
-      {/* Join Existing Game */}
-      <section>
-        {!showJoinForm ? (
-          <button
-            type="button"
-            onClick={() => setShowJoinForm(true)}
-            className="secondary"
-          >
-            Join Existing Game
-          </button>
-        ) : (
-          <Form method="post">
-            <input type="hidden" name="intent" value="join" />
-            <label>
-              Room ID:
-              <input
-                type="text"
-                name="roomId"
-                placeholder="Enter room ID"
-                autoFocus
-                required
-                pattern="[a-zA-Z0-9_-]+"
-              />
-            </label>
-            <div className="button-group">
-              <button type="submit" className="primary">
-                Join
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowJoinForm(false)}
-                className="secondary"
-              >
-                Cancel
-              </button>
-            </div>
-          </Form>
-        )}
-      </section>
-    </main>
-  );
-}
-```
-
-### React Router Game Page: `app/app/routes/game.$roomId.tsx`
-
-```typescript
-import type { Route } from "./+types/game.$roomId";
-import usePartySocket from "partysocket/react";
-import { useState, useCallback, useEffect } from "react";
-
-// Server-side loader
-export async function loader({ params }: Route.LoaderArgs) {
-  // Validate room ID format
-  const roomId = params.roomId;
-  if (!roomId || !/^[a-zA-Z0-9_-]+$/.test(roomId)) {
-    throw new Response("Invalid room ID", { status: 400 });
-  }
-
-  // Could optionally check if room exists by calling PartyKit HTTP endpoint
-  // const res = await fetch(`https://${PARTYKIT_HOST}/party/main/${roomId}`);
-
-  return { roomId };
-}
-
-// Meta for the page
-export function meta({ data }: Route.MetaArgs) {
-  return [
-    { title: `Game ${data?.roomId} | May I?` },
-  ];
-}
-
-export default function Game({ loaderData }: Route.ComponentProps) {
-  const { roomId } = loaderData;
-  const [connected, setConnected] = useState(false);
-  const [players, setPlayers] = useState<string[]>([]);
-  const [playerName, setPlayerName] = useState("");
-  const [hasJoined, setHasJoined] = useState(false);
-
-  // Get PartyKit host from environment
-  const partyHost = import.meta.env.VITE_PARTYKIT_HOST || "localhost:1999";
-
-  const socket = usePartySocket({
-    host: partyHost,
-    room: roomId,
-
-    onOpen() {
-      setConnected(true);
-      console.log("Connected to room:", roomId);
-    },
-
-    onMessage(event) {
-      const message = JSON.parse(event.data);
-      console.log("Received:", message);
-
-      switch (message.type) {
-        case "WELCOME":
-          setPlayers(message.players);
-          break;
-        case "PLAYER_JOINED":
-          setPlayers((prev) => [...prev, message.playerName]);
-          break;
-        case "PLAYER_LEFT":
-          // Would need to map ID to name; simplified here
-          break;
-        case "STATE_UPDATE":
-          // Handle game state updates
-          break;
+    // Send per-player views (not broadcast!) because hands are private
+    for (const conn of this.room.getConnections()) {
+      const playerId = this.players.get(conn.id);
+      if (playerId) {
+        const view = this.computePlayerView(playerId);
+        conn.send(JSON.stringify({ type: "STATE_UPDATE", state: view }));
       }
-    },
-
-    onClose() {
-      setConnected(false);
-      console.log("Disconnected from room:", roomId);
-    },
-
-    onError(error) {
-      console.error("WebSocket error:", error);
-    },
-  });
-
-  const handleJoin = useCallback(() => {
-    if (playerName.trim() && socket) {
-      socket.send(JSON.stringify({
-        type: "JOIN",
-        playerName: playerName.trim(),
-      }));
-      setHasJoined(true);
     }
-  }, [playerName, socket]);
+  }
 
-  // Share URL
-  const shareUrl = typeof window !== "undefined"
-    ? window.location.href
-    : "";
+  private computePlayerView(playerId: string): PlayerView {
+    const state = this.orchestrator!.getSerializableState();
+    const playerIndex = state.players.findIndex(p => p.name === playerId);
 
-  return (
-    <main className="game-container">
-      <header>
-        <h1>Game Room: {roomId}</h1>
-        <div className="status">
-          Status: {connected ? "Connected" : "Connecting..."}
-        </div>
-      </header>
+    return {
+      gameId: state.gameId,
+      public: {
+        currentPlayerIndex: state.currentPlayerIndex,
+        turnPhase: state.turnPhase,
+        round: state.round,
+        discard: state.discard,           // Top card visible
+        stockCount: state.stock.length,   // Count only, not contents
+        table: state.table,
+        scores: state.scores,
+      },
+      players: state.players.map(p => ({
+        name: p.name,
+        cardCount: p.hand.length,         // Count only, not contents
+        hasLaidDown: p.hasLaidDown,
+      })),
+      yourHand: state.players[playerIndex]?.hand ?? [],
+      yourPlayerIndex: playerIndex,
+    };
+  }
 
-      {/* Share Link */}
-      <section className="share-section">
-        <p>Share this link to invite players:</p>
-        <code className="share-url">{shareUrl}</code>
-        <button
-          onClick={() => navigator.clipboard.writeText(shareUrl)}
-          className="copy-button"
-        >
-          Copy Link
-        </button>
-      </section>
+  private async persistState() {
+    if (!this.orchestrator) return;
 
-      {/* Join Form */}
-      {!hasJoined && (
-        <section className="join-section">
-          <label>
-            Your Name:
-            <input
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="Enter your name"
-              disabled={!connected}
-            />
-          </label>
-          <button
-            onClick={handleJoin}
-            disabled={!connected || !playerName.trim()}
-          >
-            Join Game
-          </button>
-        </section>
-      )}
+    const state = this.orchestrator.getSerializableState();
+    await this.room.storage.put("game:state", JSON.stringify(state));
+  }
 
-      {/* Players List */}
-      <section className="players-section">
-        <h2>Players ({players.length})</h2>
-        {players.length === 0 ? (
-          <p>No players yet. Be the first to join!</p>
-        ) : (
-          <ul>
-            {players.map((name, index) => (
-              <li key={index}>{name}</li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Game area placeholder */}
-      {hasJoined && (
-        <section className="game-area">
-          <h2>Game Area</h2>
-          <p>Game UI will be implemented here...</p>
-        </section>
-      )}
-    </main>
-  );
+  private sendError(conn: Connection, error: string, message: string) {
+    const msg: ServerMessage = { type: "ERROR", error, message };
+    conn.send(JSON.stringify(msg));
+  }
 }
 ```
 
@@ -978,104 +877,215 @@ export default [
 ] satisfies RouteConfig;
 ```
 
+### Home Page: `app/app/routes/home.tsx`
+
+```typescript
+import type { Route } from "./+types/home";
+import { Form, useActionData } from "react-router";
+import { redirect } from "react-router";
+import { nanoid } from "nanoid";
+import { useState } from "react";
+
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "create") {
+    const roomId = nanoid(8);
+    return redirect(`/game/${roomId}`);
+  }
+
+  if (intent === "join") {
+    const roomId = formData.get("roomId");
+    if (!roomId || typeof roomId !== "string") {
+      return { error: "Please enter a room ID" };
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(roomId)) {
+      return { error: "Invalid room ID format" };
+    }
+    return redirect(`/game/${roomId}`);
+  }
+
+  return { error: "Unknown action" };
+}
+
+export default function Home() {
+  const actionData = useActionData<typeof action>();
+  const [showJoinForm, setShowJoinForm] = useState(false);
+
+  return (
+    <main>
+      <h1>May I?</h1>
+
+      {actionData?.error && <div role="alert">{actionData.error}</div>}
+
+      <Form method="post">
+        <input type="hidden" name="intent" value="create" />
+        <button type="submit">Start New Game</button>
+      </Form>
+
+      {!showJoinForm ? (
+        <button onClick={() => setShowJoinForm(true)}>Join Existing Game</button>
+      ) : (
+        <Form method="post">
+          <input type="hidden" name="intent" value="join" />
+          <input type="text" name="roomId" placeholder="Room ID" required />
+          <button type="submit">Join</button>
+          <button type="button" onClick={() => setShowJoinForm(false)}>Cancel</button>
+        </Form>
+      )}
+    </main>
+  );
+}
+```
+
+### Game Page: `app/app/routes/game.$roomId.tsx`
+
+```typescript
+import type { Route } from "./+types/game.$roomId";
+import usePartySocket from "partysocket/react";
+import { useState, useCallback } from "react";
+import type { SerializableGameState } from "~/cli/harness/orchestrator";
+
+export async function loader({ params }: Route.LoaderArgs) {
+  const roomId = params.roomId;
+  if (!roomId || !/^[a-zA-Z0-9_-]+$/.test(roomId)) {
+    throw new Response("Invalid room ID", { status: 400 });
+  }
+  return { roomId };
+}
+
+export function meta({ data }: Route.MetaArgs) {
+  return [{ title: `Game ${data?.roomId} | May I?` }];
+}
+
+export default function Game({ loaderData }: Route.ComponentProps) {
+  const { roomId } = loaderData;
+  const [connected, setConnected] = useState(false);
+  const [gameState, setGameState] = useState<SerializableGameState | null>(null);
+  const [playerName, setPlayerName] = useState("");
+  const [hasJoined, setHasJoined] = useState(false);
+
+  const socket = usePartySocket({
+    host: typeof window !== "undefined" ? window.location.host : "",
+    room: roomId,
+    party: "mayi",
+
+    onOpen() {
+      setConnected(true);
+    },
+
+    onMessage(event) {
+      const msg = JSON.parse(event.data);
+
+      switch (msg.type) {
+        case "STATE_UPDATE":
+          setGameState(msg.state);
+          break;
+        case "ERROR":
+          console.error("Game error:", msg.error, msg.message);
+          break;
+      }
+    },
+
+    onClose() {
+      setConnected(false);
+    },
+  });
+
+  const sendCommand = useCallback((cmd: object) => {
+    socket?.send(JSON.stringify(cmd));
+  }, [socket]);
+
+  const handleJoin = () => {
+    if (playerName.trim()) {
+      sendCommand({ type: "JOIN", playerName: playerName.trim() });
+      setHasJoined(true);
+    }
+  };
+
+  const handleStartGame = () => {
+    // For hello-world, just use connected player names
+    // In real implementation, would collect from lobby
+    sendCommand({ type: "START_GAME", playerNames: [playerName] });
+  };
+
+  return (
+    <main>
+      <h1>Game: {roomId}</h1>
+      <p>Status: {connected ? "Connected" : "Connecting..."}</p>
+
+      {!hasJoined && (
+        <section>
+          <input
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="Your name"
+            disabled={!connected}
+          />
+          <button onClick={handleJoin} disabled={!connected || !playerName.trim()}>
+            Join Game
+          </button>
+        </section>
+      )}
+
+      {hasJoined && !gameState && (
+        <button onClick={handleStartGame}>Start Game</button>
+      )}
+
+      {gameState && (
+        <section>
+          <h2>Game State</h2>
+          <pre>{JSON.stringify(gameState, null, 2)}</pre>
+          {/* Actual game UI would go here */}
+        </section>
+      )}
+    </main>
+  );
+}
+```
+
 ---
 
 ## Development Workflow
 
-### Running Locally
+### Single Process Development
 
-You need **two terminal windows** during development:
-
-#### Terminal 1: PartyKit Server
+With the consolidated architecture, you only need **one terminal**:
 
 ```bash
-# From project root
-cd /Users/drew/code/mayi
-npx partykit dev
-
-# Output:
-# 🎈 PartyKit dev server running at http://localhost:1999
-```
-
-#### Terminal 2: React Router App
-
-```bash
-cd /Users/drew/code/mayi/app
+cd app
 bun run dev
 
 # Output:
-# VITE v5.x.x ready
+# VITE v6.x.x ready
 # Local: http://localhost:5173/
+# Wrangler: Durable Objects available
 ```
+
+The Cloudflare Vite plugin runs Wrangler in the background, providing:
+- React Router with hot reload
+- Durable Objects (PartyServer rooms)
+- All Cloudflare bindings
 
 ### Environment Variables
 
-Create `app/.env` for local development:
+No separate PartyKit host needed! WebSocket connections use same origin:
 
-```env
-VITE_PARTYKIT_HOST=localhost:1999
-```
-
-The `VITE_` prefix makes it available in client-side code via `import.meta.env.VITE_PARTYKIT_HOST`.
-
-### Recommended package.json Scripts
-
-Add to `app/package.json`:
-
-```json
-{
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "deploy": "bun run build && wrangler deploy",
-    "typecheck": "tsc --noEmit"
-  }
-}
-```
-
-Add to root `package.json` (optional convenience):
-
-```json
-{
-  "scripts": {
-    "dev:party": "npx partykit dev",
-    "dev:web": "cd app && bun run dev",
-    "dev": "concurrently \"bun run dev:party\" \"bun run dev:web\""
-  }
-}
+```typescript
+// Client connects to same origin
+const socket = usePartySocket({
+  host: window.location.host,  // localhost:5173 in dev, your-domain.com in prod
+  room: roomId,
+  party: "mayi",
+});
 ```
 
 ---
 
 ## Deployment
 
-### Deploy PartyKit (Cloud-Prem)
-
-**Prerequisites:**
-1. Get your Cloudflare Account ID from [Cloudflare Dashboard](https://dash.cloudflare.com) → Overview page
-2. Create an API token at [API Tokens](https://dash.cloudflare.com/profile/api-tokens) using the "Edit Cloudflare Workers" template
-
-**Deploy Command:**
-
-```bash
-# Option 1: Environment variables inline
-CLOUDFLARE_ACCOUNT_ID=your_account_id \
-CLOUDFLARE_API_TOKEN=your_api_token \
-npx partykit deploy --domain party.yourdomain.com
-
-# Option 2: Export environment variables first
-export CLOUDFLARE_ACCOUNT_ID=your_account_id
-export CLOUDFLARE_API_TOKEN=your_api_token
-npx partykit deploy --domain party.yourdomain.com
-```
-
-**What happens:**
-- PartyKit deploys to YOUR Cloudflare account (not PartyKit's)
-- Your domain `party.yourdomain.com` points to the PartyKit worker
-- No PartyKit platform fees; you pay Cloudflare directly
-
-### Deploy React Router App
+### Single Deployment Command
 
 ```bash
 cd app
@@ -1085,214 +1095,129 @@ bun run deploy
 ```
 
 **What happens:**
-- Vite builds the app (client + server bundles)
-- Wrangler deploys to Cloudflare Workers
-- App is live at `mayi-web.your-subdomain.workers.dev` (or custom domain)
+1. Vite builds client + server bundles
+2. Wrangler deploys Worker with Durable Object bindings
+3. Both React Router and PartyServer are live
 
-### Production Environment Variables
+### Prerequisites
 
-Update `app/.env` or use Cloudflare Dashboard secrets:
-
-```env
-VITE_PARTYKIT_HOST=party.yourdomain.com
-```
-
-Or set via wrangler:
-
-```bash
-wrangler secret put PARTYKIT_HOST
-# Enter: party.yourdomain.com
-```
-
----
-
-## Type Sharing Strategy
-
-### Decision: Direct Imports via tsconfig Paths
-
-Since the web app and game engine are in the same repository, we'll use TypeScript path aliases.
-
-**In `app/tsconfig.json`:**
-
-```json
-{
-  "compilerOptions": {
-    "paths": {
-      "~/core/*": ["../core/*"]
-    }
-  },
-  "include": ["app", "workers", "../core"]
-}
-```
-
-**Usage in app code:**
-
-```typescript
-// app/app/routes/game.$roomId.tsx
-import type { Card, Hand } from "~/core/card/card.types";
-import type { GameContext } from "~/core/engine/game.machine";
-```
-
-**In PartyKit server (`party/main.ts`):**
-
-The PartyKit build process also needs to resolve these paths. Add to root `tsconfig.json` or create `party/tsconfig.json`:
-
-```json
-{
-  "compilerOptions": {
-    "paths": {
-      "~/core/*": ["../core/*"]
-    }
-  }
-}
-```
-
-### Alternative: Bun Workspace
-
-If type sharing becomes complex, convert to a Bun workspace:
-
-```json
-// Root package.json
-{
-  "workspaces": ["core", "app", "party"]
-}
-
-// core/package.json
-{
-  "name": "@mayi/core",
-  "main": "./index.ts"
-}
-
-// Then import as:
-import type { Card } from "@mayi/core/card/card.types";
-```
+1. Cloudflare account
+2. `wrangler login` (one-time auth)
+3. Durable Objects enabled (automatic with paid plan or free tier)
 
 ---
 
 ## Hello-World Features
 
-Based on our discussion, the initial scaffolding will include:
+### Initial Scaffolding Includes
 
-### 1. Home Page (`/`)
+**Home Page (`/`):**
+- "Start New Game" button → generates room ID, redirects
+- "Join Game" → enter room ID, redirects
 
-- **"Start New Game" button**
-  - Server action generates a random room ID (8-char nanoid)
-  - Redirects to `/game/{roomId}`
-
-- **"Join Game" button**
-  - Reveals an input field for room ID
-  - Server action validates and redirects
-
-### 2. Game Page (`/game/:roomId`)
-
-- **Connection status indicator**
-  - Shows "Connecting..." / "Connected"
-
-- **Share link**
-  - Displays the current URL
-  - "Copy Link" button
-
-- **Player name input**
-  - Text field to enter name
-  - "Join" button sends JOIN message to PartyKit
-
-- **Players list**
-  - Shows all connected players
-  - Updates in real-time as players join/leave
-
-- **Placeholder game area**
-  - "Game UI will be implemented here..."
+**Game Page (`/game/:roomId`):**
+- Connection status indicator
+- Share link with copy button
+- Player name input + join button
+- Start game button (when enough players)
+- Raw state display (placeholder for real UI)
 
 ### Not Included (Yet)
 
-- Lobby with list of active games
+- Actual game UI (cards, melds, etc.)
+- Player turns and actions beyond state display
+- Lobby with game listing
 - Player authentication
-- Game state persistence
-- Actual game logic integration
+- Reconnection handling
 
 ---
 
 ## Future Considerations
 
-### State Persistence Options
+### State Optimization (If Needed)
 
-| Storage | When to Use | Limits |
-|---------|-------------|--------|
-| **PartyKit memory** | Ephemeral data, live connections | Lost on hibernation |
-| **PartyKit storage** | Per-room persistent data | 128KB per key, unlimited keys |
-| **Cloudflare D1** | Relational data, cross-room queries | Separate billing |
-| **Cloudflare KV** | Global config, user sessions | Eventually consistent |
+If full state broadcast becomes a bandwidth concern:
 
-**Recommendation**: Use PartyKit storage for active games. Consider D1 for user accounts/history if needed later.
+```typescript
+// Calculate delta between states
+function getDelta(old: SerializableGameState, next: SerializableGameState) {
+  const delta: Partial<SerializableGameState> = { gameId: next.gameId };
+  if (old.players !== next.players) delta.players = next.players;
+  if (old.discard !== next.discard) delta.discard = next.discard;
+  // ... etc
+  return delta;
+}
+
+// Broadcast delta instead
+this.room.broadcast(JSON.stringify({ type: "STATE_DELTA", delta }));
+
+// Client merges delta
+gameState = { ...gameState, ...delta };
+```
+
+For May I? with ~5KB state, this is premature optimization.
 
 ### Authentication
 
-Options to explore:
-- **Cloudflare Access** - Zero-trust auth at the edge
-- **Simple session tokens** - Generate on join, store in PartyKit
-- **OAuth** - via Auth.js or similar
+Options:
+- **Cloudflare Access**: Zero-trust at the edge
+- **Simple tokens**: Generated on join, validated on reconnect
+- **OAuth**: Via Auth.js when needed
 
-### Game Engine Integration
+### Reconnection
 
-The existing game engine in `core/` uses XState. To integrate:
+PartySocket handles automatic reconnection. On reconnect:
+1. Client reconnects to same room
+2. Server sends current state in `onConnect`
+3. Client resumes from current state
 
-1. **Option A**: Run XState in PartyKit server
-   - Import game machine into `party/main.ts`
-   - Handle actions by sending events to machine
-   - Broadcast state changes
+### Spectators
 
-2. **Option B**: Keep engine separate, call via HTTP
-   - Game engine runs as another Worker
-   - PartyKit proxies actions to it
+If spectators are added later, they would receive a "spectator view" with no private hands:
 
-Recommendation: Option A for simplicity, since PartyKit is stateful.
+```typescript
+if (isSpectator(conn)) {
+  conn.send(JSON.stringify({ type: "STATE_UPDATE", state: publicStateOnly }));
+} else {
+  conn.send(JSON.stringify({ type: "STATE_UPDATE", state: playerView }));
+}
+```
 
-### Scaling Considerations
-
-PartyKit/Durable Objects scale automatically, but be aware:
-- Each room is a single instance (no sharding)
-- Connections to one room go through one location
-- ~32,000 concurrent WebSocket connections per room (Cloudflare limit)
-
-For a card game with 2-8 players per room, this is more than sufficient.
+This is an extension of the per-player view pattern.
 
 ---
 
 ## References
 
+### PartyServer (Embedded Library)
+
+- [PartyServer npm package](https://www.npmjs.com/package/partyserver)
+- [PartyServer GitHub README](https://github.com/cloudflare/partykit/tree/main/packages/partyserver)
+- [Party.Server API Blog Post](https://blog.partykit.io/posts/partyserver-api/)
+- [threepointone/partyvite example](https://github.com/threepointone/partyvite)
+
 ### React Router 7
 
 - [React Router 7 Framework Mode](https://reactrouter.com/start/framework/installation)
-- [Routing in Framework Mode](https://reactrouter.com/start/framework/routing)
 - [Data Loading (Loaders)](https://reactrouter.com/start/framework/data-loading)
 - [Actions (Mutations)](https://reactrouter.com/start/framework/actions)
-- [Deployment Options](https://reactrouter.com/start/framework/deploying)
-- [Official Cloudflare Template](https://github.com/remix-run/react-router-templates/tree/main/cloudflare)
+- [Cloudflare Template](https://github.com/remix-run/react-router-templates/tree/main/cloudflare)
 
 ### Cloudflare
 
 - [React Router on Cloudflare Workers](https://developers.cloudflare.com/workers/framework-guides/web-apps/react-router/)
 - [Cloudflare Vite Plugin](https://blog.cloudflare.com/introducing-the-cloudflare-vite-plugin/)
-- [Worker Templates](https://developers.cloudflare.com/workers/get-started/quickstarts/)
 - [Durable Objects Overview](https://developers.cloudflare.com/durable-objects/)
 - [Durable Objects WebSocket Best Practices](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)
 
-### PartyKit
+### State Synchronization Patterns
 
-- [PartyKit Quickstart](https://docs.partykit.io/quickstart/)
-- [How PartyKit Works](https://docs.partykit.io/how-partykit-works/)
-- [Deploy to Cloudflare (Cloud-Prem)](https://docs.partykit.io/guides/deploy-to-cloudflare/)
-- [Deploying Your Server](https://docs.partykit.io/guides/deploying-your-partykit-server/)
-- [Party.Server API](https://docs.partykit.io/reference/partyserver-api/)
-- [PartySocket Client API](https://docs.partykit.io/reference/partysocket-api/)
-- [PartyKit CLI Reference](https://docs.partykit.io/reference/partykit-cli/)
-- [PartyKit Configuration](https://docs.partykit.io/reference/partykit-configuration/)
-- [Remix Starter (reference)](https://github.com/partykit/remix-starter)
-- [PartyKit Starter Kits](https://blog.partykit.io/posts/introducing-starter-kits/)
+- [Gaffer on Games: State Synchronization](https://gafferongames.com/post/state_synchronization/)
+- [XState Actors Documentation](https://stately.ai/docs/actors)
+- [Actor Model Overview](https://stately.ai/docs/actor-model/)
 
 ### Community Resources
 
-- [react-router-durable package](https://github.com/zebp/react-router-durable) - Durable Objects as loaders
-- [React Router + Durable Objects Discussion](https://github.com/remix-run/react-router/discussions/12565)
+- [Cloudflare Acquires PartyKit](https://blog.cloudflare.com/cloudflare-acquires-partykit/)
+- [PartyKit How It Works](https://docs.partykit.io/how-partykit-works/)
 - [Durable Objects Reference Sheet](https://tigerabrodi.blog/cloudflare-durable-objects-reference-sheet)
-- [Building WebSocket Chat with Durable Objects](https://qiushiyan.dev/posts/durable-object-chat)
