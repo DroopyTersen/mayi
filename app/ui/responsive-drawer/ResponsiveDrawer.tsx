@@ -70,12 +70,7 @@ export function ResponsiveDrawer({
   }
 
   return (
-    <Drawer
-      open={open}
-      onOpenChange={onOpenChange}
-      // Start at 50% height, draggable to expand to full screen
-      snapPoints={[0.5, 1]}
-    >
+    <Drawer open={open} onOpenChange={onOpenChange}>
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
       <DrawerContent className={className}>
         <DrawerHeader className="text-left">
