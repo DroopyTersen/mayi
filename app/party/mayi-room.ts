@@ -9,41 +9,37 @@ import {
   buildPlayersSnapshotFromStorageEntries,
   maybeUpdateStoredPlayerOnClose,
   upsertStoredPlayerOnJoin,
-  type PlayerInfo,
   type StoredPlayer,
 } from "./mayi-room.presence";
+
+import {
+  createInitialLobbyState,
+  addAIPlayer,
+  removeAIPlayer,
+  setStartingRound,
+  buildLobbyStatePayload,
+  storedPlayersToHumanPlayerInfo,
+  type LobbyState,
+} from "./mayi-room.lobby";
+
+import {
+  parseClientMessage,
+  type ClientMessage,
+  type ServerMessage,
+  type HumanPlayerInfo,
+} from "./protocol.types";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const MIN_NAME_LEN = 1;
 const MAX_NAME_LEN = 24;
 const MAX_PLAYER_ID_LEN = 64;
 
-type ClientMessage = {
-  type: "JOIN";
-  playerId: string;
-  playerName: string;
-};
-
-type ServerMessage =
-  | { type: "CONNECTED"; roomId: string }
-  | { type: "JOINED"; playerId: string; playerName: string }
-  | { type: "PLAYERS"; players: PlayerInfo[] }
-  | { type: "ERROR"; error: string; message: string };
+const LOBBY_STATE_KEY = "lobby:state";
 
 type MayIRoomConnectionState = { playerId: string };
 
 function safeJsonParse(value: string): unknown {
   return JSON.parse(value) as unknown;
-}
-
-function isJoinMessage(value: unknown): value is ClientMessage {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  return (
-    v.type === "JOIN" &&
-    typeof v.playerId === "string" &&
-    typeof v.playerName === "string"
-  );
 }
 
 export class MayIRoom extends Server {
@@ -61,8 +57,17 @@ export class MayIRoom extends Server {
       } satisfies ServerMessage)
     );
 
+    // Send current player list
     const players = await this.readPlayersSnapshot();
     conn.send(JSON.stringify({ type: "PLAYERS", players } satisfies ServerMessage));
+
+    // Send current lobby state (Phase 3)
+    const lobbyState = await this.getLobbyState();
+    const humanPlayers = storedPlayersToHumanPlayerInfo(
+      await this.getStoredPlayers()
+    );
+    const lobbyPayload = buildLobbyStatePayload(humanPlayers, lobbyState);
+    conn.send(JSON.stringify({ type: "LOBBY_STATE", lobbyState: lobbyPayload } satisfies ServerMessage));
   }
 
   override async onMessage(conn: Connection<MayIRoomConnectionState>, message: WSMessage) {
@@ -100,19 +105,76 @@ export class MayIRoom extends Server {
       return;
     }
 
-    if (!isJoinMessage(parsed)) {
+    const result = parseClientMessage(parsed);
+    if (!result.success) {
       conn.send(
         JSON.stringify({
           type: "ERROR",
           error: "INVALID_MESSAGE",
-          message: "Unsupported message type",
+          message: result.error,
         } satisfies ServerMessage)
       );
       return;
     }
 
-    const playerId = parsed.playerId.trim();
-    const playerName = parsed.playerName.trim();
+    const msg = result.data;
+
+    switch (msg.type) {
+      case "JOIN":
+        await this.handleJoin(conn, msg);
+        break;
+
+      case "ADD_AI_PLAYER":
+        await this.handleAddAIPlayer(conn, msg);
+        break;
+
+      case "REMOVE_AI_PLAYER":
+        await this.handleRemoveAIPlayer(conn, msg);
+        break;
+
+      case "SET_STARTING_ROUND":
+        await this.handleSetStartingRound(conn, msg);
+        break;
+
+      case "START_GAME":
+        // Phase 3.2 - to be implemented
+        conn.send(
+          JSON.stringify({
+            type: "ERROR",
+            error: "NOT_IMPLEMENTED",
+            message: "START_GAME not yet implemented",
+          } satisfies ServerMessage)
+        );
+        break;
+
+      case "GAME_ACTION":
+        // Phase 3.4 - to be implemented
+        conn.send(
+          JSON.stringify({
+            type: "ERROR",
+            error: "NOT_IMPLEMENTED",
+            message: "GAME_ACTION not yet implemented",
+          } satisfies ServerMessage)
+        );
+        break;
+
+      default:
+        conn.send(
+          JSON.stringify({
+            type: "ERROR",
+            error: "INVALID_MESSAGE",
+            message: "Unsupported message type",
+          } satisfies ServerMessage)
+        );
+    }
+  }
+
+  private async handleJoin(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: Extract<ClientMessage, { type: "JOIN" }>
+  ) {
+    const playerId = msg.playerId.trim();
+    const playerName = msg.playerName.trim();
 
     if (playerId.length < 1 || playerId.length > MAX_PLAYER_ID_LEN) {
       conn.send(
@@ -159,7 +221,76 @@ export class MayIRoom extends Server {
       } satisfies ServerMessage)
     );
 
-    await this.broadcastPlayers();
+    await this.broadcastPlayersAndLobby();
+  }
+
+  private async handleAddAIPlayer(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: Extract<ClientMessage, { type: "ADD_AI_PLAYER" }>
+  ) {
+    const lobbyState = await this.getLobbyState();
+    const humanPlayers = await this.getStoredPlayers();
+    const humanCount = humanPlayers.length;
+
+    const newState = addAIPlayer(lobbyState, humanCount, msg.name, msg.modelId);
+
+    if (!newState) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "MAX_PLAYERS",
+          message: "Cannot add more players (max 8)",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    await this.setLobbyState(newState);
+    await this.broadcastLobbyState();
+  }
+
+  private async handleRemoveAIPlayer(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: Extract<ClientMessage, { type: "REMOVE_AI_PLAYER" }>
+  ) {
+    const lobbyState = await this.getLobbyState();
+    const newState = removeAIPlayer(lobbyState, msg.playerId);
+
+    if (!newState) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "PLAYER_NOT_FOUND",
+          message: "AI player not found",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    await this.setLobbyState(newState);
+    await this.broadcastLobbyState();
+  }
+
+  private async handleSetStartingRound(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: Extract<ClientMessage, { type: "SET_STARTING_ROUND" }>
+  ) {
+    const lobbyState = await this.getLobbyState();
+    const newState = setStartingRound(lobbyState, msg.round);
+
+    if (!newState) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "INVALID_ROUND",
+          message: "Invalid round number (must be 1-6)",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    await this.setLobbyState(newState);
+    await this.broadcastLobbyState();
   }
 
   override async onClose(
@@ -182,10 +313,30 @@ export class MayIRoom extends Server {
     if (!updated) return;
 
     await this.ctx.storage.put(key, updated);
-    await this.broadcastPlayers();
+    await this.broadcastPlayersAndLobby();
   }
 
-  private async readPlayersSnapshot(): Promise<PlayerInfo[]> {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Storage Helpers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async getLobbyState(): Promise<LobbyState> {
+    const stored = await this.ctx.storage.get<LobbyState>(LOBBY_STATE_KEY);
+    return stored ?? createInitialLobbyState();
+  }
+
+  private async setLobbyState(state: LobbyState): Promise<void> {
+    await this.ctx.storage.put(LOBBY_STATE_KEY, state);
+  }
+
+  private async getStoredPlayers(): Promise<StoredPlayer[]> {
+    const entries = await this.ctx.storage.list<StoredPlayer>({
+      prefix: "player:",
+    });
+    return Array.from(entries.values());
+  }
+
+  private async readPlayersSnapshot(): Promise<HumanPlayerInfo[]> {
     const now = Date.now();
     const entries = await this.ctx.storage.list<StoredPlayer>({
       prefix: "player:",
@@ -203,8 +354,26 @@ export class MayIRoom extends Server {
     return snapshot.players;
   }
 
-  private async broadcastPlayers() {
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Broadcast Helpers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  private async broadcastPlayers(): Promise<void> {
     const players = await this.readPlayersSnapshot();
     this.broadcast(JSON.stringify({ type: "PLAYERS", players } satisfies ServerMessage));
+  }
+
+  private async broadcastLobbyState(): Promise<void> {
+    const lobbyState = await this.getLobbyState();
+    const humanPlayers = storedPlayersToHumanPlayerInfo(
+      await this.getStoredPlayers()
+    );
+    const lobbyPayload = buildLobbyStatePayload(humanPlayers, lobbyState);
+    this.broadcast(JSON.stringify({ type: "LOBBY_STATE", lobbyState: lobbyPayload } satisfies ServerMessage));
+  }
+
+  private async broadcastPlayersAndLobby(): Promise<void> {
+    await this.broadcastPlayers();
+    await this.broadcastLobbyState();
   }
 }

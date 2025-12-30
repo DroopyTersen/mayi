@@ -8,19 +8,14 @@ import type {
   ConnectionStatus,
   JoinStatus,
   PlayerInfo,
+  LobbyGameSettings,
+  AIModelId,
+  RoundNumber,
 } from "~/ui/lobby/lobby.types";
-
-type ClientMessage = {
-  type: "JOIN";
-  playerId: string;
-  playerName: string;
-};
-
-type ServerMessage =
-  | { type: "CONNECTED"; roomId: string }
-  | { type: "JOINED"; playerId: string; playerName: string }
-  | { type: "PLAYERS"; players: PlayerInfo[] }
-  | { type: "ERROR"; error: string; message: string };
+import type {
+  ClientMessage,
+  ServerMessage,
+} from "~/party/protocol.types";
 
 function getPlayerIdKey(roomId: string) {
   return `mayi:room:${roomId}:playerId`;
@@ -71,15 +66,32 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
 
+  // Phase 3: Game settings state
+  const [gameSettings, setGameSettings] = useState<LobbyGameSettings>({
+    aiPlayers: [],
+    startingRound: 1,
+    canStart: false,
+  });
+  const [isStartingGame, setIsStartingGame] = useState(false);
+
+  // Check if current player is the host (first player to join)
+  const isHost = useMemo(() => {
+    if (!currentPlayerId || players.length === 0) return false;
+    // The first player in the list is the host
+    return players[0]?.playerId === currentPlayerId;
+  }, [currentPlayerId, players]);
+
+  const sendMessage = useCallback((msg: ClientMessage) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    socket.send(JSON.stringify(msg));
+  }, []);
+
   const sendJoin = useCallback(
     (playerId: string, playerName: string) => {
-      const socket = socketRef.current;
-      if (!socket) return;
-
-      const msg: ClientMessage = { type: "JOIN", playerId, playerName };
-      socket.send(JSON.stringify(msg));
+      sendMessage({ type: "JOIN", playerId, playerName });
     },
-    []
+    [sendMessage]
   );
 
   const onJoin = useCallback(
@@ -101,6 +113,33 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     // During SSR this is undefined; it is set on the client in an effect below.
     return shareUrl;
   }, [shareUrl]);
+
+  // Phase 3: Callbacks for game setup
+  const onAddAIPlayer = useCallback(
+    (name: string, modelId: AIModelId) => {
+      sendMessage({ type: "ADD_AI_PLAYER", name, modelId });
+    },
+    [sendMessage]
+  );
+
+  const onRemoveAIPlayer = useCallback(
+    (playerId: string) => {
+      sendMessage({ type: "REMOVE_AI_PLAYER", playerId });
+    },
+    [sendMessage]
+  );
+
+  const onSetStartingRound = useCallback(
+    (round: RoundNumber) => {
+      sendMessage({ type: "SET_STARTING_ROUND", round });
+    },
+    [sendMessage]
+  );
+
+  const onStartGame = useCallback(() => {
+    setIsStartingGame(true);
+    sendMessage({ type: "START_GAME" });
+  }, [sendMessage]);
 
   useEffect(() => {
     // Client-only: sessionStorage + websocket
@@ -174,6 +213,22 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           // Reset join flow; allow the user to retry.
           setJoinStatus("unjoined");
           setShowNamePrompt(true);
+          setIsStartingGame(false);
+          return;
+        }
+        // Phase 3: Lobby state updates
+        case "LOBBY_STATE": {
+          setGameSettings({
+            aiPlayers: msg.lobbyState.aiPlayers,
+            startingRound: msg.lobbyState.startingRound,
+            canStart: msg.lobbyState.canStart,
+          });
+          return;
+        }
+        // Phase 3: Game started (to be fully implemented in Phase 3.2)
+        case "GAME_STARTED": {
+          setIsStartingGame(false);
+          // TODO: Navigate to game view
           return;
         }
       }
@@ -199,6 +254,14 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         showNamePrompt={showNamePrompt}
         onNamePromptChange={setShowNamePrompt}
         onJoin={onJoin}
+        // Phase 3: Game settings and callbacks
+        gameSettings={gameSettings}
+        isHost={isHost}
+        onAddAIPlayer={onAddAIPlayer}
+        onRemoveAIPlayer={onRemoveAIPlayer}
+        onSetStartingRound={onSetStartingRound}
+        onStartGame={onStartGame}
+        isStartingGame={isStartingGame}
       />
     </main>
   );

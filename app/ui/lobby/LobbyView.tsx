@@ -9,10 +9,17 @@ import { ConnectionStatusIndicator } from "./ConnectionStatusIndicator";
 import { LobbyPlayersList } from "./LobbyPlayersList";
 import { ShareLinkCard } from "./ShareLinkCard";
 import { NamePromptDialog } from "./NamePromptDialog";
+import { AddAIPlayerDialog } from "./AddAIPlayerDialog";
+import { AIPlayersList } from "./AIPlayersList";
+import { StartingRoundSelector } from "./StartingRoundSelector";
+import { StartGameButton } from "./StartGameButton";
 import type {
   ConnectionStatus,
   JoinStatus,
   PlayerInfo,
+  LobbyGameSettings,
+  AIModelId,
+  RoundNumber,
 } from "./lobby.types";
 
 interface LobbyViewProps {
@@ -26,6 +33,17 @@ interface LobbyViewProps {
   showNamePrompt: boolean;
   onNamePromptChange: (open: boolean) => void;
   onJoin: (name: string) => void;
+  /** Phase 3: Game settings */
+  gameSettings?: LobbyGameSettings;
+  /** Phase 3: Whether this player is the host (first player) */
+  isHost?: boolean;
+  /** Phase 3: Callbacks for game setup */
+  onAddAIPlayer?: (name: string, modelId: AIModelId) => void;
+  onRemoveAIPlayer?: (playerId: string) => void;
+  onSetStartingRound?: (round: RoundNumber) => void;
+  onStartGame?: () => void;
+  /** Phase 3: Loading state for start game */
+  isStartingGame?: boolean;
   className?: string;
 }
 
@@ -39,10 +57,22 @@ export function LobbyView({
   showNamePrompt,
   onNamePromptChange,
   onJoin,
+  gameSettings,
+  isHost = false,
+  onAddAIPlayer,
+  onRemoveAIPlayer,
+  onSetStartingRound,
+  onStartGame,
+  isStartingGame,
   className,
 }: LobbyViewProps) {
   const isJoining = joinStatus === "joining";
   const isJoined = joinStatus === "joined";
+
+  // Calculate total player count (human + AI)
+  const humanCount = players.length;
+  const aiCount = gameSettings?.aiPlayers.length ?? 0;
+  const totalPlayerCount = humanCount + aiCount;
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -86,16 +116,56 @@ export function LobbyView({
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <LobbyPlayersList
             players={players}
             currentPlayerId={currentPlayerId}
           />
+
+          {/* AI Players list (Phase 3) */}
+          {gameSettings && gameSettings.aiPlayers.length > 0 && (
+            <AIPlayersList
+              aiPlayers={gameSettings.aiPlayers}
+              onRemove={onRemoveAIPlayer ?? (() => {})}
+            />
+          )}
+
+          {/* Add AI Player button (host only) */}
+          {isHost && onAddAIPlayer && (
+            <AddAIPlayerDialog
+              onAdd={onAddAIPlayer}
+              disabled={totalPlayerCount >= 8}
+            />
+          )}
         </CardContent>
       </Card>
 
-      {/* Join status message for joined players */}
-      {isJoined && (
+      {/* Game Settings (host only, Phase 3) */}
+      {isHost && gameSettings && onSetStartingRound && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Game Settings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StartingRoundSelector
+              value={gameSettings.startingRound}
+              onChange={onSetStartingRound}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Start Game Button (host only, Phase 3) */}
+      {isHost && onStartGame && (
+        <StartGameButton
+          playerCount={totalPlayerCount}
+          onStart={onStartGame}
+          isLoading={isStartingGame}
+        />
+      )}
+
+      {/* Join status message for non-host joined players */}
+      {isJoined && !isHost && (
         <p className="text-sm text-center text-muted-foreground">
           Waiting for the host to start the game...
         </p>
