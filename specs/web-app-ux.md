@@ -4,7 +4,7 @@ This document describes the user experience for the May I? web application MVP. 
 
 ## Design Philosophy
 
-- **CLI-like, text-heavy, information-dense** — The web app should feel like a polished version of the terminal experience, not a flashy card game
+- **Information-dense but friendly** — Show all relevant game state clearly without hiding information behind menus or tabs
 - **Always-visible state** — Players should always see the table, players, their hand, and available actions without needing to expand or navigate
 - **Explicit over clever** — Actions happen through clear button taps and wizard flows, not drag-and-drop or gesture magic
 - **Responsive, not separate** — Same information on all screen sizes, just compressed on mobile
@@ -587,56 +587,26 @@ These are explicitly out of scope for MVP but noted for future reference:
 
 ---
 
-## Gemini Interpretation
+## Visual Design Notes
 
-This is an excellent UX specification. It's clear, opinionated, and solves the specific challenges of porting a complex card game to a screen without relying on complex gestures.
+The web app should feel friendly and approachable — think nostalgic family card game, not technical terminal. Use the existing shadcn/ui design system with clean, readable typography and good contrast.
 
-Here is a set of design mockups based exactly on your specification. I have interpreted the "CLI-like, polished terminal" aesthetic as a clean, high-contrast dark mode interface using monospaced fonts, distinct borders, and flat colors.
+**Key visual principles:**
+- Light, clean background (not dark terminal)
+- Standard readable fonts (not monospace)
+- Clear card rendering with red/black suit colors
+- Friendly, family-game aesthetic
+- Focus on clarity and usability over flashy effects
 
-### Design Language & Components Elements
-
-Before the full screens, here are the atomic components defining the aesthetic.
-
-**Colors:**
-
-- Background: `#1a1b26` (Deep terminal dark blue/gray)
-- Borders/Dividers: `#414868` (Subtle gray-blue)
-- Primary Text: `#c0caf5` (Off-white)
-- Card Text (Black suits): `#9aa5ce` (Muted blue-gray)
-- Card Text (Red suits): `#f7768e` (Terminal red)
-- Highlight/Accent: `#7aa2f7` (Bright terminal blue - used for current player borders and active buttons)
-- Success/Valid: `#9ece6a` (Terminal green)
-- Error/Invalid: `#f7768e` (Terminal red)
-
-**Card Component:**
-Strict 3-line styled boxes.
-
-```
-[ 9 ]  [ J ]  [JKR]
-[ ♥ ]  [ ♠ ]  [   ]
-
-```
-
-**Player "Avatar" Component:**
-Compact data block.
-
-```
-┌───────┐
-│ ALICE │ ← Name
-│   8   │ ← Big Card Count
-│   ✓   │ ← Down Status
-│  45   │ ← Score
-└───────┘
-
-```
+**Card colors:**
+- Red for hearts (♥) and diamonds (♦)
+- Black for clubs (♣) and spades (♠)
 
 ---
 
-### Mockup 1: Desktop — Main Game State (Your Turn, Start)
+## Reference Layout JSX
 
-This represents the base state when it becomes the player's turn, before they have drawn a card.
-
-**Key Features:**
+(Note: The ASCII terminal mockups have been removed in favor of the image mockups above. The JSX below is a reference implementation.)
 
 - **Dense Layout:** The 2-column structure defined in the spec.
 - **Current Player Highlight:** "YOU" is bordered in the accent color.

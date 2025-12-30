@@ -168,61 +168,57 @@ Joker is incredibly valuable - 50 pts if caught with it, but it completes any me
 Never pass up a Joker when you need it. Take discard immediately.
 </example>
 
-## May I Phase Examples
+## May I Resolution Examples
 
-<example phase="MAY_I_WINDOW" action="call_may_i">
-Hand: 7♣ 7♠ 7♥ 5♦ 5♣ K♠ Q♦ 9♣ 8♥ 4♠ 2♦
-Available: 5♥
-Contract: 2 sets
-Players down: 0
+During RESOLVING_MAY_I, another player has called "May I?" to claim the exposed discard.
 
-Reasoning:
-5♥ is available. What do I have?
-- Three 7s: 7♣ 7♠ 7♥ - that's already a complete set!
-- Two 5s: 5♦ 5♣ - 5♥ would complete this!
-- Wild 2♦ as backup
+If you are being prompted, you must decide:
+- allow_may_i: Let the caller take it.
+- claim_may_i: Take it yourself, blocking the caller (you may receive a penalty card depending on rules).
 
-If I call May I for 5♥, I get 5♦5♣5♥ = complete second set. That means I can lay down next turn! Yes I take a penalty card, but going down is priority #1.
-
-No one else is down yet, so the penalty card risk is acceptable. Call May I.
-</example>
-
-<example phase="MAY_I_WINDOW" action="pass">
+<example phase="RESOLVING_MAY_I" action="allow_may_i">
 Hand: 4♣ 8♦ 3♥ A♣ 4♠ 10♦ Q♦ 10♠ 5♠ 6♥ 8♣
-Available: Q♣
+Caller wants: Q♣
 Contract: 2 sets
-Players down: 1 (GPT-5 Mini has 5 cards)
 
 Reasoning:
-Q♣ is available. Let me check my hand:
+Caller wants Q♣. Let me check my hand:
 - Two 4s: 4♣ 4♠ - need one more
 - Two 10s: 10♦ 10♠ - need one more
 - Two 8s: 8♦ 8♣ - need one more
 - Q♦ is singleton - Q♣ would give me a pair of Queens
 
-So Q♣ + Q♦ = 2 Queens, but I still need 3 for a set. Not completing any meld.
-
-GPT-5 Mini is already down with 5 cards. That's concerning but not critical yet. Still, adding penalty cards when I'm not completing a meld is risky.
-
-Q♣ doesn't complete anything. Pass.
+Q♣ doesn't complete anything for me. Claiming would add a penalty card risk for little benefit.
+Allow.
 </example>
 
-<example phase="MAY_I_WINDOW" action="pass">
-Hand: Q♦ Q♠ 6♣ 8♥ 9♦ 3♠ 7♣ 5♥ 4♦ 10♣ A♠
-Available: K♥
+<example phase="RESOLVING_MAY_I" action="claim_may_i">
+Hand: 7♣ 7♠ 7♥ 5♦ 5♣ K♠ Q♦ 9♣ 8♥ 4♠ 2♦
+Caller wants: 5♥
 Contract: 2 sets
-Players down: 2 (one has 3 cards)
 
 Reasoning:
-K♥ available. Do I have Kings? No, just Q♦ Q♠ as a pair.
+5♥ would complete my second set:
+- I already have a complete set of 7s (7♣ 7♠ 7♥)
+- I have 5♦ 5♣, and 5♥ makes 5♦ 5♣ 5♥
+
+If I let the caller take 5♥, they get closer to laying down. I can claim it myself, block them, and likely go down sooner.
+Claim.
+</example>
+
+<example phase="RESOLVING_MAY_I" action="allow_may_i">
+Hand: Q♦ Q♠ 6♣ 8♥ 9♦ 3♠ 7♣ 5♥ 4♦ 10♣ A♠
+Caller wants: K♥
+Contract: 2 sets
+
+Reasoning:
+K♥ doesn't help me; I have no Kings.
 
 Board state is dangerous:
 - Two players already down
 - One of them has only 3 cards - could go out any turn!
 
-Even if K♥ helped me (which it doesn't), calling May I when someone has 3 cards is extremely risky. The penalty card could be the difference between going down and getting caught with a full hand.
-
-Definitely pass.
+Claiming would add penalty risk without improving my hand. Allow.
 </example>
 
 ## Laydown Phase Examples
@@ -377,13 +373,13 @@ That's 4 + 4 + 4 = 12 cards. ALL cards used!
 Lay down everything and WIN!
 </example>
 
-<example phase="MAY_I_WINDOW" round="6">
+<example phase="RESOLVING_MAY_I" round="6">
 Hand: 8♣ 8♦ 8♠ 5♥ 6♥ 7♥ 8♥ 10♣ J♣ Q♣ K♣ (11 cards)
-Available: 2♦
+Caller wants: 2♦
 Contract: 1 set + 2 runs (must use ALL cards)
 
 Reasoning:
-Round 6 May I decision for 2♦ (wild).
+Round 6 May I resolution for 2♦ (wild).
 
 Current hand (11 cards):
 - 8♣ 8♦ 8♠ = set of 8s
@@ -392,11 +388,9 @@ Current hand (11 cards):
 
 Wait, that's only 3 + 4 + 4 = 11 cards. I have exactly 11. After drawing I'll have 12.
 
-If I call May I, I get 2♦ + penalty card = 2 more cards = 13 total. Now I need to fit 13 cards into 1 set + 2 runs. Much harder!
+If I claim, I might get 2♦ plus a penalty card, pushing me to 13 cards. In Round 6 every extra card must fit into melds, so taking extra cards can be a trap.
 
-May I in Round 6 is dangerous because every extra card must fit into melds. I'm already close to completing. Don't risk it.
-
-Pass.
+Allow.
 </example>
 </reasoning_examples>`;
 
@@ -406,8 +400,8 @@ Based on the game state shown, choose the best action using the available tools.
 ## Available Tools (8 total)
 
 ### Drawing Tools
-- draw_from_stock: Draw top card from stock pile. Opens May I window for others. Only if NOT down.
-- draw_from_discard: Take top card from discard pile. Blocks others from claiming it. Only if NOT down.
+- draw_from_stock: Draw top card from stock pile. Only if NOT down.
+- draw_from_discard: Take top card from discard pile (only if NOT down).
 
 Note: When you are DOWN, drawing from stock happens automatically at the start of your turn.
 
@@ -420,8 +414,8 @@ Note: When you are DOWN, drawing from stock happens automatically at the start o
 - discard: Discard a card by position to end your turn. Can be called directly from action phase.
 
 ### May I Tools
-- call_may_i: Claim the discarded card (+1 penalty card from stock). Only if NOT down.
-- pass: Decline to call May I.
+- allow_may_i: Allow the May I caller to take the discard (when prompted).
+- claim_may_i: Claim the discard yourself, blocking the caller (when prompted).
 
 ## Tool Availability by Phase
 
@@ -436,9 +430,8 @@ Note: When you are DOWN, drawing from stock happens automatically at the start o
 ### AWAITING_DISCARD
 - discard
 
-### MAY_I_WINDOW
-- If NOT down: call_may_i, pass
-- If down: pass only
+### RESOLVING_MAY_I
+- allow_may_i, claim_may_i
 
 ## What "Down" Means
 
@@ -453,7 +446,7 @@ Once you've laid down your contract, you are "down" and:
 1. AWAITING_DRAW: Do you want the discard? If down, you must draw from stock.
 2. AWAITING_ACTION: Can you lay down? If down, can you lay off to any melds?
 3. AWAITING_DISCARD: Discard highest-point card you don't need. Avoid what opponents collect.
-4. MAY_I_WINDOW: Does the card complete a meld? Is someone close to going out?
+4. RESOLVING_MAY_I: Should you block the caller by claiming, or allow?
 
 Execute ONE action at a time and observe the result.
 </instructions>`;

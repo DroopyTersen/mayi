@@ -2,7 +2,7 @@
  * GameEngine - Server-safe wrapper around XState game machines
  *
  * This engine wraps the existing XState machines (game.machine, round.machine,
- * turn.machine, mayIWindow.machine) to provide:
+ * turn.machine) to provide:
  *
  * 1. ID-based commands (not position-based)
  * 2. Full serialization/hydration support
@@ -17,7 +17,7 @@ import { gameMachine, type GameContext, type GameEvent } from "./game.machine";
 import { CONTRACTS, getContractForRound } from "./contracts";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
-import type { Player, RoundNumber, RoundRecord } from "./engine.types";
+import type { MayIResolution, Player, RoundNumber, RoundRecord } from "./engine.types";
 import type {
   GameSnapshot,
   PlayerView,
@@ -49,6 +49,7 @@ interface RoundContext {
   roundNumber: RoundNumber;
   turnNumber: number;
   lastDiscardedByPlayerId: string | null;
+  mayIResolution: MayIResolution | null;
 }
 
 interface TurnContext {
@@ -60,16 +61,10 @@ interface TurnContext {
   hasDrawn: boolean;
   laidDownThisTurn: boolean;
   table: Meld[];
+  lastError: string | null;
 }
 
-interface MayIWindowContext {
-  discardedCard: Card;
-  discardedByPlayerId: string;
-  currentPlayerId: string;
-  currentPlayerIndex: number;
-  claimants: string[];
-  awaitingResponseFrom?: string[];
-}
+// Note: MayIWindowContext removed - May I is now handled at round level
 
 /**
  * GameEngine - Thin wrapper around XState actor
@@ -288,57 +283,63 @@ export class GameEngine {
 
   /** Draw from discard pile */
   drawFromDiscard(playerId: string): CommandResult {
-    this.actor.send({ type: "DRAW_FROM_DISCARD" });
+    this.actor.send({ type: "DRAW_FROM_DISCARD", playerId });
     return this.getSnapshot();
   }
 
   /** Skip laying down/off and proceed to discard phase */
   skip(playerId: string): CommandResult {
-    this.actor.send({ type: "SKIP_LAY_DOWN" });
+    this.actor.send({ type: "SKIP_LAY_DOWN", playerId });
     return this.getSnapshot();
   }
 
   /** Lay down melds to meet the contract */
   layDown(playerId: string, meldSpecs: MeldSpec[]): CommandResult {
     const melds = meldSpecs.map((spec) => ({ type: spec.type, cardIds: spec.cardIds }));
-    this.actor.send({ type: "LAY_DOWN", melds });
+    this.actor.send({ type: "LAY_DOWN", playerId, melds });
     return this.getSnapshot();
   }
 
   /** Lay off a card onto an existing meld */
   layOff(playerId: string, cardId: string, meldId: string): CommandResult {
-    this.actor.send({ type: "LAY_OFF", cardId, meldId });
+    this.actor.send({ type: "LAY_OFF", playerId, cardId, meldId });
     return this.getSnapshot();
   }
 
   /** Swap a joker from a run with a card from hand */
   swap(playerId: string, meldId: string, jokerCardId: string, swapCardId: string): CommandResult {
-    this.actor.send({ type: "SWAP_JOKER", jokerCardId, meldId, swapCardId });
+    this.actor.send({ type: "SWAP_JOKER", playerId, jokerCardId, meldId, swapCardId });
     return this.getSnapshot();
   }
 
   /** Discard a card from hand */
   discard(playerId: string, cardId: string): CommandResult {
-    this.actor.send({ type: "DISCARD", cardId });
+    this.actor.send({ type: "DISCARD", playerId, cardId });
     return this.getSnapshot();
   }
 
-  /** Call May I to claim the discarded card */
+  /** Call May I to claim the discarded card (starts resolution) */
   callMayI(playerId: string): CommandResult {
     this.actor.send({ type: "CALL_MAY_I", playerId });
     return this.getSnapshot();
   }
 
-  /** Pass on the May I opportunity */
-  passMayI(playerId: string): CommandResult {
-    this.actor.send({ type: "DRAW_FROM_STOCK", playerId });
+  /** Allow the May I caller to have the card (when prompted during resolution) */
+  allowMayI(playerId: string): CommandResult {
+    this.actor.send({ type: "ALLOW_MAY_I", playerId });
+    return this.getSnapshot();
+  }
+
+  /** Claim the card yourself, blocking the original caller (when prompted during resolution) */
+  claimMayI(playerId: string): CommandResult {
+    this.actor.send({ type: "CLAIM_MAY_I", playerId });
     return this.getSnapshot();
   }
 
 
   /** Reorder cards in hand (free action, can be called anytime during player's turn) */
   reorderHand(playerId: string, newCardOrder: string[]): CommandResult {
-    this.actor.send({ type: "REORDER_HAND", newOrder: newCardOrder });
+    this.actor.send({ type: "REORDER_HAND", playerId, newOrder: newCardOrder });
     return this.getSnapshot();
   }
 
@@ -359,8 +360,16 @@ export class GameEngine {
     const roundContext = roundSnapshot?.context as RoundContext | undefined;
     const turnSnapshot = roundSnapshot?.children?.turn?.snapshot;
     const turnContext = turnSnapshot?.context as TurnContext | undefined;
-    const mayISnapshot = turnSnapshot?.children?.mayIWindow?.snapshot;
-    const mayIContext = mayISnapshot?.context as MayIWindowContext | undefined;
+
+    // Check if we're in May I resolution (round-level state)
+    const roundState = roundSnapshot?.value;
+    const isResolvingMayI =
+      typeof roundState === "object" &&
+      roundState !== null &&
+      "active" in roundState &&
+      typeof roundState.active === "object" &&
+      roundState.active !== null &&
+      "resolvingMayI" in roundState.active;
 
     // Determine phase
     let phase: EnginePhase = "ROUND_ACTIVE";
@@ -374,7 +383,12 @@ export class GameEngine {
     } else if (machineState === "roundEnd") {
       phase = "ROUND_END";
     } else if (machineState === "playing") {
-      phase = "ROUND_ACTIVE";
+      // Check for May I resolution state first
+      if (isResolvingMayI) {
+        phase = "RESOLVING_MAY_I";
+      } else {
+        phase = "ROUND_ACTIVE";
+      }
 
       // Check turn state
       const turnState = turnSnapshot?.value;
@@ -382,16 +396,6 @@ export class GameEngine {
         if (turnState === "awaitingDraw") turnPhase = "AWAITING_DRAW";
         else if (turnState === "drawn") turnPhase = "AWAITING_ACTION";
         else if (turnState === "awaitingDiscard") turnPhase = "AWAITING_DISCARD";
-        else if (turnState === "mayIWindow") {
-          // XState v5 represents invoked states as string values
-          phase = "MAY_I_WINDOW";
-          turnPhase = "AWAITING_DRAW"; // Still waiting for May I resolution
-        }
-      } else if (typeof turnState === "object" && turnState !== null) {
-        if ("mayIWindow" in turnState) {
-          phase = "MAY_I_WINDOW";
-          turnPhase = "AWAITING_DRAW";
-        }
       }
     }
 
@@ -414,41 +418,37 @@ export class GameEngine {
     const currentPlayerIndex = roundContext?.currentPlayerIndex ?? 0;
     const dealerIndex = roundContext?.dealerIndex ?? context.dealerIndex;
 
-    // Get awaiting player
+    // Get awaiting player - during May I resolution, it's the prompted player
     let awaitingPlayerId = updatedPlayers[currentPlayerIndex]?.id ?? "";
-    if (phase === "MAY_I_WINDOW" && mayIContext) {
-      // In May I window, we're waiting on the next non-down player who can call May I
-      // Priority goes to players in order after the current player
-      const playerCount = updatedPlayers.length;
-      for (let i = 1; i < playerCount; i++) {
-        const index = (mayIContext.currentPlayerIndex + i) % playerCount;
-        const player = updatedPlayers[index];
-        if (player && !player.isDown && player.id !== mayIContext.discardedByPlayerId) {
-          awaitingPlayerId = player.id;
-          break;
-        }
-      }
+    if (isResolvingMayI && roundContext?.mayIResolution?.playerBeingPrompted) {
+      awaitingPlayerId = roundContext.mayIResolution.playerBeingPrompted;
     }
 
-    // Build May I context if in May I window
+    // Extract May I context from round-level mayIResolution
     let mayIContextResult: MayIContext | null = null;
-    if (phase === "MAY_I_WINDOW" && mayIContext) {
+    if (roundContext?.mayIResolution) {
+      const resolution = roundContext.mayIResolution;
       mayIContextResult = {
-        discardedCard: mayIContext.discardedCard,
-        discardedByPlayerId: mayIContext.discardedByPlayerId,
-        currentPlayerId: mayIContext.currentPlayerId,
-        currentPlayerIndex: mayIContext.currentPlayerIndex,
-        awaitingResponseFrom: mayIContext.awaitingResponseFrom ?? [],
-        claimants: mayIContext.claimants,
-        currentPlayerPassed: true,
+        originalCaller: resolution.originalCaller,
+        cardBeingClaimed: resolution.cardBeingClaimed,
+        playersToCheck: resolution.playersToCheck,
+        currentPromptIndex: resolution.currentPromptIndex,
+        playerBeingPrompted: resolution.playerBeingPrompted,
+        playersWhoAllowed: resolution.playersWhoAllowed,
+        winner: resolution.winner,
+        outcome: resolution.outcome,
       };
     }
 
     const currentRound = (context.currentRound ?? 1) as RoundNumber;
 
+    // Prefer turn error when available, then fall back to game-level error
+    const lastError = turnContext?.lastError ?? context.lastError ?? null;
+
     return {
       version: "3.0",
       gameId: this.gameId,
+      lastError,
       phase,
       turnPhase,
       turnNumber: roundContext?.turnNumber ?? 1,
@@ -465,7 +465,6 @@ export class GameEngine {
       table: turnContext?.table ?? roundContext?.table ?? [],
       hasDrawn: turnContext?.hasDrawn ?? false,
       laidDownThisTurn: turnContext?.laidDownThisTurn ?? false,
-      lastDiscardedByPlayerId: null, // TODO: Track this
       mayIContext: mayIContextResult,
       roundHistory: context.roundHistory ?? [],
       createdAt: this.createdAt,

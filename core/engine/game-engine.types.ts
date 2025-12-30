@@ -19,7 +19,7 @@ import type { Contract } from "./contracts";
  */
 export type EnginePhase =
   | "ROUND_ACTIVE"
-  | "MAY_I_WINDOW"
+  | "RESOLVING_MAY_I"
   | "ROUND_END"
   | "GAME_END";
 
@@ -36,23 +36,29 @@ export type TurnPhase =
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Context for the May I window
+ * Context for May I resolution at round level
+ *
+ * When someone calls May I, resolution proceeds through players ahead of
+ * the caller in priority order. Each player can ALLOW (let caller have it)
+ * or CLAIM (take it themselves, blocking the caller).
  */
 export interface MayIContext {
-  /** The card up for grabs */
-  discardedCard: Card;
-  /** Who discarded it (previous player) */
-  discardedByPlayerId: string;
-  /** Whose turn it actually is (who drew from stock) */
-  currentPlayerId: string;
-  /** Index of current player */
-  currentPlayerIndex: number;
-  /** Players who still need to respond, in priority order */
-  awaitingResponseFrom: string[];
-  /** Players who have called May I */
-  claimants: string[];
-  /** Has the current player already passed (drew from stock)? Always true in May I window */
-  currentPlayerPassed: boolean;
+  /** Who called May I */
+  originalCaller: string;
+  /** The card being claimed */
+  cardBeingClaimed: Card;
+  /** Players to check in priority order */
+  playersToCheck: string[];
+  /** Current index in playersToCheck */
+  currentPromptIndex: number;
+  /** Who is currently being prompted (null if resolution complete) */
+  playerBeingPrompted: string | null;
+  /** Players who have allowed the caller to have the card */
+  playersWhoAllowed: string[];
+  /** Winner of the resolution (null if still in progress) */
+  winner: string | null;
+  /** Outcome: caller_won | blocked | current_player_claimed | null */
+  outcome: "caller_won" | "blocked" | "current_player_claimed" | null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -71,6 +77,9 @@ export interface GameSnapshot {
 
   /** Unique game identifier */
   gameId: string;
+
+  /** Error message from the last failed operation (if any) */
+  lastError: string | null;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Phase Tracking
@@ -137,14 +146,11 @@ export interface GameSnapshot {
   /** Did the current player lay down this turn? (prevents lay-off same turn) */
   laidDownThisTurn: boolean;
 
-  /** ID of player who last discarded (for May I attribution) */
-  lastDiscardedByPlayerId: string | null;
-
   // ─────────────────────────────────────────────────────────────────────────
-  // May I Window
+  // May I Resolution
   // ─────────────────────────────────────────────────────────────────────────
 
-  /** May I context when phase is MAY_I_WINDOW, null otherwise */
+  /** May I context when phase is RESOLVING_MAY_I, null otherwise */
   mayIContext: MayIContext | null;
 
   // ─────────────────────────────────────────────────────────────────────────

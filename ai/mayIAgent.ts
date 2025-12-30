@@ -5,7 +5,7 @@
  */
 
 import { generateText, type LanguageModel, type StepResult } from "ai";
-import type { Orchestrator } from "../cli/harness/orchestrator";
+import type { CliGameAdapter } from "../cli/shared/cli-game-adapter";
 import { outputGameStateForLLM } from "../cli/shared/cli.llm-output";
 import { buildSystemPrompt } from "./mayIAgent.prompt";
 import {
@@ -51,8 +51,8 @@ export interface ExecuteTurnConfig {
   /** The language model to use for decisions */
   model: LanguageModel;
 
-  /** The orchestrator managing the game state */
-  orchestrator: Orchestrator;
+  /** The CLI adapter managing the game state */
+  game: CliGameAdapter;
 
   /** The player ID this AI is controlling */
   playerId: string;
@@ -95,7 +95,7 @@ export async function executeTurn(
 ): Promise<ExecuteTurnResult> {
   const {
     model,
-    orchestrator,
+    game,
     playerId,
     playerName,
     maxSteps = 10,
@@ -103,17 +103,17 @@ export async function executeTurn(
     telemetry = true,
   } = config;
 
-  const tools = createMayITools(orchestrator, playerId);
+  const tools = createMayITools(game, playerId);
   const systemPrompt = buildSystemPrompt();
   const actions: string[] = [];
 
   // Check if it's this player's turn
-  let currentState = orchestrator.getPersistedState();
-  if (currentState.harness.awaitingPlayerId !== playerId) {
+  let currentState = game.getSnapshot();
+  if (currentState.awaitingPlayerId !== playerId) {
     return {
       success: false,
       actions: [],
-      error: `Not this player's turn. Awaiting: ${currentState.harness.awaitingPlayerId}`,
+      error: `Not this player's turn. Awaiting: ${currentState.awaitingPlayerId}`,
     };
   }
 
@@ -122,24 +122,27 @@ export async function executeTurn(
 
   if (debug) {
     console.log(`\n[AI] Starting turn for ${playerId}`);
-    console.log(`[AI] Phase: ${currentState.harness.phase}`);
+    console.log(`[AI] Phase: ${currentState.phase} / ${currentState.turnPhase}`);
   }
 
   // Auto-draw for down players (they can only draw from stock)
-  if (isDown && currentState.harness.phase === "AWAITING_DRAW") {
-    const drawResult = orchestrator.drawFromStock();
+  if (
+    isDown &&
+    currentState.phase === "ROUND_ACTIVE" &&
+    currentState.turnPhase === "AWAITING_DRAW"
+  ) {
+    const drawResult = game.drawFromStock();
     actions.push("draw_from_stock({})");
 
     if (debug) {
-      console.log(`[AI] Auto-draw (down player): ${drawResult.message}`);
+      console.log(`[AI] Auto-draw (down player): ${drawResult.lastError ?? "OK"}`);
     }
 
     // Refresh state after auto-draw
-    currentState = orchestrator.getPersistedState();
+    currentState = game.getSnapshot();
 
-    // If May I window opened and it's no longer our turn, return
-    // (other players need to respond first)
-    if (currentState.harness.awaitingPlayerId !== playerId) {
+    // If the engine is no longer awaiting us (interrupted), return
+    if (currentState.awaitingPlayerId !== playerId) {
       return {
         success: true,
         actions,
@@ -164,18 +167,16 @@ export async function executeTurn(
       stopWhen: stopWhenTurnComplete(maxSteps),
       prepareStep: async () => {
         // Get current game state (may have changed since last step)
-        const currentState = orchestrator.getPersistedState();
+        const currentState = game.getSnapshot();
         const currentPlayer = currentState.players.find((p) => p.id === playerId);
-        const isDown = currentPlayer?.isDown ?? false;
 
-        // Get tools available for current phase
-        const activeToolNames = getAvailableToolNames(
-          currentState.harness.phase,
-          isDown
-        ) as (keyof MayITools)[];
+        // Get tools available for current snapshot
+        const activeToolNames = getAvailableToolNames(currentState, playerId) as (keyof MayITools)[];
 
         if (debug) {
-          console.log(`[AI] Phase: ${currentState.harness.phase}, Available tools: ${activeToolNames.join(", ")}`);
+          console.log(
+            `[AI] Phase: ${currentState.phase} / ${currentState.turnPhase}, Available tools: ${activeToolNames.join(", ")}`
+          );
         }
 
         return {
@@ -191,8 +192,9 @@ export async function executeTurn(
               playerName: displayName,
               gameId: currentState.gameId,
               round: currentState.currentRound,
-              phase: currentState.harness.phase,
-              turnNumber: currentState.harness.turnNumber,
+              phase: currentState.phase,
+              turnPhase: currentState.turnPhase,
+              turnNumber: currentState.turnNumber,
             },
           }
         : undefined,
@@ -257,8 +259,8 @@ export async function executeOneAction(
  * Configuration for executing an AI turn using the registry
  */
 export interface ExecuteAITurnConfig {
-  /** The orchestrator managing the game state */
-  orchestrator: Orchestrator;
+  /** The CLI adapter managing the game state */
+  game: CliGameAdapter;
 
   /** The player ID to execute turn for */
   playerId: string;
@@ -285,7 +287,7 @@ export interface ExecuteAITurnConfig {
 export async function executeAITurn(
   config: ExecuteAITurnConfig
 ): Promise<ExecuteTurnResult> {
-  const { orchestrator, playerId, registry, maxSteps, debug } = config;
+  const { game, playerId, registry, maxSteps, debug } = config;
 
   const model = registry.getModel(playerId);
   if (!model) {
@@ -300,7 +302,7 @@ export async function executeAITurn(
 
   return executeTurn({
     model,
-    orchestrator,
+    game,
     playerId,
     playerName,
     maxSteps,

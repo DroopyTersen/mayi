@@ -1,15 +1,15 @@
 import { Form, redirect } from "react-router";
 import { nanoid } from "nanoid";
 import type { Route } from "./+types/home";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
+import { Button } from "~/shadcn/components/ui/button";
+import { Input } from "~/shadcn/components/ui/input";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "~/components/ui/card";
+} from "~/shadcn/components/ui/card";
 
 export function meta() {
   return [{ title: "May I?" }];

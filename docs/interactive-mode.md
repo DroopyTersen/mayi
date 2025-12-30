@@ -149,9 +149,9 @@ You're laying off K♦. Which meld?
 
 The `← fits here!` indicator shows which melds your card can legally join.
 
-### 7. May I Window
+### 7. May I
 
-When another player draws from stock and you want the discard:
+When the discard is exposed and you want it:
 
 ```
 May I? (8♣ + penalty card)
@@ -163,6 +163,19 @@ May I? (8♣ + penalty card)
 ```
 
 If you call May I and win, you receive the discard plus one penalty card from the stock.
+
+If another player calls May I and you are higher priority, you may be prompted to respond:
+
+```
+MAY I? — 8♣
+
+  1. Allow
+  2. Claim
+
+>
+```
+
+`Claim` blocks the original caller and gives you the discard (with penalties per house rules).
 
 ### 8. Round End
 
@@ -241,4 +254,4 @@ This keeps games moving but means AI opponents won't win rounds through skill.
 | Persistence | Same game-state.json | Same game-state.json |
 | Best for | Human players | AI agents |
 
-Both modes use the same underlying orchestrator and share the same game state files.
+Both modes use the same `CliGameAdapter` + `GameEngine` state files in `.data/<game-id>/`.

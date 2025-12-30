@@ -46,24 +46,33 @@ The harness is designed for non-interactive CLI usage:
 | File | Purpose |
 |------|---------|
 | `cli/play.ts` | CLI entry point with command handlers |
-| `cli/shared/cli.types.ts` | Type definitions for persisted state |
+| `cli/shared/cli.types.ts` | Type definitions for CLI persistence and logs |
 | `cli/shared/cli.persistence.ts` | Multi-game persistence (save/load/list) |
+| `cli/shared/cli-game-adapter.ts` | CLI adapter (maps CLI inputs → engine) |
+| `core/engine/game-engine.ts` | Thin wrapper around XState machines |
 | `cli/harness/harness.state.ts` | State accessors |
 | `cli/harness/harness.render.ts` | Display rendering (text and JSON) |
-| `cli/harness/orchestrator.ts` | Game state management and command execution |
 
 ## Game Phases
 
-The harness tracks which player needs to act and what actions are available:
+The harness uses the engine snapshot fields `phase` and `turnPhase`:
 
-| Phase | Description | Available Commands |
-|-------|-------------|-------------------|
+### `phase` (EnginePhase)
+
+| phase | Description | Common Commands |
+|-------|-------------|-----------------|
+| `ROUND_ACTIVE` | Normal turn flow (see `turnPhase`) | `draw`, `laydown`, `layoff`, `swap`, `skip`, `discard`, `mayi` |
+| `RESOLVING_MAY_I` | May I resolution in progress | `allow`, `claim` |
+| `ROUND_END` | Round scoring/transition (auto-advances) | `status` |
+| `GAME_END` | Game over | `new`, `status` |
+
+### `turnPhase` (only when `phase === "ROUND_ACTIVE"`)
+
+| turnPhase | Description | Common Commands |
+|----------|-------------|-----------------|
 | `AWAITING_DRAW` | Current player must draw | `draw stock`, `draw discard` |
-| `AWAITING_ACTION` | Player has drawn, can act | `laydown`, `layoff`, `swap`, `skip` |
+| `AWAITING_ACTION` | Player has drawn, can act | `laydown`, `layoff`, `swap`, `skip`, `discard` |
 | `AWAITING_DISCARD` | Player must discard | `discard <position>` |
-| `MAY_I_WINDOW` | Waiting for May I responses | `mayi`, `pass` |
-| `ROUND_END` | Round complete | `continue` |
-| `GAME_END` | Game over | `new` |
 
 ## Commands Reference
 
@@ -160,27 +169,30 @@ bun cli/play.ts abc123 discard 5
 
 ### May I Window
 
-When someone draws from stock, a May I window opens for the discarded card:
+There is no separate “May I window” phase. May I is resolved at the round level.
+
+To initiate a May I claim for the exposed discard:
 
 ```bash
-# Non-current player can call May I
-bun cli/play.ts abc123 mayi
-
-# Pass on claiming the card
-bun cli/play.ts abc123 pass
+# Call May I as a specific player
+bun cli/play.ts abc123 mayi player-2
 ```
 
-Note: The current player's "veto" is choosing `draw discard` instead of `draw stock` at the start of their turn. Once they draw from stock, the May I window opens and they have already passed on the discard.
+If accepted, the engine enters `phase = RESOLVING_MAY_I` and prompts higher-priority players (in order). For each prompt, respond with:
+
+```bash
+bun cli/play.ts abc123 allow
+bun cli/play.ts abc123 claim
+```
 
 ### Round/Game Transitions
 
 ```bash
-# Continue to next round after round ends
-bun cli/play.ts abc123 continue
-
 # Start new game after game ends
 bun cli/play.ts new
 ```
+
+Round transitions are automatic; there is no `continue` command.
 
 ## Status Output
 
@@ -223,36 +235,37 @@ bun cli/play.ts abc123 status --json
 ```
 
 Returns structured JSON with:
-- `round`, `contract`, `phase`
+- `round`, `contract`, `phase`, `turnPhase`
 - `awaitingPlayer` with hand details
 - `players` array with card counts and scores
 - `table` with melds
 - `availableCommands`
-- `mayIContext` (when in May I window)
+- `mayIContext` (when `phase === "RESOLVING_MAY_I"`)
 
 ## Action Log
 
 The action log (`.data/<game-id>/game-log.jsonl`) records all game actions:
 
 ```
-[12:35:20 PM] R1 T0: System GAME_STARTED — Players: Alice, Bob, Carol
+[12:35:20 PM] R1 T1: System GAME_STARTED — Players: Alice, Bob, Carol
 [12:35:24 PM] R1 T1: Bob drew from stock — 2♥
-[12:35:28 PM] R1 T1: Carol passed on May I — 2♦
-[12:35:32 PM] R1 T1: Alice called May I — 2♦
-[12:35:32 PM] R1 T1: Alice won May I — 2♦ + penalty card
+[12:35:28 PM] R1 T1: Carol called May I — 8♣
+[12:35:30 PM] R1 T1: Bob allowed May I
+[12:35:30 PM] R1 T1: Carol won May I — 8♣ (+ penalty)
 ```
 
 ## May I Resolution
 
-When a player draws from stock:
-1. A May I window opens for the top discard
-2. Each non-current player (in turn order) can call "May I" or pass
-3. If anyone called May I:
-   - Highest priority claimant (closest to current player) wins
-   - Winner receives the discard + 1 penalty card from stock
-4. If no claims, the window closes and play continues
+The discard is exposed from the moment the previous player discards it until someone claims it.
 
-Note: The current player vetoes by drawing from discard at turn start, not during the May I window.
+When a player calls May I, the engine settles it immediately by prompting players ahead of the caller in priority order:
+- Each prompted player chooses `allow` or `claim`
+- If anyone claims, they win (blocking the caller)
+- If everyone allows, the original caller wins
+
+Penalty:
+- Current player claiming via `claim` (before drawing from stock) takes the discard as their normal draw (no penalty)
+- Any other winner receives the discard + 1 penalty card from stock
 
 ## Round Contracts
 

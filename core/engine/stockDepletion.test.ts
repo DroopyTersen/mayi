@@ -115,30 +115,31 @@ describe("reshuffleStock action", () => {
       // In production, this is handled by RoundMachine when stock is empty
 
       const discardPile = createTestCards(5);
-      const topCard = discardPile[discardPile.length - 1]!;
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      // Discard pile is stored with top card first (index 0)
+      const topCard = discardPile[0]!;
+      const cardsToReshuffle = discardPile.slice(1);
 
       // After reshuffle: 4 cards in stock, 1 card in discard
       expect(cardsToReshuffle.length).toBe(4);
-      expect(topCard.id).toBe("card-4");
+      expect(topCard.id).toBe("card-0");
     });
 
     it("when: reshuffleStock, topCard remains in discard (face-up)", () => {
       const discardPile = createTestCards(5);
-      const topCard = discardPile[discardPile.length - 1]!;
+      const topCard = discardPile[0]!;
 
       // The top card is the last one in the array
-      expect(topCard.id).toBe("card-4");
+      expect(topCard.id).toBe("card-0");
 
       // After reshuffle, only this card remains
       const newDiscard = [topCard];
       expect(newDiscard.length).toBe(1);
-      expect(newDiscard[0]!.id).toBe("card-4");
+      expect(newDiscard[0]!.id).toBe("card-0");
     });
 
     it("[card2, card3, card4] shuffled into stock (cards 0-3 become stock)", () => {
       const discardPile = createTestCards(5);
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      const cardsToReshuffle = discardPile.slice(1);
       const newStock = shuffle(cardsToReshuffle);
 
       expect(newStock.length).toBe(4);
@@ -146,8 +147,8 @@ describe("reshuffleStock action", () => {
 
     it("stock.length === 4 and discard.length === 1 after reshuffle of 5-card discard", () => {
       const discardPile = createTestCards(5);
-      const topCard = discardPile[discardPile.length - 1]!;
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      const topCard = discardPile[0]!;
+      const cardsToReshuffle = discardPile.slice(1);
 
       expect(cardsToReshuffle.length).toBe(4);
       expect([topCard].length).toBe(1);
@@ -157,28 +158,28 @@ describe("reshuffleStock action", () => {
   describe("preserves top discard", () => {
     it("the card most recently discarded stays visible", () => {
       const discardPile = createTestCards(10);
-      const topCard = discardPile[discardPile.length - 1]!;
+      const topCard = discardPile[0]!;
 
       // Top card (most recently discarded) is preserved
-      expect(topCard.id).toBe("card-9");
+      expect(topCard.id).toBe("card-0");
     });
 
     it("next player still has option to draw it", () => {
       // After reshuffle, the top discard remains accessible
       const discardPile = createTestCards(10);
-      const topCard = discardPile[discardPile.length - 1]!;
+      const topCard = discardPile[0]!;
       const newDiscard = [topCard];
 
       // Player can still draw from discard
       expect(newDiscard.length).toBe(1);
-      expect(newDiscard[0]!.id).toBe("card-9");
+      expect(newDiscard[0]!.id).toBe("card-0");
     });
 
     it("game continuity maintained", () => {
       // Total cards should be preserved
       const discardPile = createTestCards(10);
-      const topCard = discardPile[discardPile.length - 1]!;
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      const topCard = discardPile[0]!;
+      const cardsToReshuffle = discardPile.slice(1);
       const newStock = shuffle(cardsToReshuffle);
       const newDiscard = [topCard];
 
@@ -301,7 +302,7 @@ describe("reshuffle scenarios", () => {
       // Track initial discard
       const initialDiscard = actor.getSnapshot().context.discard;
       const initialDiscardLength = initialDiscard.length;
-      const topCard = initialDiscard[initialDiscardLength - 1];
+      const topCard = initialDiscard[0];
       expect(initialDiscardLength).toBeGreaterThan(1);
 
       // Stock is empty
@@ -322,8 +323,8 @@ describe("reshuffle scenarios", () => {
   describe("discard pile size", () => {
     it("minimum discard for reshuffle: 2 cards (1 stays, 1 to stock)", () => {
       const discardPile = createTestCards(2);
-      const topCard = discardPile[discardPile.length - 1]!;
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      const topCard = discardPile[0]!;
+      const cardsToReshuffle = discardPile.slice(1);
 
       // 1 card becomes stock, 1 stays in discard
       expect(cardsToReshuffle.length).toBe(1);
@@ -332,8 +333,8 @@ describe("reshuffle scenarios", () => {
 
     it("all but top card become new stock", () => {
       const discardPile = createTestCards(30);
-      const topCard = discardPile[discardPile.length - 1]!;
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      const topCard = discardPile[0]!;
+      const cardsToReshuffle = discardPile.slice(1);
 
       expect(cardsToReshuffle.length).toBe(29);
       expect([topCard].length).toBe(1);
@@ -354,8 +355,8 @@ describe("reshuffle scenarios", () => {
 
     it("stock empty, discard has only 1 card - cannot reshuffle", () => {
       const discardPile = createTestCards(1);
-      const topCard = discardPile[discardPile.length - 1]!;
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      const topCard = discardPile[0]!;
+      const cardsToReshuffle = discardPile.slice(1);
 
       // No cards to reshuffle
       expect(cardsToReshuffle.length).toBe(0);
@@ -367,8 +368,8 @@ describe("reshuffle scenarios", () => {
       // "Agree that the hand ends immediately and all players score what they hold"
       // This happens when stock is empty and discard has only 1 card (the face-up top card)
       const discardPile = createTestCards(1);
-      const topCard = discardPile[discardPile.length - 1]!;
-      const cardsToReshuffle = discardPile.slice(0, -1);
+      const topCard = discardPile[0]!;
+      const cardsToReshuffle = discardPile.slice(1);
 
       // Cannot reshuffle - no cards to put in stock
       expect(cardsToReshuffle.length).toBe(0);
@@ -377,5 +378,43 @@ describe("reshuffle scenarios", () => {
       // In this edge case, the round should end and all players score their hands
       // This is a house rule decision - implemented as round ending immediately
     });
+  });
+});
+
+describe("automatic stock replenishment (house rules)", () => {
+  it("when: last stock card is drawn, discard (except top) is shuffled into new stock automatically", () => {
+    const lastStockCard: Card = { id: "stock-last", suit: "hearts", rank: "A" };
+    const topDiscard: Card = { id: "discard-top", suit: "clubs", rank: "9" };
+    const d1: Card = { id: "discard-1", suit: "spades", rank: "5" };
+    const d2: Card = { id: "discard-2", suit: "diamonds", rank: "K" };
+
+    const input: RoundInput = {
+      roundNumber: 1,
+      players: createTestPlayers(3),
+      dealerIndex: 0, // player-1 starts
+      predefinedState: {
+        hands: [[], [], []],
+        stock: [lastStockCard],
+        // Discard pile stored with exposed top at index 0
+        discard: [topDiscard, d1, d2],
+        playerDownStatus: [false, false, false],
+      },
+    };
+
+    const actor = createActor(roundMachine, { input });
+    actor.start();
+
+    // Current player draws the last stock card
+    actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-1" });
+
+    // TurnMachine should have auto-replenished stock from discard (except top)
+    const turn = (actor.getPersistedSnapshot() as any).children.turn.snapshot;
+    const turnCtx = turn.context as { hand: Card[]; stock: Card[]; discard: Card[] };
+
+    expect(turnCtx.hand.some((c) => c.id === lastStockCard.id)).toBe(true);
+    expect(turnCtx.discard).toHaveLength(1);
+    expect(turnCtx.discard[0]!.id).toBe(topDiscard.id);
+    expect(turnCtx.stock).toHaveLength(2);
+    expect(new Set(turnCtx.stock.map((c) => c.id))).toEqual(new Set([d1.id, d2.id]));
   });
 });

@@ -4,6 +4,38 @@ globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
 alwaysApply: false
 ---
 
+# Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Runtime | [Bun](https://bun.sh) |
+| Web Framework | [React Router 7](https://reactrouter.com) + Vite |
+| Deployment | [Cloudflare Workers](https://developers.cloudflare.com/workers/) |
+| Realtime | [PartyKit](https://partykit.io) (WebSockets via `partyserver`) |
+| State Machine | [XState v5](https://stately.ai/docs) |
+| AI | [Vercel AI SDK](https://sdk.vercel.ai) (Anthropic, OpenAI, Google, xAI) |
+| UI Components | [shadcn/ui](https://ui.shadcn.com) (new-york style) |
+| Styling | [Tailwind CSS v4](https://tailwindcss.com) |
+| Component Primitives | [Radix UI](https://radix-ui.com) |
+| Icons | [Lucide React](https://lucide.dev) |
+| Validation | [Zod](https://zod.dev) |
+
+## Project Structure
+
+```
+app/           Web app (React Router, deployed to Cloudflare Workers)
+  routes/      Page routes
+  ui/          Game-specific UI components (PlayingCard, HandDisplay, etc.)
+  shadcn/      shadcn/ui components (Button, Card, Input, etc.)
+  party/       PartyServer WebSocket rooms
+  workers/     Cloudflare Worker entry point
+core/          Game engine (cards, melds, XState machines)
+cli/           CLI harness and interactive mode
+ai/            LLM-powered AI players
+docs/          Documentation
+specs/         Design specs and plans
+```
+
 # Quick commands
 
 ```bash
@@ -24,7 +56,9 @@ bun run typecheck
 
 # Play the game via CLI (for testing)
 bun cli/play.ts new
-bun cli/play.ts status
+# Use the printed game ID (or run list)
+bun cli/play.ts list
+bun cli/play.ts <game-id> status
 ```
 
 ## Game CLI
@@ -153,3 +187,82 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 - Never run commands with long timeouts that cause waiting/blocking
 - If a test suite is large or slow, run specific tests with `--test-name-pattern` instead of the whole file
 - Prefer `| head -N` to limit output rather than waiting for full completion
+
+## UI Components with shadcn/ui
+
+**Reference**: https://ui.shadcn.com/llms.txt
+
+shadcn/ui is a collection of reusable components built on Radix UI and Tailwind CSS. Components are copied into the codebase (not installed as a package), making them fully customizable.
+
+### Adding Components
+
+```bash
+bunx shadcn@latest add button    # Add a component
+bunx shadcn@latest add card input # Add multiple components
+```
+
+Components are installed to `app/shadcn/components/ui/`.
+
+### Using shadcn Components
+
+```tsx
+import { Button } from "~/shadcn/components/ui/button";
+import { Card } from "~/shadcn/components/ui/card";
+import { cn } from "~/shadcn/lib/utils";  // For merging class names
+
+// Use the cn() utility to merge Tailwind classes
+<Button className={cn("my-custom-class", conditionalClass && "active")}>
+  Click me
+</Button>
+```
+
+### Component Organization
+
+- **`app/shadcn/`** — shadcn/ui base components (Button, Card, Input, etc.)
+- **`app/ui/`** — Game-specific components built on top of shadcn (PlayingCard, HandDisplay, etc.)
+
+Game components in `app/ui/` should:
+1. Import shadcn primitives from `~/shadcn/components/ui/`
+2. Use the `cn()` utility from `~/shadcn/lib/utils` for class merging
+3. Follow the same patterns as shadcn (variants via CVA, composable APIs)
+
+### Configuration
+
+The `components.json` at project root configures shadcn:
+- Style: `new-york`
+- Aliases: `~/shadcn/components`, `~/shadcn/lib/utils`
+- CSS: `app/app.css`
+- Icons: `lucide`
+
+## Web App Development
+
+### Running the Dev Server
+
+```bash
+bun run dev      # Start React Router dev server
+bun run build    # Build for production
+bun run preview  # Preview production build
+bun run deploy   # Deploy to Cloudflare Workers
+```
+
+### Type Generation
+
+```bash
+bun run cf-typegen  # Generate Cloudflare + React Router types
+bun run typecheck   # Full type check
+```
+
+### PartyKit WebSockets
+
+WebSocket rooms are defined in `app/party/`. The worker entry point (`app/workers/app.ts`) routes WebSocket upgrades to PartyServer before falling through to React Router.
+
+```tsx
+// Client-side connection
+import PartySocket from "partysocket";
+
+const socket = new PartySocket({
+  host: window.location.host,
+  room: "my-room-id",
+  party: "mayi-room",
+});
+```

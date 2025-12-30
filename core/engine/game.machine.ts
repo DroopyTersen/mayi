@@ -16,17 +16,19 @@ import { roundMachine, type RoundInput, type RoundOutput } from "./round.machine
  */
 type ForwardedEvent =
   | { type: "DRAW_FROM_STOCK"; playerId?: string }
-  | { type: "DRAW_FROM_DISCARD" }
-  | { type: "SKIP_LAY_DOWN" }
-  | { type: "LAY_DOWN"; melds: unknown[] }
-  | { type: "LAY_OFF"; cardId: string; meldId: string }
-  | { type: "DISCARD"; cardId: string }
+  | { type: "DRAW_FROM_DISCARD"; playerId?: string }
+  | { type: "SKIP_LAY_DOWN"; playerId?: string }
+  | { type: "LAY_DOWN"; playerId?: string; melds: unknown[] }
+  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string }
+  | { type: "DISCARD"; playerId?: string; cardId: string }
   | { type: "CALL_MAY_I"; playerId: string }
+  | { type: "ALLOW_MAY_I"; playerId: string }
+  | { type: "CLAIM_MAY_I"; playerId: string }
   | { type: "PASS_MAY_I" }
-  | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string }
-  | { type: "GO_OUT"; finalLayOffs: unknown[] }
+  | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string }
+  | { type: "GO_OUT"; playerId?: string; finalLayOffs: unknown[] }
   | { type: "RESHUFFLE_STOCK" }
-  | { type: "REORDER_HAND"; newOrder: string[] };
+  | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] };
 
 /**
  * Internal round number that allows 7 to signal game over
@@ -224,6 +226,8 @@ export const gameMachine = setup({
         LAY_OFF: { actions: sendTo("round", ({ event }) => event) },
         DISCARD: { actions: sendTo("round", ({ event }) => event) },
         CALL_MAY_I: { actions: sendTo("round", ({ event }) => event) },
+        ALLOW_MAY_I: { actions: sendTo("round", ({ event }) => event) },
+        CLAIM_MAY_I: { actions: sendTo("round", ({ event }) => event) },
         PASS_MAY_I: { actions: sendTo("round", ({ event }) => event) },
         SWAP_JOKER: { actions: sendTo("round", ({ event }) => event) },
         GO_OUT: { actions: sendTo("round", ({ event }) => event) },

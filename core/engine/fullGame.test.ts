@@ -283,7 +283,7 @@ describe("single round flow", () => {
       const actor = createRoundActor(input);
 
       expect(actor.getSnapshot().context.discard.length).toBe(1);
-      expect(actor.getSnapshot().value).toBe("active");
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
     });
   });
 
@@ -305,7 +305,7 @@ describe("single round flow", () => {
 
       // Turn should have advanced to player 2
       expect(actor.getSnapshot().context.currentPlayerIndex).toBe(2);
-      expect(actor.getSnapshot().value).toBe("active");
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
     });
 
     // Using predefinedState - player goes out after turn sequence
@@ -427,7 +427,7 @@ describe("turn sequencing within round (via invoke)", () => {
       const actor = createRoundActor(input);
 
       // First several turns don't end the round
-      expect(actor.getSnapshot().value).toBe("active");
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
 
       // Player 0 goes out
       actor.send({ type: "DRAW_FROM_STOCK" });
@@ -461,7 +461,7 @@ describe("turn sequencing within round (via invoke)", () => {
       }
 
       // Game should still be active
-      expect(actor.getSnapshot().value).toBe("active");
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
     });
 
     it("round ends when any player goes out", () => {
@@ -697,7 +697,7 @@ describe("state persistence between turns (via invoke)", () => {
 
       // After turn completes, melds should still be on table
       expect(actor.getSnapshot().context.table.length).toBe(2);
-      expect(actor.getSnapshot().value).toBe("active");
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
     });
   });
 
@@ -854,7 +854,7 @@ describe("edge cases", () => {
       }
 
       // Game should still be active
-      expect(actor.getSnapshot().value).toBe("active");
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
     });
 
     it("eventually someone goes out and round ends", () => {
@@ -1218,7 +1218,7 @@ describe("game state at each phase", () => {
       const persisted = actor.getPersistedSnapshot() as any;
       const turnTable = persisted.children?.turn?.snapshot?.context?.table;
       expect(turnTable?.length).toBe(2);
-      expect(actor.getSnapshot().value).toBe("active");
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
     });
   });
 

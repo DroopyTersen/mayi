@@ -1,16 +1,19 @@
 import { describe, it, expect, afterEach, beforeEach } from "bun:test";
 import {
   savedGameExists,
-  loadOrchestratorSnapshot,
-  saveOrchestratorSnapshot,
-  createOrchestratorSnapshot,
   appendActionLog,
   readActionLog,
   generateGameId,
   listSavedGames,
   formatGameDate,
+  loadGameSave,
+  saveGameSave,
 } from "./cli.persistence";
-import type { ActionLogEntry } from "./cli.types";
+import { createActor } from "xstate";
+import { gameMachine } from "../../core/engine/game.machine";
+import { GameEngine } from "../../core/engine/game-engine";
+import type { ActionLogEntry, CliGameSave } from "./cli.types";
+import type { RoundRecord } from "../../core/engine/engine.types";
 
 // Use a unique test game ID for each test to avoid conflicts
 let testGameId: string;
@@ -52,15 +55,27 @@ describe("cli.persistence", () => {
     });
 
     it("returns true when state file has content", () => {
-      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
-      saveOrchestratorSnapshot(testGameId, snapshot);
+      const engine = GameEngine.createGame({
+        gameId: testGameId,
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+      const snapshot = engine.getSnapshot();
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        engineSnapshot: engine.getPersistedSnapshot(),
+      };
+      saveGameSave(testGameId, save);
+      engine.stop();
       expect(savedGameExists(testGameId)).toBe(true);
     });
   });
 
-  describe("loadOrchestratorSnapshot", () => {
+  describe("loadGameSave", () => {
     it("throws when game does not exist", () => {
-      expect(() => loadOrchestratorSnapshot("nonexistent")).toThrow("No game found");
+      expect(() => loadGameSave("nonexistent")).toThrow("No game found");
     });
 
     it("throws 'Unsupported state version' for invalid version", () => {
@@ -71,36 +86,70 @@ describe("cli.persistence", () => {
       const invalidData = { version: "1.0", gameId: testGameId };
       fs.writeFileSync(`${dir}/game-state.json`, JSON.stringify(invalidData));
 
-      expect(() => loadOrchestratorSnapshot(testGameId)).toThrow(
+      expect(() => loadGameSave(testGameId)).toThrow(
         "Unsupported state version: 1.0"
       );
     });
 
-    it("returns valid snapshot for v2.0 data", () => {
-      const snapshot = createOrchestratorSnapshot(testGameId, { foo: "bar" }, "ROUND_ACTIVE");
-      saveOrchestratorSnapshot(testGameId, snapshot);
+    it("returns valid save for v3.0 data", () => {
+      const engine = GameEngine.createGame({
+        gameId: testGameId,
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+      const snapshot = engine.getSnapshot();
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        engineSnapshot: engine.getPersistedSnapshot(),
+      };
+      saveGameSave(testGameId, save);
+      engine.stop();
 
-      const loaded = loadOrchestratorSnapshot(testGameId);
-      expect(loaded.version).toBe("2.0");
+      const loaded = loadGameSave(testGameId);
+      expect(loaded.version).toBe("3.0");
       expect(loaded.gameId).toBe(testGameId);
-      expect(loaded.phase).toBe("ROUND_ACTIVE");
-      expect(loaded.gameSnapshot).toEqual({ foo: "bar" });
+      expect(loaded.engineSnapshot).toBeDefined();
     });
   });
 
-  describe("saveOrchestratorSnapshot", () => {
-    it("saves snapshot to file", () => {
-      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
-      saveOrchestratorSnapshot(testGameId, snapshot);
+  describe("saveGameSave", () => {
+    it("saves save to file", () => {
+      const engine = GameEngine.createGame({
+        gameId: testGameId,
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+      const snapshot = engine.getSnapshot();
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        engineSnapshot: engine.getPersistedSnapshot(),
+      };
+      saveGameSave(testGameId, save);
+      engine.stop();
 
       expect(savedGameExists(testGameId)).toBe(true);
-      const loaded = loadOrchestratorSnapshot(testGameId);
+      const loaded = loadGameSave(testGameId);
       expect(loaded.gameId).toBe(testGameId);
     });
 
     it("updates updatedAt timestamp", () => {
-      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
-      const originalUpdatedAt = snapshot.updatedAt;
+      const engine = GameEngine.createGame({
+        gameId: testGameId,
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+      const snapshot = engine.getSnapshot();
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        engineSnapshot: engine.getPersistedSnapshot(),
+      };
+      const originalUpdatedAt = save.updatedAt;
 
       // Wait a tiny bit to ensure timestamp differs
       const start = Date.now();
@@ -108,8 +157,9 @@ describe("cli.persistence", () => {
         // busy wait
       }
 
-      saveOrchestratorSnapshot(testGameId, snapshot);
-      const loaded = loadOrchestratorSnapshot(testGameId);
+      saveGameSave(testGameId, save);
+      engine.stop();
+      const loaded = loadGameSave(testGameId);
 
       expect(new Date(loaded.updatedAt).getTime()).toBeGreaterThanOrEqual(
         new Date(originalUpdatedAt).getTime()
@@ -121,42 +171,22 @@ describe("cli.persistence", () => {
       const dir = `.data/${testGameId}`;
       expect(fs.existsSync(dir)).toBe(false);
 
-      const snapshot = createOrchestratorSnapshot(testGameId, {}, "IDLE");
-      saveOrchestratorSnapshot(testGameId, snapshot);
+      const engine = GameEngine.createGame({
+        gameId: testGameId,
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+      const snapshot = engine.getSnapshot();
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        engineSnapshot: engine.getPersistedSnapshot(),
+      };
+      saveGameSave(testGameId, save);
+      engine.stop();
 
       expect(fs.existsSync(dir)).toBe(true);
-    });
-  });
-
-  describe("createOrchestratorSnapshot", () => {
-    it("creates snapshot with correct version", () => {
-      const snapshot = createOrchestratorSnapshot("new-game", {}, "IDLE");
-      expect(snapshot.version).toBe("2.0");
-    });
-
-    it("sets gameId and phase from parameters", () => {
-      const snapshot = createOrchestratorSnapshot("my-game", {}, "ROUND_ACTIVE");
-      expect(snapshot.gameId).toBe("my-game");
-      expect(snapshot.phase).toBe("ROUND_ACTIVE");
-    });
-
-    it("sets gameSnapshot from parameter", () => {
-      const gameData = { players: [], round: 1 };
-      const snapshot = createOrchestratorSnapshot("game-with-data", gameData, "IDLE");
-      expect(snapshot.gameSnapshot).toEqual(gameData);
-    });
-
-    it("initializes with default values", () => {
-      const snapshot = createOrchestratorSnapshot("defaults-test", {}, "IDLE");
-      expect(snapshot.turnNumber).toBe(1);
-      expect(snapshot.mayIContext).toBeNull();
-      expect(snapshot.createdAt).toBeDefined();
-      expect(snapshot.updatedAt).toBeDefined();
-    });
-
-    it("sets createdAt and updatedAt to same initial value", () => {
-      const snapshot = createOrchestratorSnapshot("time-test", {}, "IDLE");
-      expect(snapshot.createdAt).toBe(snapshot.updatedAt);
     });
   });
 
@@ -253,12 +283,21 @@ describe("cli.persistence", () => {
     });
 
     it("returns list of saved games", () => {
-      // Create a test game
-      const snapshot = createOrchestratorSnapshot(testGameId, {
-        currentRound: 3,
-        players: [{ name: "Alice" }, { name: "Bob" }, { name: "Carol" }],
-      }, "ROUND_ACTIVE");
-      saveOrchestratorSnapshot(testGameId, snapshot);
+      const engine = GameEngine.createGame({
+        gameId: testGameId,
+        playerNames: ["Alice", "Bob", "Carol"],
+        startingRound: 3,
+      });
+      const snapshot = engine.getSnapshot();
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        engineSnapshot: engine.getPersistedSnapshot(),
+      };
+      saveGameSave(testGameId, save);
+      engine.stop();
 
       const games = listSavedGames();
       const testGame = games.find(g => g.id === testGameId);
@@ -269,12 +308,32 @@ describe("cli.persistence", () => {
     });
 
     it("excludes completed games by default", () => {
-      // Create a completed game
-      const snapshot = createOrchestratorSnapshot(testGameId, {
-        currentRound: 6,
-        players: [{ name: "Alice" }],
-      }, "GAME_END");
-      saveOrchestratorSnapshot(testGameId, snapshot);
+      const now = new Date().toISOString();
+      const actor = createActor(gameMachine, {
+        input: { startingRound: 6 },
+      });
+      actor.start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+
+      const roundRecord: RoundRecord = {
+        roundNumber: 6,
+        scores: { "player-0": 0, "player-1": 10, "player-2": 20 },
+        winnerId: "player-0",
+      };
+      actor.send({ type: "ROUND_COMPLETE", roundRecord });
+
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: now,
+        updatedAt: now,
+        engineSnapshot: actor.getPersistedSnapshot(),
+      };
+      saveGameSave(testGameId, save);
+      actor.stop();
 
       const games = listSavedGames();
       const testGame = games.find(g => g.id === testGameId);
@@ -283,12 +342,32 @@ describe("cli.persistence", () => {
     });
 
     it("includes completed games when requested", () => {
-      // Create a completed game
-      const snapshot = createOrchestratorSnapshot(testGameId, {
-        currentRound: 6,
-        players: [{ name: "Alice" }],
-      }, "GAME_END");
-      saveOrchestratorSnapshot(testGameId, snapshot);
+      const now = new Date().toISOString();
+      const actor = createActor(gameMachine, {
+        input: { startingRound: 6 },
+      });
+      actor.start();
+      actor.send({ type: "ADD_PLAYER", name: "Alice" });
+      actor.send({ type: "ADD_PLAYER", name: "Bob" });
+      actor.send({ type: "ADD_PLAYER", name: "Carol" });
+      actor.send({ type: "START_GAME" });
+
+      const roundRecord: RoundRecord = {
+        roundNumber: 6,
+        scores: { "player-0": 0, "player-1": 10, "player-2": 20 },
+        winnerId: "player-0",
+      };
+      actor.send({ type: "ROUND_COMPLETE", roundRecord });
+
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: testGameId,
+        createdAt: now,
+        updatedAt: now,
+        engineSnapshot: actor.getPersistedSnapshot(),
+      };
+      saveGameSave(testGameId, save);
+      actor.stop();
 
       const games = listSavedGames(true);
       const testGame = games.find(g => g.id === testGameId);

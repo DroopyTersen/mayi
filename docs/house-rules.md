@@ -127,42 +127,63 @@ Once you have laid down your contract, you lose the right to perform Joker swaps
 
 7. The "May I?" rule
 
-**When May I? is available:**
-• A May I? can only be called when a discard is "exposed" — sitting unclaimed on the discard pile.
-• If the current player draws from the discard pile, the card is gone and no May I? is possible.
-• If the current player draws from the stock pile, the top discard remains exposed and available for May I?.
+**When is a discard "exposed"?**
 
-**Calling May I?:**
-• Any player (except the current player) may call "May I?" to claim the exposed discard.
-• **EXCEPTION: Down players cannot call May I.** Once you have laid down, you may only draw from the stock pile, never from the discard pile. This means you are completely ineligible for May I? claims.
-• The caller takes the discard AND draws 1 penalty card from the stock.
-• Turn order does not change; the caller simply has more cards now.
+A discard is exposed from the moment the previous player discards it until someone claims it. The exposed card is available for anyone to take.
 
-**Priority and claiming:**
+A discard stops being exposed when:
+• The current player draws from the discard pile (they claimed it)
+• Someone wins a May I? claim (they claimed it)
+• The current player discards (new turn, new exposed card)
 
-Think of turn order as a line. When a discard is exposed, everyone is "in line" for it. If someone behind you announces they want it, you don't need to do anything special — you simply have first dibs because you're ahead of them.
+**When can you call May I?**
 
-How priority works:
-• The current player is first in line
-• Then the next player in turn order, then the next, and so on
-• **Down players are not in line at all.** They cannot draw from the discard pile, so they are never asked about May I? and cannot claim discards.
+You can call May I? at any point during the current player's turn while a discard is exposed:
+• BEFORE the current player draws — yes
+• AFTER the current player draws from stock — yes (the discard is still exposed)
+• AFTER the current player draws from discard — no (they claimed it)
+• AFTER the current player discards — no (that's a new turn with a new exposed card)
 
-When someone calls May I?:
-• Anyone ahead of them in line can claim the card instead
-• If you're ahead and want it, you take it — that's your right
-• If no one ahead of them claims it, the caller gets it
+**Who is "in line" for the discard?**
 
-What "claiming" costs:
-• Current player: takes the discard as their normal draw (no penalty)
-• Anyone else: takes the discard + 1 penalty card from stock (same as a May I?)
+Think of turn order as a line. Everyone in line has the right to claim the exposed discard, with earlier players having priority over later ones.
 
-The current player loses their spot in line once they draw from stock. After that, they can't claim the exposed discard even if someone behind them calls May I?.
+Who is in line:
+• The current player is first in line — but loses their spot after drawing from stock
+• Then players in turn order after the current player
+• **Down players are NOT in line at all** — they can't claim discards AND they can't block others from claiming
 
-**Resolving competing claims:**
+**What happens when someone calls May I?**
 
-If multiple players call May I? at the same time, the one closest to the front of the line (earliest in turn order after the current player) gets priority.
+When a player calls May I?, the matter is settled immediately by checking players ahead of them in line.
 
-No limit on May I? usage per hand.
+The system cycles through each player ahead of the caller:
+• If that player is not in line (down, or current player who drew from stock), skip them
+• If that player IS in line, they are asked: "Do you want to claim this card instead?"
+  • If they say yes → they win the claim (caller loses)
+  • If they say no → continue to next player
+
+If no one ahead claims it, the original caller wins.
+
+**Example:**
+
+Turn order: Bob (current), Alice, Carol
+
+Carol calls "May I?" for the Q♠.
+
+1. Check Bob: He already drew from stock → not in line, skip
+2. Check Alice: Has she laid down?
+   • If yes → not in line, skip → Carol wins automatically
+   • If no → Alice is prompted: "Carol wants Q♠. Allow or claim yourself?"
+     • Alice allows → Carol wins
+     • Alice claims → Alice wins (Carol's call is blocked)
+
+**What claiming costs:**
+
+• Current player (drawing from discard): Gets the card as their normal draw — no penalty
+• Anyone else (via May I?): Gets the discard + 1 penalty card from stock
+
+**No limit** on May I? usage per hand.
 
 **Hand 6 note:** In Hand 6, since no one is ever "down" until they win, all players remain in line throughout the entire hand. However, May I? is extra risky in Hand 6 because each May I? adds 2 cards (discard + penalty) that must ALL be incorporated into your melds when you lay down.
 

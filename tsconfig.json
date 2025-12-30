@@ -38,8 +38,6 @@
   },
   "include": [
     "app/**/*",
-    "workers/**/*",
-    "party/**/*",
     "core/**/*",
     "cli/**/*",
     "ai/**/*",

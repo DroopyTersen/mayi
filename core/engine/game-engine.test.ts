@@ -470,21 +470,6 @@ describe("GameEngine", () => {
       expect(snapshotAfter.stock.length).toBe(stockSizeBefore - 1);
     });
 
-    it("opens May I window when discard pile is not empty", () => {
-      const engine = GameEngine.createGame({
-        playerNames: ["Alice", "Bob", "Carol"],
-        dealerIndex: 0,
-      });
-
-      const snapshot = engine.getSnapshot();
-      expect(snapshot.discard.length).toBeGreaterThan(0);
-
-      const result = engine.drawFromStock(snapshot.awaitingPlayerId);
-
-      expect(result.phase).toBe("MAY_I_WINDOW");
-      expect(result.mayIContext).not.toBeNull();
-    });
-
     it("wrong player - state unchanged", () => {
       const engine = GameEngine.createGame({
         playerNames: ["Alice", "Bob", "Carol"],
@@ -512,10 +497,7 @@ describe("GameEngine", () => {
       const snapshot = engine.getSnapshot();
       const playerId = snapshot.awaitingPlayerId;
 
-      // First draw (opens May I window)
-      engine.drawFromStock(playerId);
-
-      // Pass on May I window (closes it) - now in AWAITING_ACTION
+      // Draw from stock
       engine.drawFromStock(playerId);
 
       // After drawing, we're in AWAITING_ACTION
@@ -776,118 +758,4 @@ describe("GameEngine", () => {
     });
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // May I Window (passMayI, callMayI)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  describe("May I window", () => {
-    describe("passMayI", () => {
-      it("current player can close May I window by passing", () => {
-        const engine = GameEngine.createGame({
-          playerNames: ["Alice", "Bob", "Carol"],
-          dealerIndex: 0,
-        });
-
-        const snapshot = engine.getSnapshot();
-        const currentPlayerId = snapshot.awaitingPlayerId;
-
-        // Draw from stock to open May I window
-        const drawResult = engine.drawFromStock(currentPlayerId);
-        expect(drawResult.phase).toBe("MAY_I_WINDOW");
-
-        // Current player passes (closes window)
-        // Note: passMayI is really only for the current player to close the window
-        const passResult = engine.passMayI(currentPlayerId);
-
-        expect(passResult.phase).toBe("ROUND_ACTIVE");
-        expect(passResult.turnPhase).toBe("AWAITING_ACTION");
-      });
-
-      it("closes May I window when all players pass", () => {
-        const engine = GameEngine.createGame({
-          playerNames: ["Alice", "Bob", "Carol"],
-          dealerIndex: 0,
-        });
-
-        const snapshot = engine.getSnapshot();
-        const playerId = snapshot.awaitingPlayerId;
-
-        // Draw from stock (opens May I window)
-        engine.drawFromStock(playerId);
-
-        // All players pass using drawFromStock (which passes when in May I window)
-        // The current player passes to close the window
-        engine.drawFromStock(playerId);
-
-        // Window should be closed
-        const finalSnap = engine.getSnapshot();
-        expect(finalSnap.phase).toBe("ROUND_ACTIVE");
-        expect(finalSnap.turnPhase).toBe("AWAITING_ACTION");
-      });
-    });
-
-    describe("callMayI", () => {
-      it("adds player to claimants list", () => {
-        const engine = GameEngine.createGame({
-          playerNames: ["Alice", "Bob", "Carol"],
-          dealerIndex: 0,
-        });
-
-        const snapshot = engine.getSnapshot();
-        const playerId = snapshot.awaitingPlayerId;
-
-        // Draw from stock (opens May I window)
-        engine.drawFromStock(playerId);
-        const mayISnap = engine.getSnapshot();
-
-        expect(mayISnap.mayIContext!.claimants).toHaveLength(0);
-
-        const callResult = engine.callMayI(mayISnap.awaitingPlayerId);
-
-        expect(callResult.mayIContext!.claimants).toContain(
-          mayISnap.awaitingPlayerId
-        );
-      });
-
-      it("awards card + penalty card to winner when turn completes", () => {
-        const engine = GameEngine.createGame({
-          playerNames: ["Alice", "Bob", "Carol"],
-          dealerIndex: 0,
-        });
-
-        const snapshot = engine.getSnapshot();
-        const currentPlayerId = snapshot.awaitingPlayerId;
-
-        // Draw from stock (opens May I window)
-        const drawResult = engine.drawFromStock(currentPlayerId);
-        expect(drawResult.phase).toBe("MAY_I_WINDOW");
-
-        // Get the first eligible player for May I
-        const mayISnap = engine.getSnapshot();
-        const claimantId = mayISnap.awaitingPlayerId;
-        const claimantHandBefore = mayISnap.players.find(p => p.id === claimantId)!.hand.length;
-
-        // Claimant calls May I
-        const callResult = engine.callMayI(claimantId);
-        expect(callResult.mayIContext!.claimants).toContain(claimantId);
-
-        // Current player passes (closes window)
-        const passResult = engine.drawFromStock(currentPlayerId);
-        expect(passResult.phase).toBe("ROUND_ACTIVE");
-
-        // Hand updates don't apply until turn completes
-        // Complete the turn: skip -> discard
-        engine.skip(currentPlayerId);
-
-        const snapAfterSkip = engine.getSnapshot();
-        const cardToDiscard = snapAfterSkip.players.find(p => p.id === currentPlayerId)!.hand[0]!.id;
-        engine.discard(currentPlayerId, cardToDiscard);
-
-        // NOW verify winner got +2 cards (discard + penalty)
-        const finalSnap = engine.getSnapshot();
-        const winner = finalSnap.players.find(p => p.id === claimantId);
-        expect(winner!.hand.length).toBe(claimantHandBefore + 2);
-      });
-    });
-  });
 });

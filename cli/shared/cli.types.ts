@@ -4,10 +4,7 @@
  * Used by both agent harness and interactive modes
  */
 
-import type { Card } from "../../core/card/card.types";
-import type { Meld } from "../../core/meld/meld.types";
-import type { Player, RoundNumber, RoundRecord } from "../../core/engine/engine.types";
-import type { Contract } from "../../core/engine/contracts";
+import type { RoundNumber } from "../../core/engine/engine.types";
 
 /**
  * Decision phases - what the CLI is waiting for
@@ -16,63 +13,9 @@ export type DecisionPhase =
   | "AWAITING_DRAW" // Current player needs to draw
   | "AWAITING_ACTION" // Current player has drawn, can lay down/layoff/swap or proceed to discard
   | "AWAITING_DISCARD" // Current player must discard
-  | "MAY_I_WINDOW" // Waiting for a specific player's May I decision
-  | "ROUND_END" // Round finished, waiting for continue
+  | "RESOLVING_MAY_I" // May I resolution in progress, waiting for prompted player
+  | "ROUND_END" // Round finished
   | "GAME_END"; // Game over
-
-/**
- * Context for May I window - who needs to respond
- */
-export interface MayIContext {
-  discardedCard: Card;
-  discardedByPlayerId: string;
-  currentPlayerId: string; // Whose turn it actually is
-  currentPlayerIndex: number;
-  /** Players who still need to respond, in priority order */
-  awaitingResponseFrom: string[];
-  /** Players who have called May I */
-  claimants: string[];
-  /** Has the current player already passed (drew from stock)? */
-  currentPlayerPassed: boolean;
-}
-
-/**
- * Harness-specific state tracking
- */
-export interface HarnessState {
-  phase: DecisionPhase;
-  /** Which player the harness is waiting on */
-  awaitingPlayerId: string;
-  /** May I window context when phase is MAY_I_WINDOW */
-  mayIContext: MayIContext | null;
-  /** Turn counter for logging */
-  turnNumber: number;
-}
-
-/**
- * Complete persisted game state
- */
-export interface PersistedGameState {
-  version: "1.0";
-  gameId: string;
-  seed: string | null;
-  createdAt: string;
-  updatedAt: string;
-
-  // Core game state
-  currentRound: RoundNumber;
-  contract: Contract;
-  players: Player[];
-  currentPlayerIndex: number;
-  dealerIndex: number;
-  stock: Card[];
-  discard: Card[];
-  table: Meld[];
-  roundHistory: RoundRecord[];
-
-  // Harness tracking
-  harness: HarnessState;
-}
 
 /**
  * Action log entry for the game log file
@@ -103,32 +46,23 @@ export interface AvailableCommands {
   phase: DecisionPhase;
   commands: string[];
   description: string;
+  /**
+   * Player IDs who can currently call May I (if any).
+   * Only populated during AWAITING_DRAW and AWAITING_ACTION phases.
+   */
+  mayIEligiblePlayerIds?: string[];
 }
 
 /**
- * Orchestrator phase tracks the machine hierarchy state
+ * CLI save format for persisting a GameEngine-backed game
+ *
+ * This stores XState's persisted snapshot (engineSnapshot) plus metadata needed
+ * to hydrate GameEngine with stable gameId and createdAt.
  */
-export type OrchestratorPhase =
-  | "IDLE"          // No game running
-  | "GAME_SETUP"    // GameMachine in setup state
-  | "ROUND_ACTIVE"  // RoundMachine active, turn in progress
-  | "MAY_I_WINDOW"  // MayIWindowMachine spawned
-  | "ROUND_END"     // Round complete, awaiting continuation
-  | "GAME_END";     // Game complete
-
-/**
- * Snapshot of orchestrator state for persistence
- */
-export interface OrchestratorSnapshot {
-  version: "2.0";
+export interface CliGameSave {
+  version: "3.0";
   gameId: string;
   createdAt: string;
   updatedAt: string;
-  phase: OrchestratorPhase;
-  /** XState snapshot for GameMachine actor */
-  gameSnapshot: unknown;
-  /** Turn number for logging */
-  turnNumber: number;
-  /** May I context when in MAY_I_WINDOW phase */
-  mayIContext: MayIContext | null;
+  engineSnapshot: unknown;
 }

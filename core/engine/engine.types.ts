@@ -32,12 +32,44 @@ export interface TurnState {
 
 /**
  * May I window state when a player declines the discard
+ * @deprecated Use MayIResolution for the new round-level May I system
  */
 export interface MayIWindow {
   discardedCard: Card;
   discardedBy: string; // Player ID
   claimants: string[]; // Player IDs who called May I
   nextPlayerDeclined: boolean;
+}
+
+/**
+ * Tracks an active May I resolution at the round level.
+ * When someone calls May I, players ahead of them are prompted
+ * one-by-one to allow or claim.
+ */
+export interface MayIResolution {
+  /** Player who initiated the May I call */
+  originalCaller: string;
+
+  /** The card being claimed (snapshot from discard pile) */
+  cardBeingClaimed: Card;
+
+  /** Players ahead of caller to check, in priority order */
+  playersToCheck: string[];
+
+  /** Index into playersToCheck (current position in resolution) */
+  currentPromptIndex: number;
+
+  /** Player currently being prompted (null if between checks) */
+  playerBeingPrompted: string | null;
+
+  /** Players who explicitly allowed the May I */
+  playersWhoAllowed: string[];
+
+  /** The winner (set when resolution completes) */
+  winner: string | null;
+
+  /** How resolution ended */
+  outcome: "caller_won" | "blocked" | "current_player_claimed" | null;
 }
 
 /**

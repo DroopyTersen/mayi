@@ -1,244 +1,107 @@
-# Orchestrator Architecture
+# CLI Adapter Architecture (formerly “Orchestrator”)
 
-The Orchestrator is the central game flow manager for May I? It provides a unified command interface that works across multiple transports:
+This repo follows a strict layering rule:
 
-- **CLI harness**: File-based persistence for AI agents
-- **Interactive mode**: File-based persistence with human-friendly REPL
-- **WebSocket (PartyKit)**: In-memory state, D1 persistence, real-time broadcasts
+1. `docs/house-rules.md` is the source of truth.
+2. **XState machines** in `core/engine/*` implement those rules.
+3. `core/engine/game-engine.ts` is a **thin wrapper** around the machines (persistence + read model).
+4. The CLI provides adapters/rendering only — it must not re-implement rules.
 
-## Core Design Principles
+The old `cli/harness/orchestrator.ts` has been removed. Its responsibilities are now split cleanly between:
 
-1. **Transport-agnostic**: The same `Orchestrator` class works for CLI, interactive play, and WebSocket games
-2. **Single source of truth**: `getSerializableState()` returns the complete game state
-3. **Command pattern**: All game actions are methods that return `CommandResult`
-4. **Immutable state views**: `getStateView()` and `getSerializableState()` return fresh objects
+- **GameEngine** (core): authoritative rules + XState persistence/hydration
+- **CliGameAdapter** (cli): CLI-friendly inputs + filesystem persistence + action log
+
+---
+
+## Key Types
+
+### Game Snapshot (`core/engine/game-engine.types.ts`)
+
+All CLI modes render from `GameSnapshot`:
+
+- `phase`: `"ROUND_ACTIVE" | "RESOLVING_MAY_I" | "ROUND_END" | "GAME_END"`
+- `turnPhase`: `"AWAITING_DRAW" | "AWAITING_ACTION" | "AWAITING_DISCARD"` (meaningful when `phase === "ROUND_ACTIVE"`)
+- `awaitingPlayerId`: the player who must respond next (current player, or prompted player during May I resolution)
+- `mayIContext`: populated when `phase === "RESOLVING_MAY_I"`
+- `lastError`: machine-provided error message (CLI should display it, not revalidate)
+
+### CLI Save Format (`cli/shared/cli.types.ts`)
+
+CLI persistence is a single file per game:
+
+- Path: `.data/<game-id>/game-state.json`
+- Type: `CliGameSave` (version `"3.0"`)
+- Contains `engineSnapshot` (XState persisted snapshot from GameEngine)
+
+No backward compatibility is required. Deleting `.data/` is the supported “migration”.
+
+---
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `harness/orchestrator.ts` | Core Orchestrator class |
-| `harness/orchestrator.persistence.ts` | File-based persistence layer |
-| `harness/orchestrator.test.ts` | Test suite |
-| `harness/harness.types.ts` | Type definitions |
-| `harness/play.ts` | CLI entry point |
-| `harness/interactive.ts` | Interactive mode REPL |
+| File | Responsibility |
+|------|----------------|
+| `core/engine/game.machine.ts` | Game lifecycle (6 rounds) |
+| `core/engine/round.machine.ts` | Round lifecycle + May I resolution |
+| `core/engine/turn.machine.ts` | Turn rules (draw → act → discard) |
+| `core/engine/game-engine.ts` | Thin wrapper (commands + snapshot extraction + hydration) |
+| `cli/shared/cli-game-adapter.ts` | CLI adapter (positions → IDs, save/load, action log) |
+| `cli/harness/harness.render.ts` | Text/JSON rendering from `GameSnapshot` |
+| `cli/play.ts` | CLI entry point (command mode + interactive mode launcher) |
 
-## Types
+---
 
-### SerializableGameState
-
-The complete game state, suitable for WebSocket broadcast or D1 persistence:
-
-```typescript
-interface SerializableGameState {
-  version: "2.0";
-  gameId: string;
-  phase: OrchestratorPhase;
-  harnessPhase: DecisionPhase;
-  turnNumber: number;
-  players: Player[];
-  currentRound: RoundNumber;
-  dealerIndex: number;
-  currentPlayerIndex: number;
-  stock: Card[];
-  discard: Card[];
-  table: Meld[];
-  roundHistory: RoundRecord[];
-  awaitingPlayerId: string;
-  mayIContext: MayIContext | null;
-  hasDrawn: boolean;
-  laidDownThisTurn: boolean;
-}
-```
-
-### OrchestratorPhase
-
-High-level game phases:
-
-- `IDLE` - No game in progress
-- `GAME_SETUP` - Setting up a new game
-- `ROUND_ACTIVE` - A round is in progress
-- `MAY_I_WINDOW` - May I claims are being processed
-- `ROUND_END` - Round just ended, awaiting continue
-- `GAME_END` - Game complete
-
-### DecisionPhase
-
-Player-facing phases for UI prompts:
-
-- `AWAITING_DRAW` - Player must draw
-- `AWAITING_ACTION` - Player can lay down, lay off, skip, or swap
-- `AWAITING_DISCARD` - Player must discard
-- `MAY_I_WINDOW` - Non-current player can call May I
-- `ROUND_END` - Awaiting continue to next round
-- `GAME_END` - Game over
-
-### CommandResult
-
-Return type for all game commands:
-
-```typescript
-interface CommandResult {
-  success: boolean;
-  message: string;
-  error?: string;
-}
-```
-
-## Usage
-
-### CLI Mode
+## CLI Commands (command mode / harness)
 
 ```bash
-# Start new game
-bun harness/play.ts new
+# New game + list games
+bun cli/play.ts new
+bun cli/play.ts list
 
-# Show status
-bun harness/play.ts status
+# Read state
+bun cli/play.ts <game-id> status
+bun cli/play.ts <game-id> status --json
 
-# Draw from stock/discard
-bun harness/play.ts draw stock
-bun harness/play.ts draw discard
+# Turn flow
+bun cli/play.ts <game-id> draw stock
+bun cli/play.ts <game-id> draw discard
+bun cli/play.ts <game-id> laydown "1,2,3" "4,5,6,7"
+bun cli/play.ts <game-id> layoff <card-pos> <meld-number>
+bun cli/play.ts <game-id> swap <meld-number> <joker-pos> <card-pos>
+bun cli/play.ts <game-id> skip
+bun cli/play.ts <game-id> discard <card-pos>
 
-# Lay down melds (card positions)
-bun harness/play.ts laydown "1,2,3" "4,5,6,7"
-
-# Skip laying down
-bun harness/play.ts skip
-
-# Discard card
-bun harness/play.ts discard 5
-
-# Lay off card to meld
-bun harness/play.ts layoff 3 1
-
-# Call May I
-bun harness/play.ts mayi
-
-# Pass on May I
-bun harness/play.ts pass
-
-# Continue to next round
-bun harness/play.ts continue
+# May I (round-level resolution)
+bun cli/play.ts <game-id> mayi <player-id>
+bun cli/play.ts <game-id> allow
+bun cli/play.ts <game-id> claim
 ```
 
-### Interactive Mode
+Notes:
+- There is no `pass` and no `continue`. Round transitions are automatic.
+- `mayi <player-id>` can be attempted whenever the discard is exposed; the engine will ignore invalid calls.
 
-```bash
-bun harness/play.ts --interactive
-```
+---
 
-This starts a human-friendly REPL with numbered menus.
+## May I Resolution Model
 
-### WebSocket Integration
+May I is handled in `RoundMachine` as a dedicated `resolvingMayI` sub-state:
 
-```typescript
-// Restore from D1 persistence
-const state = await db.get<SerializableGameState>(`game:${gameId}`);
-const orchestrator = Orchestrator.fromState(state);
+- `CALL_MAY_I` starts resolution and captures the exposed discard
+- The engine computes `playersToCheck` (priority order) based on:
+  - current player (only if they have not drawn from stock)
+  - players after the current player up to the caller
+  - skipping “down” players
+- The engine prompts one player at a time (`awaitingPlayerId = playerBeingPrompted`)
+- Each prompted player responds:
+  - `ALLOW_MAY_I` → continue
+  - `CLAIM_MAY_I` → they win immediately (blocking caller)
+- Winner gets:
+  - current player claim: discard as their normal draw (no penalty)
+  - otherwise: discard + 1 penalty card from stock
 
-// Process command
-const result = orchestrator.drawFromStock();
-
-// Broadcast to clients
-const newState = orchestrator.getSerializableState();
-room.broadcast(JSON.stringify(newState));
-
-// Persist to D1
-await db.put(`game:${gameId}`, JSON.stringify(newState));
-```
-
-## Commands
-
-### Turn Actions
-
-| Method | Phase Required | Description |
-|--------|----------------|-------------|
-| `drawFromStock()` | AWAITING_DRAW | Draw from stock pile |
-| `drawFromDiscard()` | AWAITING_DRAW | Draw from discard (not allowed when down) |
-| `layDown(meldGroups)` | AWAITING_ACTION | Lay down contract melds |
-| `skip()` | AWAITING_ACTION | Skip laying down |
-| `discardCard(position)` | AWAITING_DISCARD | Discard to end turn |
-| `layOff(cardPos, meldNum)` | AWAITING_ACTION | Add card to existing meld |
-| `swap(meldNum, jokerPos, cardPos)` | AWAITING_ACTION | Swap Joker from run |
-
-### May I Window
-
-| Method | Phase Required | Description |
-|--------|----------------|-------------|
-| `callMayI()` | MAY_I_WINDOW | Non-current player claims discard |
-| `pass()` | MAY_I_WINDOW | Pass on claiming discard |
-
-Note: The current player's "veto" is choosing `drawFromDiscard()` instead of `drawFromStock()` at the start of their turn. Once they draw from stock, the May I window opens and they have already passed on the discard.
-
-### Game Flow
-
-| Method | Description |
-|--------|-------------|
-| `newGame(playerNames)` | Start a new game |
-| `loadGame()` | Load from persistence |
-| `continue()` | Advance to next round |
-
-## House Rules Implemented
-
-1. **Draw first**: Players must always draw before any other action
-2. **Down players draw from stock only**: Once laid down, cannot draw from discard
-3. **No layoff on laydown turn**: Cannot lay off cards on the same turn you lay down
-4. **Joker swap before laydown only**: Can only swap Jokers from runs before laying down your contract
-5. **Round 6 no discard out**: Cannot discard your last card in Round 6
-6. **Exact contract sizes**: In Rounds 1-5, sets must be exactly 3 cards and runs must be exactly 4 cards
-7. **Wild ratio on laydown only**: Wild ratio (1:2) is enforced during initial laydown, but NOT during layoff
-8. **Stock auto-replenishment**: When stock is empty, the discard pile (except top card) is shuffled to form a new stock
-
-## State Flow
-
-```
-AWAITING_DRAW
-    │
-    ├── drawFromStock() ──► MAY_I_WINDOW ──► AWAITING_ACTION
-    │                           │
-    │                           └── (if no discard) ──► AWAITING_ACTION
-    │
-    └── drawFromDiscard() ──► AWAITING_ACTION
-                                    │
-                                    ├── layDown() ──► AWAITING_DISCARD (or ROUND_END if went out)
-                                    │
-                                    ├── skip() ──► AWAITING_DISCARD
-                                    │
-                                    ├── layOff() ──► (stays in AWAITING_ACTION or ROUND_END)
-                                    │
-                                    └── swap() ──► (stays in AWAITING_ACTION)
-
-AWAITING_DISCARD
-    │
-    └── discardCard() ──► AWAITING_DRAW (next player) or ROUND_END
-
-ROUND_END
-    │
-    └── continue() ──► AWAITING_DRAW (new round) or GAME_END
-```
-
-## Testing
-
-```bash
-# Run orchestrator tests
-bun test harness/orchestrator.test.ts
-
-# Run all tests
-bun test
-
-# Typecheck
-bun run typecheck
-```
-
-## Migration Notes
-
-### v1.0 to v2.0
-
-The orchestrator supports loading v1.0 `PersistedGameState` files automatically. The persistence layer detects the version and converts as needed:
-
-- v1.0: Flat structure with `harness.phase`, `harness.awaitingPlayerId`
-- v2.0: Nested `gameSnapshot` containing `SerializableGameState`
-
-For WebSocket clients, always use `SerializableGameState` (v2.0 format).
+The CLI’s job is only:
+- initiating `mayi <player-id>`
+- sending `allow` / `claim` when prompted
+- rendering `mayIContext` so UIs can explain what is happening

@@ -1,19 +1,20 @@
 /**
  * TurnMachine - XState machine for managing a single player's turn
  *
- * States: awaitingDraw -> mayIWindow -> drawn -> awaitingDiscard -> turnComplete
+ * States: awaitingDraw -> drawn -> awaitingDiscard -> turnComplete
  *
- * When the current player draws from stock, the May I window opens for other
- * players to claim the discarded card. The mayIWindow state invokes the
- * mayIWindowMachine to handle this resolution.
+ * Note: May I is now handled at the round level (round.machine.ts), not here.
+ * The mayIWindow state has been removed - players can call May I at any time
+ * during a turn, and resolution is handled by the round machine.
  */
 
-import { setup, assign, sendTo } from "xstate";
+import { setup, assign } from "xstate";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
 import { CONTRACTS, validateContractMelds } from "./contracts";
 import { isValidSet, isValidRun } from "../meld/meld.validation";
+import { shuffle } from "../card/card.deck";
 import {
   canLayOffCard,
   canLayOffToSet,
@@ -22,11 +23,8 @@ import {
   getCardFromHand,
 } from "./layoff";
 import { canSwapJokerWithCard } from "../meld/meld.joker";
-import {
-  mayIWindowMachine,
-  type MayIWindowInput,
-  type MayIWindowOutput,
-} from "./mayIWindow.machine";
+// Note: May I is now handled at the round level, not turn level
+// The mayIWindow.machine.ts will be removed
 
 /**
  * Meld proposal for LAY_DOWN event
@@ -51,19 +49,14 @@ export interface TurnContext {
   table: Meld[];
   /** Error message from last failed operation */
   lastError: string | null;
-  /** All player IDs in turn order (for May I) */
+  // Note: May I is now handled at the round level
+  // These fields are kept for backward compatibility but will be removed
+  /** All player IDs in turn order */
   playerOrder: string[];
-  /** Map of playerId -> isDown (for May I eligibility) */
+  /** Map of playerId -> isDown */
   playerDownStatus: Record<string, boolean>;
   /** Who discarded the top card of the discard pile (previous player) */
   lastDiscardedByPlayerId: string | null;
-  /** Tracks May I winner's received cards to include in output */
-  mayIResult: {
-    winnerId: string;
-    cardsReceived: Card[];
-  } | null;
-  /** Card on top of discard when May I window opened */
-  mayIDiscardTop: Card | null;
 }
 
 /**
@@ -80,14 +73,15 @@ export interface LayOffSpec {
 export type TurnEvent =
   | { type: "DRAW_FROM_STOCK"; playerId?: string }
   | { type: "DRAW_FROM_DISCARD"; playerId?: string }
+  | { type: "SYNC_PILES"; stock: Card[]; discard: Card[] }
   | { type: "CALL_MAY_I"; playerId: string }
-  | { type: "SKIP_LAY_DOWN" }
-  | { type: "LAY_DOWN"; melds: MeldProposal[] }
-  | { type: "LAY_OFF"; cardId: string; meldId: string }
-  | { type: "DISCARD"; cardId: string }
-  | { type: "GO_OUT"; finalLayOffs: LayOffSpec[] }
-  | { type: "SWAP_JOKER"; jokerCardId: string; meldId: string; swapCardId: string }
-  | { type: "REORDER_HAND"; newOrder: string[] };
+  | { type: "SKIP_LAY_DOWN"; playerId?: string }
+  | { type: "LAY_DOWN"; playerId?: string; melds: MeldProposal[] }
+  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string }
+  | { type: "DISCARD"; playerId?: string; cardId: string }
+  | { type: "GO_OUT"; playerId?: string; finalLayOffs: LayOffSpec[] }
+  | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string }
+  | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] };
 
 /**
  * Input required to create a TurnMachine actor
@@ -140,7 +134,7 @@ export const turnMachine = setup({
     output: {} as TurnOutput,
   },
   actors: {
-    mayIWindowMachine,
+    // Note: May I is now handled at round level - mayIWindowMachine removed
   },
   guards: {
     isCurrentPlayer: ({ context, event }) => {
@@ -166,18 +160,7 @@ export const turnMachine = setup({
       if (context.isDown) return false;
       return context.discard.length > 0;
     },
-    shouldOpenMayIWindowAsPlayer: ({ context, event }) => {
-      // Must be current player first
-      if ("playerId" in event && event.playerId !== undefined) {
-        if (event.playerId !== context.playerId) return false;
-      }
-      // Then check May I window conditions
-      if (context.stock.length === 0) return false;
-      if (context.discard.length === 0) return false;
-      if (context.playerOrder.length <= 1) return false;
-      const otherPlayers = context.playerOrder.filter((id) => id !== context.playerId);
-      return otherPlayers.some((id) => !context.playerDownStatus[id]);
-    },
+    // Note: May I is now handled at round level - guards removed
     canDrawFromStock: ({ context }) => {
       // Cannot draw from stock if stock is empty
       return context.stock.length > 0;
@@ -187,20 +170,10 @@ export const turnMachine = setup({
       if (context.isDown) return false;
       return context.discard.length > 0;
     },
-    shouldOpenMayIWindow: ({ context }) => {
-      // Open May I window when:
-      // - Stock is not empty (can draw)
-      // - Discard pile has a card to claim
-      // - There are other players who could claim
-      // - At least one other player is not down (eligible to claim)
-      if (context.stock.length === 0) return false;
-      if (context.discard.length === 0) return false;
-      if (context.playerOrder.length <= 1) return false;
-      const otherPlayers = context.playerOrder.filter((id) => id !== context.playerId);
-      return otherPlayers.some((id) => !context.playerDownStatus[id]);
-    },
     canDiscard: ({ context, event }) => {
       if (event.type !== "DISCARD") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
       // Card must be in hand
       if (!context.hand.some((card) => card.id === event.cardId)) return false;
       // Note: In Round 6, players in awaitingDiscard are never "down"
@@ -209,6 +182,8 @@ export const turnMachine = setup({
     },
     canLayDown: ({ context, event }) => {
       if (event.type !== "LAY_DOWN") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
 
       // Round 6: must use ALL cards (handled by canLayDownAndGoOut, not here)
       if (context.roundNumber === 6) return false;
@@ -252,6 +227,8 @@ export const turnMachine = setup({
     // canLayDown AND laying down uses all cards in hand
     canLayDownAndGoOut: ({ context, event }) => {
       if (event.type !== "LAY_DOWN") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
 
       // Cannot lay down if already down this round
       if (context.isDown) return false;
@@ -295,6 +272,8 @@ export const turnMachine = setup({
     },
     canLayOff: ({ context, event }) => {
       if (event.type !== "LAY_OFF") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
 
       // Round 6: laying off is not allowed (no melds on table until someone wins)
       if (context.roundNumber === 6) return false;
@@ -326,8 +305,12 @@ export const turnMachine = setup({
       }
     },
     // Check if hand will be empty after discard
-    willGoOutAfterDiscard: ({ context }) => {
-      // After discarding 1 card, hand will have length - 1 cards
+    willGoOutAfterDiscard: ({ context, event }) => {
+      if (event.type !== "DISCARD") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
+      // Must actually be discarding the last card from hand
+      if (!context.hand.some((c) => c.id === event.cardId)) return false;
       return context.hand.length === 1;
     },
     // Check if hand is empty (went out via lay off)
@@ -337,6 +320,8 @@ export const turnMachine = setup({
     // Check if GO_OUT command is valid
     canGoOut: ({ context, event }) => {
       if (event.type !== "GO_OUT") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
 
       // Player must be down
       if (!context.isDown) return false;
@@ -380,6 +365,8 @@ export const turnMachine = setup({
     // Check if player can swap a Joker from a meld
     canSwapJoker: ({ context, event }) => {
       if (event.type !== "SWAP_JOKER") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
 
       // Round 6: swapping is not allowed (no melds on table)
       if (context.roundNumber === 6) return false;
@@ -411,6 +398,8 @@ export const turnMachine = setup({
     // Check if hand can be reordered (free action)
     canReorderHand: ({ context, event }) => {
       if (event.type !== "REORDER_HAND") return false;
+      // Must be current player (when provided)
+      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
       // Must have same number of cards
       if (event.newOrder.length !== context.hand.length) return false;
       // All cards in newOrder must be in hand
@@ -431,6 +420,9 @@ export const turnMachine = setup({
     setLayDownError: assign({
       lastError: ({ context, event }) => {
         if (event.type !== "LAY_DOWN") return "invalid event";
+        if (event.playerId !== undefined && event.playerId !== context.playerId) {
+          return context.lastError;
+        }
         if (context.isDown) return "already laid down this round";
 
         // Round 6: must use ALL cards
@@ -477,6 +469,9 @@ export const turnMachine = setup({
     setLayOffError: assign({
       lastError: ({ context, event }) => {
         if (event.type !== "LAY_OFF") return "invalid event";
+        if (event.playerId !== undefined && event.playerId !== context.playerId) {
+          return context.lastError;
+        }
         if (context.roundNumber === 6) return "laying off is not allowed in Round 6";
         if (!context.isDown) return "must be down from a previous turn to lay off";
         if (context.laidDownThisTurn) return "cannot lay off on same turn as laying down";
@@ -490,14 +485,25 @@ export const turnMachine = setup({
     setStockEmptyError: assign({
       lastError: () => "stock is empty - reshuffle required",
     }),
-    drawFromStock: assign({
-      hand: ({ context }) => {
-        const topCard = context.stock[0];
-        if (!topCard) return context.hand;
-        return [...context.hand, topCard];
-      },
-      stock: ({ context }) => context.stock.slice(1),
-      hasDrawn: () => true,
+    drawFromStock: assign(({ context }) => {
+      const topCard = context.stock[0];
+      if (!topCard) return {};
+
+      const hand = [...context.hand, topCard];
+      let stock = context.stock.slice(1);
+      let discard = context.discard;
+
+      // House rules: stock pile should never be empty.
+      // When the last stock card is drawn, immediately replenish from discard
+      // (keeping the exposed top discard card at index 0).
+      if (stock.length === 0 && discard.length > 1) {
+        const topDiscard = discard[0];
+        const cardsToReshuffle = discard.slice(1);
+        stock = shuffle(cardsToReshuffle);
+        discard = topDiscard ? [topDiscard] : [];
+      }
+
+      return { hand, stock, discard, hasDrawn: true };
     }),
     drawFromDiscard: assign({
       hand: ({ context }) => {
@@ -519,6 +525,13 @@ export const turnMachine = setup({
         if (!card) return context.discard;
         return [card, ...context.discard];
       },
+    }),
+    syncPiles: assign(({ event }) => {
+      if (event.type !== "SYNC_PILES") return {};
+      return {
+        stock: event.stock,
+        discard: event.discard,
+      };
     }),
     layDown: assign({
       hand: ({ context, event }) => {
@@ -655,6 +668,9 @@ export const turnMachine = setup({
     setReorderError: assign({
       lastError: ({ context, event }) => {
         if (event.type !== "REORDER_HAND") return "invalid event";
+        if (event.playerId !== undefined && event.playerId !== context.playerId) {
+          return context.lastError;
+        }
         if (event.newOrder.length !== context.hand.length) {
           return "card count mismatch";
         }
@@ -677,6 +693,9 @@ export const turnMachine = setup({
 }).createMachine({
   id: "turn",
   initial: "awaitingDraw",
+  on: {
+    SYNC_PILES: { actions: "syncPiles" },
+  },
   context: ({ input }) => ({
     playerId: input.playerId,
     hand: input.hand,
@@ -691,16 +710,9 @@ export const turnMachine = setup({
     playerOrder: input.playerOrder ?? [],
     playerDownStatus: input.playerDownStatus ?? {},
     lastDiscardedByPlayerId: input.lastDiscardedByPlayerId ?? null,
-    mayIResult: null,
-    mayIDiscardTop: null,
   }),
   output: ({ context }): TurnOutput => {
-    const handUpdates: Record<string, { added: Card[] }> = {};
-    if (context.mayIResult) {
-      handUpdates[context.mayIResult.winnerId] = {
-        added: context.mayIResult.cardsReceived,
-      };
-    }
+    // Note: May I handUpdates are now handled at round level
     return {
       playerId: context.playerId,
       hand: context.hand,
@@ -710,8 +722,6 @@ export const turnMachine = setup({
       table: context.table,
       // wentOut is true when hand is empty at end of turn (player went out)
       wentOut: context.hand.length === 0,
-      // Include handUpdates only if there's a May I winner
-      ...(Object.keys(handUpdates).length > 0 ? { handUpdates } : {}),
     };
   },
   // Note: REORDER_HAND is handled in individual states (awaitingDraw, drawn, awaitingDiscard)
@@ -719,22 +729,10 @@ export const turnMachine = setup({
   states: {
     awaitingDraw: {
       on: {
+        // Note: May I is now handled at round level
+        // DRAW_FROM_STOCK goes directly to drawn state
         DRAW_FROM_STOCK: [
           {
-            // Open May I window when there are eligible claimants
-            guard: "shouldOpenMayIWindowAsPlayer",
-            target: "mayIWindow",
-            actions: [
-              // Store the discard top before drawing (for May I window)
-              assign({
-                mayIDiscardTop: ({ context }) => context.discard[0] ?? null,
-              }),
-              "drawFromStock",
-              "clearError",
-            ],
-          },
-          {
-            // Skip May I window - go directly to drawn
             guard: "canDrawFromStockAsPlayer",
             target: "drawn",
             actions: ["drawFromStock", "clearError"],
@@ -749,7 +747,7 @@ export const turnMachine = setup({
         DRAW_FROM_DISCARD: {
           guard: "canDrawFromDiscardAsPlayer",
           target: "drawn",
-          actions: "drawFromDiscard",
+          actions: ["drawFromDiscard", "clearError"],
         },
         REORDER_HAND: [
           { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
@@ -757,85 +755,13 @@ export const turnMachine = setup({
         ],
       },
     },
-    mayIWindow: {
-      invoke: {
-        id: "mayIWindow",
-        src: "mayIWindowMachine",
-        input: ({ context }): MayIWindowInput => ({
-          discardedCard: context.mayIDiscardTop!,
-          discardedByPlayerId: context.lastDiscardedByPlayerId ?? context.playerId,
-          currentPlayerId: context.playerId,
-          currentPlayerIndex: context.playerOrder.indexOf(context.playerId),
-          playerOrder: context.playerOrder,
-          stock: context.stock,
-          playerDownStatus: context.playerDownStatus,
-        }),
-        onDone: {
-          target: "drawn",
-          actions: assign(({ context, event }) => {
-            const output = event.output as MayIWindowOutput;
-
-            // If there's a May I winner (non-current player), record result
-            if (output.type === "MAY_I_RESOLVED" && output.winnerId && output.winnerId !== context.playerId) {
-              return {
-                // Update discard pile - remove the claimed card
-                discard: context.discard.filter((c) => c.id !== output.discardedCard.id),
-                // Update stock (penalty card was taken)
-                stock: output.updatedStock,
-                // Store May I result for output
-                mayIResult: {
-                  winnerId: output.winnerId,
-                  cardsReceived: output.winnerReceived,
-                },
-              };
-            }
-
-            // If current player claimed via DRAW_FROM_DISCARD
-            if (output.type === "CURRENT_PLAYER_CLAIMED") {
-              // Current player already drew from stock, now also gets discard
-              return {
-                hand: [...context.hand, output.discardedCard],
-                discard: context.discard.filter((c) => c.id !== output.discardedCard.id),
-              };
-            }
-
-            // No claims - just clear mayIDiscardTop
-            return {
-              mayIDiscardTop: null,
-            };
-          }),
-        },
-      },
-      on: {
-        // Forward May I events to the invoked machine
-        CALL_MAY_I: {
-          actions: sendTo("mayIWindow", ({ event }) => event),
-        },
-        DRAW_FROM_STOCK: {
-          // Current player passes on discard (closes window)
-          actions: sendTo("mayIWindow", ({ event, context }) => ({
-            type: "DRAW_FROM_STOCK" as const,
-            playerId: event.playerId ?? context.playerId,
-          })),
-        },
-        DRAW_FROM_DISCARD: {
-          // Current player claims discard (if not down)
-          actions: sendTo("mayIWindow", ({ event, context }) => ({
-            type: "DRAW_FROM_DISCARD" as const,
-            playerId: event.playerId ?? context.playerId,
-          })),
-        },
-        // Allow hand reordering even during May I window (free action)
-        REORDER_HAND: [
-          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
-          { actions: "setReorderError" },
-        ],
-      },
-    },
+    // Note: mayIWindow state removed - May I is now handled at round level
     drawn: {
       on: {
         SKIP_LAY_DOWN: {
+          guard: "isCurrentPlayer",
           target: "awaitingDiscard",
+          actions: "clearError",
         },
         LAY_DOWN: [
           {
@@ -871,12 +797,12 @@ export const turnMachine = setup({
         SWAP_JOKER: {
           guard: "canSwapJoker",
           target: "drawn", // Stay in drawn state after swap
-          actions: "swapJoker",
+          actions: ["swapJoker", "clearError"],
         },
         GO_OUT: {
           guard: "canGoOut",
           target: "wentOut",
-          actions: "goOut",
+          actions: ["goOut", "clearError"],
         },
         REORDER_HAND: [
           { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
@@ -898,13 +824,13 @@ export const turnMachine = setup({
             // so players in awaitingDiscard are never down in Round 6
             guard: "willGoOutAfterDiscard",
             target: "wentOut",
-            actions: "discardCard",
+            actions: ["discardCard", "clearError"],
           },
           {
             // Normal discard
             guard: "canDiscard",
             target: "turnComplete",
-            actions: "discardCard",
+            actions: ["discardCard", "clearError"],
           },
         ],
         REORDER_HAND: [

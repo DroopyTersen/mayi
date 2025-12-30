@@ -34,7 +34,7 @@ A contract rummy style game where you “May I?” to grab discards out of turn 
 | 3–10     | Face value |
 | J, Q, K  | 10         |
 | Ace      | 15         |
-| 2 (wild) | 2          |
+| 2 (wild) | 20         |
 | Joker    | 50         |
 
 ---
@@ -61,7 +61,8 @@ A contract rummy style game where you “May I?” to grab discards out of turn 
 
 ### Meld Rules
 
-- In any meld, **wilds cannot outnumber natural cards**
+- **When laying down your contract**, wilds cannot outnumber natural cards
+- **When laying off** to existing melds, the wild ratio rule does **not** apply
 - Valid: 9♣ 9♦ Joker (2 natural, 1 wild)
 - Invalid: 9♣ Joker Joker (1 natural, 2 wild)
 
@@ -75,7 +76,7 @@ A contract rummy style game where you “May I?” to grab discards out of turn 
 | **Discard**      | `discard()`   | Place one card on discard pile to end your turn              |
 | **Lay down**     | `layDown()`   | Play your contract melds from hand to table (once per round) |
 | **Lay off**      | `layOff()`    | Add cards to existing melds on the table                     |
-| **May I**        | `mayI()`      | Claim the exposed discard out of turn (discard + 1 penalty card). Only available when current player drew from stock. Can be vetoed by any player closer in turn order. Note: Down players cannot call May I or veto. |
+| **May I**        | `callMayI()`  | Claim the exposed discard out of turn. The engine prompts higher-priority players to allow or claim. Winner takes the discard (+ penalty if not the current player). Down players are not in line. |
 | **Penalty card** | `penaltyCard` | The extra card drawn from stock when you May I               |
 | **Swap**         | `swapJoker()` | Replace a Joker in a run with the natural card it represents |
 | **Go out**       | `goOut()`     | Empty your hand to end the round                             |
@@ -85,7 +86,7 @@ A contract rummy style game where you “May I?” to grab discards out of turn 
 - **Lay down**: Must satisfy entire contract in one play. Cannot lay off on the same turn you lay down.
 - **Lay off**: Only allowed on turns _after_ you’ve laid down.
 - **Swap Joker**: Only allowed if you have NOT laid down yet. Jokers can only be swapped out of runs, never sets.
-- **May I**: Only available when the discard is "exposed" (current player drew from stock, not from discard). Any non-current player who is NOT down may call May I to claim the exposed discard + 1 penalty card. Can be vetoed by any player closer in turn order who is NOT down — if current player vetoes (and is not down), they take the discard as their draw (no penalty); if another player vetoes, they effectively May I themselves (discard + penalty). Once the current player draws from stock, they forfeit veto rights. Down players cannot call May I or veto since they cannot draw from the discard pile.
+- **May I**: A discard is exposed from the moment the previous player discards it until someone claims it. Any eligible, non-down player can call May I for the exposed discard. The engine settles it immediately by prompting players ahead of the caller in priority order to **allow** or **claim**. If the current player claims before drawing from stock, they take the discard as their normal draw (no penalty). Any other winner takes the discard + 1 penalty card from stock. Down players are not in line and are skipped during prompts.
 - **Go out (Round 6)**: No final discard required—must play all cards to melds.
 
 ---

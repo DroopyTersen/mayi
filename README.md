@@ -36,7 +36,7 @@ See [House Rules](docs/house-rules.md) for complete rules.
 |------|-------------|--------|
 | Interactive CLI | Terminal game with menus, AI opponents | Complete |
 | Agent Harness | Command-line interface for AI agents | Complete |
-| Web App | Real-time multiplayer via WebSockets | Planned |
+| Web App | Real-time multiplayer via WebSockets | In Progress |
 
 - [Interactive Mode Guide](docs/interactive-mode.md) — How to play in the terminal
 - [Agent Harness Guide](docs/agent-game-harness.md) — CLI commands for AI agents
@@ -46,14 +46,18 @@ See [House Rules](docs/house-rules.md) for complete rules.
 | Layer | Technology |
 |-------|------------|
 | Runtime | [Bun](https://bun.sh) |
+| Web Framework | [React Router 7](https://reactrouter.com) + Vite |
+| Deployment | [Cloudflare Workers](https://developers.cloudflare.com/workers/) |
+| Realtime | [PartyKit](https://partykit.io) (WebSockets) |
 | State Machine | [XState v5](https://stately.ai/docs) |
 | AI | [Vercel AI SDK](https://sdk.vercel.ai) (Anthropic, OpenAI, Google, xAI) |
+| UI Components | [shadcn/ui](https://ui.shadcn.com) + [Tailwind CSS v4](https://tailwindcss.com) |
 | Validation | [Zod](https://zod.dev) |
-| Web (planned) | PartyKit, Cloudflare D1 |
 
 ## Project Structure
 
 ```
+app/      Web app (React Router + Cloudflare Workers)
 core/     Game engine (cards, melds, XState machines)
 cli/      CLI harness and interactive mode
 ai/       LLM-powered AI players

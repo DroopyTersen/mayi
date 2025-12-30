@@ -335,7 +335,8 @@ describe("RoundMachine - dealing state", () => {
       const actor = createRoundActor(input);
       const snapshot = actor.getSnapshot();
 
-      expect(snapshot.value).toBe("active");
+      // active is a compound state with playing substate
+      expect(snapshot.value).toEqual({ active: "playing" });
     });
   });
 
@@ -590,7 +591,8 @@ describe("RoundMachine - active state", () => {
       const actor = createRoundActor(input);
       const snapshot = actor.getSnapshot();
 
-      expect(snapshot.value).toBe("active");
+      // active is a compound state with playing substate
+      expect(snapshot.value).toEqual({ active: "playing" });
     });
 
     it("spawns TurnMachine for current player's turn", () => {
@@ -718,7 +720,8 @@ describe("RoundMachine - active state", () => {
       completeTurn(actor);
 
       const snapshot = actor.getSnapshot();
-      expect(snapshot.value).toBe("active");
+      // active is a compound state with playing substate
+      expect(snapshot.value).toEqual({ active: "playing" });
     });
 
     it("update game state from turn output", () => {
@@ -1358,8 +1361,8 @@ describe("RoundMachine - guards", () => {
       // Complete a normal turn (wentOut will be false)
       completeTurn(actor);
 
-      // Should still be in active state
-      expect(actor.getSnapshot().value).toBe("active");
+      // Should still be in active state (compound state with playing substate)
+      expect(actor.getSnapshot().value).toEqual({ active: "playing" });
 
       // Turn should have advanced to next player
       expect(actor.getSnapshot().context.currentPlayerIndex).toBe(2);

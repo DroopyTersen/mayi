@@ -236,16 +236,19 @@ describe("GameEngine (XState-backed)", () => {
   });
 
   describe("hydration after gameplay", () => {
-    it("can hydrate during May I window", () => {
+    it("can hydrate during May I resolution", () => {
       const original = GameEngine.createGame({
         playerNames: ["Alice", "Bob", "Carol"],
       });
 
-      // Play: draw from stock (opens May I window)
-      const playerId = original.getSnapshot().awaitingPlayerId;
-      original.drawFromStock(playerId);
+      const snapshotBefore = original.getSnapshot();
+      const currentPlayerId = snapshotBefore.awaitingPlayerId;
 
-      // Persist while in May I window
+      // Another player calls May I to start resolution
+      const callerId = snapshotBefore.players.find((p) => p.id !== currentPlayerId)!.id;
+      original.callMayI(callerId);
+
+      // Persist while in May I resolution
       const persisted = original.getPersistedSnapshot();
       original.stop();
 
@@ -253,11 +256,14 @@ describe("GameEngine (XState-backed)", () => {
       engine = GameEngine.fromPersistedSnapshot(persisted);
 
       const snapshot = engine.getSnapshot();
-      // Should be in May I window after drawing from stock
-      expect(snapshot.phase).toBe("MAY_I_WINDOW");
-      // Player should have 12 cards after drawing
-      const player = snapshot.players.find((p) => p.id === playerId);
-      expect(player!.hand.length).toBe(12);
+      expect(snapshot.phase).toBe("RESOLVING_MAY_I");
+      expect(snapshot.mayIContext).not.toBeNull();
+      expect(snapshot.mayIContext!.originalCaller).toBe(callerId);
+      const prompted = snapshot.mayIContext!.playerBeingPrompted;
+      if (!prompted) {
+        throw new Error("Expected a prompted player during May I resolution");
+      }
+      expect(snapshot.awaitingPlayerId).toBe(prompted);
     });
 
     it("can hydrate after skip and discard", () => {
@@ -269,9 +275,7 @@ describe("GameEngine (XState-backed)", () => {
       const snapshot1 = original.getSnapshot();
       const playerId = snapshot1.awaitingPlayerId;
 
-      // Draw from stock (opens May I window)
-      original.drawFromStock(playerId);
-      // Pass on May I (closes window)
+      // Draw from stock
       original.drawFromStock(playerId);
 
       // Skip laydown
@@ -507,6 +511,100 @@ describe("GameEngine (XState-backed)", () => {
 
       expect(currentView.isYourTurn).toBe(true);
       expect(otherView.isYourTurn).toBe(false);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // May I Resolution
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe("May I resolution", () => {
+    it("callMayI starts resolution and changes phase", () => {
+      engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const currentPlayerId = snapshot.awaitingPlayerId;
+      // Carol (player-2) calls May I
+      const callerId = snapshot.players.find((p) => p.id !== currentPlayerId)!.id;
+
+      engine.callMayI(callerId);
+
+      const afterSnapshot = engine.getSnapshot();
+      expect(afterSnapshot.phase).toBe("RESOLVING_MAY_I");
+      expect(afterSnapshot.mayIContext).not.toBeNull();
+      expect(afterSnapshot.mayIContext?.originalCaller).toBe(callerId);
+    });
+
+    it("allowMayI advances to next player in priority", () => {
+      engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const currentPlayerId = snapshot.awaitingPlayerId;
+      // Dave (player-3) calls May I
+      const callerId = "player-3";
+
+      engine.callMayI(callerId);
+
+      // Current player (player-1) is first in line
+      let state = engine.getSnapshot();
+      expect(state.mayIContext?.playerBeingPrompted).toBe(currentPlayerId);
+
+      // Current player allows
+      engine.allowMayI(currentPlayerId);
+
+      state = engine.getSnapshot();
+      // Next player (player-2) should be prompted
+      expect(state.mayIContext?.playerBeingPrompted).toBe("player-2");
+    });
+
+    it("claimMayI blocks caller and awards card to claimer", () => {
+      engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const currentPlayerId = snapshot.awaitingPlayerId;
+      const topDiscard = snapshot.discard[0]!;
+      // Dave (player-3) calls May I
+      const callerId = "player-3";
+
+      engine.callMayI(callerId);
+
+      // Current player claims instead
+      engine.claimMayI(currentPlayerId);
+
+      const afterSnapshot = engine.getSnapshot();
+      // Should be back to ROUND_ACTIVE
+      expect(afterSnapshot.phase).toBe("ROUND_ACTIVE");
+      // Current player should have the claimed card
+      const currentPlayer = afterSnapshot.players.find((p) => p.id === currentPlayerId)!;
+      expect(currentPlayer.hand.some((c) => c.id === topDiscard.id)).toBe(true);
+    });
+
+    it("awaitingPlayerId reflects who is being prompted during resolution", () => {
+      engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const currentPlayerId = snapshot.awaitingPlayerId;
+      // Carol (player-2) calls May I
+      const callerId = "player-2";
+
+      engine.callMayI(callerId);
+
+      const afterSnapshot = engine.getSnapshot();
+      expect(afterSnapshot.mayIContext).not.toBeNull();
+      const prompted = afterSnapshot.mayIContext!.playerBeingPrompted;
+      if (!prompted) {
+        throw new Error("Expected a prompted player during May I resolution");
+      }
+      // awaitingPlayerId should be the player being prompted
+      expect(afterSnapshot.awaitingPlayerId).toBe(prompted);
     });
   });
 });

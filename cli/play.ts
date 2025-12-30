@@ -2,39 +2,25 @@
 /**
  * May I? CLI - Entry Point
  *
- * A command-line interface for Claude to play and test the game.
- * Each command is self-contained: run, execute one action, exit.
+ * Command mode (agent harness):
+ *   bun cli/play.ts new
+ *   bun cli/play.ts <game-id> status [--json]
+ *   bun cli/play.ts <game-id> <command> [...args]
  *
- * Usage:
- *   bun cli/play.ts new                         # Start new game
- *   bun cli/play.ts <game-id> status            # Show current state
- *   bun cli/play.ts <game-id> status --json     # Show state as JSON
- *   bun cli/play.ts <game-id> draw stock        # Draw from stock
- *   bun cli/play.ts <game-id> draw discard      # Draw from discard
- *   bun cli/play.ts <game-id> laydown "1,2,3" "4,5,6,7"  # Lay down melds
- *   bun cli/play.ts <game-id> skip              # Skip laying down
- *   bun cli/play.ts <game-id> discard 5         # Discard card at position 5
- *   bun cli/play.ts <game-id> layoff 3 1        # Lay off card 3 to meld 1
- *   bun cli/play.ts <game-id> mayi              # Call May I
- *   bun cli/play.ts <game-id> pass              # Pass on May I
- *   bun cli/play.ts <game-id> continue          # Continue to next round
- *   bun cli/play.ts <game-id> log               # Show action log
+ * Interactive mode (human):
+ *   bun cli/play.ts --interactive
  */
 
-import { Orchestrator } from "./harness/orchestrator";
+import { CliGameAdapter } from "./shared/cli-game-adapter";
 import { readActionLog, listSavedGames, formatGameDate } from "./shared/cli.persistence";
 import { renderStatus, renderStatusJson, renderLog } from "./harness/harness.render";
 import { generatePlayerNames } from "./shared/cli.players";
-import type { PersistedGameState } from "./shared/cli.types";
 import type { RoundNumber } from "../core/engine/engine.types";
-
-// --- Main entry point ---
 
 const args = process.argv.slice(2);
 
-// Check for interactive mode
+// Interactive mode
 if (args.includes("--interactive") || args.includes("-i")) {
-  // Spawn the interactive CLI
   const proc = Bun.spawn(["bun", "cli/interactive/interactive.ts"], {
     stdin: "inherit",
     stdout: "inherit",
@@ -44,19 +30,19 @@ if (args.includes("--interactive") || args.includes("-i")) {
   process.exit(0);
 }
 
-// Check for help
+// Help
 if (args.length === 0 || args[0] === "help" || args[0] === "--help") {
   printHelp();
   process.exit(0);
 }
 
-// Check for 'new' command (special case - no game ID needed)
+// New game (no game ID required)
 if (args[0]?.toLowerCase() === "new") {
   handleNew();
   process.exit(0);
 }
 
-// Check for 'list' command (list saved games)
+// List games
 if (args[0]?.toLowerCase() === "list") {
   handleList();
   process.exit(0);
@@ -72,7 +58,7 @@ if (!gameId || !command) {
   process.exit(1);
 }
 
-const orchestrator = new Orchestrator();
+const game = new CliGameAdapter();
 
 try {
   switch (command) {
@@ -94,17 +80,17 @@ try {
     case "layoff":
       handleLayoff(gameId, args[2], args[3]);
       break;
-    case "mayi":
-      handleMayI(gameId);
-      break;
-    case "pass":
-      handlePass(gameId);
-      break;
-    case "continue":
-      handleContinue(gameId);
-      break;
     case "swap":
       handleSwap(gameId, args[2], args[3], args[4]);
+      break;
+    case "mayi":
+      handleMayI(gameId, args[2]);
+      break;
+    case "allow":
+      handleAllow(gameId);
+      break;
+    case "claim":
+      handleClaim(gameId);
       break;
     case "log":
       handleLog(gameId, args[2]);
@@ -119,10 +105,12 @@ try {
   process.exit(1);
 }
 
-// --- Command handlers ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Command handlers
+// ─────────────────────────────────────────────────────────────────────────────
 
 function handleNew(): void {
-  const orchestrator = new Orchestrator();
+  const adapter = new CliGameAdapter();
 
   // Parse --players flag (default: 3)
   const playersIdx = args.indexOf("--players");
@@ -130,15 +118,13 @@ function handleNew(): void {
   if (playersIdx !== -1) {
     const playersArg = args[playersIdx + 1];
     if (playersArg === undefined) {
-      console.error("Error: --players requires a value (3-8)");
-      process.exit(1);
+      throw new Error("--players requires a value (3-8)");
     }
     const parsed = parseInt(playersArg, 10);
     if (parsed >= 3 && parsed <= 8) {
       playerCount = parsed;
     } else {
-      console.error("Error: Player count must be between 3 and 8");
-      process.exit(1);
+      throw new Error("Player count must be between 3 and 8");
     }
   }
 
@@ -148,21 +134,18 @@ function handleNew(): void {
   if (roundIdx !== -1) {
     const roundArg = args[roundIdx + 1];
     if (roundArg === undefined) {
-      console.error("Error: --round requires a value (1-6)");
-      process.exit(1);
+      throw new Error("--round requires a value (1-6)");
     }
     const parsed = parseInt(roundArg, 10);
     if (parsed >= 1 && parsed <= 6) {
       startingRound = parsed as RoundNumber;
     } else {
-      console.error("Error: Round must be between 1 and 6");
-      process.exit(1);
+      throw new Error("Round must be between 1 and 6");
     }
   }
 
   const players = generatePlayerNames(playerCount, false);
-  orchestrator.newGame(players, startingRound);
-  const state = orchestrator.getPersistedState();
+  const state = adapter.newGame({ playerNames: players, startingRound });
 
   console.log("");
   console.log(`  Game ID: ${state.gameId}`);
@@ -193,45 +176,43 @@ function handleList(): void {
 }
 
 function handleStatus(gameId: string, asJson: boolean): void {
-  orchestrator.loadGame(gameId);
-  const state = orchestrator.getPersistedState();
+  const state = game.loadGame(gameId);
 
   if (asJson) {
     console.log(renderStatusJson(state));
-  } else {
-    console.log(`Game: ${gameId}`);
-    console.log("");
-    console.log(renderStatus(state));
+    return;
   }
+
+  console.log(`Game: ${gameId}`);
+  console.log("");
+  console.log(renderStatus(state));
 }
 
 function handleDraw(gameId: string, source?: string): void {
-  orchestrator.loadGame(gameId);
+  game.loadGame(gameId);
 
-  if (source === "stock") {
-    const result = orchestrator.drawFromStock();
-    if (!result.success) {
-      throw new Error(result.message);
-    }
-    console.log(result.message);
-  } else if (source === "discard") {
-    const result = orchestrator.drawFromDiscard();
-    if (!result.success) {
-      throw new Error(result.message);
-    }
-    console.log(result.message);
-  } else {
+  const after =
+    source === "stock"
+      ? game.drawFromStock()
+      : source === "discard"
+        ? game.drawFromDiscard()
+        : null;
+
+  if (!after) {
     throw new Error('Specify source: "draw stock" or "draw discard"');
+  }
+  if (after.lastError) {
+    throw new Error(after.lastError);
   }
 
   console.log("");
   console.log(`Game: ${gameId}`);
   console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
+  console.log(renderStatus(game.getSnapshot()));
 }
 
 function handleLaydown(gameId: string, meldArgs: string[]): void {
-  orchestrator.loadGame(gameId);
+  game.loadGame(gameId);
 
   if (meldArgs.length === 0) {
     throw new Error('Specify melds: laydown "1,2,3" "4,5,6,7"');
@@ -247,35 +228,33 @@ function handleLaydown(gameId: string, meldArgs: string[]): void {
     meldGroups.push(positions);
   }
 
-  const result = orchestrator.layDown(meldGroups);
-  if (!result.success) {
-    throw new Error(result.message);
+  const after = game.layDown(meldGroups);
+  if (after.lastError) {
+    throw new Error(after.lastError);
   }
 
-  console.log(result.message);
   console.log("");
   console.log(`Game: ${gameId}`);
   console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
+  console.log(renderStatus(game.getSnapshot()));
 }
 
 function handleSkip(gameId: string): void {
-  orchestrator.loadGame(gameId);
+  game.loadGame(gameId);
 
-  const result = orchestrator.skip();
-  if (!result.success) {
-    throw new Error(result.message);
+  const after = game.skip();
+  if (after.lastError) {
+    throw new Error(after.lastError);
   }
 
-  console.log(result.message);
   console.log("");
   console.log(`Game: ${gameId}`);
   console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
+  console.log(renderStatus(game.getSnapshot()));
 }
 
 function handleDiscard(gameId: string, positionStr?: string): void {
-  orchestrator.loadGame(gameId);
+  game.loadGame(gameId);
 
   if (!positionStr) {
     throw new Error("Specify position: discard <position>");
@@ -286,20 +265,19 @@ function handleDiscard(gameId: string, positionStr?: string): void {
     throw new Error(`Invalid position: ${positionStr}`);
   }
 
-  const result = orchestrator.discardCard(position);
-  if (!result.success) {
-    throw new Error(result.message);
+  const after = game.discardCard(position);
+  if (after.lastError) {
+    throw new Error(after.lastError);
   }
 
-  console.log(result.message);
   console.log("");
   console.log(`Game: ${gameId}`);
   console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
+  console.log(renderStatus(game.getSnapshot()));
 }
 
 function handleLayoff(gameId: string, cardPosStr?: string, meldNumStr?: string): void {
-  orchestrator.loadGame(gameId);
+  game.loadGame(gameId);
 
   if (!cardPosStr || !meldNumStr) {
     throw new Error("Specify: layoff <card-position> <meld-number>");
@@ -311,65 +289,19 @@ function handleLayoff(gameId: string, cardPosStr?: string, meldNumStr?: string):
     throw new Error("Positions must be numbers");
   }
 
-  const result = orchestrator.layOff(cardPos, meldNum);
-  if (!result.success) {
-    throw new Error(result.message);
+  const after = game.layOff(cardPos, meldNum);
+  if (after.lastError) {
+    throw new Error(after.lastError);
   }
 
-  console.log(result.message);
   console.log("");
   console.log(`Game: ${gameId}`);
   console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
-}
-
-function handleMayI(gameId: string): void {
-  orchestrator.loadGame(gameId);
-
-  const result = orchestrator.callMayI();
-  if (!result.success) {
-    throw new Error(result.message);
-  }
-
-  console.log(result.message);
-  console.log("");
-  console.log(`Game: ${gameId}`);
-  console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
-}
-
-function handlePass(gameId: string): void {
-  orchestrator.loadGame(gameId);
-
-  const result = orchestrator.pass();
-  if (!result.success) {
-    throw new Error(result.message);
-  }
-
-  console.log(result.message);
-  console.log("");
-  console.log(`Game: ${gameId}`);
-  console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
-}
-
-function handleContinue(gameId: string): void {
-  orchestrator.loadGame(gameId);
-
-  const result = orchestrator.continue();
-  if (!result.success) {
-    throw new Error(result.message);
-  }
-
-  console.log(result.message);
-  console.log("");
-  console.log(`Game: ${gameId}`);
-  console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
+  console.log(renderStatus(game.getSnapshot()));
 }
 
 function handleSwap(gameId: string, meldNumStr?: string, jokerPosStr?: string, cardPosStr?: string): void {
-  orchestrator.loadGame(gameId);
+  game.loadGame(gameId);
 
   if (!meldNumStr || !jokerPosStr || !cardPosStr) {
     throw new Error("Specify: swap <meld-number> <joker-position> <card-position>");
@@ -382,16 +314,61 @@ function handleSwap(gameId: string, meldNumStr?: string, jokerPosStr?: string, c
     throw new Error("All arguments must be numbers");
   }
 
-  const result = orchestrator.swap(meldNum, jokerPos, cardPos);
-  if (!result.success) {
-    throw new Error(result.message);
+  const after = game.swap(meldNum, jokerPos, cardPos);
+  if (after.lastError) {
+    throw new Error(after.lastError);
   }
 
-  console.log(result.message);
   console.log("");
   console.log(`Game: ${gameId}`);
   console.log("");
-  console.log(renderStatus(orchestrator.getPersistedState()));
+  console.log(renderStatus(game.getSnapshot()));
+}
+
+function handleMayI(gameId: string, callerId?: string): void {
+  game.loadGame(gameId);
+
+  if (!callerId) {
+    throw new Error("Specify caller: mayi <player-id>");
+  }
+
+  const after = game.callMayI(callerId);
+  if (after.lastError) {
+    throw new Error(after.lastError);
+  }
+
+  console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
+  console.log(renderStatus(game.getSnapshot()));
+}
+
+function handleAllow(gameId: string): void {
+  game.loadGame(gameId);
+
+  const after = game.allowMayI();
+  if (after.lastError) {
+    throw new Error(after.lastError);
+  }
+
+  console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
+  console.log(renderStatus(game.getSnapshot()));
+}
+
+function handleClaim(gameId: string): void {
+  game.loadGame(gameId);
+
+  const after = game.claimMayI();
+  if (after.lastError) {
+    throw new Error(after.lastError);
+  }
+
+  console.log("");
+  console.log(`Game: ${gameId}`);
+  console.log("");
+  console.log(renderStatus(game.getSnapshot()));
 }
 
 function handleLog(gameId: string, tailArg?: string): void {
@@ -426,16 +403,16 @@ Commands (require game ID):
   <game-id> draw discard      Draw from discard pile
 
   <game-id> laydown "1,2,3" "4,5,6,7"   Lay down melds (card positions)
-  <game-id> skip              Skip laying down
+  <game-id> skip              Skip laying down / laying off
   <game-id> discard <pos>     Discard card at position
 
   <game-id> layoff <card> <meld>        Lay off card to meld
   <game-id> swap <meld> <pos> <card>    Swap card for Joker in run
 
-  <game-id> mayi              Call May I (non-current player)
-  <game-id> pass              Pass on May I
+  <game-id> mayi <player-id>  Call "May I?" as the specified player
+  <game-id> allow             Allow the caller (when prompted)
+  <game-id> claim             Claim the discard yourself (when prompted)
 
-  <game-id> continue          Continue to next round
   <game-id> log [n]           Show action log (last n entries)
 
 Examples:
@@ -447,6 +424,8 @@ Examples:
   bun cli/play.ts a1b2c3 draw stock
   bun cli/play.ts a1b2c3 laydown "1,2,3" "4,5,6,7"
   bun cli/play.ts a1b2c3 discard 5
+  bun cli/play.ts a1b2c3 mayi player-2
   bun cli/play.ts --interactive
 `);
 }
+

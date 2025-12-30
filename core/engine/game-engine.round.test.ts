@@ -24,31 +24,20 @@ describe("GameEngine round advancement", () => {
     });
   });
 
-  describe("turn number tracking", () => {
-    /**
-     * Helper to complete a full turn including May I window resolution.
-     *
-     * May I window flow:
-     * 1. Current player sends DRAW_FROM_STOCK → opens May I window
-     * 2. Current player sends DRAW_FROM_STOCK again → closes window (passes on claiming discard)
-     * 3. Continue with skip/discard
-     */
-    function completeTurn(engine: GameEngine): void {
-      let snapshot = engine.getSnapshot();
-      const turnOwner = snapshot.awaitingPlayerId;
+	  describe("turn number tracking", () => {
+	    /**
+	     * Helper to complete a full turn.
+	     */
+	    function completeTurn(engine: GameEngine): void {
+	      let snapshot = engine.getSnapshot();
+	      const turnOwner = snapshot.awaitingPlayerId;
 
-      // Draw from stock (may open May I window)
-      engine.drawFromStock(turnOwner);
+	      // Draw from stock
+	      engine.drawFromStock(turnOwner);
 
-      // If May I window opened, the turn owner must pass to close it
-      snapshot = engine.getSnapshot();
-      if (snapshot.phase === "MAY_I_WINDOW") {
-        engine.drawFromStock(turnOwner); // Pass on claiming the exposed discard
-      }
-
-      // Skip laying down, discard
-      engine.skip(turnOwner);
-      const hand = engine.getSnapshot().players.find((p) => p.id === turnOwner)!.hand;
+	      // Skip laying down, discard
+	      engine.skip(turnOwner);
+	      const hand = engine.getSnapshot().players.find((p) => p.id === turnOwner)!.hand;
       engine.discard(turnOwner, hand[0]!.id);
 
       // After discard, we should be at the next player's turn (no May I window after discard)

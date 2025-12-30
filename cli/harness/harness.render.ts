@@ -1,21 +1,26 @@
 /**
  * Rendering utilities for the May I? CLI harness
  *
- * Displays game state and available commands
+ * Displays GameEngine state and available commands.
  */
 
-import type { Card } from "../../core/card/card.types";
-import type { Meld } from "../../core/meld/meld.types";
 import type { Player } from "../../core/engine/engine.types";
-import type { PersistedGameState, AvailableCommands, ActionLogEntry } from "../shared/cli.types";
-import { renderCard, renderHand, renderNumberedHand } from "../shared/cli.renderer";
+import type { Meld } from "../../core/meld/meld.types";
+import type { GameSnapshot } from "../../core/engine/game-engine.types";
+import type { AvailableCommands, ActionLogEntry } from "../shared/cli.types";
+import { renderCard, renderNumberedHand } from "../shared/cli.renderer";
 import { getAwaitingPlayer, getCurrentPlayer } from "./harness.state";
 import { identifyJokerPositions } from "../../core/meld/meld.joker";
+import { getNumberedMelds } from "../shared/cli-meld-numbering";
+import {
+  getPlayersWhoCanCallMayI,
+  getLaydownCommandHint,
+} from "../../core/engine/game-engine.availability";
 
 /**
  * Render the full game status for display
  */
-export function renderStatus(state: PersistedGameState): string {
+export function renderStatus(state: GameSnapshot): string {
   const lines: string[] = [];
 
   // Header
@@ -27,6 +32,11 @@ export function renderStatus(state: PersistedGameState): string {
   }
   lines.push("═".repeat(66));
   lines.push("");
+
+  if (state.lastError) {
+    lines.push(`ERROR: ${state.lastError}`);
+    lines.push("");
+  }
 
   // Players (scores omitted during play to avoid confusion with hand values)
   lines.push("PLAYERS");
@@ -44,18 +54,11 @@ export function renderStatus(state: PersistedGameState): string {
   if (state.table.length === 0) {
     lines.push("  (no melds yet)");
   } else {
-    const meldsByOwner = groupMeldsByOwner(state.table, state.players);
-    let meldNumber = 1;
-    for (const [ownerId, melds] of Object.entries(meldsByOwner)) {
-      const owner = state.players.find((p) => p.id === ownerId);
+    for (const { meldNumber, meld, owner } of getNumberedMelds(state.table, state.players)) {
       const ownerName = owner?.name ?? "Unknown";
-      lines.push(`  ${ownerName}'s melds:`);
-      for (const meld of melds) {
-        const typeLabel = meld.type === "set" ? "Set" : "Run";
-        const cardsStr = meld.cards.map(renderCard).join(" ");
-        lines.push(`    [${meldNumber}] ${typeLabel}: ${cardsStr}`);
-        meldNumber++;
-      }
+      const typeLabel = meld.type === "set" ? "Set" : "Run";
+      const cardsStr = meld.cards.map(renderCard).join(" ");
+      lines.push(`  [${meldNumber}] ${ownerName} — ${typeLabel}: ${cardsStr}`);
     }
   }
   lines.push("");
@@ -69,68 +72,63 @@ export function renderStatus(state: PersistedGameState): string {
   lines.push("─".repeat(66));
   lines.push("");
 
-  // Current decision context
   const awaitingPlayer = getAwaitingPlayer(state);
   if (!awaitingPlayer) {
     lines.push("ERROR: No awaiting player found");
     return lines.join("\n");
   }
 
-  // Show whose decision we need
-  switch (state.harness.phase) {
-    case "AWAITING_DRAW":
-      lines.push(`It's ${awaitingPlayer.name}'s turn — needs to draw`);
-      lines.push("");
-      lines.push(`Your hand (${awaitingPlayer.hand.length} cards):`);
-      lines.push(`  ${renderNumberedHand(awaitingPlayer.hand)}`);
-      break;
-
-    case "AWAITING_ACTION":
-      lines.push(`It's ${awaitingPlayer.name}'s turn — drawn, can act`);
-      lines.push("");
-      lines.push(`Your hand (${awaitingPlayer.hand.length} cards):`);
-      lines.push(`  ${renderNumberedHand(awaitingPlayer.hand)}`);
-      if (!awaitingPlayer.isDown) {
+  // Phase-specific context
+  if (state.phase === "ROUND_ACTIVE") {
+    switch (state.turnPhase) {
+      case "AWAITING_DRAW":
+        lines.push(`It's ${awaitingPlayer.name}'s turn — needs to draw`);
         lines.push("");
-        lines.push(`Contract needed: ${formatContract(state.contract)}`);
-      }
-      break;
+        lines.push(`Your hand (${awaitingPlayer.hand.length} cards):`);
+        lines.push(`  ${renderNumberedHand(awaitingPlayer.hand)}`);
+        break;
 
-    case "AWAITING_DISCARD":
-      lines.push(`It's ${awaitingPlayer.name}'s turn — needs to discard`);
-      lines.push("");
-      lines.push(`Your hand (${awaitingPlayer.hand.length} cards):`);
-      lines.push(`  ${renderNumberedHand(awaitingPlayer.hand)}`);
-      break;
+      case "AWAITING_ACTION":
+        lines.push(`It's ${awaitingPlayer.name}'s turn — drawn, can act`);
+        lines.push("");
+        lines.push(`Your hand (${awaitingPlayer.hand.length} cards):`);
+        lines.push(`  ${renderNumberedHand(awaitingPlayer.hand)}`);
+        if (!awaitingPlayer.isDown) {
+          lines.push("");
+          lines.push(`Contract needed: ${formatContract(state.contract)}`);
+        }
+        break;
 
-    case "MAY_I_WINDOW":
-      const ctx = state.harness.mayIContext!;
-      const respondingPlayer = awaitingPlayer;
-      lines.push(`MAY I WINDOW — ${respondingPlayer.name}'s decision`);
-      lines.push("");
-      lines.push(`Available card: ${renderCard(ctx.discardedCard)}`);
-      if (ctx.claimants.length > 0) {
-        const claimantNames = ctx.claimants
-          .map((id) => state.players.find((p) => p.id === id)?.name)
-          .join(", ");
-        lines.push(`Already claimed by: ${claimantNames}`);
-      }
-      lines.push("");
-      lines.push(`${respondingPlayer.name}'s hand (${respondingPlayer.hand.length} cards):`);
-      lines.push(`  ${renderNumberedHand(respondingPlayer.hand)}`);
-      break;
+      case "AWAITING_DISCARD":
+        lines.push(`It's ${awaitingPlayer.name}'s turn — needs to discard`);
+        lines.push("");
+        lines.push(`Your hand (${awaitingPlayer.hand.length} cards):`);
+        lines.push(`  ${renderNumberedHand(awaitingPlayer.hand)}`);
+        break;
+    }
+  } else if (state.phase === "RESOLVING_MAY_I") {
+    const ctx = state.mayIContext;
+    if (!ctx) {
+      lines.push("ERROR: Engine is RESOLVING_MAY_I but mayIContext is null");
+      return lines.join("\n");
+    }
 
-    case "ROUND_END":
-      lines.push("ROUND COMPLETE");
-      lines.push("");
-      renderRoundScores(lines, state);
-      break;
-
-    case "GAME_END":
-      lines.push("GAME OVER");
-      lines.push("");
-      renderFinalScores(lines, state);
-      break;
+    const caller = state.players.find((p) => p.id === ctx.originalCaller);
+    lines.push(`MAY I? — ${awaitingPlayer.name}'s decision`);
+    lines.push("");
+    lines.push(`Caller: ${caller?.name ?? ctx.originalCaller}`);
+    lines.push(`Card: ${renderCard(ctx.cardBeingClaimed)}`);
+    lines.push("");
+    lines.push(`${awaitingPlayer.name}'s hand (${awaitingPlayer.hand.length} cards):`);
+    lines.push(`  ${renderNumberedHand(awaitingPlayer.hand)}`);
+  } else if (state.phase === "ROUND_END") {
+    lines.push("ROUND COMPLETE");
+    lines.push("");
+    renderRoundScores(lines, state);
+  } else if (state.phase === "GAME_END") {
+    lines.push("GAME OVER");
+    lines.push("");
+    renderFinalScores(lines, state);
   }
 
   lines.push("");
@@ -148,7 +146,7 @@ export function renderStatus(state: PersistedGameState): string {
 /**
  * Render status as JSON
  */
-export function renderStatusJson(state: PersistedGameState): string {
+export function renderStatusJson(state: GameSnapshot): string {
   const awaitingPlayer = getAwaitingPlayer(state);
   const currentPlayer = getCurrentPlayer(state);
   const commands = getAvailableCommands(state);
@@ -156,18 +154,22 @@ export function renderStatusJson(state: PersistedGameState): string {
   const output = {
     round: state.currentRound,
     contract: formatContract(state.contract),
-    phase: state.harness.phase,
-    awaitingPlayer: awaitingPlayer ? {
-      id: awaitingPlayer.id,
-      name: awaitingPlayer.name,
-      handSize: awaitingPlayer.hand.length,
-      hand: awaitingPlayer.hand.map((c, i) => ({
-        position: i + 1,
-        card: renderCard(c),
-        id: c.id,
-      })),
-      isDown: awaitingPlayer.isDown,
-    } : null,
+    phase: state.phase,
+    turnPhase: state.turnPhase,
+    lastError: state.lastError,
+    awaitingPlayer: awaitingPlayer
+      ? {
+          id: awaitingPlayer.id,
+          name: awaitingPlayer.name,
+          handSize: awaitingPlayer.hand.length,
+          hand: awaitingPlayer.hand.map((c, i) => ({
+            position: i + 1,
+            card: renderCard(c),
+            id: c.id,
+          })),
+          isDown: awaitingPlayer.isDown,
+        }
+      : null,
     currentPlayer: {
       id: currentPlayer.id,
       name: currentPlayer.name,
@@ -182,18 +184,25 @@ export function renderStatusJson(state: PersistedGameState): string {
     })),
     topDiscard: state.discard[0] ? renderCard(state.discard[0]) : null,
     stockCount: state.stock.length,
-    table: state.table.map((m, i) => ({
-      number: i + 1,
-      type: m.type,
-      cards: m.cards.map(renderCard).join(" "),
-      ownerId: m.ownerId,
+    table: getNumberedMelds(state.table, state.players).map(({ meldNumber, meld }) => ({
+      number: meldNumber,
+      type: meld.type,
+      cards: meld.cards.map(renderCard).join(" "),
+      ownerId: meld.ownerId,
     })),
     availableCommands: commands.commands,
-    mayIContext: state.harness.mayIContext ? {
-      discardedCard: renderCard(state.harness.mayIContext.discardedCard),
-      claimants: state.harness.mayIContext.claimants,
-      awaitingResponseFrom: state.harness.mayIContext.awaitingResponseFrom,
-    } : null,
+    mayIEligiblePlayerIds: commands.mayIEligiblePlayerIds ?? [],
+    mayIContext: state.mayIContext
+      ? {
+          originalCaller: state.mayIContext.originalCaller,
+          cardBeingClaimed: renderCard(state.mayIContext.cardBeingClaimed),
+          playersToCheck: state.mayIContext.playersToCheck,
+          playerBeingPrompted: state.mayIContext.playerBeingPrompted,
+          playersWhoAllowed: state.mayIContext.playersWhoAllowed,
+          winner: state.mayIContext.winner,
+          outcome: state.mayIContext.outcome,
+        }
+      : null,
   };
 
   return JSON.stringify(output, null, 2);
@@ -202,87 +211,91 @@ export function renderStatusJson(state: PersistedGameState): string {
 /**
  * Get available commands for current phase
  */
-export function getAvailableCommands(state: PersistedGameState): AvailableCommands {
+export function getAvailableCommands(state: GameSnapshot): AvailableCommands {
   const awaitingPlayer = getAwaitingPlayer(state);
+  const mayIEligiblePlayers = getPlayersWhoCanCallMayI(state);
 
-  switch (state.harness.phase) {
-    case "AWAITING_DRAW":
-      return {
-        phase: "AWAITING_DRAW",
-        description: `${awaitingPlayer?.name} to draw`,
-        commands: ["draw stock", "draw discard"],
-      };
+  if (state.phase === "ROUND_ACTIVE") {
+    switch (state.turnPhase) {
+      case "AWAITING_DRAW":
+        return {
+          phase: "AWAITING_DRAW",
+          description: `${awaitingPlayer?.name} to draw`,
+          commands: ["draw stock", "draw discard"],
+          mayIEligiblePlayerIds: mayIEligiblePlayers,
+        };
 
-    case "AWAITING_ACTION": {
-      const commands: string[] = [];
-      if (awaitingPlayer && !awaitingPlayer.isDown) {
-        commands.push('laydown "<meld1>" "<meld2>"');
+      case "AWAITING_ACTION": {
+        const commands: string[] = [];
 
-        // Check for joker swaps available (not in Round 6 - no melds on table)
-        if (state.currentRound !== 6) {
-          const swappableJokers = findSwappableJokers(state);
-          if (swappableJokers.length > 0) {
-            commands.push("swap <meld> <pos> <card>");
+        if (awaitingPlayer && !awaitingPlayer.isDown) {
+          // Use dynamic laydown hint based on contract
+          commands.push(getLaydownCommandHint(state.contract));
+
+          // Check for joker swaps available (not in Round 6 - no melds on table)
+          if (state.currentRound !== 6) {
+            const swappableJokers = findSwappableJokers(state);
+            if (swappableJokers.length > 0) {
+              commands.push("swap <meld> <pos> <card>");
+            }
           }
         }
-      }
-      // Lay off is only available in Rounds 1-5 when player is down
-      if (awaitingPlayer?.isDown && state.currentRound !== 6) {
-        commands.push("layoff <card> <meld>");
-      }
-      commands.push("skip");
-      return {
-        phase: "AWAITING_ACTION",
-        description: `${awaitingPlayer?.name} to act`,
-        commands,
-      };
-    }
 
-    case "AWAITING_DISCARD": {
-      return {
-        phase: "AWAITING_DISCARD",
-        description: `${awaitingPlayer?.name} to discard`,
-        commands: ["discard <position>"],
-      };
-    }
+        // Lay off is only available in Rounds 1-5 when player is down
+        if (awaitingPlayer?.isDown && state.currentRound !== 6) {
+          commands.push("layoff <card> <meld>");
+        }
 
-    case "MAY_I_WINDOW":
-      const ctx = state.harness.mayIContext!;
-      const isCurrentPlayer = awaitingPlayer?.id === ctx.currentPlayerId;
-      if (isCurrentPlayer && !ctx.currentPlayerPassed) {
+        commands.push("skip");
+
         return {
-          phase: "MAY_I_WINDOW",
-          description: `${awaitingPlayer?.name} (current player) may claim or pass`,
-          commands: ["take", "pass"],
+          phase: "AWAITING_ACTION",
+          description: `${awaitingPlayer?.name} to act`,
+          commands,
+          mayIEligiblePlayerIds: mayIEligiblePlayers,
         };
       }
-      return {
-        phase: "MAY_I_WINDOW",
-        description: `${awaitingPlayer?.name} may call May I or pass`,
-        commands: ["mayi", "pass"],
-      };
 
-    case "ROUND_END":
-      return {
-        phase: "ROUND_END",
-        description: "Round complete",
-        commands: ["continue"],
-      };
-
-    case "GAME_END":
-      return {
-        phase: "GAME_END",
-        description: "Game over",
-        commands: ["new"],
-      };
-
-    default:
-      return {
-        phase: state.harness.phase,
-        description: "Unknown phase",
-        commands: [],
-      };
+      case "AWAITING_DISCARD":
+        return {
+          phase: "AWAITING_DISCARD",
+          description: `${awaitingPlayer?.name} to discard`,
+          commands: ["discard <position>"],
+          // No May I during discard phase - once they discard it's a new card
+        };
+    }
   }
+
+  if (state.phase === "RESOLVING_MAY_I") {
+    return {
+      phase: "RESOLVING_MAY_I",
+      description: `${awaitingPlayer?.name} to allow or claim`,
+      commands: ["allow", "claim"],
+    };
+  }
+
+  if (state.phase === "ROUND_END") {
+    return {
+      phase: "ROUND_END",
+      description: "Round complete",
+      commands: ["status"],
+    };
+  }
+
+  if (state.phase === "GAME_END") {
+    return {
+      phase: "GAME_END",
+      description: "Game over",
+      commands: ["new"],
+    };
+  }
+
+  return {
+    // Fallback shouldn't happen, but keeps rendering resilient
+    phase: "GAME_END",
+    description: "Unknown phase",
+    commands: [],
+  };
 }
 
 /**
@@ -325,18 +338,7 @@ function centerText(text: string, width: number): string {
   return " ".repeat(padding) + text;
 }
 
-function groupMeldsByOwner(melds: Meld[], players: Player[]): Record<string, Meld[]> {
-  const result: Record<string, Meld[]> = {};
-  for (const meld of melds) {
-    if (!result[meld.ownerId]) {
-      result[meld.ownerId] = [];
-    }
-    result[meld.ownerId]!.push(meld);
-  }
-  return result;
-}
-
-function findSwappableJokers(state: PersistedGameState): Array<{ meldIndex: number; jokerPos: number }> {
+function findSwappableJokers(state: GameSnapshot): Array<{ meldIndex: number; jokerPos: number }> {
   const result: Array<{ meldIndex: number; jokerPos: number }> = [];
   for (let i = 0; i < state.table.length; i++) {
     const meld = state.table[i]!;
@@ -352,7 +354,7 @@ function findSwappableJokers(state: PersistedGameState): Array<{ meldIndex: numb
   return result;
 }
 
-function renderRoundScores(lines: string[], state: PersistedGameState): void {
+function renderRoundScores(lines: string[], state: GameSnapshot): void {
   const lastRecord = state.roundHistory[state.roundHistory.length - 1];
   if (!lastRecord) return;
 
@@ -373,7 +375,7 @@ function renderRoundScores(lines: string[], state: PersistedGameState): void {
   }
 }
 
-function renderFinalScores(lines: string[], state: PersistedGameState): void {
+function renderFinalScores(lines: string[], state: GameSnapshot): void {
   const sorted = [...state.players].sort((a, b) => a.totalScore - b.totalScore);
   const winner = sorted[0]!;
 
@@ -387,3 +389,15 @@ function renderFinalScores(lines: string[], state: PersistedGameState): void {
   lines.push("");
   lines.push(`${winner.name} wins!`);
 }
+
+function groupMeldsByOwner(melds: Meld[], players: Player[]): Record<string, Meld[]> {
+  const result: Record<string, Meld[]> = {};
+  for (const meld of melds) {
+    if (!result[meld.ownerId]) {
+      result[meld.ownerId] = [];
+    }
+    result[meld.ownerId]!.push(meld);
+  }
+  return result;
+}
+

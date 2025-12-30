@@ -2,30 +2,21 @@
  * LLM-friendly game state output
  *
  * Shared utility for rendering game state as text for LLM consumption.
- * Used by both CLI harness (stdout) and AI agent (user message).
- *
- * Key principle: Only show information the specified player is allowed to see.
- * This means showing their hand but not other players' hands.
+ * Only shows information the specified player is allowed to see:
+ * - Their full hand
+ * - Other players' card counts (not their cards)
  */
 
-import type { Card } from "../../core/card/card.types";
-import type { Meld } from "../../core/meld/meld.types";
 import type { Player } from "../../core/engine/engine.types";
-import type { PersistedGameState, DecisionPhase } from "./cli.types";
+import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import { renderCard, renderNumberedHand } from "./cli.renderer";
 import { readActionLog } from "./cli.persistence";
+import { getNumberedMelds } from "./cli-meld-numbering";
 
 /**
  * Render game state as text for LLM consumption.
- *
- * @param state - Current game state
- * @param playerId - ID of the player viewing the state (only their hand is shown)
- * @returns Text representation of the game state
  */
-export function outputGameStateForLLM(
-  state: PersistedGameState,
-  playerId: string
-): string {
+export function outputGameStateForLLM(state: GameSnapshot, playerId: string): string {
   const lines: string[] = [];
   const player = state.players.find((p) => p.id === playerId);
 
@@ -43,7 +34,12 @@ export function outputGameStateForLLM(
   lines.push("═".repeat(66));
   lines.push("");
 
-  // Players (card counts only, not hands - only show own score)
+  if (state.lastError && state.awaitingPlayerId === playerId) {
+    lines.push(`ERROR: ${state.lastError}`);
+    lines.push("");
+  }
+
+  // Players (card counts only; only show own cumulative score)
   lines.push("PLAYERS");
   for (let i = 0; i < state.players.length; i++) {
     const p = state.players[i]!;
@@ -52,31 +48,21 @@ export function outputGameStateForLLM(
     const indicator = isCurrentTurn ? "→ " : "  ";
     const youLabel = isYou ? " (you)" : "";
     const downStatus = p.isDown ? " ✓ DOWN" : "";
-    // Only show cumulative score for own player - showing for others could be misleading
     const scoreStr = isYou && p.totalScore > 0 ? ` (${p.totalScore} pts)` : "";
-    lines.push(
-      `${indicator}${p.name}${youLabel}: ${p.hand.length} cards${downStatus}${scoreStr}`
-    );
+    lines.push(`${indicator}${p.name}${youLabel}: ${p.hand.length} cards${downStatus}${scoreStr}`);
   }
   lines.push("");
 
-  // Table (melds)
+  // Table (numbered melds; deterministic ordering)
   lines.push("TABLE");
   if (state.table.length === 0) {
     lines.push("  (no melds yet)");
   } else {
-    const meldsByOwner = groupMeldsByOwner(state.table, state.players);
-    let meldNumber = 1;
-    for (const [ownerId, melds] of Object.entries(meldsByOwner)) {
-      const owner = state.players.find((p) => p.id === ownerId);
+    for (const { meldNumber, meld, owner } of getNumberedMelds(state.table, state.players)) {
       const ownerName = owner?.name ?? "Unknown";
-      lines.push(`  ${ownerName}'s melds:`);
-      for (const meld of melds) {
-        const typeLabel = meld.type === "set" ? "Set" : "Run";
-        const cardsStr = meld.cards.map(renderCard).join(" ");
-        lines.push(`    [${meldNumber}] ${typeLabel}: ${cardsStr}`);
-        meldNumber++;
-      }
+      const typeLabel = meld.type === "set" ? "Set" : "Run";
+      const cardsStr = meld.cards.map(renderCard).join(" ");
+      lines.push(`  [${meldNumber}] ${ownerName} — ${typeLabel}: ${cardsStr}`);
     }
   }
   lines.push("");
@@ -84,31 +70,20 @@ export function outputGameStateForLLM(
   // Discard and stock
   const topDiscard = state.discard[0];
   const discardStr = topDiscard ? renderCard(topDiscard) : "(empty)";
-  const discardCount = state.discard.length;
-  lines.push(
-    `DISCARD: ${discardStr} (${discardCount} in pile) | STOCK: ${state.stock.length} cards`
-  );
+  lines.push(`DISCARD: ${discardStr} (${state.discard.length} in pile) | STOCK: ${state.stock.length} cards`);
   lines.push("");
   lines.push("─".repeat(66));
   lines.push("");
 
+  const awaitingPlayer = state.players.find((p) => p.id === state.awaitingPlayerId);
+  const isYourDecision = state.awaitingPlayerId === playerId;
+
   // Phase-specific context
-  const awaitingPlayer = state.players.find(
-    (p) => p.id === state.harness.awaitingPlayerId
-  );
-  const isYourTurn = state.harness.awaitingPlayerId === playerId;
-
-  switch (state.harness.phase) {
-    case "AWAITING_DRAW":
-      if (isYourTurn) {
-        lines.push("YOUR TURN — You need to draw a card");
-      } else {
-        lines.push(`Waiting for ${awaitingPlayer?.name} to draw`);
-      }
-      break;
-
-    case "AWAITING_ACTION":
-      if (isYourTurn) {
+  if (state.phase === "ROUND_ACTIVE") {
+    if (state.turnPhase === "AWAITING_DRAW") {
+      lines.push(isYourDecision ? "YOUR TURN — You need to draw a card" : `Waiting for ${awaitingPlayer?.name} to draw`);
+    } else if (state.turnPhase === "AWAITING_ACTION") {
+      if (isYourDecision) {
         lines.push("YOUR TURN — You have drawn, now you can act");
         if (!player.isDown) {
           lines.push(`Contract needed: ${formatContract(state.contract)}`);
@@ -116,64 +91,45 @@ export function outputGameStateForLLM(
       } else {
         lines.push(`Waiting for ${awaitingPlayer?.name} to act`);
       }
-      break;
-
-    case "AWAITING_DISCARD":
-      if (isYourTurn) {
-        lines.push("YOUR TURN — You must discard a card");
-      } else {
-        lines.push(`Waiting for ${awaitingPlayer?.name} to discard`);
-      }
-      break;
-
-    case "MAY_I_WINDOW": {
-      const ctx = state.harness.mayIContext!;
-      if (isYourTurn) {
-        lines.push(`MAY I WINDOW — Your decision for ${renderCard(ctx.discardedCard)}`);
-        if (ctx.claimants.length > 0) {
-          const claimantNames = ctx.claimants
-            .map((id) => state.players.find((p) => p.id === id)?.name)
-            .join(", ");
-          lines.push(`Already claimed by: ${claimantNames}`);
-        }
-      } else {
-        lines.push(
-          `MAY I WINDOW — Waiting for ${awaitingPlayer?.name} to decide on ${renderCard(ctx.discardedCard)}`
-        );
-      }
-      break;
+    } else if (state.turnPhase === "AWAITING_DISCARD") {
+      lines.push(isYourDecision ? "YOUR TURN — You must discard a card" : `Waiting for ${awaitingPlayer?.name} to discard`);
     }
-
-    case "ROUND_END":
-      lines.push("ROUND COMPLETE");
-      renderRoundScores(lines, state);
-      break;
-
-    case "GAME_END":
-      lines.push("GAME OVER");
-      renderFinalScores(lines, state);
-      break;
+  } else if (state.phase === "RESOLVING_MAY_I") {
+    const ctx = state.mayIContext;
+    const caller = ctx ? state.players.find((p) => p.id === ctx.originalCaller) : null;
+    if (isYourDecision) {
+      lines.push(`MAY I? — Your decision for ${ctx ? renderCard(ctx.cardBeingClaimed) : "(unknown card)"}`);
+      if (caller) {
+        lines.push(`Caller: ${caller.name}`);
+      }
+    } else {
+      lines.push(`MAY I? — Waiting for ${awaitingPlayer?.name} to respond`);
+    }
+  } else if (state.phase === "ROUND_END") {
+    lines.push("ROUND COMPLETE");
+  } else if (state.phase === "GAME_END") {
+    lines.push("GAME OVER");
   }
 
   lines.push("");
 
-  // Your hand (only if you're a player in the game)
+  // Your hand
   lines.push(`YOUR HAND (${player.hand.length} cards):`);
   lines.push(`  ${renderNumberedHand(player.hand)}`);
   lines.push("");
 
-  lines.push("─".repeat(66));
-
-  // Available commands (only if it's your turn)
-  if (isYourTurn) {
-    const commands = getAvailableCommandsForPhase(state.harness.phase, player);
-    lines.push("");
-    lines.push(`AVAILABLE ACTIONS: ${commands.join(" | ")}`);
+  // Available actions (only when the engine is awaiting this player)
+  if (isYourDecision) {
+    const actions = getAvailableActions(state, player);
+    if (actions.length > 0) {
+      lines.push("─".repeat(66));
+      lines.push("");
+      lines.push(`AVAILABLE ACTIONS: ${actions.join(" | ")}`);
+      lines.push("");
+    }
   }
 
-  lines.push("");
-
-  // Recent action log (last 10 actions from current turn)
+  // Recent action log (last 10 actions from current round)
   const actionLog = readActionLog(state.gameId);
   const recentActions = actionLog
     .filter((entry) => entry.roundNumber === state.currentRound)
@@ -193,7 +149,24 @@ export function outputGameStateForLLM(
   return lines.join("\n");
 }
 
-// --- Helper functions ---
+function getAvailableActions(state: GameSnapshot, player: Player): string[] {
+  if (state.phase === "RESOLVING_MAY_I") {
+    return ["allow_may_i", "claim_may_i"];
+  }
+
+  if (state.phase !== "ROUND_ACTIVE") {
+    return [];
+  }
+
+  switch (state.turnPhase) {
+    case "AWAITING_DRAW":
+      return player.isDown ? ["draw_from_stock"] : ["draw_from_stock", "draw_from_discard"];
+    case "AWAITING_ACTION":
+      return player.isDown ? ["lay_off", "discard"] : ["lay_down", "swap_joker", "discard"];
+    case "AWAITING_DISCARD":
+      return ["discard"];
+  }
+}
 
 function formatContract(contract: { sets: number; runs: number }): string {
   const parts: string[] = [];
@@ -211,86 +184,3 @@ function centerText(text: string, width: number): string {
   return " ".repeat(padding) + text;
 }
 
-function groupMeldsByOwner(
-  melds: Meld[],
-  players: Player[]
-): Record<string, Meld[]> {
-  const result: Record<string, Meld[]> = {};
-  for (const meld of melds) {
-    if (!result[meld.ownerId]) {
-      result[meld.ownerId] = [];
-    }
-    result[meld.ownerId]!.push(meld);
-  }
-  return result;
-}
-
-function getAvailableCommandsForPhase(
-  phase: DecisionPhase,
-  player: Player
-): string[] {
-  switch (phase) {
-    case "AWAITING_DRAW":
-      // Down players auto-draw, so no commands needed
-      return player.isDown ? [] : ["draw_from_stock", "draw_from_discard"];
-
-    case "AWAITING_ACTION":
-      if (player.isDown) {
-        return ["lay_off", "discard"];
-      }
-      return ["lay_down", "swap_joker", "discard"];
-
-    case "AWAITING_DISCARD":
-      return ["discard"];
-
-    case "MAY_I_WINDOW":
-      return player.isDown ? ["pass"] : ["call_may_i", "pass"];
-
-    case "ROUND_END":
-      return ["continue"];
-
-    case "GAME_END":
-      return [];
-
-    default:
-      return [];
-  }
-}
-
-function renderRoundScores(lines: string[], state: PersistedGameState): void {
-  const lastRecord = state.roundHistory[state.roundHistory.length - 1];
-  if (!lastRecord) return;
-
-  lines.push("");
-  const winner = state.players.find((p) => p.id === lastRecord.winnerId);
-  lines.push(`${winner?.name ?? "Unknown"} went out!`);
-  lines.push("");
-
-  for (const player of state.players) {
-    const score = lastRecord.scores[player.id] ?? 0;
-    const indicator = player.id === lastRecord.winnerId ? " ⭐" : "";
-    lines.push(`  ${player.name}: ${score} points${indicator}`);
-  }
-  lines.push("");
-  lines.push("STANDINGS:");
-  const sorted = [...state.players].sort((a, b) => a.totalScore - b.totalScore);
-  for (let i = 0; i < sorted.length; i++) {
-    lines.push(`  ${i + 1}. ${sorted[i]!.name} — ${sorted[i]!.totalScore} points`);
-  }
-}
-
-function renderFinalScores(lines: string[], state: PersistedGameState): void {
-  const sorted = [...state.players].sort((a, b) => a.totalScore - b.totalScore);
-  const winner = sorted[0]!;
-
-  lines.push("");
-  lines.push("FINAL STANDINGS:");
-  lines.push("");
-  const medals = ["🥇", "🥈", "🥉"];
-  for (let i = 0; i < sorted.length; i++) {
-    const medal = medals[i] ?? `${i + 1}.`;
-    lines.push(`  ${medal} ${sorted[i]!.name} — ${sorted[i]!.totalScore} points`);
-  }
-  lines.push("");
-  lines.push(`${winner.name} wins!`);
-}

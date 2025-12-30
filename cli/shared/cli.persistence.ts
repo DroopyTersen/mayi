@@ -5,8 +5,9 @@
  */
 
 import * as fs from "node:fs";
-import type { ActionLogEntry, OrchestratorSnapshot } from "./cli.types";
+import type { ActionLogEntry, CliGameSave } from "./cli.types";
 import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
+import { GameEngine } from "../../core/engine/game-engine";
 
 const DATA_DIR = ".data";
 
@@ -91,27 +92,32 @@ export function listSavedGames(includeCompleted: boolean = false): GameSummary[]
 
     try {
       const content = fs.readFileSync(stateFile, "utf-8");
-      const data = JSON.parse(content) as OrchestratorSnapshot;
+      const data = JSON.parse(content) as { version?: string };
 
-      if (data.version !== "2.0") continue;
+      // v3.0: GameEngine-backed save
+      if (data.version === "3.0") {
+        const save = data as CliGameSave;
+        const engine = GameEngine.fromPersistedSnapshot(
+          save.engineSnapshot as unknown as ReturnType<GameEngine["getPersistedSnapshot"]>,
+          save.gameId,
+          save.createdAt
+        );
+        const snapshot = engine.getSnapshot();
+        engine.stop();
 
-      const gameSnapshot = data.gameSnapshot as {
-        currentRound?: number;
-        players?: Array<{ name: string }>;
-      };
+        const isComplete = snapshot.phase === "GAME_END";
+        if (!includeCompleted && isComplete) continue;
 
-      const isComplete = data.phase === "GAME_END";
-
-      if (!includeCompleted && isComplete) continue;
-
-      games.push({
-        id: gameId,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        currentRound: gameSnapshot.currentRound ?? 1,
-        isComplete,
-        playerNames: gameSnapshot.players?.map((p) => p.name) ?? [],
-      });
+        games.push({
+          id: gameId,
+          createdAt: save.createdAt,
+          updatedAt: save.updatedAt,
+          currentRound: snapshot.currentRound,
+          isComplete,
+          playerNames: snapshot.players.map((p) => p.name),
+        });
+        continue;
+      }
     } catch (error) {
       // Log warning for corrupted games, but don't fail the listing
       console.error(`Warning: Could not load game ${gameId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -126,9 +132,9 @@ export function listSavedGames(includeCompleted: boolean = false): GameSummary[]
 }
 
 /**
- * Load saved orchestrator snapshot for a specific game
+ * Load saved GameEngine-backed game state for a specific game
  */
-export function loadOrchestratorSnapshot(gameId: string): OrchestratorSnapshot {
+export function loadGameSave(gameId: string): CliGameSave {
   const stateFile = getStateFilePath(gameId);
 
   if (!fs.existsSync(stateFile) || fs.statSync(stateFile).size === 0) {
@@ -138,42 +144,21 @@ export function loadOrchestratorSnapshot(gameId: string): OrchestratorSnapshot {
   const content = fs.readFileSync(stateFile, "utf-8");
   const data = JSON.parse(content);
 
-  if (data.version !== "2.0") {
+  if (data.version !== "3.0") {
     throw new Error(`Unsupported state version: ${data.version}`);
   }
 
-  return data as OrchestratorSnapshot;
+  return data as CliGameSave;
 }
 
 /**
- * Save orchestrator snapshot to file
+ * Save GameEngine-backed game state to file
  */
-export function saveOrchestratorSnapshot(gameId: string, snapshot: OrchestratorSnapshot): void {
+export function saveGameSave(gameId: string, save: CliGameSave): void {
   ensureGameDir(gameId);
-  snapshot.updatedAt = new Date().toISOString();
-  const content = JSON.stringify(snapshot, null, 2);
+  save.updatedAt = new Date().toISOString();
+  const content = JSON.stringify(save, null, 2);
   fs.writeFileSync(getStateFilePath(gameId), content);
-}
-
-/**
- * Create a new orchestrator snapshot
- */
-export function createOrchestratorSnapshot(
-  gameId: string,
-  gameSnapshot: unknown,
-  phase: OrchestratorSnapshot["phase"]
-): OrchestratorSnapshot {
-  const now = new Date().toISOString();
-  return {
-    version: "2.0",
-    gameId,
-    createdAt: now,
-    updatedAt: now,
-    phase,
-    gameSnapshot,
-    turnNumber: 1,
-    mayIContext: null,
-  };
 }
 
 /**
