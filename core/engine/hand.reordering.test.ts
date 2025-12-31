@@ -191,6 +191,22 @@ describe("REORDER_HAND command", () => {
       expect(sorted[4]!.rank).toBe("Joker");
     });
 
+    it("multiple 2s and Jokers are sorted: 2s before Jokers", () => {
+      const cJoker1 = joker();
+      const c2a = card("2", "spades");
+      const cJoker2 = joker();
+      const c2b = card("2", "hearts");
+      const c5 = card("5", "diamonds");
+      const hand = [cJoker1, c2a, cJoker2, c2b, c5];
+      const sorted = sortHandByRank(hand);
+      // Natural first, then 2s, then Jokers
+      expect(sorted[0]!.rank).toBe("5");
+      expect(sorted[1]!.rank).toBe("2");
+      expect(sorted[2]!.rank).toBe("2");
+      expect(sorted[3]!.rank).toBe("Joker");
+      expect(sorted[4]!.rank).toBe("Joker");
+    });
+
     it("within same rank, any order is fine (or by suit)", () => {
       const c9h = card("9", "hearts");
       const c9s = card("9", "spades");
@@ -256,6 +272,23 @@ describe("REORDER_HAND command", () => {
       expect(sorted[3]!.rank).toBe("Joker");
     });
 
+    it("multiple 2s and Jokers are sorted: 2s before Jokers", () => {
+      const cJoker1 = joker();
+      const c2a = card("2", "spades");
+      const cJoker2 = joker();
+      const c2b = card("2", "hearts");
+      const cH5 = card("5", "hearts");
+      const hand = [cJoker1, c2a, cJoker2, c2b, cH5];
+      const sorted = sortHandBySuit(hand);
+      // Natural first (by suit), then 2s, then Jokers
+      expect(sorted[0]!.rank).toBe("5");
+      expect(sorted[0]!.suit).toBe("hearts");
+      expect(sorted[1]!.rank).toBe("2");
+      expect(sorted[2]!.rank).toBe("2");
+      expect(sorted[3]!.rank).toBe("Joker");
+      expect(sorted[4]!.rank).toBe("Joker");
+    });
+
     it("user-reported bug: sorts user's exact hand correctly by suit then rank", () => {
       // User's original hand: A♠ 5♣ 7♦ K♦ J♥ K♠ 2♠ 8♥ 10♠ 10♥ 7♣
       const cAS = card("A", "spades");
@@ -313,6 +346,50 @@ describe("REORDER_HAND command", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.hand[2]).toEqual(card1);
+      }
+    });
+
+    it("rejects invalid from position (negative)", () => {
+      const card1 = card("3", "hearts");
+      const card2 = card("5", "diamonds");
+      const hand = [card1, card2];
+      const result = moveCard(hand, -1, 0);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Invalid from position");
+      }
+    });
+
+    it("rejects invalid from position (out of bounds)", () => {
+      const card1 = card("3", "hearts");
+      const card2 = card("5", "diamonds");
+      const hand = [card1, card2];
+      const result = moveCard(hand, 5, 0);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Invalid from position");
+      }
+    });
+
+    it("rejects invalid to position (negative)", () => {
+      const card1 = card("3", "hearts");
+      const card2 = card("5", "diamonds");
+      const hand = [card1, card2];
+      const result = moveCard(hand, 0, -1);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Invalid to position");
+      }
+    });
+
+    it("rejects invalid to position (out of bounds)", () => {
+      const card1 = card("3", "hearts");
+      const card2 = card("5", "diamonds");
+      const hand = [card1, card2];
+      const result = moveCard(hand, 0, 5);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Invalid to position");
       }
     });
 

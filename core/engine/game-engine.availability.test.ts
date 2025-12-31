@@ -4,7 +4,12 @@
 
 import { describe, it, expect, beforeEach } from "bun:test";
 import { GameEngine } from "./game-engine";
-import { getPlayersWhoCanCallMayI, getMeldPlaceholderCount } from "./game-engine.availability";
+import {
+  getPlayersWhoCanCallMayI,
+  getMeldPlaceholderCount,
+  canPlayerCallMayI,
+  getLaydownCommandHint,
+} from "./game-engine.availability";
 import type { GameSnapshot } from "./game-engine.types";
 
 describe("getPlayersWhoCanCallMayI", () => {
@@ -115,5 +120,66 @@ describe("getMeldPlaceholderCount", () => {
 
   it("returns 3 for Round 6 (1 set + 2 runs)", () => {
     expect(getMeldPlaceholderCount({ roundNumber: 6, sets: 1, runs: 2 })).toBe(3);
+  });
+});
+
+describe("canPlayerCallMayI", () => {
+  it("returns true when player is in eligible list", () => {
+    const engine = GameEngine.createGame({
+      gameId: "test-mayi-check",
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    const snapshot = engine.getSnapshot();
+
+    // Draw and discard to set up a valid May I scenario
+    const currentPlayerId = snapshot.players[snapshot.currentPlayerIndex]!.id;
+    engine.drawFromStock(currentPlayerId);
+    const afterDraw = engine.getSnapshot();
+    engine.skip(currentPlayerId);
+    const card = afterDraw.players.find((p) => p.id === currentPlayerId)!.hand[0]!;
+    engine.discard(currentPlayerId, card.id);
+
+    const afterDiscard = engine.getSnapshot();
+    const otherPlayer = afterDiscard.players.find((p) => p.id !== currentPlayerId)!;
+
+    expect(canPlayerCallMayI(afterDiscard, otherPlayer.id)).toBe(true);
+  });
+
+  it("returns false when player is not eligible", () => {
+    const engine = GameEngine.createGame({
+      gameId: "test-mayi-check-false",
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    const snapshot = engine.getSnapshot();
+
+    // The player who will discard cannot call May I on their own discard
+    const currentPlayerId = snapshot.players[snapshot.currentPlayerIndex]!.id;
+    engine.drawFromStock(currentPlayerId);
+    const afterDraw = engine.getSnapshot();
+    engine.skip(currentPlayerId);
+    const card = afterDraw.players.find((p) => p.id === currentPlayerId)!.hand[0]!;
+    engine.discard(currentPlayerId, card.id);
+
+    const afterDiscard = engine.getSnapshot();
+
+    // The discarding player cannot May I their own card
+    expect(canPlayerCallMayI(afterDiscard, currentPlayerId)).toBe(false);
+  });
+});
+
+describe("getLaydownCommandHint", () => {
+  it("returns hint with 2 placeholders for 2-meld contracts", () => {
+    const hint = getLaydownCommandHint({ roundNumber: 1, sets: 2, runs: 0 });
+    expect(hint).toBe('laydown "<meld1>" "<meld2>"');
+  });
+
+  it("returns hint with 3 placeholders for 3-meld contracts", () => {
+    const hint = getLaydownCommandHint({ roundNumber: 4, sets: 3, runs: 0 });
+    expect(hint).toBe('laydown "<meld1>" "<meld2>" "<meld3>"');
+  });
+
+  it("works for mixed contracts", () => {
+    const hint = getLaydownCommandHint({ roundNumber: 5, sets: 2, runs: 1 });
+    expect(hint).toBe('laydown "<meld1>" "<meld2>" "<meld3>"');
   });
 });

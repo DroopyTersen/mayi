@@ -100,6 +100,13 @@ describe("canExtendRun", () => {
     const meld = makeSet([card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")]);
     expect(canExtendRun(meld, card("9"))).toBe(false);
   });
+
+  it("returns false for run with all wilds (no natural to determine suit)", () => {
+    // Edge case: a run with only wilds (shouldn't happen in normal play per house rules)
+    const meld = makeRun([joker(), joker(), joker(), joker()]);
+    expect(canExtendRun(meld, card("5"))).toBe(false);
+    expect(canExtendRun(meld, joker())).toBe(false);
+  });
 });
 
 describe("canExtendSet", () => {
@@ -141,5 +148,12 @@ describe("canExtendSet", () => {
   it("returns false for runs (only sets can be extended with sets)", () => {
     const meld = makeRun([card("5"), card("6"), card("7"), card("8")]);
     expect(canExtendSet(meld, card("5"))).toBe(false);
+  });
+
+  it("returns false for set with all wilds (no natural to determine rank)", () => {
+    // Edge case: a set with only wilds (shouldn't happen in normal play per house rules)
+    const meld = makeSet([joker(), joker(), card("2", "spades")]);
+    expect(canExtendSet(meld, card("9"))).toBe(false);
+    expect(canExtendSet(meld, joker())).toBe(false);
   });
 });

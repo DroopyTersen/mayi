@@ -221,4 +221,216 @@ describe("PartyGameAdapter", () => {
       expect(["human-1", "human-2", "ai-abc123"]).toContain(awaitingId!);
     });
   });
+
+  describe("getAIPlayerMappings", () => {
+    it("returns only AI player mappings", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const aiMappings = adapter.getAIPlayerMappings();
+      expect(aiMappings).toHaveLength(1);
+      expect(aiMappings[0]?.isAI).toBe(true);
+      expect(aiMappings[0]?.name).toBe("ClaudeBot");
+    });
+
+    it("returns empty array when no AI players", () => {
+      const threeHumans: HumanPlayerInfo[] = [
+        { playerId: "h1", name: "P1", isConnected: true, disconnectedAt: null },
+        { playerId: "h2", name: "P2", isConnected: true, disconnectedAt: null },
+        { playerId: "h3", name: "P3", isConnected: true, disconnectedAt: null },
+      ];
+
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers: threeHumans,
+        aiPlayers: [],
+        startingRound: 1,
+      });
+
+      const aiMappings = adapter.getAIPlayerMappings();
+      expect(aiMappings).toHaveLength(0);
+    });
+  });
+
+  describe("getPhase and getTurnPhase", () => {
+    it("returns the current game phase", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const phase = adapter.getPhase();
+      expect(phase).toBe("ROUND_ACTIVE");
+    });
+
+    it("returns the current turn phase", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const turnPhase = adapter.getTurnPhase();
+      expect(turnPhase).toBe("AWAITING_DRAW");
+    });
+  });
+
+  describe("additional commands", () => {
+    it("executes drawFromDiscard with lobby ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const snapshot = adapter.drawFromDiscard(awaitingId);
+
+      // Drawing from discard should work (first card is face up)
+      expect(snapshot).not.toBe(null);
+      expect(snapshot?.hasDrawn).toBe(true);
+    });
+
+    it("returns null for drawFromDiscard with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.drawFromDiscard("unknown")).toBe(null);
+    });
+
+    it("executes skip with lobby ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      adapter.drawFromStock(awaitingId);
+
+      // After drawing, skip should work
+      const snapshot = adapter.skip(awaitingId);
+      expect(snapshot).not.toBe(null);
+    });
+
+    it("returns null for skip with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.skip("unknown")).toBe(null);
+    });
+
+    it("returns null for layDown with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.layDown("unknown", [])).toBe(null);
+    });
+
+    it("returns null for layOff with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.layOff("unknown", "card-1", "meld-1")).toBe(null);
+    });
+
+    it("returns null for swapJoker with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.swapJoker("unknown", "meld-1", "joker-1", "card-1")).toBe(null);
+    });
+
+    it("returns null for callMayI with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.callMayI("unknown")).toBe(null);
+    });
+
+    it("returns null for allowMayI with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.allowMayI("unknown")).toBe(null);
+    });
+
+    it("returns null for claimMayI with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.claimMayI("unknown")).toBe(null);
+    });
+
+    it("returns null for reorderHand with invalid player ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      expect(adapter.reorderHand("unknown", [])).toBe(null);
+    });
+
+    it("executes reorderHand with valid lobby ID", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const view = adapter.getPlayerView(awaitingId);
+      const cardIds = view!.yourHand.map((c) => c.id);
+
+      // Reverse the order
+      const reversed = [...cardIds].reverse();
+      const snapshot = adapter.reorderHand(awaitingId, reversed);
+
+      expect(snapshot).not.toBe(null);
+    });
+  });
 });

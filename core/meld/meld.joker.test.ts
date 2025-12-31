@@ -99,6 +99,17 @@ describe("identifyJokerPositions", () => {
 
     expect(positions.length).toBe(0);
   });
+
+  it("returns empty array for run with all wilds (no natural to anchor)", () => {
+    // Edge case: a run composed entirely of wilds can't determine positions
+    const j1 = joker();
+    const j2 = joker();
+    const two = card("2", "clubs");
+    const meld = makeRun([j1, j2, two, joker()]);
+    const positions = identifyJokerPositions(meld);
+
+    expect(positions.length).toBe(0);
+  });
 });
 
 describe("canSwapJokerWithCard", () => {

@@ -8,6 +8,9 @@ import {
   formatGameDate,
   loadGameSave,
   saveGameSave,
+  saveAIPlayerConfigs,
+  loadAIPlayerConfigs,
+  type PersistedAIPlayer,
 } from "./cli.persistence";
 import { createActor } from "xstate";
 import { gameMachine } from "../../core/engine/game.machine";
@@ -396,6 +399,120 @@ describe("cli.persistence", () => {
     it("formats days ago", () => {
       const date = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
       expect(formatGameDate(date.toISOString())).toBe("2d ago");
+    });
+
+    it("formats week+ as date", () => {
+      const date = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      const formatted = formatGameDate(date.toISOString());
+      // Should be something like "Dec 16" format
+      expect(formatted).toMatch(/^\w{3} \d{1,2}$/);
+    });
+  });
+
+  describe("AI player configs persistence", () => {
+    it("saves and loads AI player configs", () => {
+      const players: PersistedAIPlayer[] = [
+        {
+          playerId: "player-1",
+          config: {
+            name: "ClaudeBot",
+            modelId: "anthropic:claude-haiku-4-5",
+          },
+        },
+        {
+          playerId: "player-2",
+          config: {
+            name: "GeminiBot",
+            modelId: "google:gemini-flash-2.0",
+          },
+        },
+      ];
+
+      saveAIPlayerConfigs(testGameId, players);
+      const loaded = loadAIPlayerConfigs(testGameId);
+
+      expect(loaded).toHaveLength(2);
+      expect(loaded[0]?.playerId).toBe("player-1");
+      expect(loaded[0]?.config.name).toBe("ClaudeBot");
+      expect(loaded[1]?.playerId).toBe("player-2");
+      expect(loaded[1]?.config.modelId).toBe("google:gemini-flash-2.0");
+    });
+
+    it("returns empty array when no config file exists", () => {
+      const loaded = loadAIPlayerConfigs("nonexistent-game");
+      expect(loaded).toEqual([]);
+    });
+
+    it("creates game directory if it does not exist", () => {
+      const fs = require("fs");
+      const dir = `.data/${testGameId}`;
+      expect(fs.existsSync(dir)).toBe(false);
+
+      saveAIPlayerConfigs(testGameId, []);
+      expect(fs.existsSync(dir)).toBe(true);
+    });
+  });
+
+  describe("listSavedGames error handling", () => {
+    it("skips corrupt game files and continues listing others", () => {
+      const fs = require("fs");
+
+      // Create a valid game first
+      const validGameId = `${testGameId}-valid`;
+      const engine = GameEngine.createGame({
+        gameId: validGameId,
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+      const snapshot = engine.getSnapshot();
+      const save: CliGameSave = {
+        version: "3.0",
+        gameId: validGameId,
+        createdAt: snapshot.createdAt,
+        updatedAt: snapshot.updatedAt,
+        engineSnapshot: engine.getPersistedSnapshot(),
+      };
+      saveGameSave(validGameId, save);
+      engine.stop();
+
+      // Create a corrupt game file
+      const corruptGameId = `${testGameId}-corrupt`;
+      const corruptDir = `.data/${corruptGameId}`;
+      fs.mkdirSync(corruptDir, { recursive: true });
+      fs.writeFileSync(`${corruptDir}/game-state.json`, "{ invalid json");
+
+      try {
+        // listSavedGames should not throw, but log a warning and skip corrupt games
+        const games = listSavedGames();
+
+        // The valid game should still be listed
+        const validGame = games.find(g => g.id === validGameId);
+        expect(validGame).toBeDefined();
+
+        // The corrupt game should not be in the list
+        const corruptGame = games.find(g => g.id === corruptGameId);
+        expect(corruptGame).toBeUndefined();
+      } finally {
+        // Clean up
+        cleanupTestGame(validGameId);
+        cleanupTestGame(corruptGameId);
+      }
+    });
+
+    it("skips directories without state files", () => {
+      const fs = require("fs");
+
+      // Create a directory without a state file
+      const emptyDir = `.data/${testGameId}-empty`;
+      fs.mkdirSync(emptyDir, { recursive: true });
+
+      try {
+        // Should not throw
+        const games = listSavedGames();
+        const emptyGame = games.find(g => g.id === `${testGameId}-empty`);
+        expect(emptyGame).toBeUndefined();
+      } finally {
+        fs.rmSync(emptyDir, { recursive: true });
+      }
     });
   });
 });
