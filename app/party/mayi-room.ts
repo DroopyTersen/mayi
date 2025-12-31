@@ -36,6 +36,11 @@ import {
 } from "./party-game-adapter";
 
 import { executeGameAction } from "./game-actions";
+import {
+  executeAITurn,
+  isAIPlayerTurn,
+  type AITurnResult,
+} from "./ai-turn-handler";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const MIN_NAME_LEN = 1;
@@ -399,6 +404,9 @@ export class MayIRoom extends Server {
 
     // Broadcast GAME_STARTED to each player with their specific view
     await this.broadcastPlayerViews(adapter);
+
+    // Execute AI turns if the first player is an AI
+    await this.executeAITurnsIfNeeded();
   }
 
   private async handleGameAction(
@@ -465,6 +473,9 @@ export class MayIRoom extends Server {
 
     // Broadcast updated state to all players
     await this.broadcastGameState();
+
+    // Execute AI turns if next player is an AI
+    await this.executeAITurnsIfNeeded();
   }
 
   override async onClose(
@@ -610,6 +621,95 @@ export class MayIRoom extends Server {
           state: playerView,
         } satisfies ServerMessage)
       );
+    }
+  }
+
+  /**
+   * Broadcast AI_THINKING indicator to all clients
+   */
+  private broadcastAIThinking(playerId: string, playerName: string): void {
+    this.broadcast(
+      JSON.stringify({
+        type: "AI_THINKING",
+        playerId,
+        playerName,
+      } satisfies ServerMessage)
+    );
+  }
+
+  /**
+   * Broadcast AI_DONE indicator to all clients
+   */
+  private broadcastAIDone(playerId: string): void {
+    this.broadcast(
+      JSON.stringify({
+        type: "AI_DONE",
+        playerId,
+      } satisfies ServerMessage)
+    );
+  }
+
+  /**
+   * Execute AI turns if it's an AI player's turn
+   * Handles chained AI turns (multiple AIs in a row)
+   */
+  private async executeAITurnsIfNeeded(): Promise<void> {
+    const MAX_CHAINED_TURNS = 8; // Safety limit to prevent infinite loops
+    let turnsExecuted = 0;
+
+    while (turnsExecuted < MAX_CHAINED_TURNS) {
+      const gameState = await this.getGameState();
+      if (!gameState) return;
+
+      const adapter = PartyGameAdapter.fromStoredState(gameState);
+
+      // Check if it's an AI player's turn
+      const aiPlayer = isAIPlayerTurn(adapter);
+      if (!aiPlayer) {
+        // Not an AI's turn, exit the loop
+        return;
+      }
+
+      // Broadcast AI_THINKING
+      this.broadcastAIThinking(aiPlayer.lobbyId, aiPlayer.name);
+
+      // Small delay to let clients see the thinking indicator
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Execute the AI turn
+      const result = await executeAITurn({
+        adapter,
+        aiPlayerId: aiPlayer.lobbyId,
+        modelId: aiPlayer.aiModelId ?? "grok-3-mini",
+        playerName: aiPlayer.name,
+        maxSteps: 10,
+        debug: false,
+        useFallbackOnError: true,
+      });
+
+      // Broadcast AI_DONE
+      this.broadcastAIDone(aiPlayer.lobbyId);
+
+      // Save updated state
+      await this.setGameState(adapter.getStoredState());
+
+      // Broadcast updated game state
+      await this.broadcastGameState();
+
+      turnsExecuted++;
+
+      if (!result.success) {
+        console.error(`[AI] Turn failed for ${aiPlayer.name}: ${result.error}`);
+        // Continue to next iteration to check if it's still an AI's turn
+        // (fallback should have completed the turn)
+      }
+
+      // Small delay between AI turns for better UX
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    if (turnsExecuted >= MAX_CHAINED_TURNS) {
+      console.warn("[AI] Hit max chained turns limit");
     }
   }
 }
