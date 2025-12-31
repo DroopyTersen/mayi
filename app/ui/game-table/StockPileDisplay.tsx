@@ -1,0 +1,75 @@
+import { PlayingCard } from "~/ui/playing-card/PlayingCard";
+import { cn } from "~/shadcn/lib/utils";
+
+interface StockPileDisplayProps {
+  isClickable?: boolean;
+  onClick?: () => void;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}
+
+// Card dimensions - shared with DiscardPileDisplay (must match PlayingCard sizes)
+const DIMENSIONS = {
+  sm: { width: 48, height: 68 },
+  md: { width: 64, height: 90 },
+  lg: { width: 96, height: 134 },
+} as const;
+
+/**
+ * Stock pile display showing a facedown card
+ */
+export function StockPileDisplay({
+  isClickable = false,
+  onClick,
+  size = "md",
+  className,
+}: StockPileDisplayProps) {
+  // We need a dummy card for faceDown rendering
+  const dummyCard = { id: "stock", rank: "A" as const, suit: "spades" as const };
+  const { width, height } = DIMENSIONS[size];
+
+  return (
+    <div className={cn("flex flex-col items-center gap-1", className)}>
+      <span className="text-xs text-muted-foreground font-medium">Draw</span>
+      <div
+        className={cn("relative", isClickable && "cursor-pointer")}
+        style={{ width: width + 4, height: height + 4 }}
+        onClick={isClickable ? onClick : undefined}
+        role={isClickable ? "button" : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        onKeyDown={
+          isClickable && onClick
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClick();
+                }
+              }
+            : undefined
+        }
+      >
+        {/* Stack effect - cards behind (using blue to match facedown card) */}
+        <div
+          className="absolute bg-blue-800 rounded-lg border border-blue-900"
+          style={{ width, height, top: 0, left: 0 }}
+        />
+        <div
+          className="absolute bg-blue-700 rounded-lg border border-blue-800"
+          style={{ width, height, top: 2, left: 2 }}
+        />
+        {/* Top facedown card */}
+        <div className="absolute" style={{ top: 4, left: 4 }}>
+          <PlayingCard
+            card={dummyCard}
+            size={size}
+            faceDown
+            onClick={isClickable ? onClick : undefined}
+            className={cn(
+              isClickable && "ring-2 ring-primary ring-offset-2 hover:ring-offset-4"
+            )}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

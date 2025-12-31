@@ -11,13 +11,13 @@ const SUIT_SYMBOLS: Record<string, string> = {
 const SIZE_CLASSES = {
   sm: "w-12 h-[68px] text-xs",
   md: "w-16 h-[90px] text-sm",
-  lg: "w-20 h-28 text-base",
+  lg: "w-24 h-[134px] text-lg",
 } as const;
 
 const JOKER_ICON_SIZE = {
   sm: 24,
   md: 32,
-  lg: 44,
+  lg: 56,
 } as const;
 
 // Simplified jester icon - cleaner at small sizes

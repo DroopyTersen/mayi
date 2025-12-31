@@ -111,16 +111,16 @@ export function HandDisplay({
   }
 
   // Auto size mode - uses container queries
-  // Container breakpoints:
+  // Container breakpoints (adjusted for better desktop experience):
   // - < 400px: small cards with tight overlap
-  // - 400-700px: medium cards
-  // - > 700px: large cards
+  // - 400-550px: medium cards
+  // - > 550px: large cards (lowered from 700px for bigger cards on desktop)
   return (
     <div
-      className={cn("@container", className)}
+      className={cn("@container")}
       style={{ containerType: "inline-size" }}
     >
-      <div className="flex items-end">
+      <div className={cn("flex items-end", className)}>
         {cards.map((card, index) => {
           const isSelected = selectedIds.has(card.id);
           return (
@@ -129,20 +129,20 @@ export function HandDisplay({
               className={cn(
                 "transition-transform",
                 // Proportional hover lift based on container size
-                "hover:-translate-y-1.5 @[400px]:hover:-translate-y-2 @[700px]:hover:-translate-y-3",
+                "hover:-translate-y-1.5 @[400px]:hover:-translate-y-2 @[550px]:hover:-translate-y-3",
                 // Selected cards stay slightly lifted
                 isSelected && "-translate-y-1",
                 // Mobile-friendly overlap at smallest size, standard as we get bigger
                 index > 0 && [
                   OVERLAP_MOBILE.sm, // default: mobile-friendly small overlap (shows more card)
                   "@[400px]:ml-0 @[400px]:-ml-8", // medium: reset then apply -ml-8
-                  "@[700px]:ml-0 @[700px]:-ml-10", // large: reset then apply -ml-10
+                  "@[550px]:ml-0 @[550px]:-ml-10", // large: reset then apply -ml-10
                 ]
               )}
               style={{ zIndex: index }}
             >
               {/* Render all three sizes, show based on container width */}
-              <div className="@[700px]:hidden @[400px]:hidden block">
+              <div className="@[550px]:hidden @[400px]:hidden block">
                 <PlayingCard
                   card={card}
                   size="sm"
@@ -150,7 +150,7 @@ export function HandDisplay({
                   onClick={onCardClick ? () => onCardClick(card.id) : undefined}
                 />
               </div>
-              <div className="@[700px]:hidden hidden @[400px]:block">
+              <div className="@[550px]:hidden hidden @[400px]:block">
                 <PlayingCard
                   card={card}
                   size="md"
@@ -158,7 +158,7 @@ export function HandDisplay({
                   onClick={onCardClick ? () => onCardClick(card.id) : undefined}
                 />
               </div>
-              <div className="hidden @[700px]:block">
+              <div className="hidden @[550px]:block">
                 <PlayingCard
                   card={card}
                   size="lg"
