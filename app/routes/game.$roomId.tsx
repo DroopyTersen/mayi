@@ -1,7 +1,13 @@
 import type { Route } from "./+types/game.$roomId";
 import PartySocket from "partysocket";
 import { nanoid } from "nanoid";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { LobbyView } from "~/ui/lobby/LobbyView";
 import { GameView } from "~/ui/game-view/GameView";
@@ -85,6 +91,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
   // Phase 3.2: Room phase and game state
   const [roomPhase, setRoomPhase] = useState<RoomPhase>("lobby");
+  const roomPhaseRef = useRef<RoomPhase>("lobby");
   const [gameState, setGameState] = useState<PlayerView | null>(null);
 
   // Phase 3.3: AI thinking indicator
@@ -109,6 +116,19 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     finalScores: Record<string, number>;
     winnerId: string;
   } | null>(null);
+
+  // Game action error state
+  const [gameError, setGameError] = useState<string | null>(null);
+
+  // Keep roomPhaseRef in sync with roomPhase state
+  useEffect(() => {
+    roomPhaseRef.current = roomPhase;
+  }, [roomPhase]);
+
+  // Debug: log when gameError changes
+  useEffect(() => {
+    console.log("[gameError state changed]", gameError);
+  }, [gameError]);
 
   // Check if current player is the host (first player to join)
   const isHost = useMemo(() => {
@@ -191,6 +211,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   // Phase 3.3: Handle game actions from GameView
   const onGameAction = useCallback(
     (action: string, payload?: unknown) => {
+      console.log("[onGameAction] Called with action:", action, "payload:", payload);
       // Map UI action strings to wire protocol actions
       let gameAction: GameAction | null = null;
 
@@ -205,6 +226,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           // payload should have selectedCardIds
           const p = payload as { selectedCardIds?: string[] } | undefined;
           const cardId = p?.selectedCardIds?.[0];
+          console.log("[onGameAction] discard - extracted cardId:", cardId);
           if (cardId) {
             gameAction = { type: "DISCARD", cardId };
           }
@@ -254,7 +276,10 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       }
 
       if (gameAction) {
+        console.log("[onGameAction] Sending game action:", gameAction);
         sendMessage({ type: "GAME_ACTION", action: gameAction });
+      } else {
+        console.log("[onGameAction] No game action to send (gameAction is null)");
       }
     },
     [sendMessage]
@@ -329,6 +354,17 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           return;
         }
         case "ERROR": {
+          // Use ref to get current roomPhase (avoids stale closure)
+          const currentPhase = roomPhaseRef.current;
+          console.log("[ERROR handler] Received error:", msg.error, msg.message, "roomPhase:", currentPhase);
+          // Check if we're in game phase - show game error
+          if (currentPhase === "playing") {
+            console.log("[ERROR handler] Setting game error:", msg.message);
+            setGameError(msg.message);
+            // Auto-clear error after 5 seconds
+            setTimeout(() => setGameError(null), 5000);
+            return;
+          }
           // Reset join flow; allow the user to retry.
           setJoinStatus("unjoined");
           setShowNamePrompt(true);
@@ -438,6 +474,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           gameState={gameState}
           aiThinkingPlayerName={aiThinkingPlayerName}
           onAction={onGameAction}
+          errorMessage={gameError}
         />
         {/* Phase 3.6: May I Prompt Dialog */}
         {mayIPrompt && (

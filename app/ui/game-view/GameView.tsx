@@ -31,6 +31,8 @@ interface GameViewProps {
   activityLog?: ActivityEntry[];
   /** Called when player performs an action */
   onAction?: (action: string, payload?: unknown) => void;
+  /** Error message to display (e.g., from failed game action) */
+  errorMessage?: string | null;
   className?: string;
 }
 
@@ -63,8 +65,12 @@ export function GameView({
   aiThinkingPlayerName,
   activityLog = [],
   onAction,
+  errorMessage,
   className,
 }: GameViewProps) {
+  // Debug logging for error message
+  console.log("[GameView] errorMessage prop:", errorMessage);
+
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(
     new Set()
   );
@@ -124,6 +130,8 @@ export function GameView({
   // Handle discard action
   const handleDiscard = useCallback(
     (cardId: string) => {
+      console.log("[GameView] handleDiscard called with cardId:", cardId);
+      console.log("[GameView] onAction exists:", !!onAction);
       onAction?.("discard", { selectedCardIds: [cardId] });
       setActiveDrawer(null);
     },
@@ -215,6 +223,15 @@ export function GameView({
       {aiThinkingPlayerName && (
         <div className="px-4 py-2">
           <AIThinkingIndicator playerName={aiThinkingPlayerName} />
+        </div>
+      )}
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="px-4 py-2">
+          <div className="bg-destructive/15 text-destructive border border-destructive/30 rounded-lg px-4 py-3 text-sm">
+            {errorMessage}
+          </div>
         </div>
       )}
 
