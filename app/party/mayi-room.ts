@@ -454,6 +454,9 @@ export class MayIRoom extends Server {
 
     const adapter = PartyGameAdapter.fromStoredState(gameState);
 
+    // Track phase before action for May I detection
+    const phaseBefore = adapter.getSnapshot().phase;
+
     // Execute the action
     const result = executeGameAction(adapter, callerPlayerId, msg.action);
 
@@ -470,6 +473,21 @@ export class MayIRoom extends Server {
 
     // Save updated state
     await this.setGameState(adapter.getStoredState());
+
+    // Check for May I phase transitions
+    const snapshot = adapter.getSnapshot();
+    const phaseAfter = snapshot.phase;
+
+    if (phaseBefore !== "RESOLVING_MAY_I" && phaseAfter === "RESOLVING_MAY_I") {
+      // May I was just called - broadcast MAY_I_PROMPT
+      await this.broadcastMayIPrompt(adapter);
+    } else if (phaseBefore === "RESOLVING_MAY_I" && phaseAfter === "RESOLVING_MAY_I") {
+      // Still resolving (someone allowed) - prompt next player
+      await this.broadcastMayIPrompt(adapter);
+    } else if (phaseBefore === "RESOLVING_MAY_I" && phaseAfter !== "RESOLVING_MAY_I") {
+      // May I was just resolved
+      await this.broadcastMayIResolved(adapter);
+    }
 
     // Broadcast updated state to all players
     await this.broadcastGameState();
@@ -622,6 +640,66 @@ export class MayIRoom extends Server {
         } satisfies ServerMessage)
       );
     }
+  }
+
+  /**
+   * Broadcast MAY_I_PROMPT to the player being prompted
+   */
+  private async broadcastMayIPrompt(adapter: PartyGameAdapter): Promise<void> {
+    const snapshot = adapter.getSnapshot();
+    const mayIContext = snapshot.mayIContext;
+    if (!mayIContext) return;
+
+    // Find the connection for the player being prompted
+    const promptedEngineId = mayIContext.playerBeingPrompted;
+    if (!promptedEngineId) return;
+
+    // Get caller info
+    const callerMapping = adapter.getAllPlayerMappings().find(
+      (m) => m.engineId === mayIContext.originalCaller
+    );
+    if (!callerMapping) return;
+
+    const promptedMapping = adapter.getAllPlayerMappings().find(
+      (m) => m.engineId === promptedEngineId
+    );
+    if (!promptedMapping) return;
+
+    // Send prompt to the prompted player
+    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
+      if (conn.state?.playerId === promptedMapping.lobbyId) {
+        conn.send(
+          JSON.stringify({
+            type: "MAY_I_PROMPT",
+            callerId: callerMapping.lobbyId,
+            callerName: callerMapping.name,
+            card: mayIContext.cardBeingClaimed,
+          } satisfies ServerMessage)
+        );
+        break;
+      }
+    }
+  }
+
+  /**
+   * Broadcast MAY_I_RESOLVED to all clients
+   */
+  private async broadcastMayIResolved(adapter: PartyGameAdapter): Promise<void> {
+    // The May I has been resolved - we need to determine the outcome
+    // If phase returned to ROUND_ACTIVE, the original caller got the card (if there was one)
+    // Check who drew from discard last
+    const snapshot = adapter.getSnapshot();
+
+    // Find who claimed the card (if anyone)
+    // We can infer this from the game state or track it during resolution
+    // For now, we'll just broadcast that it was resolved
+    this.broadcast(
+      JSON.stringify({
+        type: "MAY_I_RESOLVED",
+        winnerId: null, // TODO: track the actual winner during resolution
+        outcome: "resolved",
+      } satisfies ServerMessage)
+    );
   }
 
   /**

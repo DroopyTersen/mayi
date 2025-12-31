@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LobbyView } from "~/ui/lobby/LobbyView";
 import { GameView } from "~/ui/game-view/GameView";
+import { MayIPromptDialog } from "~/ui/may-i-request/MayIPromptDialog";
 import type {
   ConnectionStatus,
   JoinStatus,
@@ -19,6 +20,7 @@ import type {
   PlayerView,
   GameAction,
 } from "~/party/protocol.types";
+import type { Card } from "core/card/card.types";
 
 type RoomPhase = "lobby" | "playing";
 
@@ -88,6 +90,13 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     string | undefined
   >(undefined);
 
+  // Phase 3.6: May I prompt state
+  const [mayIPrompt, setMayIPrompt] = useState<{
+    callerId: string;
+    callerName: string;
+    card: Card;
+  } | null>(null);
+
   // Check if current player is the host (first player to join)
   const isHost = useMemo(() => {
     if (!currentPlayerId || players.length === 0) return false;
@@ -153,6 +162,17 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   const onStartGame = useCallback(() => {
     setIsStartingGame(true);
     sendMessage({ type: "START_GAME" });
+  }, [sendMessage]);
+
+  // Phase 3.6: May I prompt actions
+  const onAllowMayI = useCallback(() => {
+    sendMessage({ type: "GAME_ACTION", action: { type: "ALLOW_MAY_I" } });
+    setMayIPrompt(null);
+  }, [sendMessage]);
+
+  const onClaimMayI = useCallback(() => {
+    sendMessage({ type: "GAME_ACTION", action: { type: "CLAIM_MAY_I" } });
+    setMayIPrompt(null);
   }, [sendMessage]);
 
   // Phase 3.3: Handle game actions from GameView
@@ -332,6 +352,19 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setAiThinkingPlayerName(undefined);
           return;
         }
+        // Phase 3.6: May I messages
+        case "MAY_I_PROMPT": {
+          setMayIPrompt({
+            callerId: msg.callerId,
+            callerName: msg.callerName,
+            card: msg.card,
+          });
+          return;
+        }
+        case "MAY_I_RESOLVED": {
+          setMayIPrompt(null);
+          return;
+        }
       }
     };
 
@@ -343,14 +376,39 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     };
   }, [roomId, sendJoin]);
 
+  // Determine if current player can also claim (May I instead)
+  // This requires checking if they have May I count remaining
+  const canMayIInstead = useMemo(() => {
+    if (!gameState) return false;
+    // In this simplified version, assume player can always claim if prompted
+    // TODO: Check mayICount when it's available in PlayerView
+    return true;
+  }, [gameState]);
+
   // Phase 3.3: Render lobby or game based on room phase
   if (roomPhase === "playing" && gameState) {
     return (
-      <GameView
-        gameState={gameState}
-        aiThinkingPlayerName={aiThinkingPlayerName}
-        onAction={onGameAction}
-      />
+      <>
+        <GameView
+          gameState={gameState}
+          aiThinkingPlayerName={aiThinkingPlayerName}
+          onAction={onGameAction}
+        />
+        {/* Phase 3.6: May I Prompt Dialog */}
+        {mayIPrompt && (
+          <MayIPromptDialog
+            open={true}
+            callerName={mayIPrompt.callerName}
+            card={mayIPrompt.card}
+            canMayIInstead={canMayIInstead}
+            onAllow={onAllowMayI}
+            onMayIInstead={onClaimMayI}
+            onOpenChange={(open) => {
+              if (!open) setMayIPrompt(null);
+            }}
+          />
+        )}
+      </>
     );
   }
 
