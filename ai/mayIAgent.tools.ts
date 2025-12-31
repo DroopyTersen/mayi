@@ -8,7 +8,7 @@
 import { tool } from "ai";
 import { z } from "zod/v4";
 import type { GameSnapshot } from "../core/engine/game-engine.types";
-import type { CliGameAdapter } from "../cli/shared/cli-game-adapter";
+import type { AIGameAdapter } from "./ai-game-adapter.types";
 import type { ToolExecutionResult } from "./mayIAgent.types";
 import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
 
@@ -21,10 +21,10 @@ export interface CreateMayIToolsOptions {
 /**
  * Create all tools for the May I? agent
  *
- * Each tool executes an action via the CLI adapter and returns the new game state.
+ * Each tool executes an action via the game adapter and returns the new game state.
  */
 export function createMayITools(
-  game: CliGameAdapter,
+  game: AIGameAdapter,
   playerId: string,
   options: CreateMayIToolsOptions = {}
 ) {

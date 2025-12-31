@@ -3,22 +3,24 @@
  *
  * Executes AI player turns using the mayIAgent.
  * Provides an adapter layer between PartyGameAdapter and the AI agent's
- * expected CliGameAdapter interface.
+ * expected AIGameAdapter interface.
  */
 
 import type { GameSnapshot, MeldSpec } from "../../core/engine/game-engine.types";
+import type { AIGameAdapter } from "../../ai/ai-game-adapter.types";
 import type { PartyGameAdapter, PlayerMapping } from "./party-game-adapter";
 import { executeTurn, type ExecuteTurnResult } from "../../ai/mayIAgent";
 import { createWorkerAIModel, type WebAIModelId } from "./ai-model-factory";
+import { isValidRun, isValidSet } from "../../core/meld/meld.validation";
 
 /**
- * Adapter that makes PartyGameAdapter look like CliGameAdapter for AI agent
+ * Adapter that makes PartyGameAdapter look like AIGameAdapter for AI agent
  *
- * The AI agent expects a CliGameAdapter interface where methods operate
- * on the "current player". This adapter wraps PartyGameAdapter and
- * always executes commands for the specified AI player.
+ * The AI agent uses position-based methods (hand positions, meld numbers).
+ * This adapter wraps PartyGameAdapter and converts positions to IDs,
+ * always executing commands for the specified AI player.
  */
-class AIGameAdapterProxy {
+class AIGameAdapterProxy implements AIGameAdapter {
   constructor(
     private adapter: PartyGameAdapter,
     private aiPlayerId: string
@@ -52,7 +54,41 @@ class AIGameAdapterProxy {
     return result;
   }
 
-  layDown(meldSpecs: MeldSpec[]): GameSnapshot {
+  /**
+   * Lay down melds using hand positions.
+   * Converts position arrays to MeldSpec[] with card IDs.
+   */
+  layDown(meldGroups: number[][]): GameSnapshot {
+    const snapshot = this.adapter.getSnapshot();
+    const mapping = this.adapter.getPlayerMapping(this.aiPlayerId);
+    if (!mapping) {
+      return snapshot;
+    }
+
+    const player = snapshot.players.find((p) => p.id === mapping.engineId);
+    if (!player) {
+      return snapshot;
+    }
+
+    const meldSpecs: MeldSpec[] = meldGroups.map((group) => {
+      const cards = group.map((pos) => {
+        const card = player.hand[pos - 1];
+        if (!card) {
+          throw new Error(`Card position out of range: ${pos}`);
+        }
+        return card;
+      });
+
+      const canBeSet = isValidSet(cards);
+      const canBeRun = isValidRun(cards);
+
+      // Infer type in a deterministic way (engine still validates the rules).
+      const type: "set" | "run" =
+        canBeSet && !canBeRun ? "set" : canBeRun && !canBeSet ? "run" : "set";
+
+      return { type, cardIds: cards.map((c) => c.id) };
+    });
+
     const result = this.adapter.layDown(this.aiPlayerId, meldSpecs);
     if (!result) {
       return this.adapter.getSnapshot();
@@ -60,39 +96,108 @@ class AIGameAdapterProxy {
     return result;
   }
 
-  layOff(cardId: string, meldId: string): GameSnapshot {
-    const result = this.adapter.layOff(this.aiPlayerId, cardId, meldId);
+  /**
+   * Lay off a card using hand position and meld number.
+   * Converts positions to IDs.
+   */
+  layOff(cardPosition: number, meldNumber: number): GameSnapshot {
+    const snapshot = this.adapter.getSnapshot();
+    const mapping = this.adapter.getPlayerMapping(this.aiPlayerId);
+    if (!mapping) {
+      return snapshot;
+    }
+
+    const player = snapshot.players.find((p) => p.id === mapping.engineId);
+    if (!player) {
+      return snapshot;
+    }
+
+    const card = player.hand[cardPosition - 1];
+    if (!card) {
+      return snapshot;
+    }
+
+    // Meld number is 1-indexed into the table array
+    const meld = snapshot.table[meldNumber - 1];
+    if (!meld) {
+      return snapshot;
+    }
+
+    const result = this.adapter.layOff(this.aiPlayerId, card.id, meld.id);
     if (!result) {
       return this.adapter.getSnapshot();
     }
     return result;
   }
 
-  swapJoker(meldId: string, jokerCardId: string, swapCardId: string): GameSnapshot {
-    const result = this.adapter.swapJoker(this.aiPlayerId, meldId, jokerCardId, swapCardId);
+  /**
+   * Swap a joker using meld number, joker position in meld, and card position in hand.
+   * Converts positions to IDs.
+   */
+  swap(meldNumber: number, jokerPosition: number, cardPosition: number): GameSnapshot {
+    const snapshot = this.adapter.getSnapshot();
+    const mapping = this.adapter.getPlayerMapping(this.aiPlayerId);
+    if (!mapping) {
+      return snapshot;
+    }
+
+    const player = snapshot.players.find((p) => p.id === mapping.engineId);
+    if (!player) {
+      return snapshot;
+    }
+
+    const swapCard = player.hand[cardPosition - 1];
+    if (!swapCard) {
+      return snapshot;
+    }
+
+    // Meld number is 1-indexed into the table array
+    const meld = snapshot.table[meldNumber - 1];
+    if (!meld) {
+      return snapshot;
+    }
+
+    const jokerCard = meld.cards[jokerPosition - 1];
+    if (!jokerCard) {
+      return snapshot;
+    }
+
+    const result = this.adapter.swapJoker(this.aiPlayerId, meld.id, jokerCard.id, swapCard.id);
     if (!result) {
       return this.adapter.getSnapshot();
     }
     return result;
   }
 
-  discard(cardId: string): GameSnapshot {
-    const result = this.adapter.discard(this.aiPlayerId, cardId);
+  /**
+   * Discard a card using hand position.
+   * Converts position to card ID.
+   */
+  discardCard(position: number): GameSnapshot {
+    const snapshot = this.adapter.getSnapshot();
+    const mapping = this.adapter.getPlayerMapping(this.aiPlayerId);
+    if (!mapping) {
+      return snapshot;
+    }
+
+    const player = snapshot.players.find((p) => p.id === mapping.engineId);
+    if (!player) {
+      return snapshot;
+    }
+
+    const card = player.hand[position - 1];
+    if (!card) {
+      return snapshot;
+    }
+
+    const result = this.adapter.discard(this.aiPlayerId, card.id);
     if (!result) {
       return this.adapter.getSnapshot();
     }
     return result;
   }
 
-  callMayI(): GameSnapshot {
-    const result = this.adapter.callMayI(this.aiPlayerId);
-    if (!result) {
-      return this.adapter.getSnapshot();
-    }
-    return result;
-  }
-
-  allowMayI(): GameSnapshot {
+  allowMayI(_playerId: string): GameSnapshot {
     const result = this.adapter.allowMayI(this.aiPlayerId);
     if (!result) {
       return this.adapter.getSnapshot();
@@ -100,7 +205,7 @@ class AIGameAdapterProxy {
     return result;
   }
 
-  claimMayI(): GameSnapshot {
+  claimMayI(_playerId: string): GameSnapshot {
     const result = this.adapter.claimMayI(this.aiPlayerId);
     if (!result) {
       return this.adapter.getSnapshot();
@@ -294,7 +399,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     // Note: The mayIAgent expects the engine player ID, not the lobby ID
     const result = await executeTurn({
       model,
-      game: proxy as unknown as Parameters<typeof executeTurn>[0]["game"],
+      game: proxy,
       playerId: mapping.engineId,
       playerName: playerName ?? mapping.name,
       maxSteps,

@@ -5,7 +5,7 @@
  */
 
 import { generateText, type LanguageModel, type StepResult } from "ai";
-import type { CliGameAdapter } from "../cli/shared/cli-game-adapter";
+import type { AIGameAdapter } from "./ai-game-adapter.types";
 import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
 import { buildSystemPrompt } from "./mayIAgent.prompt";
 import {
@@ -51,8 +51,8 @@ export interface ExecuteTurnConfig {
   /** The language model to use for decisions */
   model: LanguageModel;
 
-  /** The CLI adapter managing the game state */
-  game: CliGameAdapter;
+  /** The game adapter managing the game state */
+  game: AIGameAdapter;
 
   /** The player ID this AI is controlling */
   playerId: string;
@@ -263,8 +263,8 @@ export async function executeOneAction(
  * Configuration for executing an AI turn using the registry
  */
 export interface ExecuteAITurnConfig {
-  /** The CLI adapter managing the game state */
-  game: CliGameAdapter;
+  /** The game adapter managing the game state */
+  game: AIGameAdapter;
 
   /** The player ID to execute turn for */
   playerId: string;
