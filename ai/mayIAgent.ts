@@ -6,7 +6,7 @@
 
 import { generateText, type LanguageModel, type StepResult } from "ai";
 import type { CliGameAdapter } from "../cli/shared/cli-game-adapter";
-import { outputGameStateForLLM } from "../cli/shared/cli.llm-output";
+import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
 import { buildSystemPrompt } from "./mayIAgent.prompt";
 import {
   createMayITools,
@@ -68,6 +68,9 @@ export interface ExecuteTurnConfig {
 
   /** Enable telemetry/devtools. Default: true */
   telemetry?: boolean;
+
+  /** Optional action log entries for LLM context (only used in CLI mode) */
+  actionLog?: ActionLogEntry[];
 }
 
 /**
@@ -101,9 +104,10 @@ export async function executeTurn(
     maxSteps = 10,
     debug = false,
     telemetry = true,
+    actionLog,
   } = config;
 
-  const tools = createMayITools(game, playerId);
+  const tools = createMayITools(game, playerId, { actionLog });
   const systemPrompt = buildSystemPrompt();
   const actions: string[] = [];
 
@@ -152,7 +156,7 @@ export async function executeTurn(
   }
 
   // Get game state for the AI (after potential auto-draw)
-  const initialGameState = outputGameStateForLLM(currentState, playerId);
+  const initialGameState = outputGameStateForLLM(currentState, playerId, { actionLog });
 
   try {
     // Get display name for telemetry

@@ -10,13 +10,35 @@
 import type { Player } from "../../core/engine/engine.types";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import { renderCard, renderNumberedHand } from "./cli.renderer";
-import { readActionLog } from "./cli.persistence";
 import { getNumberedMelds } from "./cli-meld-numbering";
+
+/** Action log entry for LLM context */
+export interface ActionLogEntry {
+  roundNumber: number;
+  playerId: string;
+  playerName: string;
+  action: string;
+  details?: string;
+}
+
+/** Options for LLM state output */
+export interface LLMOutputOptions {
+  /** Optional action log entries (if not provided, RECENT ACTIONS section is omitted) */
+  actionLog?: ActionLogEntry[];
+}
 
 /**
  * Render game state as text for LLM consumption.
+ *
+ * @param state - The game snapshot
+ * @param playerId - The player whose perspective to render
+ * @param options - Optional configuration (action log, etc.)
  */
-export function outputGameStateForLLM(state: GameSnapshot, playerId: string): string {
+export function outputGameStateForLLM(
+  state: GameSnapshot,
+  playerId: string,
+  options: LLMOutputOptions = {}
+): string {
   const lines: string[] = [];
   const player = state.players.find((p) => p.id === playerId);
 
@@ -130,20 +152,22 @@ export function outputGameStateForLLM(state: GameSnapshot, playerId: string): st
   }
 
   // Recent action log (last 10 actions from current round)
-  const actionLog = readActionLog(state.gameId);
-  const recentActions = actionLog
-    .filter((entry) => entry.roundNumber === state.currentRound)
-    .slice(-10);
+  // Only shown if action log is provided in options
+  if (options.actionLog && options.actionLog.length > 0) {
+    const recentActions = options.actionLog
+      .filter((entry) => entry.roundNumber === state.currentRound)
+      .slice(-10);
 
-  if (recentActions.length > 0) {
-    lines.push("RECENT ACTIONS:");
-    for (const entry of recentActions) {
-      const isYou = entry.playerId === playerId;
-      const name = isYou ? "You" : entry.playerName;
-      const details = entry.details ? ` ${entry.details}` : "";
-      lines.push(`  ${name} ${entry.action}${details}`);
+    if (recentActions.length > 0) {
+      lines.push("RECENT ACTIONS:");
+      for (const entry of recentActions) {
+        const isYou = entry.playerId === playerId;
+        const name = isYou ? "You" : entry.playerName;
+        const details = entry.details ? ` ${entry.details}` : "";
+        lines.push(`  ${name} ${entry.action}${details}`);
+      }
+      lines.push("");
     }
-    lines.push("");
   }
 
   return lines.join("\n");

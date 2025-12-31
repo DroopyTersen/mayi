@@ -38,11 +38,13 @@ import {
 import { executeGameAction } from "./game-actions";
 import {
   executeAITurn,
+  executeFallbackTurn,
   isAIPlayerTurn,
   type AITurnResult,
 } from "./ai-turn-handler";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
+const AUTO_PLAY_TIMEOUT_MS = 30 * 1000; // 30 seconds before auto-play for disconnected
 const MIN_NAME_LEN = 1;
 const MAX_NAME_LEN = 24;
 const MAX_PLAYER_ID_LEN = 64;
@@ -867,5 +869,53 @@ export class MayIRoom extends Server {
     if (turnsExecuted >= MAX_CHAINED_TURNS) {
       console.warn("[AI] Hit max chained turns limit");
     }
+  }
+
+  /**
+   * Check if a disconnected human player needs auto-play and execute it
+   *
+   * This is called after AI turns to handle the case where a human player
+   * has been disconnected for more than AUTO_PLAY_TIMEOUT_MS.
+   */
+  private async executeAutoPlayIfNeeded(): Promise<boolean> {
+    const gameState = await this.getGameState();
+    if (!gameState) return false;
+
+    const adapter = PartyGameAdapter.fromStoredState(gameState);
+    const awaitingId = adapter.getAwaitingLobbyPlayerId();
+    if (!awaitingId) return false;
+
+    // Check if it's an AI player's turn (AI is handled separately)
+    const aiPlayer = isAIPlayerTurn(adapter);
+    if (aiPlayer) return false;
+
+    // Check if the player is a human
+    const mapping = adapter.getPlayerMapping(awaitingId);
+    if (!mapping || mapping.isAI) return false;
+
+    // Check if the player is disconnected
+    const storedPlayer = await this.ctx.storage.get<StoredPlayer>(`player:${awaitingId}`);
+    if (!storedPlayer || !storedPlayer.disconnectedAt) return false;
+
+    // Check if they've been disconnected long enough
+    const now = Date.now();
+    const disconnectedDuration = now - storedPlayer.disconnectedAt;
+    if (disconnectedDuration < AUTO_PLAY_TIMEOUT_MS) return false;
+
+    // Execute auto-play for the disconnected player
+    console.log(
+      `[Auto-play] Executing fallback for disconnected player ${mapping.name} (${awaitingId})`
+    );
+
+    const result = executeFallbackTurn(adapter, awaitingId);
+
+    if (result.success) {
+      // Save updated state
+      await this.setGameState(adapter.getStoredState());
+      // Broadcast updated game state
+      await this.broadcastGameState();
+    }
+
+    return result.success;
   }
 }

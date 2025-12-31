@@ -9,7 +9,7 @@
 import type { GameSnapshot, MeldSpec } from "../../core/engine/game-engine.types";
 import type { PartyGameAdapter, PlayerMapping } from "./party-game-adapter";
 import { executeTurn, type ExecuteTurnResult } from "../../ai/mayIAgent";
-import { modelRegistry, type ModelId } from "../../ai/modelRegistry";
+import { createWorkerAIModel, type WebAIModelId } from "./ai-model-factory";
 
 /**
  * Adapter that makes PartyGameAdapter look like CliGameAdapter for AI agent
@@ -126,14 +126,14 @@ export interface AITurnResult {
 /**
  * Execute a fallback turn (draw, skip, discard first card)
  *
- * Used when AI agent fails or is unavailable.
+ * Used when AI agent fails or for disconnected players.
  */
-function executeFallbackTurn(adapter: PartyGameAdapter, aiPlayerId: string): AITurnResult {
+export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string): AITurnResult {
   const actions: string[] = [];
   let snapshot = adapter.getSnapshot();
 
   // If not this player's turn, return error
-  if (adapter.getAwaitingLobbyPlayerId() !== aiPlayerId) {
+  if (adapter.getAwaitingLobbyPlayerId() !== playerId) {
     return {
       success: false,
       actions: [],
@@ -144,7 +144,7 @@ function executeFallbackTurn(adapter: PartyGameAdapter, aiPlayerId: string): AIT
 
   // Draw phase - draw from stock
   if (snapshot.turnPhase === "AWAITING_DRAW") {
-    const result = adapter.drawFromStock(aiPlayerId);
+    const result = adapter.drawFromStock(playerId);
     if (!result || result.lastError) {
       return {
         success: false,
@@ -159,7 +159,7 @@ function executeFallbackTurn(adapter: PartyGameAdapter, aiPlayerId: string): AIT
 
   // Action phase - skip (don't try to lay down)
   if (snapshot.turnPhase === "AWAITING_ACTION") {
-    const result = adapter.skip(aiPlayerId);
+    const result = adapter.skip(playerId);
     if (!result || result.lastError) {
       return {
         success: false,
@@ -175,7 +175,7 @@ function executeFallbackTurn(adapter: PartyGameAdapter, aiPlayerId: string): AIT
   // Discard phase - discard first card
   if (snapshot.turnPhase === "AWAITING_DISCARD") {
     // Find the current player's hand
-    const mapping = adapter.getPlayerMapping(aiPlayerId);
+    const mapping = adapter.getPlayerMapping(playerId);
     if (!mapping) {
       return {
         success: false,
@@ -205,7 +205,7 @@ function executeFallbackTurn(adapter: PartyGameAdapter, aiPlayerId: string): AIT
       };
     }
 
-    const result = adapter.discard(aiPlayerId, cardToDiscard.id);
+    const result = adapter.discard(playerId, cardToDiscard.id);
     if (!result || result.lastError) {
       return {
         success: false,
@@ -284,8 +284,8 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
   }
 
   try {
-    // Get the model
-    const model = modelRegistry.languageModel(modelId as ModelId);
+    // Get the model using worker-compatible factory
+    const model = createWorkerAIModel(modelId as WebAIModelId);
 
     // Create the proxy adapter for the AI agent
     const proxy = new AIGameAdapterProxy(adapter, aiPlayerId);

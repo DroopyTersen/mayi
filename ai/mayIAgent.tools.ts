@@ -10,18 +10,28 @@ import { z } from "zod/v4";
 import type { GameSnapshot } from "../core/engine/game-engine.types";
 import type { CliGameAdapter } from "../cli/shared/cli-game-adapter";
 import type { ToolExecutionResult } from "./mayIAgent.types";
-import { outputGameStateForLLM } from "../cli/shared/cli.llm-output";
+import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
+
+/** Options for creating May I tools */
+export interface CreateMayIToolsOptions {
+  /** Optional action log entries for LLM context */
+  actionLog?: ActionLogEntry[];
+}
 
 /**
  * Create all tools for the May I? agent
  *
  * Each tool executes an action via the CLI adapter and returns the new game state.
  */
-export function createMayITools(game: CliGameAdapter, playerId: string) {
+export function createMayITools(
+  game: CliGameAdapter,
+  playerId: string,
+  options: CreateMayIToolsOptions = {}
+) {
   function executeAction(actionFn: () => GameSnapshot): ToolExecutionResult {
     const after = actionFn();
     const state = game.getSnapshot();
-    const gameState = outputGameStateForLLM(state, playerId);
+    const gameState = outputGameStateForLLM(state, playerId, { actionLog: options.actionLog });
     const turnComplete = state.awaitingPlayerId !== playerId;
 
     return {
