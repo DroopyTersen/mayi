@@ -96,13 +96,13 @@
 
 ## Phase 3.8: Round & Game Transitions (Plan lines 485-490)
 
-- [ ] 3.8.1 Detect round end (player has 0 cards)
-- [ ] 3.8.2 Create RoundEndOverlay component - Plan lines 532-535
-- [ ] 3.8.3 Broadcast ROUND_ENDED with scores
-- [ ] 3.8.4 Auto-continue to next round after 3-5 seconds
-- [ ] 3.8.5 Detect game end (after Round 6)
-- [ ] 3.8.6 Create GameEndScreen component - Plan lines 537-540
-- [ ] 3.8.7 Broadcast GAME_ENDED with final scores and winner
+- [x] 3.8.1 Detect round end (player has 0 cards)
+- [x] 3.8.2 Create RoundEndOverlay component - Plan lines 532-535
+- [x] 3.8.3 Broadcast ROUND_ENDED with scores
+- [x] 3.8.4 Auto-continue to next round after 3-5 seconds
+- [x] 3.8.5 Detect game end (after Round 6)
+- [x] 3.8.6 Create GameEndScreen component - Plan lines 537-540
+- [x] 3.8.7 Broadcast GAME_ENDED with final scores and winner
 - [ ] 3.8.8 Use the CLAUDE Chrome extension to verify what you've built in the browser via end-to-end testing. The dev server is already running at http://localhost:5173/. Make sure it looks good on all three devices, so test it in desktop, tablet, and phone viewports.
 - [ ] 3.8.9 Commit changes to source control
 - [ ] End of Phase 3.8

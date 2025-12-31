@@ -454,8 +454,10 @@ export class MayIRoom extends Server {
 
     const adapter = PartyGameAdapter.fromStoredState(gameState);
 
-    // Track phase before action for May I detection
-    const phaseBefore = adapter.getSnapshot().phase;
+    // Track state before action for transition detection
+    const snapshotBefore = adapter.getSnapshot();
+    const phaseBefore = snapshotBefore.phase;
+    const roundBefore = snapshotBefore.currentRound;
 
     // Execute the action
     const result = executeGameAction(adapter, callerPlayerId, msg.action);
@@ -489,11 +491,29 @@ export class MayIRoom extends Server {
       await this.broadcastMayIResolved(adapter);
     }
 
+    // Check for round/game end transitions
+    const roundAfter = snapshot.currentRound;
+
+    // Detect round completion by checking if round number increased
+    // (XState's always transition makes ROUND_END transient)
+    if (roundAfter > roundBefore) {
+      // A round just completed and new round started
+      await this.broadcastRoundEnded(adapter, roundBefore);
+    }
+
+    // Detect game end
+    if (phaseAfter === "GAME_END" && phaseBefore !== "GAME_END") {
+      // Game just ended
+      await this.broadcastGameEnded(adapter);
+    }
+
     // Broadcast updated state to all players
     await this.broadcastGameState();
 
-    // Execute AI turns if next player is an AI
-    await this.executeAITurnsIfNeeded();
+    // Execute AI turns if next player is an AI (only if game is still active)
+    if (phaseAfter === "ROUND_ACTIVE") {
+      await this.executeAITurnsIfNeeded();
+    }
   }
 
   override async onClose(
@@ -640,6 +660,64 @@ export class MayIRoom extends Server {
         } satisfies ServerMessage)
       );
     }
+  }
+
+  /**
+   * Broadcast ROUND_ENDED to all clients
+   */
+  private async broadcastRoundEnded(
+    adapter: PartyGameAdapter,
+    completedRoundNumber: number
+  ): Promise<void> {
+    const snapshot = adapter.getSnapshot();
+
+    // Build scores map: lobbyId -> total score
+    const scores: Record<string, number> = {};
+    for (const mapping of adapter.getAllPlayerMappings()) {
+      const player = snapshot.players.find((p) => p.id === mapping.engineId);
+      if (player) {
+        scores[mapping.lobbyId] = player.totalScore;
+      }
+    }
+
+    this.broadcast(
+      JSON.stringify({
+        type: "ROUND_ENDED",
+        roundNumber: completedRoundNumber,
+        scores,
+      } satisfies ServerMessage)
+    );
+  }
+
+  /**
+   * Broadcast GAME_ENDED to all clients
+   */
+  private async broadcastGameEnded(adapter: PartyGameAdapter): Promise<void> {
+    const snapshot = adapter.getSnapshot();
+
+    // Build final scores map and find winner (lowest score wins)
+    const finalScores: Record<string, number> = {};
+    let winnerId = "";
+    let lowestScore = Infinity;
+
+    for (const mapping of adapter.getAllPlayerMappings()) {
+      const player = snapshot.players.find((p) => p.id === mapping.engineId);
+      if (player) {
+        finalScores[mapping.lobbyId] = player.totalScore;
+        if (player.totalScore < lowestScore) {
+          lowestScore = player.totalScore;
+          winnerId = mapping.lobbyId;
+        }
+      }
+    }
+
+    this.broadcast(
+      JSON.stringify({
+        type: "GAME_ENDED",
+        finalScores,
+        winnerId,
+      } satisfies ServerMessage)
+    );
   }
 
   /**

@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LobbyView } from "~/ui/lobby/LobbyView";
 import { GameView } from "~/ui/game-view/GameView";
 import { MayIPromptDialog } from "~/ui/may-i-request/MayIPromptDialog";
+import { RoundEndOverlay } from "~/ui/game-transitions/RoundEndOverlay";
+import { GameEndScreen } from "~/ui/game-transitions/GameEndScreen";
 import type {
   ConnectionStatus,
   JoinStatus,
@@ -95,6 +97,17 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     callerId: string;
     callerName: string;
     card: Card;
+  } | null>(null);
+
+  // Phase 3.8: Round/game end state
+  const [roundEndData, setRoundEndData] = useState<{
+    roundNumber: number;
+    scores: Record<string, number>;
+  } | null>(null);
+
+  const [gameEndData, setGameEndData] = useState<{
+    finalScores: Record<string, number>;
+    winnerId: string;
   } | null>(null);
 
   // Check if current player is the host (first player to join)
@@ -365,6 +378,21 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setMayIPrompt(null);
           return;
         }
+        // Phase 3.8: Round/game end messages
+        case "ROUND_ENDED": {
+          setRoundEndData({
+            roundNumber: msg.roundNumber,
+            scores: msg.scores,
+          });
+          return;
+        }
+        case "GAME_ENDED": {
+          setGameEndData({
+            finalScores: msg.finalScores,
+            winnerId: msg.winnerId,
+          });
+          return;
+        }
       }
     };
 
@@ -384,6 +412,23 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     // TODO: Check mayICount when it's available in PlayerView
     return true;
   }, [gameState]);
+
+  // Build player names map for round/game end overlays
+  const playerNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    if (gameState) {
+      names[gameState.viewingPlayerId] = "You";
+      for (const opp of gameState.opponents) {
+        names[opp.id] = opp.name;
+      }
+    }
+    return names;
+  }, [gameState]);
+
+  // Handler for leaving game
+  const onLeaveGame = useCallback(() => {
+    window.location.href = "/";
+  }, []);
 
   // Phase 3.3: Render lobby or game based on room phase
   if (roomPhase === "playing" && gameState) {
@@ -406,6 +451,26 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             onOpenChange={(open) => {
               if (!open) setMayIPrompt(null);
             }}
+          />
+        )}
+        {/* Phase 3.8: Round End Overlay */}
+        {roundEndData && !gameEndData && (
+          <RoundEndOverlay
+            roundNumber={roundEndData.roundNumber}
+            scores={roundEndData.scores}
+            playerNames={playerNames}
+            currentPlayerId={currentPlayerId ?? ""}
+            onDismiss={() => setRoundEndData(null)}
+          />
+        )}
+        {/* Phase 3.8: Game End Screen */}
+        {gameEndData && (
+          <GameEndScreen
+            finalScores={gameEndData.finalScores}
+            winnerId={gameEndData.winnerId}
+            playerNames={playerNames}
+            currentPlayerId={currentPlayerId ?? ""}
+            onLeave={onLeaveGame}
           />
         )}
       </>
