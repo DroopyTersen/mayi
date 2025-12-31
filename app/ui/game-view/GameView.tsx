@@ -8,6 +8,12 @@ import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
 import { AIThinkingIndicator } from "./AIThinkingIndicator";
+import { ResponsiveDrawer } from "~/ui/responsive-drawer/ResponsiveDrawer";
+import { LayDownView } from "~/ui/lay-down-view/LayDownView";
+import { LayOffView } from "~/ui/lay-off-view/LayOffView";
+import { DiscardView } from "~/ui/discard-view/DiscardView";
+import { SwapJokerView } from "~/ui/swap-joker-view/SwapJokerView";
+import { OrganizeHandView } from "~/ui/organize-hand/OrganizeHandView";
 import { cn } from "~/shadcn/lib/utils";
 import { Layers } from "lucide-react";
 
@@ -29,6 +35,7 @@ interface GameViewProps {
 }
 
 type GamePhase = "draw" | "action" | "waiting";
+type ActiveDrawer = "layDown" | "layOff" | "discard" | "swapJoker" | "organize" | null;
 
 /**
  * Map engine phase/turnPhase to ActionBar's simpler phase model
@@ -61,6 +68,7 @@ export function GameView({
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(
     new Set()
   );
+  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
 
   // Toggle card selection
   const handleCardClick = useCallback((cardId: string) => {
@@ -78,9 +86,66 @@ export function GameView({
   // Handle actions from ActionBar
   const handleAction = useCallback(
     (action: string) => {
+      // Open drawer for view-based actions
+      if (action === "layDown" || action === "layOff" || action === "discard" ||
+          action === "swapJoker" || action === "organize") {
+        setActiveDrawer(action);
+        return;
+      }
+      // Pass through other actions (drawStock, pickUpDiscard, mayI, skip)
       onAction?.(action, { selectedCardIds: Array.from(selectedCardIds) });
     },
     [onAction, selectedCardIds]
+  );
+
+  // Close the active drawer
+  const closeDrawer = useCallback(() => {
+    setActiveDrawer(null);
+  }, []);
+
+  // Handle lay down action
+  const handleLayDown = useCallback(
+    (melds: Array<{ type: "set" | "run"; cards: Array<{ id: string }> }>) => {
+      onAction?.("layDown", { melds: melds.map(m => ({ type: m.type, cardIds: m.cards.map(c => c.id) })) });
+      setActiveDrawer(null);
+    },
+    [onAction]
+  );
+
+  // Handle lay off action
+  const handleLayOff = useCallback(
+    (cardId: string, meldId: string) => {
+      onAction?.("layOff", { cardId, meldId });
+      // Don't close - user might want to lay off more cards
+    },
+    [onAction]
+  );
+
+  // Handle discard action
+  const handleDiscard = useCallback(
+    (cardId: string) => {
+      onAction?.("discard", { selectedCardIds: [cardId] });
+      setActiveDrawer(null);
+    },
+    [onAction]
+  );
+
+  // Handle swap joker action
+  const handleSwapJoker = useCallback(
+    (meldId: string, jokerIndex: number, cardId: string) => {
+      onAction?.("swapJoker", { meldId, jokerCardId: `joker-${jokerIndex}`, swapCardId: cardId });
+      setActiveDrawer(null);
+    },
+    [onAction]
+  );
+
+  // Handle organize hand (reorder)
+  const handleOrganize = useCallback(
+    (newOrder: Array<{ id: string }>) => {
+      onAction?.("reorderHand", { cardIds: newOrder.map(c => c.id) });
+      setActiveDrawer(null);
+    },
+    [onAction]
   );
 
   // Calculate ActionBar phase
@@ -303,6 +368,85 @@ export function GameView({
           onAction={handleAction}
         />
       </div>
+
+      {/* Lay Down Drawer */}
+      <ResponsiveDrawer
+        open={activeDrawer === "layDown"}
+        onOpenChange={(open) => !open && closeDrawer()}
+        title="Lay Down"
+        description="Arrange your cards into melds"
+        className="sm:max-w-lg"
+      >
+        <LayDownView
+          hand={gameState.yourHand}
+          contract={gameState.contract}
+          onLayDown={handleLayDown}
+          onCancel={closeDrawer}
+        />
+      </ResponsiveDrawer>
+
+      {/* Lay Off Drawer */}
+      <ResponsiveDrawer
+        open={activeDrawer === "layOff"}
+        onOpenChange={(open) => !open && closeDrawer()}
+        title="Lay Off"
+        description="Add cards to existing melds"
+        className="sm:max-w-lg"
+      >
+        <LayOffView
+          hand={gameState.yourHand}
+          tableMelds={gameState.table}
+          onLayOff={handleLayOff}
+          onDone={closeDrawer}
+        />
+      </ResponsiveDrawer>
+
+      {/* Discard Drawer */}
+      <ResponsiveDrawer
+        open={activeDrawer === "discard"}
+        onOpenChange={(open) => !open && closeDrawer()}
+        title="Discard"
+        description="Choose a card to discard"
+        className="sm:max-w-lg"
+      >
+        <DiscardView
+          hand={gameState.yourHand}
+          onDiscard={handleDiscard}
+          onCancel={closeDrawer}
+        />
+      </ResponsiveDrawer>
+
+      {/* Swap Joker Drawer */}
+      <ResponsiveDrawer
+        open={activeDrawer === "swapJoker"}
+        onOpenChange={(open) => !open && closeDrawer()}
+        title="Swap Joker"
+        description="Replace a joker with a natural card"
+        className="sm:max-w-lg"
+      >
+        <SwapJokerView
+          hand={gameState.yourHand}
+          meldsWithJokers={gameState.table.filter(m => m.cards.some(c => c.rank === "Joker"))}
+          swappableJokers={[]}
+          onSwap={handleSwapJoker}
+          onCancel={closeDrawer}
+        />
+      </ResponsiveDrawer>
+
+      {/* Organize Hand Drawer */}
+      <ResponsiveDrawer
+        open={activeDrawer === "organize"}
+        onOpenChange={(open) => !open && closeDrawer()}
+        title="Organize Hand"
+        description="Rearrange your cards"
+        className="sm:max-w-lg"
+      >
+        <OrganizeHandView
+          hand={gameState.yourHand}
+          onSave={handleOrganize}
+          onCancel={closeDrawer}
+        />
+      </ResponsiveDrawer>
     </div>
   );
 }

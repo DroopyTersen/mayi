@@ -183,7 +183,38 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         case "skip":
           gameAction = { type: "SKIP" };
           break;
-        // TODO: layDown, layOff, swapJoker will be handled in Phase 3.5
+        case "layDown": {
+          // payload should have melds array
+          const p = payload as { melds?: Array<{ type: "set" | "run"; cardIds: string[] }> } | undefined;
+          if (p?.melds && p.melds.length > 0) {
+            gameAction = { type: "LAY_DOWN", melds: p.melds };
+          }
+          break;
+        }
+        case "layOff": {
+          // payload should have cardId and meldId
+          const p = payload as { cardId?: string; meldId?: string } | undefined;
+          if (p?.cardId && p?.meldId) {
+            gameAction = { type: "LAY_OFF", cardId: p.cardId, meldId: p.meldId };
+          }
+          break;
+        }
+        case "swapJoker": {
+          // payload should have meldId, jokerCardId, swapCardId
+          const p = payload as { meldId?: string; jokerCardId?: string; swapCardId?: string } | undefined;
+          if (p?.meldId && p?.jokerCardId && p?.swapCardId) {
+            gameAction = { type: "SWAP_JOKER", meldId: p.meldId, jokerCardId: p.jokerCardId, swapCardId: p.swapCardId };
+          }
+          break;
+        }
+        case "reorderHand": {
+          // payload should have cardIds array
+          const p = payload as { cardIds?: string[] } | undefined;
+          if (p?.cardIds && p.cardIds.length > 0) {
+            gameAction = { type: "REORDER_HAND", cardIds: p.cardIds };
+          }
+          break;
+        }
         default:
           console.log("Unhandled action:", action, payload);
           return;
