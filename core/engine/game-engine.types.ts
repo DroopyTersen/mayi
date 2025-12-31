@@ -9,6 +9,7 @@ import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { Player, RoundNumber, RoundRecord } from "./engine.types";
 import type { Contract } from "./contracts";
+import type { AvailableActions } from "./game-engine.availability";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Phase Types
@@ -96,6 +97,9 @@ export interface GameSnapshot {
 
   /** Who discarded the top card of the discard pile (for May I eligibility) */
   lastDiscardedByPlayerId: string | null;
+
+  /** Whether the exposed discard has been claimed this turn (via draw or May I) */
+  discardClaimed: boolean;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Round State
@@ -288,6 +292,13 @@ export interface PlayerView {
 
   /** May I window context (if active) */
   mayIContext: MayIContext | null;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Available Actions
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** What actions this player can currently take */
+  availableActions: AvailableActions;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

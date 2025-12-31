@@ -11,6 +11,7 @@ import type { GameSnapshot } from "../core/engine/game-engine.types";
 import type { AIGameAdapter } from "./ai-game-adapter.types";
 import type { ToolExecutionResult } from "./mayIAgent.types";
 import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
+import { getAvailableActions } from "../core/engine/game-engine.availability";
 
 /** Options for creating May I tools */
 export interface CreateMayIToolsOptions {
@@ -124,38 +125,30 @@ In Round 6, you must use ALL cards in your hand.`,
 /**
  * Get the tools available for the current game snapshot.
  *
+ * Uses the centralized getAvailableActions utility and maps to tool names.
  * Current agent policy: only act when the engine is awaiting this player.
  */
 export function getAvailableToolNames(snapshot: GameSnapshot, playerId: string): string[] {
+  // Only act when the engine is awaiting this player
   if (snapshot.awaitingPlayerId !== playerId) {
     return [];
   }
 
-  const player = snapshot.players.find((p) => p.id === playerId);
-  const isDown = player?.isDown ?? false;
+  const actions = getAvailableActions(snapshot, playerId);
 
-  if (snapshot.phase === "RESOLVING_MAY_I") {
-    return ["allow_may_i", "claim_may_i"];
-  }
+  const toolNames: string[] = [];
 
-  if (snapshot.phase !== "ROUND_ACTIVE") {
-    return [];
-  }
+  // Map AvailableActions flags to tool names
+  if (actions.canDrawFromStock) toolNames.push("draw_from_stock");
+  if (actions.canDrawFromDiscard) toolNames.push("draw_from_discard");
+  if (actions.canLayDown) toolNames.push("lay_down");
+  if (actions.canSwapJoker) toolNames.push("swap_joker");
+  if (actions.canLayOff) toolNames.push("lay_off");
+  if (actions.canDiscard) toolNames.push("discard");
+  if (actions.canAllowMayI) toolNames.push("allow_may_i");
+  if (actions.canClaimMayI) toolNames.push("claim_may_i");
 
-  switch (snapshot.turnPhase) {
-    case "AWAITING_DRAW":
-      return isDown ? ["draw_from_stock"] : ["draw_from_stock", "draw_from_discard"];
-    case "AWAITING_ACTION":
-      if (isDown) {
-        return ["lay_off", "discard"];
-      }
-      // Joker swap requires melds on table. In Round 6, no melds exist until someone wins.
-      const hasMeldsOnTable = snapshot.table.length > 0;
-      const canSwapJoker = hasMeldsOnTable && snapshot.currentRound < 6;
-      return canSwapJoker ? ["lay_down", "swap_joker", "discard"] : ["lay_down", "discard"];
-    case "AWAITING_DISCARD":
-      return ["discard"];
-  }
+  return toolNames;
 }
 
 export type MayITools = ReturnType<typeof createMayITools>;

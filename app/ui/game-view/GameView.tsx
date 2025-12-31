@@ -6,6 +6,7 @@ import { ActionBar } from "~/ui/action-bar/ActionBar";
 import { TableDisplay } from "~/ui/game-table/TableDisplay";
 import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
+import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
 import { AIThinkingIndicator } from "./AIThinkingIndicator";
 import { ResponsiveDrawer } from "~/ui/responsive-drawer/ResponsiveDrawer";
@@ -36,29 +37,7 @@ interface GameViewProps {
   className?: string;
 }
 
-type GamePhase = "draw" | "action" | "waiting";
 type ActiveDrawer = "layDown" | "layOff" | "discard" | "swapJoker" | "organize" | null;
-
-/**
- * Map engine phase/turnPhase to ActionBar's simpler phase model
- */
-function mapToActionPhase(
-  phase: PlayerView["phase"],
-  turnPhase: PlayerView["turnPhase"],
-  isYourTurn: boolean,
-  hasDrawn: boolean
-): GamePhase {
-  if (!isYourTurn) return "waiting";
-
-  if (phase === "RESOLVING_MAY_I") return "waiting";
-
-  if (turnPhase === "AWAITING_DRAW") return "draw";
-  if (turnPhase === "AWAITING_ACTION" || turnPhase === "AWAITING_DISCARD") {
-    return hasDrawn ? "action" : "draw";
-  }
-
-  return "waiting";
-}
 
 export function GameView({
   gameState,
@@ -156,21 +135,6 @@ export function GameView({
     [onAction]
   );
 
-  // Calculate ActionBar phase
-  const actionPhase = mapToActionPhase(
-    gameState.phase,
-    gameState.turnPhase,
-    gameState.isYourTurn,
-    gameState.turnPhase !== "AWAITING_DRAW"
-  );
-
-  // Determine if May I is available
-  // TODO: Add proper May I eligibility check based on game rules
-  const canMayI =
-    !gameState.isYourTurn &&
-    gameState.phase === "ROUND_ACTIVE" &&
-    gameState.topDiscard !== null &&
-    gameState.mayIContext === null;
 
   // Build players list for TableDisplay and PlayersTableDisplay
   const allPlayers = useMemo(() => {
@@ -199,16 +163,16 @@ export function GameView({
   // Current player (the one whose turn it is)
   const currentPlayerId = gameState.awaitingPlayerId;
 
-  // Interactive discard label
+  // Interactive discard label - driven by availableActions
   const discardInteractiveLabel = useMemo(() => {
-    if (gameState.isYourTurn && gameState.turnPhase === "AWAITING_DRAW") {
+    if (gameState.availableActions.canDrawFromDiscard) {
       return "pickup" as const;
     }
-    if (canMayI) {
+    if (gameState.availableActions.canMayI) {
       return "may-i" as const;
     }
     return undefined;
-  }, [gameState.isYourTurn, gameState.turnPhase, canMayI]);
+  }, [gameState.availableActions]);
 
   return (
     <div className={cn("flex flex-col min-h-screen", className)}>
@@ -248,62 +212,24 @@ export function GameView({
                 <span>Table</span>
               </div>
 
-              {/* Discard pile and stock indicator */}
-              <div className="flex items-start gap-6">
-                {/* Discard Pile */}
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs text-muted-foreground">Discard</span>
-                  <DiscardPileDisplay
-                    topCard={gameState.topDiscard}
-                    size="md"
-                    interactiveLabel={discardInteractiveLabel}
-                    onClick={
-                      discardInteractiveLabel
-                        ? () => handleAction(discardInteractiveLabel === "pickup" ? "pickUpDiscard" : "mayI")
-                        : undefined
-                    }
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {gameState.discardCount} cards
-                  </span>
-                </div>
-
-                {/* Stock indicator */}
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs text-muted-foreground">Stock</span>
-                  <div
-                    className={cn(
-                      "rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground",
-                      gameState.isYourTurn &&
-                        gameState.turnPhase === "AWAITING_DRAW" &&
-                        "border-primary cursor-pointer hover:bg-primary/5"
-                    )}
-                    style={{ width: 64, height: 90 }}
-                    onClick={
-                      gameState.isYourTurn &&
-                      gameState.turnPhase === "AWAITING_DRAW"
-                        ? () => handleAction("drawStock")
-                        : undefined
-                    }
-                    role={
-                      gameState.isYourTurn &&
-                      gameState.turnPhase === "AWAITING_DRAW"
-                        ? "button"
-                        : undefined
-                    }
-                    tabIndex={
-                      gameState.isYourTurn &&
-                      gameState.turnPhase === "AWAITING_DRAW"
-                        ? 0
-                        : undefined
-                    }
-                  >
-                    <span className="text-lg font-bold tabular-nums">
-                      {gameState.stockCount}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">cards</span>
-                </div>
+              {/* Discard pile and stock pile */}
+              <div className="flex items-start gap-4">
+                <DiscardPileDisplay
+                  topCard={gameState.topDiscard}
+                  size="md"
+                  isClickable={gameState.availableActions.canDrawFromDiscard}
+                  interactiveLabel={discardInteractiveLabel}
+                  onClick={
+                    discardInteractiveLabel
+                      ? () => handleAction(discardInteractiveLabel === "pickup" ? "pickUpDiscard" : "mayI")
+                      : undefined
+                  }
+                />
+                <StockPileDisplay
+                  size="md"
+                  isClickable={gameState.availableActions.canDrawFromStock}
+                  onClick={() => handleAction("drawStock")}
+                />
               </div>
 
               {/* Melds on table */}
@@ -366,22 +292,19 @@ export function GameView({
             )}
           </div>
 
-          {/* Hand Display */}
+          {/* Hand Display - centered with full width for container query */}
           <HandDisplay
             cards={gameState.yourHand}
             selectedIds={selectedCardIds}
             onCardClick={handleCardClick}
             size="auto"
+            className="justify-center"
           />
         </div>
 
         {/* Action Bar */}
         <ActionBar
-          phase={actionPhase}
-          isYourTurn={gameState.isYourTurn}
-          isDown={gameState.youAreDown}
-          hasDrawn={gameState.turnPhase !== "AWAITING_DRAW"}
-          canMayI={canMayI}
+          availableActions={gameState.availableActions}
           onAction={handleAction}
         />
       </div>

@@ -1,27 +1,53 @@
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
-
-type GamePhase = "draw" | "action" | "waiting";
+import type { AvailableActions } from "core/engine/game-engine.availability";
 
 interface ActionBarProps {
-  phase: GamePhase;
-  isYourTurn: boolean;
-  isDown: boolean;
-  hasDrawn: boolean;
-  canMayI: boolean;
+  /** Available actions for the current player - from PlayerView.availableActions */
+  availableActions: AvailableActions;
+  /** Called when player performs an action */
   onAction: (action: string) => void;
   className?: string;
 }
 
+/**
+ * Action bar showing available game actions based on centralized game logic.
+ *
+ * The visibility of each button is determined by `availableActions` which comes
+ * from the game engine via PlayerView. No game logic in this component.
+ */
 export function ActionBar({
-  phase,
-  isYourTurn,
-  isDown,
-  hasDrawn,
-  canMayI,
+  availableActions,
   onAction,
   className,
 }: ActionBarProps) {
+  const {
+    canDrawFromStock,
+    canDrawFromDiscard,
+    canLayDown,
+    canLayOff,
+    canSwapJoker,
+    canDiscard,
+    canMayI,
+    canAllowMayI,
+    canClaimMayI,
+  } = availableActions;
+
+  // Check if any main action is available (for showing waiting message)
+  const hasAnyAction =
+    canDrawFromStock ||
+    canDrawFromDiscard ||
+    canLayDown ||
+    canLayOff ||
+    canSwapJoker ||
+    canDiscard ||
+    canMayI ||
+    canAllowMayI ||
+    canClaimMayI;
+
+  // Is it the player's turn? (has draw/action/discard abilities)
+  const isYourTurn = canDrawFromStock || canLayDown || canDiscard || canLayOff;
+
   return (
     <div
       className={cn(
@@ -30,53 +56,66 @@ export function ActionBar({
       )}
     >
       {/* Draw Phase */}
-      {phase === "draw" && isYourTurn && !hasDrawn && (
-        <>
-          <Button onClick={() => onAction("drawStock")} variant="default">
-            Draw Stock
-          </Button>
-          <Button onClick={() => onAction("pickUpDiscard")} variant="outline">
-            Pick Up Discard
-          </Button>
-        </>
+      {canDrawFromStock && (
+        <Button onClick={() => onAction("drawStock")} variant="default">
+          Draw Card
+        </Button>
+      )}
+      {canDrawFromDiscard && (
+        <Button onClick={() => onAction("pickUpDiscard")} variant="outline">
+          Pick Up Discard
+        </Button>
       )}
 
-      {/* Action Phase - Not Down */}
-      {phase === "action" && isYourTurn && hasDrawn && !isDown && (
-        <>
-          <Button onClick={() => onAction("layDown")} variant="default">
-            Lay Down
-          </Button>
-          <Button onClick={() => onAction("discard")} variant="outline">
-            Discard
-          </Button>
-        </>
+      {/* Action Phase - Lay Down */}
+      {canLayDown && (
+        <Button onClick={() => onAction("layDown")} variant="default">
+          Lay Down
+        </Button>
       )}
 
-      {/* Action Phase - Is Down */}
-      {phase === "action" && isYourTurn && hasDrawn && isDown && (
-        <>
-          <Button onClick={() => onAction("layOff")} variant="default">
-            Lay Off
-          </Button>
-          <Button onClick={() => onAction("swapJoker")} variant="outline">
-            Swap Joker
-          </Button>
-          <Button onClick={() => onAction("discard")} variant="outline">
-            Discard
-          </Button>
-        </>
+      {/* Action Phase - Lay Off (only when down) */}
+      {canLayOff && (
+        <Button onClick={() => onAction("layOff")} variant="default">
+          Lay Off
+        </Button>
       )}
 
-      {/* Waiting Phase - May I option */}
-      {phase === "waiting" && !isYourTurn && canMayI && (
+      {/* Action Phase - Swap Joker (only when not down, runs with jokers exist) */}
+      {canSwapJoker && (
+        <Button onClick={() => onAction("swapJoker")} variant="outline">
+          Swap Joker
+        </Button>
+      )}
+
+      {/* Discard */}
+      {canDiscard && (
+        <Button onClick={() => onAction("discard")} variant="outline">
+          Discard
+        </Button>
+      )}
+
+      {/* May I - when not your turn */}
+      {canMayI && (
         <Button onClick={() => onAction("mayI")} variant="secondary">
           May I?
         </Button>
       )}
 
-      {/* Waiting message */}
-      {phase === "waiting" && !isYourTurn && !canMayI && (
+      {/* May I Resolution - Allow/Claim */}
+      {canAllowMayI && (
+        <Button onClick={() => onAction("allowMayI")} variant="outline">
+          Allow
+        </Button>
+      )}
+      {canClaimMayI && (
+        <Button onClick={() => onAction("claimMayI")} variant="default">
+          Claim
+        </Button>
+      )}
+
+      {/* Waiting message when no actions available and not your turn */}
+      {!hasAnyAction && (
         <span className="text-sm text-muted-foreground">
           Waiting for other players...
         </span>

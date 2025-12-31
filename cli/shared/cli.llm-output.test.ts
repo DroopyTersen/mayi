@@ -39,6 +39,7 @@ function createMockSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot
     turnPhase: "AWAITING_DRAW",
     turnNumber: 1,
     lastDiscardedByPlayerId: null,
+    discardClaimed: false,
     currentRound: 1,
     contract: { roundNumber: 1, sets: 2, runs: 0 },
     players: defaultPlayers,

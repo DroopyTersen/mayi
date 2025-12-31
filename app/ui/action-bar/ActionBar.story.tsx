@@ -1,5 +1,22 @@
 import { ActionBar } from "./ActionBar";
 import { ViewportComparison } from "~/storybook/ViewportSimulator";
+import type { AvailableActions } from "core/engine/game-engine.availability";
+
+// Helper to create available actions with defaults
+function createAvailableActions(overrides: Partial<AvailableActions> = {}): AvailableActions {
+  return {
+    canDrawFromStock: false,
+    canDrawFromDiscard: false,
+    canLayDown: false,
+    canLayOff: false,
+    canSwapJoker: false,
+    canDiscard: false,
+    canMayI: false,
+    canAllowMayI: false,
+    canClaimMayI: false,
+    ...overrides,
+  };
+}
 
 export function ActionBarStory() {
   const handleAction = (action: string) => {
@@ -22,11 +39,10 @@ export function ActionBarStory() {
           Your turn, need to draw a card.
         </p>
         <ActionBar
-          phase="draw"
-          isYourTurn={true}
-          isDown={false}
-          hasDrawn={false}
-          canMayI={false}
+          availableActions={createAvailableActions({
+            canDrawFromStock: true,
+            canDrawFromDiscard: true,
+          })}
           onAction={handleAction}
         />
       </section>
@@ -38,11 +54,10 @@ export function ActionBarStory() {
           Your turn, have drawn, haven't laid down yet.
         </p>
         <ActionBar
-          phase="action"
-          isYourTurn={true}
-          isDown={false}
-          hasDrawn={true}
-          canMayI={false}
+          availableActions={createAvailableActions({
+            canLayDown: true,
+            canDiscard: true,
+          })}
           onAction={handleAction}
         />
       </section>
@@ -51,14 +66,13 @@ export function ActionBarStory() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Action Phase (Is Down)</h2>
         <p className="text-sm text-muted-foreground mb-2">
-          Your turn, have drawn, already laid down - can lay off or swap jokers.
+          Your turn, have drawn, already laid down - can lay off.
         </p>
         <ActionBar
-          phase="action"
-          isYourTurn={true}
-          isDown={true}
-          hasDrawn={true}
-          canMayI={false}
+          availableActions={createAvailableActions({
+            canLayOff: true,
+            canDiscard: true,
+          })}
           onAction={handleAction}
         />
       </section>
@@ -70,11 +84,9 @@ export function ActionBarStory() {
           Not your turn, but you can request "May I?".
         </p>
         <ActionBar
-          phase="waiting"
-          isYourTurn={false}
-          isDown={false}
-          hasDrawn={false}
-          canMayI={true}
+          availableActions={createAvailableActions({
+            canMayI: true,
+          })}
           onAction={handleAction}
         />
       </section>
@@ -86,11 +98,22 @@ export function ActionBarStory() {
           Not your turn, no May I available.
         </p>
         <ActionBar
-          phase="waiting"
-          isYourTurn={false}
-          isDown={false}
-          hasDrawn={false}
-          canMayI={false}
+          availableActions={createAvailableActions()}
+          onAction={handleAction}
+        />
+      </section>
+
+      {/* May I Resolution - Allow/Claim */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">May I Resolution</h2>
+        <p className="text-sm text-muted-foreground mb-2">
+          You're being prompted to allow or claim during May I resolution.
+        </p>
+        <ActionBar
+          availableActions={createAvailableActions({
+            canAllowMayI: true,
+            canClaimMayI: true,
+          })}
           onAction={handleAction}
         />
       </section>
@@ -103,11 +126,10 @@ export function ActionBarStory() {
         </p>
         <ViewportComparison>
           <ActionBar
-            phase="action"
-            isYourTurn={true}
-            isDown={true}
-            hasDrawn={true}
-            canMayI={false}
+            availableActions={createAvailableActions({
+              canLayOff: true,
+              canDiscard: true,
+            })}
             onAction={handleAction}
           />
         </ViewportComparison>

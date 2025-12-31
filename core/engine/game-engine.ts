@@ -30,6 +30,7 @@ import type {
   MayIContext,
 } from "./game-engine.types";
 import type { Contract } from "./contracts";
+import { getAvailableActions } from "./game-engine.availability";
 
 /**
  * Type for XState's persisted snapshot structure
@@ -50,6 +51,7 @@ interface RoundContext {
   turnNumber: number;
   lastDiscardedByPlayerId: string | null;
   mayIResolution: MayIResolution | null;
+  discardClaimed: boolean;
 }
 
 interface TurnContext {
@@ -235,6 +237,7 @@ export class GameEngine {
       table: [...snapshot.table],
       roundHistory: [...snapshot.roundHistory],
       mayIContext: snapshot.mayIContext ? { ...snapshot.mayIContext } : null,
+      availableActions: getAvailableActions(snapshot, playerId),
     };
   }
 
@@ -453,6 +456,7 @@ export class GameEngine {
       turnPhase,
       turnNumber: roundContext?.turnNumber ?? 1,
       lastDiscardedByPlayerId: roundContext?.lastDiscardedByPlayerId ?? null,
+      discardClaimed: roundContext?.discardClaimed ?? false,
       currentRound,
       contract: getContractForRound(currentRound)!,
       players: updatedPlayers,
