@@ -35,6 +35,8 @@ import {
   type StoredGameState,
 } from "./party-game-adapter";
 
+import { executeGameAction } from "./game-actions";
+
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const MIN_NAME_LEN = 1;
 const MAX_NAME_LEN = 24;
@@ -165,14 +167,7 @@ export class MayIRoom extends Server {
         break;
 
       case "GAME_ACTION":
-        // Phase 3.4 - to be implemented
-        conn.send(
-          JSON.stringify({
-            type: "ERROR",
-            error: "NOT_IMPLEMENTED",
-            message: "GAME_ACTION not yet implemented",
-          } satisfies ServerMessage)
-        );
+        await this.handleGameAction(conn, msg);
         break;
 
       default:
@@ -404,6 +399,72 @@ export class MayIRoom extends Server {
 
     // Broadcast GAME_STARTED to each player with their specific view
     await this.broadcastPlayerViews(adapter);
+  }
+
+  private async handleGameAction(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: Extract<ClientMessage, { type: "GAME_ACTION" }>
+  ) {
+    // Verify game is in playing phase
+    const roomPhase = await this.getRoomPhase();
+    if (roomPhase !== "playing") {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "GAME_NOT_STARTED",
+          message: "Game has not started yet",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Get caller's player ID
+    const callerPlayerId = conn.state?.playerId;
+    if (!callerPlayerId) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "NOT_JOINED",
+          message: "You must join before performing actions",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Load game state
+    const gameState = await this.getGameState();
+    if (!gameState) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "GAME_NOT_FOUND",
+          message: "Game state not found",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    const adapter = PartyGameAdapter.fromStoredState(gameState);
+
+    // Execute the action
+    const result = executeGameAction(adapter, callerPlayerId, msg.action);
+
+    if (!result.success) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: result.error ?? "ACTION_FAILED",
+          message: `Action failed: ${result.error}`,
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Save updated state
+    await this.setGameState(adapter.getStoredState());
+
+    // Broadcast updated state to all players
+    await this.broadcastGameState();
   }
 
   override async onClose(
