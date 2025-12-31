@@ -808,6 +808,19 @@ export const turnMachine = setup({
           { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
           { actions: "setReorderError" },
         ],
+        // Allow direct discard from drawn state (implicitly skips lay down)
+        DISCARD: [
+          {
+            guard: "willGoOutAfterDiscard",
+            target: "wentOut",
+            actions: ["discardCard", "clearError"],
+          },
+          {
+            guard: "canDiscard",
+            target: "turnComplete",
+            actions: ["discardCard", "clearError"],
+          },
+        ],
       },
       always: {
         // After lay off, if hand is empty, go out immediately
