@@ -82,7 +82,6 @@ export function DiscardPileDisplay({
             <PlayingCard
               card={topCard}
               size={size}
-              onClick={onClick}
               className={cn(
                 showClickableRing && "ring-2 ring-primary ring-offset-2 hover:ring-offset-4"
               )}

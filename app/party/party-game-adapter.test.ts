@@ -433,4 +433,112 @@ describe("PartyGameAdapter", () => {
       expect(snapshot).not.toBe(null);
     });
   });
+
+  describe("activity logging", () => {
+    it("logs draw actions correctly", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const snapshotBefore = adapter.getSnapshot();
+      const snapshotAfter = adapter.drawFromStock(awaitingId)!;
+
+      // Log the draw
+      adapter.logDraw(awaitingId, snapshotBefore, snapshotAfter, "stock");
+
+      // Check the log - should have "Game started" filtered out, only draw remains
+      const log = adapter.getRecentActivityLog(10);
+      expect(log.length).toBeGreaterThanOrEqual(1);
+
+      const drawEntry = log.find((e) => e.action.includes("drew from the draw pile"));
+      expect(drawEntry).toBeDefined();
+      expect(drawEntry!.playerId).toBe(awaitingId);
+      // Stock draws should not reveal the card (it's face-down)
+      expect(drawEntry!.details).toBeUndefined();
+    });
+
+    it("persists activity log across save/restore", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const snapshotBefore = adapter.getSnapshot();
+      const snapshotAfter = adapter.drawFromStock(awaitingId)!;
+      adapter.logDraw(awaitingId, snapshotBefore, snapshotAfter, "stock");
+
+      // Save and restore
+      const stored = adapter.getStoredState();
+      expect(stored.activityLog.length).toBeGreaterThan(0);
+
+      const adapter2 = PartyGameAdapter.fromStoredState(stored);
+      const log = adapter2.getRecentActivityLog(10);
+      expect(log.length).toBeGreaterThanOrEqual(1);
+
+      const drawEntry = log.find((e) => e.action.includes("drew from the draw pile"));
+      expect(drawEntry).toBeDefined();
+    });
+
+    it("logs multiple actions and persists them", () => {
+      const threeHumans: HumanPlayerInfo[] = [
+        { playerId: "h1", name: "P1", isConnected: true, disconnectedAt: null },
+        { playerId: "h2", name: "P2", isConnected: true, disconnectedAt: null },
+        { playerId: "h3", name: "P3", isConnected: true, disconnectedAt: null },
+      ];
+
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers: threeHumans,
+        aiPlayers: [],
+        startingRound: 1,
+      });
+
+      // First player draws
+      const player1 = adapter.getAwaitingLobbyPlayerId()!;
+      const before1 = adapter.getSnapshot();
+      const after1 = adapter.drawFromStock(player1)!;
+      adapter.logDraw(player1, before1, after1, "stock");
+
+      // Skip, then discard
+      const afterSkip = adapter.skip(player1)!;
+      const player = afterSkip.players.find((p) => p.id === adapter.lobbyIdToEngineId(player1));
+      const cardToDiscard = player!.hand[0]!;
+      const beforeDiscard = afterSkip;
+      const afterDiscard = adapter.discard(player1, cardToDiscard.id)!;
+      adapter.logDiscard(player1, beforeDiscard, afterDiscard, cardToDiscard.id);
+
+      // Check we have 2 interesting entries
+      const log = adapter.getRecentActivityLog(10);
+      expect(log.length).toBe(2);
+      expect(log.some((e) => e.action.includes("drew"))).toBe(true);
+      expect(log.some((e) => e.action.includes("discarded"))).toBe(true);
+
+      // Save and restore
+      const stored = adapter.getStoredState();
+      const adapter2 = PartyGameAdapter.fromStoredState(stored);
+
+      // Second player draws
+      const player2 = adapter2.getAwaitingLobbyPlayerId()!;
+      const before2 = adapter2.getSnapshot();
+      const after2 = adapter2.drawFromStock(player2)!;
+      adapter2.logDraw(player2, before2, after2, "stock");
+
+      // Should now have 3 entries
+      const log2 = adapter2.getRecentActivityLog(10);
+      expect(log2.length).toBe(3);
+
+      // Save and restore again
+      const stored2 = adapter2.getStoredState();
+      const adapter3 = PartyGameAdapter.fromStoredState(stored2);
+      const log3 = adapter3.getRecentActivityLog(10);
+      expect(log3.length).toBe(3);
+    });
+  });
 });

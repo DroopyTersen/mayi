@@ -63,7 +63,6 @@ export function StockPileDisplay({
             card={dummyCard}
             size={size}
             faceDown
-            onClick={isClickable ? onClick : undefined}
             className={cn(
               isClickable && "ring-2 ring-primary ring-offset-2 hover:ring-offset-4"
             )}

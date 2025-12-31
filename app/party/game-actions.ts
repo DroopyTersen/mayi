@@ -19,16 +19,18 @@ export interface ActionResult {
  * Execute a game action for a player
  *
  * Validates that the action is valid for the current game state
- * and executes it via the adapter.
+ * and executes it via the adapter. Logs successful actions to the activity log.
  */
 export function executeGameAction(
   adapter: PartyGameAdapter,
   lobbyPlayerId: string,
   action: GameAction
 ): ActionResult {
-  // Get the current state to validate the action
-  const snapshot = adapter.getSnapshot();
+  // Get the current state to validate the action and compare after
+  const snapshotBefore = adapter.getSnapshot();
   const awaitingId = adapter.getAwaitingLobbyPlayerId();
+  // Use snapshotBefore as our reference snapshot
+  const snapshot = snapshotBefore;
 
   // Most actions require it to be the player's turn
   const requiresPlayerTurn = ![
@@ -259,8 +261,55 @@ export function executeGameAction(
     };
   }
 
+  // Log successful action
+  logSuccessfulAction(adapter, lobbyPlayerId, action, snapshotBefore, result);
+
   return {
     success: true,
     snapshot: result,
   };
+}
+
+/**
+ * Log a successful action to the activity log
+ */
+function logSuccessfulAction(
+  adapter: PartyGameAdapter,
+  lobbyPlayerId: string,
+  action: GameAction,
+  before: GameSnapshot,
+  after: GameSnapshot
+): void {
+  switch (action.type) {
+    case "DRAW_FROM_STOCK":
+      adapter.logDraw(lobbyPlayerId, before, after, "stock");
+      break;
+
+    case "DRAW_FROM_DISCARD":
+      adapter.logDraw(lobbyPlayerId, before, after, "discard");
+      break;
+
+    case "DISCARD":
+      adapter.logDiscard(lobbyPlayerId, before, after, action.cardId);
+      break;
+
+    case "LAY_DOWN":
+      adapter.logLayDown(lobbyPlayerId, before, after);
+      break;
+
+    case "LAY_OFF":
+      adapter.logLayOff(lobbyPlayerId, action.cardId, before, after);
+      break;
+
+    case "CALL_MAY_I": {
+      const cardId = before.discard[0]?.id;
+      if (cardId) {
+        adapter.logMayICall(lobbyPlayerId, cardId, before);
+      }
+      break;
+    }
+
+    // SKIP, REORDER_HAND, ALLOW_MAY_I, CLAIM_MAY_I, SWAP_JOKER
+    // are not logged (too verbose or handled elsewhere)
+  }
 }

@@ -493,8 +493,13 @@ export class PartyGameAdapter {
     const drawn = afterPlayer.hand.find((c) => !beforeIds.has(c.id));
     if (!drawn) return;
 
-    const action = source === "stock" ? "drew from stock" : "took from discard";
-    this.logAction(lobbyPlayerId, action, renderCard(drawn));
+    if (source === "stock") {
+      // Stock is face-down, so don't reveal the card
+      this.logAction(lobbyPlayerId, "drew from the draw pile");
+    } else {
+      // Discard is face-up, so everyone can see what was taken
+      this.logAction(lobbyPlayerId, "took from discard", renderCard(drawn));
+    }
   }
 
   /**

@@ -27,6 +27,7 @@ import type {
   ServerMessage,
   PlayerView,
   GameAction,
+  ActivityLogEntry,
 } from "~/party/protocol.types";
 import type { Card } from "core/card/card.types";
 
@@ -119,6 +120,9 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
   // Game action error state
   const [gameError, setGameError] = useState<string | null>(null);
+
+  // Activity log state
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
 
   // Keep roomPhaseRef in sync with roomPhase state
   useEffect(() => {
@@ -385,11 +389,13 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setIsStartingGame(false);
           setRoomPhase("playing");
           setGameState(msg.state);
+          setActivityLog(msg.activityLog ?? []);
           return;
         }
         // Phase 3.4: Game state updates
         case "GAME_STATE": {
           setGameState(msg.state);
+          setActivityLog(msg.activityLog ?? []);
           return;
         }
         // Phase 3.3: AI thinking indicator
@@ -466,6 +472,21 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     window.location.href = "/";
   }, []);
 
+  // Format activity log for GameView
+  const formattedActivityLog = useMemo(() => {
+    return activityLog.map((entry) => {
+      // Format: "PlayerName: action details"
+      const message = entry.details
+        ? `${entry.playerName}: ${entry.action} ${entry.details}`
+        : `${entry.playerName}: ${entry.action}`;
+      return {
+        id: entry.id,
+        message,
+        // Don't include timestamp - it clutters the UI
+      };
+    });
+  }, [activityLog]);
+
   // Phase 3.3: Render lobby or game based on room phase
   if (roomPhase === "playing" && gameState) {
     return (
@@ -473,6 +494,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         <GameView
           gameState={gameState}
           aiThinkingPlayerName={aiThinkingPlayerName}
+          activityLog={formattedActivityLog}
           onAction={onGameAction}
           errorMessage={gameError}
         />

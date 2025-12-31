@@ -16,6 +16,34 @@ import type { Contract } from "../../core/engine/contracts";
 export type { PlayerView } from "../../core/engine/game-engine.types";
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Activity Log Types
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Activity log entry for game actions
+ *
+ * Used to display a human-readable log of game events to players.
+ */
+export interface ActivityLogEntry {
+  /** Unique ID for React keys */
+  id: string;
+  /** Timestamp of the action */
+  timestamp: string;
+  /** Round number when action occurred */
+  roundNumber: RoundNumber;
+  /** Turn number when action occurred */
+  turnNumber: number;
+  /** Player who performed the action (lobby ID) */
+  playerId: string;
+  /** Player name */
+  playerName: string;
+  /** Action type (e.g., "drew from stock", "discarded", "laid down") */
+  action: string;
+  /** Additional details (e.g., card that was discarded) */
+  details?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // AI Player Types
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -198,11 +226,13 @@ export interface StartingRoundChangedMessage {
 export interface GameStartedMessage {
   type: "GAME_STARTED";
   state: PlayerView;
+  activityLog: ActivityLogEntry[];
 }
 
 export interface GameStateMessage {
   type: "GAME_STATE";
   state: PlayerView;
+  activityLog: ActivityLogEntry[];
 }
 
 export interface AIThinkingMessage {
