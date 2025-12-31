@@ -51,37 +51,25 @@ export function DiscardPileDisplay({
         </div>
       ) : (
         <div
-          className={cn("relative", (isClickable || hasInteractiveLabel) && "cursor-pointer")}
+          className="relative"
           style={{ width: width + 4, height: height + 4 }}
-          onClick={onClick}
-          role={onClick ? "button" : undefined}
-          tabIndex={onClick ? 0 : undefined}
-          onKeyDown={
-            onClick
-              ? (e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onClick();
-                  }
-                }
-              : undefined
-          }
         >
           {/* Stack effect - back cards */}
           <div
-            className="absolute bg-slate-300 rounded-lg border border-slate-400"
+            className="absolute bg-slate-300 rounded-lg border border-slate-400 pointer-events-none"
             style={{ width, height, top: 0, left: 0 }}
           />
           <div
-            className="absolute bg-slate-200 rounded-lg border border-slate-300"
+            className="absolute bg-slate-200 rounded-lg border border-slate-300 pointer-events-none"
             style={{ width, height, top: 2, left: 2 }}
           />
 
-          {/* Top card */}
+          {/* Top card - handles all click interaction */}
           <div className="absolute" style={{ top: 4, left: 4 }}>
             <PlayingCard
               card={topCard}
               size={size}
+              onClick={onClick}
               className={cn(
                 showClickableRing && "ring-2 ring-primary ring-offset-2 hover:ring-offset-4"
               )}

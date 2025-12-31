@@ -266,7 +266,7 @@ export function GameView({
       </div>
 
       {/* Your Hand - Fixed at bottom on mobile, inline on desktop */}
-      <div className="sticky bottom-0 bg-background border-t">
+      <div className="sticky bottom-0 z-10 bg-background border-t">
         <div className="max-w-6xl mx-auto p-4 space-y-3">
           {/* Turn status indicator */}
           <div className="flex items-center justify-between text-sm">

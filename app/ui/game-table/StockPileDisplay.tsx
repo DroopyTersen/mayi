@@ -32,37 +32,25 @@ export function StockPileDisplay({
     <div className={cn("flex flex-col items-center gap-1", className)}>
       <span className="text-xs text-muted-foreground font-medium">Draw</span>
       <div
-        className={cn("relative", isClickable && "cursor-pointer")}
+        className="relative"
         style={{ width: width + 4, height: height + 4 }}
-        onClick={isClickable ? onClick : undefined}
-        role={isClickable ? "button" : undefined}
-        tabIndex={isClickable ? 0 : undefined}
-        onKeyDown={
-          isClickable && onClick
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onClick();
-                }
-              }
-            : undefined
-        }
       >
         {/* Stack effect - cards behind (using blue to match facedown card) */}
         <div
-          className="absolute bg-blue-800 rounded-lg border border-blue-900"
+          className="absolute bg-blue-800 rounded-lg border border-blue-900 pointer-events-none"
           style={{ width, height, top: 0, left: 0 }}
         />
         <div
-          className="absolute bg-blue-700 rounded-lg border border-blue-800"
+          className="absolute bg-blue-700 rounded-lg border border-blue-800 pointer-events-none"
           style={{ width, height, top: 2, left: 2 }}
         />
-        {/* Top facedown card */}
+        {/* Top facedown card - handles all click interaction */}
         <div className="absolute" style={{ top: 4, left: 4 }}>
           <PlayingCard
             card={dummyCard}
             size={size}
             faceDown
+            onClick={isClickable ? onClick : undefined}
             className={cn(
               isClickable && "ring-2 ring-primary ring-offset-2 hover:ring-offset-4"
             )}
