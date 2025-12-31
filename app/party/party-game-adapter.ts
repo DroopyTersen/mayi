@@ -17,7 +17,8 @@ import type {
   GameSnapshot,
 } from "../../core/engine/game-engine.types";
 import type { RoundNumber } from "../../core/engine/engine.types";
-import type { AIPlayerInfo, HumanPlayerInfo } from "./protocol.types";
+import type { AIPlayerInfo, HumanPlayerInfo, ActivityLogEntry } from "./protocol.types";
+import { renderCard } from "../../cli/shared/cli.renderer";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -56,6 +57,8 @@ export interface StoredGameState {
   createdAt: string;
   /** When state was last updated */
   updatedAt: string;
+  /** Activity log entries */
+  activityLog: ActivityLogEntry[];
 }
 
 /**
@@ -81,17 +84,23 @@ export class PartyGameAdapter {
   private playerMappings: PlayerMapping[];
   private roomId: string;
   private createdAt: string;
+  private activityLog: ActivityLogEntry[];
+  private logIdCounter: number = 0;
 
   private constructor(
     engine: GameEngine,
     playerMappings: PlayerMapping[],
     roomId: string,
-    createdAt: string
+    createdAt: string,
+    activityLog: ActivityLogEntry[] = []
   ) {
     this.engine = engine;
     this.playerMappings = playerMappings;
     this.roomId = roomId;
     this.createdAt = createdAt;
+    this.activityLog = activityLog;
+    // Initialize counter from existing log entries
+    this.logIdCounter = activityLog.length;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -146,7 +155,12 @@ export class PartyGameAdapter {
     });
 
     const now = new Date().toISOString();
-    return new PartyGameAdapter(engine, playerMappings, roomId, now);
+    const adapter = new PartyGameAdapter(engine, playerMappings, roomId, now, []);
+
+    // Log game started
+    adapter.logAction("system", "Game started", playerNames.join(", "));
+
+    return adapter;
   }
 
   /**
@@ -163,7 +177,8 @@ export class PartyGameAdapter {
       engine,
       storedState.playerMappings,
       storedState.roomId,
-      storedState.createdAt
+      storedState.createdAt,
+      storedState.activityLog ?? []
     );
   }
 
@@ -181,7 +196,24 @@ export class PartyGameAdapter {
       roomId: this.roomId,
       createdAt: this.createdAt,
       updatedAt: new Date().toISOString(),
+      activityLog: this.activityLog,
     };
+  }
+
+  /**
+   * Get recent activity log entries (for sending over WebSocket)
+   *
+   * Filters out boring entries and returns the last N entries.
+   */
+  getRecentActivityLog(count: number = 10): ActivityLogEntry[] {
+    // Filter out system messages and skip actions
+    const SKIP_ACTIONS = ["skipped", "passed on May I", "Game started"];
+    const interesting = this.activityLog.filter(
+      (entry) =>
+        entry.playerId !== "system" &&
+        !SKIP_ACTIONS.some((skip) => entry.action.includes(skip))
+    );
+    return interesting.slice(-count);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -405,5 +437,146 @@ export class PartyGameAdapter {
    */
   stop(): void {
     this.engine.stop();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Activity Logging
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Log an activity entry
+   *
+   * @param lobbyPlayerId - Lobby player ID (or "system" for system messages)
+   * @param action - Action description
+   * @param details - Optional additional details
+   */
+  logAction(lobbyPlayerId: string, action: string, details?: string): void {
+    const snapshot = this.engine.getSnapshot();
+    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
+    const playerName = lobbyPlayerId === "system" ? "System" : (mapping?.name ?? lobbyPlayerId);
+
+    const entry: ActivityLogEntry = {
+      id: `log-${++this.logIdCounter}`,
+      timestamp: new Date().toISOString(),
+      roundNumber: snapshot.currentRound,
+      turnNumber: snapshot.turnNumber,
+      playerId: lobbyPlayerId,
+      playerName,
+      action,
+      ...(details ? { details } : {}),
+    };
+
+    this.activityLog.push(entry);
+  }
+
+  /**
+   * Log a draw action with the drawn card
+   */
+  logDraw(
+    lobbyPlayerId: string,
+    before: GameSnapshot,
+    after: GameSnapshot,
+    source: "stock" | "discard"
+  ): void {
+    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
+    if (!mapping) return;
+
+    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
+    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
+    if (!beforePlayer || !afterPlayer) return;
+
+    // Check if draw succeeded
+    if (afterPlayer.hand.length !== beforePlayer.hand.length + 1) return;
+
+    // Find the new card
+    const beforeIds = new Set(beforePlayer.hand.map((c) => c.id));
+    const drawn = afterPlayer.hand.find((c) => !beforeIds.has(c.id));
+    if (!drawn) return;
+
+    const action = source === "stock" ? "drew from stock" : "took from discard";
+    this.logAction(lobbyPlayerId, action, renderCard(drawn));
+  }
+
+  /**
+   * Log a discard action
+   */
+  logDiscard(
+    lobbyPlayerId: string,
+    before: GameSnapshot,
+    after: GameSnapshot,
+    cardId: string
+  ): void {
+    // Find the card that was discarded
+    const card = before.discard.find((c) => c.id === cardId) ??
+      after.discard.find((c) => c.id === cardId);
+
+    // Check if discard succeeded
+    const cardInDiscard = after.discard.some((c) => c.id === cardId);
+    const roundEnded = after.currentRound !== before.currentRound || after.phase === "GAME_END";
+
+    if (cardInDiscard || roundEnded) {
+      if (card) {
+        this.logAction(lobbyPlayerId, "discarded", renderCard(card));
+      }
+
+      // Log "went out" if player went out
+      const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
+      if (mapping) {
+        const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
+        if (beforePlayer && beforePlayer.hand.length === 1 && roundEnded) {
+          this.logAction(lobbyPlayerId, "went out!");
+        }
+      }
+    }
+  }
+
+  /**
+   * Log a lay down action
+   */
+  logLayDown(lobbyPlayerId: string, before: GameSnapshot, after: GameSnapshot): void {
+    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
+    if (!mapping) return;
+
+    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
+    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
+
+    if (beforePlayer && afterPlayer && !beforePlayer.isDown && afterPlayer.isDown) {
+      this.logAction(lobbyPlayerId, "laid down contract");
+    }
+  }
+
+  /**
+   * Log a lay off action
+   */
+  logLayOff(lobbyPlayerId: string, cardId: string, before: GameSnapshot, after: GameSnapshot): void {
+    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
+    if (!mapping) return;
+
+    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
+    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
+
+    if (beforePlayer && afterPlayer && afterPlayer.hand.length === beforePlayer.hand.length - 1) {
+      const card = beforePlayer.hand.find((c) => c.id === cardId);
+      if (card) {
+        this.logAction(lobbyPlayerId, "laid off", renderCard(card));
+      }
+    }
+  }
+
+  /**
+   * Log a May I call
+   */
+  logMayICall(lobbyPlayerId: string, cardId: string, before: GameSnapshot): void {
+    const card = before.discard.find((c) => c.id === cardId);
+    if (card) {
+      this.logAction(lobbyPlayerId, "called May I", renderCard(card));
+    }
+  }
+
+  /**
+   * Log May I winner
+   */
+  logMayIWinner(lobbyPlayerId: string, card: string): void {
+    this.logAction(lobbyPlayerId, "won May I", card);
   }
 }

@@ -10,7 +10,7 @@ import type { GameSnapshot, MeldSpec } from "../../core/engine/game-engine.types
 import type { AIGameAdapter } from "../../ai/ai-game-adapter.types";
 import type { PartyGameAdapter, PlayerMapping } from "./party-game-adapter";
 import { executeTurn, type ExecuteTurnResult } from "../../ai/mayIAgent";
-import { createWorkerAIModel, type WebAIModelId } from "./ai-model-factory";
+import { createWorkerAIModelAsync, type AIEnv } from "./ai-model-factory";
 import { isValidRun, isValidSet } from "../../core/meld/meld.validation";
 
 /**
@@ -31,18 +31,24 @@ class AIGameAdapterProxy implements AIGameAdapter {
   }
 
   drawFromStock(): GameSnapshot {
+    const before = this.adapter.getSnapshot();
     const result = this.adapter.drawFromStock(this.aiPlayerId);
     if (!result) {
       return this.adapter.getSnapshot();
     }
+    // Log the draw action
+    this.adapter.logDraw(this.aiPlayerId, before, result, "stock");
     return result;
   }
 
   drawFromDiscard(): GameSnapshot {
+    const before = this.adapter.getSnapshot();
     const result = this.adapter.drawFromDiscard(this.aiPlayerId);
     if (!result) {
       return this.adapter.getSnapshot();
     }
+    // Log the draw action
+    this.adapter.logDraw(this.aiPlayerId, before, result, "discard");
     return result;
   }
 
@@ -51,6 +57,7 @@ class AIGameAdapterProxy implements AIGameAdapter {
     if (!result) {
       return this.adapter.getSnapshot();
     }
+    // Skip is not logged (filtered as boring)
     return result;
   }
 
@@ -89,10 +96,13 @@ class AIGameAdapterProxy implements AIGameAdapter {
       return { type, cardIds: cards.map((c) => c.id) };
     });
 
+    const before = this.adapter.getSnapshot();
     const result = this.adapter.layDown(this.aiPlayerId, meldSpecs);
     if (!result) {
       return this.adapter.getSnapshot();
     }
+    // Log the lay down action
+    this.adapter.logLayDown(this.aiPlayerId, before, result);
     return result;
   }
 
@@ -123,10 +133,13 @@ class AIGameAdapterProxy implements AIGameAdapter {
       return snapshot;
     }
 
+    const before = this.adapter.getSnapshot();
     const result = this.adapter.layOff(this.aiPlayerId, card.id, meld.id);
     if (!result) {
       return this.adapter.getSnapshot();
     }
+    // Log the lay off action
+    this.adapter.logLayOff(this.aiPlayerId, card.id, before, result);
     return result;
   }
 
@@ -190,10 +203,13 @@ class AIGameAdapterProxy implements AIGameAdapter {
       return snapshot;
     }
 
+    const before = this.adapter.getSnapshot();
     const result = this.adapter.discard(this.aiPlayerId, card.id);
     if (!result) {
       return this.adapter.getSnapshot();
     }
+    // Log the discard action
+    this.adapter.logDiscard(this.aiPlayerId, before, result, card.id);
     return result;
   }
 
@@ -249,6 +265,7 @@ export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string)
 
   // Draw phase - draw from stock
   if (snapshot.turnPhase === "AWAITING_DRAW") {
+    const before = snapshot;
     const result = adapter.drawFromStock(playerId);
     if (!result || result.lastError) {
       return {
@@ -258,6 +275,8 @@ export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string)
         usedFallback: true,
       };
     }
+    // Log the draw
+    adapter.logDraw(playerId, before, result, "stock");
     actions.push("draw_from_stock");
     snapshot = result;
   }
@@ -273,6 +292,7 @@ export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string)
         usedFallback: true,
       };
     }
+    // Skip is not logged (filtered as boring)
     actions.push("skip");
     snapshot = result;
   }
@@ -310,6 +330,7 @@ export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string)
       };
     }
 
+    const before = snapshot;
     const result = adapter.discard(playerId, cardToDiscard.id);
     if (!result || result.lastError) {
       return {
@@ -319,6 +340,8 @@ export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string)
         usedFallback: true,
       };
     }
+    // Log the discard
+    adapter.logDiscard(playerId, before, result, cardToDiscard.id);
     actions.push(`discard(${cardToDiscard.id})`);
   }
 
@@ -339,6 +362,8 @@ export interface ExecuteAITurnOptions {
   aiPlayerId: string;
   /** The AI model ID to use */
   modelId: string;
+  /** Environment with API keys */
+  env: AIEnv;
   /** Player name for logging/telemetry */
   playerName?: string;
   /** Maximum steps per turn (default: 10) */
@@ -360,6 +385,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     adapter,
     aiPlayerId,
     modelId,
+    env,
     playerName,
     maxSteps = 10,
     debug = false,
@@ -389,8 +415,8 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
   }
 
   try {
-    // Get the model using worker-compatible factory
-    const model = createWorkerAIModel(modelId as WebAIModelId);
+    // Get the model using worker-compatible factory (with DevTools in local dev)
+    const model = await createWorkerAIModelAsync(modelId, env);
 
     // Create the proxy adapter for the AI agent
     const proxy = new AIGameAdapterProxy(adapter, aiPlayerId);

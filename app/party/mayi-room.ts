@@ -249,11 +249,13 @@ export class MayIRoom extends Server {
       if (gameState) {
         const adapter = PartyGameAdapter.fromStoredState(gameState);
         const playerView = adapter.getPlayerView(playerId);
+        const activityLog = adapter.getRecentActivityLog(10);
         if (playerView) {
           conn.send(
             JSON.stringify({
               type: "GAME_STARTED",
               state: playerView,
+              activityLog,
             } satisfies ServerMessage)
           );
         }
@@ -623,6 +625,8 @@ export class MayIRoom extends Server {
    * Broadcast GAME_STARTED to each connected player with their specific PlayerView
    */
   private async broadcastPlayerViews(adapter: PartyGameAdapter): Promise<void> {
+    const activityLog = adapter.getRecentActivityLog(10);
+
     for (const conn of this.getConnections<MayIRoomConnectionState>()) {
       const lobbyPlayerId = conn.state?.playerId;
       if (!lobbyPlayerId) continue;
@@ -634,6 +638,7 @@ export class MayIRoom extends Server {
         JSON.stringify({
           type: "GAME_STARTED",
           state: playerView,
+          activityLog,
         } satisfies ServerMessage)
       );
     }
@@ -647,6 +652,7 @@ export class MayIRoom extends Server {
     if (!gameState) return;
 
     const adapter = PartyGameAdapter.fromStoredState(gameState);
+    const activityLog = adapter.getRecentActivityLog(10);
 
     for (const conn of this.getConnections<MayIRoomConnectionState>()) {
       const lobbyPlayerId = conn.state?.playerId;
@@ -659,6 +665,7 @@ export class MayIRoom extends Server {
         JSON.stringify({
           type: "GAME_STATE",
           state: playerView,
+          activityLog,
         } satisfies ServerMessage)
       );
     }
@@ -823,10 +830,7 @@ export class MayIRoom extends Server {
 
       // Check if it's an AI player's turn
       const aiPlayer = isAIPlayerTurn(adapter);
-      if (!aiPlayer) {
-        // Not an AI's turn, exit the loop
-        return;
-      }
+      if (!aiPlayer) return;
 
       // Broadcast AI_THINKING
       this.broadcastAIThinking(aiPlayer.lobbyId, aiPlayer.name);
@@ -834,11 +838,14 @@ export class MayIRoom extends Server {
       // Small delay to let clients see the thinking indicator
       await new Promise((resolve) => setTimeout(resolve, 500));
 
+      const modelToUse = aiPlayer.aiModelId ?? "xai:grok-4-1-fast-reasoning";
+
       // Execute the AI turn
       const result = await executeAITurn({
         adapter,
         aiPlayerId: aiPlayer.lobbyId,
-        modelId: aiPlayer.aiModelId ?? "grok-3-mini",
+        modelId: modelToUse,
+        env: this.env,
         playerName: aiPlayer.name,
         maxSteps: 10,
         debug: false,
