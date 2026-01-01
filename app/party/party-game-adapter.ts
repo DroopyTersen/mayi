@@ -265,6 +265,18 @@ export class PartyGameAdapter {
     return mapping?.isAI ?? false;
   }
 
+  /**
+   * Get a map of lobby player IDs to player names.
+   * Used for displaying player names in UI when scores are keyed by lobby ID.
+   */
+  getPlayerNamesMap(): Record<string, string> {
+    const names: Record<string, string> = {};
+    for (const mapping of this.playerMappings) {
+      names[mapping.lobbyId] = mapping.name;
+    }
+    return names;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // State Access
   // ═══════════════════════════════════════════════════════════════════════════

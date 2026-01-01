@@ -111,11 +111,13 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   const [roundEndData, setRoundEndData] = useState<{
     roundNumber: number;
     scores: Record<string, number>;
+    playerNames: Record<string, string>;
   } | null>(null);
 
   const [gameEndData, setGameEndData] = useState<{
     finalScores: Record<string, number>;
     winnerId: string;
+    playerNames: Record<string, string>;
   } | null>(null);
 
   // Game action error state
@@ -425,6 +427,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setRoundEndData({
             roundNumber: msg.roundNumber,
             scores: msg.scores,
+            playerNames: msg.playerNames,
           });
           return;
         }
@@ -432,6 +435,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setGameEndData({
             finalScores: msg.finalScores,
             winnerId: msg.winnerId,
+            playerNames: msg.playerNames,
           });
           return;
         }
@@ -453,18 +457,6 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     // In this simplified version, assume player can always claim if prompted
     // TODO: Check mayICount when it's available in PlayerView
     return true;
-  }, [gameState]);
-
-  // Build player names map for round/game end overlays
-  const playerNames = useMemo(() => {
-    const names: Record<string, string> = {};
-    if (gameState) {
-      names[gameState.viewingPlayerId] = "You";
-      for (const opp of gameState.opponents) {
-        names[opp.id] = opp.name;
-      }
-    }
-    return names;
   }, [gameState]);
 
   // Handler for leaving game
@@ -517,7 +509,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           <RoundEndOverlay
             roundNumber={roundEndData.roundNumber}
             scores={roundEndData.scores}
-            playerNames={playerNames}
+            playerNames={roundEndData.playerNames}
             currentPlayerId={currentPlayerId ?? ""}
             onDismiss={() => setRoundEndData(null)}
           />
@@ -527,7 +519,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           <GameEndScreen
             finalScores={gameEndData.finalScores}
             winnerId={gameEndData.winnerId}
-            playerNames={playerNames}
+            playerNames={gameEndData.playerNames}
             currentPlayerId={currentPlayerId ?? ""}
             onLeave={onLeaveGame}
           />

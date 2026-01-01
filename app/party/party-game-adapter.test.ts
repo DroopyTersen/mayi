@@ -434,6 +434,43 @@ describe("PartyGameAdapter", () => {
     });
   });
 
+  describe("getPlayerNamesMap", () => {
+    it("returns a map of lobbyId to player name", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      const names = adapter.getPlayerNamesMap();
+      expect(names).toEqual({
+        "human-1": "Alice",
+        "human-2": "Bob",
+        "ai-abc123": "ClaudeBot",
+      });
+    });
+
+    it("includes all players regardless of game phase", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      // Advance game state (draw, skip, discard)
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      adapter.drawFromStock(awaitingId);
+      adapter.skip(awaitingId);
+
+      // Names should still be available
+      const names = adapter.getPlayerNamesMap();
+      expect(Object.keys(names)).toHaveLength(3);
+      expect(names["human-1"]).toBe("Alice");
+    });
+  });
+
   describe("activity logging", () => {
     it("logs draw actions correctly", () => {
       const adapter = PartyGameAdapter.createFromLobby({

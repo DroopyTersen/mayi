@@ -496,20 +496,7 @@ export class MayIRoom extends Server {
     }
 
     // Check for round/game end transitions
-    const roundAfter = snapshot.currentRound;
-
-    // Detect round completion by checking if round number increased
-    // (XState's always transition makes ROUND_END transient)
-    if (roundAfter > roundBefore) {
-      // A round just completed and new round started
-      await this.broadcastRoundEnded(adapter, roundBefore);
-    }
-
-    // Detect game end
-    if (phaseAfter === "GAME_END" && phaseBefore !== "GAME_END") {
-      // Game just ended
-      await this.broadcastGameEnded(adapter);
-    }
+    await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore);
 
     // Broadcast updated state to all players
     await this.broadcastGameState();
@@ -672,6 +659,42 @@ export class MayIRoom extends Server {
   }
 
   /**
+   * Detect and broadcast round/game end transitions
+   *
+   * Compares game state before/after an action and broadcasts:
+   * - ROUND_ENDED if a round completed (either new round started OR game ended)
+   * - GAME_ENDED if the game ended
+   *
+   * This handles the edge case where round 6 ends and the game ends -
+   * in that case, currentRound doesn't increment but we still need to
+   * show the round summary before the game end screen.
+   */
+  private async detectAndBroadcastTransitions(
+    adapter: PartyGameAdapter,
+    phaseBefore: string,
+    roundBefore: number
+  ): Promise<void> {
+    const snapshot = adapter.getSnapshot();
+    const phaseAfter = snapshot.phase;
+    const roundAfter = snapshot.currentRound;
+
+    // Detect round completion
+    if (roundAfter > roundBefore) {
+      // Normal case: round completed and new round started
+      await this.broadcastRoundEnded(adapter, roundBefore);
+    } else if (phaseAfter === "GAME_END" && phaseBefore === "ROUND_ACTIVE") {
+      // Edge case: final round ended, game ended (round number doesn't increment)
+      // Still need to broadcast round end for the final round before game end
+      await this.broadcastRoundEnded(adapter, roundBefore);
+    }
+
+    // Detect game end
+    if (phaseAfter === "GAME_END" && phaseBefore !== "GAME_END") {
+      await this.broadcastGameEnded(adapter);
+    }
+  }
+
+  /**
    * Broadcast ROUND_ENDED to all clients
    */
   private async broadcastRoundEnded(
@@ -689,11 +712,15 @@ export class MayIRoom extends Server {
       }
     }
 
+    // Include player names map for UI display
+    const playerNames = adapter.getPlayerNamesMap();
+
     this.broadcast(
       JSON.stringify({
         type: "ROUND_ENDED",
         roundNumber: completedRoundNumber,
         scores,
+        playerNames,
       } satisfies ServerMessage)
     );
   }
@@ -720,11 +747,15 @@ export class MayIRoom extends Server {
       }
     }
 
+    // Include player names map for UI display
+    const playerNames = adapter.getPlayerNamesMap();
+
     this.broadcast(
       JSON.stringify({
         type: "GAME_ENDED",
         finalScores,
         winnerId,
+        playerNames,
       } satisfies ServerMessage)
     );
   }
@@ -832,6 +863,11 @@ export class MayIRoom extends Server {
       const aiPlayer = isAIPlayerTurn(adapter);
       if (!aiPlayer) return;
 
+      // Track state before AI turn for transition detection
+      const snapshotBefore = adapter.getSnapshot();
+      const phaseBefore = snapshotBefore.phase;
+      const roundBefore = snapshotBefore.currentRound;
+
       // Broadcast AI_THINKING
       this.broadcastAIThinking(aiPlayer.lobbyId, aiPlayer.name);
 
@@ -858,6 +894,9 @@ export class MayIRoom extends Server {
       // Save updated state
       await this.setGameState(adapter.getStoredState());
 
+      // Check for round/game end transitions
+      await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore);
+
       // Broadcast updated game state
       await this.broadcastGameState();
 
@@ -867,6 +906,12 @@ export class MayIRoom extends Server {
         console.error(`[AI] Turn failed for ${aiPlayer.name}: ${result.error}`);
         // Continue to next iteration to check if it's still an AI's turn
         // (fallback should have completed the turn)
+      }
+
+      // Exit if game ended
+      const phaseAfter = adapter.getSnapshot().phase;
+      if (phaseAfter === "GAME_END") {
+        return;
       }
 
       // Small delay between AI turns for better UX

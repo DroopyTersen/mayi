@@ -265,12 +265,16 @@ export interface RoundEndedMessage {
   type: "ROUND_ENDED";
   roundNumber: number;
   scores: Record<string, number>;
+  /** Map of lobby player IDs to display names */
+  playerNames: Record<string, string>;
 }
 
 export interface GameEndedMessage {
   type: "GAME_ENDED";
   finalScores: Record<string, number>;
   winnerId: string;
+  /** Map of lobby player IDs to display names */
+  playerNames: Record<string, string>;
 }
 
 // Union of all server messages
