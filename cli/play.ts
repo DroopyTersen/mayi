@@ -16,6 +16,8 @@ import { readActionLog, listSavedGames, formatGameDate } from "./shared/cli.pers
 import { renderStatus, renderStatusJson, renderLog } from "./harness/harness.render";
 import { generatePlayerNames } from "./shared/cli.players";
 import type { RoundNumber } from "../core/engine/engine.types";
+import { getAvailableActions } from "../core/engine/game-engine.availability";
+import type { GameSnapshot } from "../core/engine/game-engine.types";
 
 const args = process.argv.slice(2);
 
@@ -332,6 +334,16 @@ function handleMayI(gameId: string, callerId?: string): void {
     throw new Error("Specify caller: mayi <player-id>");
   }
 
+  const before = game.getSnapshot();
+
+  // Pre-validate using getAvailableActions for descriptive error feedback
+  // (XState guards remain the source of truth)
+  const actions = getAvailableActions(before, callerId);
+  if (!actions.canMayI) {
+    const reason = getMayIErrorReason(before, callerId);
+    throw new Error(reason);
+  }
+
   const after = game.callMayI(callerId);
   if (after.lastError) {
     throw new Error(after.lastError);
@@ -343,8 +355,51 @@ function handleMayI(gameId: string, callerId?: string): void {
   console.log(renderStatus(game.getSnapshot()));
 }
 
+/**
+ * Derive a specific error message for why May I is not available.
+ * This provides helpful feedback; XState guards remain the source of truth.
+ */
+function getMayIErrorReason(state: GameSnapshot, playerId: string): string {
+  const player = state.players.find((p) => p.id === playerId);
+
+  if (!player) {
+    return `Player not found: ${playerId}`;
+  }
+  if (player.isDown) {
+    return "Cannot call May I when you're down";
+  }
+  if (state.lastDiscardedByPlayerId === playerId) {
+    return "Cannot May I your own discard";
+  }
+  if (state.phase === "RESOLVING_MAY_I") {
+    return "May I resolution already in progress";
+  }
+  if (state.discardClaimed) {
+    return "Discard already claimed this turn";
+  }
+  if (state.discard.length === 0) {
+    return "No card to claim";
+  }
+  if (state.phase !== "ROUND_ACTIVE") {
+    return `Cannot call May I during ${state.phase} phase`;
+  }
+
+  return "Cannot call May I";
+}
+
 function handleAllow(gameId: string): void {
   game.loadGame(gameId);
+  const before = game.getSnapshot();
+
+  // Pre-validate for descriptive error feedback
+  const awaitingId = before.awaitingPlayerId;
+  const actions = getAvailableActions(before, awaitingId);
+  if (!actions.canAllowMayI) {
+    if (before.phase !== "RESOLVING_MAY_I") {
+      throw new Error("No May I resolution in progress");
+    }
+    throw new Error("You are not the player being prompted");
+  }
 
   const after = game.allowMayI();
   if (after.lastError) {
@@ -359,6 +414,17 @@ function handleAllow(gameId: string): void {
 
 function handleClaim(gameId: string): void {
   game.loadGame(gameId);
+  const before = game.getSnapshot();
+
+  // Pre-validate for descriptive error feedback
+  const awaitingId = before.awaitingPlayerId;
+  const actions = getAvailableActions(before, awaitingId);
+  if (!actions.canClaimMayI) {
+    if (before.phase !== "RESOLVING_MAY_I") {
+      throw new Error("No May I resolution in progress");
+    }
+    throw new Error("You are not the player being prompted");
+  }
 
   const after = game.claimMayI();
   if (after.lastError) {
