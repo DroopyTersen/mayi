@@ -47,22 +47,22 @@ export interface ActivityLogEntry {
 // AI Player Types
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Available AI model IDs */
+/** Available AI model IDs - use default: prefix for stable references */
 export const AI_MODEL_IDS = [
-  "xai:grok-4-1-fast-reasoning",
-  "anthropic:claude-haiku-4-5",
-  "openai:gpt-5-mini",
-  "gemini:gemini-3-flash-preview",
+  "default:grok",
+  "default:claude",
+  "default:openai",
+  "default:gemini",
 ] as const;
 
 export type AIModelId = (typeof AI_MODEL_IDS)[number];
 
 /** Display names for AI models */
 export const AI_MODEL_DISPLAY_NAMES: Record<AIModelId, string> = {
-  "xai:grok-4-1-fast-reasoning": "Grok",
-  "anthropic:claude-haiku-4-5": "Claude",
-  "openai:gpt-5-mini": "GPT",
-  "gemini:gemini-3-flash-preview": "Gemini",
+  "default:grok": "Grok",
+  "default:claude": "Claude",
+  "default:openai": "GPT",
+  "default:gemini": "Gemini",
 };
 
 /** AI player information */

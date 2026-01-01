@@ -92,7 +92,7 @@ describe("AI Agent Error Handling", () => {
     });
 
     const wrongPlayerId = snapshot.players.find((p) => p.id !== snapshot.awaitingPlayerId)!.id;
-    const model = modelRegistry.languageModel("xai:grok-4-1-fast-reasoning");
+    const model = modelRegistry.languageModel("default:grok");
 
     const result = await executeTurn({
       model,
@@ -126,7 +126,7 @@ describe.skipIf(skipLLM)("AWAITING_DRAW phase", () => {
     });
 
     const aiPlayerId = snapshot.awaitingPlayerId;
-    const model = modelRegistry.languageModel("xai:grok-4-1-fast-reasoning");
+    const model = modelRegistry.languageModel("default:grok");
 
     const result = await executeTurn({
       model,
@@ -167,7 +167,7 @@ describe.skipIf(skipLLM)("RESOLVING_MAY_I phase", () => {
     expect(game.getSnapshot().phase).toBe("RESOLVING_MAY_I");
     expect(game.getSnapshot().awaitingPlayerId).toBe(promptedPlayerId);
 
-    const model = modelRegistry.languageModel("xai:grok-4-1-fast-reasoning");
+    const model = modelRegistry.languageModel("default:grok");
 
     const result = await executeTurn({
       model,

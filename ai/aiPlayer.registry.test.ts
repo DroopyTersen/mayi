@@ -11,15 +11,15 @@ describe("AIPlayerRegistry", () => {
   it("should register and lookup AI players", () => {
     const registry = new AIPlayerRegistry();
 
-    registry.register("player-1", { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" });
-    registry.register("player-2", { name: "Haiku", modelId: "anthropic:claude-haiku-4-5" });
+    registry.register("player-1", { name: "GPT 5 Mini", modelId: "default:openai" });
+    registry.register("player-2", { name: "Haiku", modelId: "default:claude" });
 
     expect(registry.isAI("player-0")).toBe(false);
     expect(registry.isAI("player-1")).toBe(true);
     expect(registry.isAI("player-2")).toBe(true);
 
-    expect(registry.getModelId("player-1")).toBe("openai:gpt-5-mini");
-    expect(registry.getModelId("player-2")).toBe("anthropic:claude-haiku-4-5");
+    expect(registry.getModelId("player-1")).toBe("default:openai");
+    expect(registry.getModelId("player-2")).toBe("default:claude");
     expect(registry.getModelId("player-0")).toBeUndefined();
 
     expect(registry.getAIPlayerIds()).toEqual(["player-1", "player-2"]);
@@ -27,7 +27,7 @@ describe("AIPlayerRegistry", () => {
 
   it("should get player names", () => {
     const registry = new AIPlayerRegistry();
-    registry.register("player-1", { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" });
+    registry.register("player-1", { name: "GPT 5 Mini", modelId: "default:openai" });
 
     expect(registry.getName("player-1")).toBe("GPT 5 Mini");
     expect(registry.getName("player-0")).toBeUndefined();
@@ -35,7 +35,7 @@ describe("AIPlayerRegistry", () => {
 
   it("should clear registrations", () => {
     const registry = new AIPlayerRegistry();
-    registry.register("player-1", { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" });
+    registry.register("player-1", { name: "GPT 5 Mini", modelId: "default:openai" });
 
     expect(registry.isAI("player-1")).toBe(true);
 
@@ -47,21 +47,21 @@ describe("AIPlayerRegistry", () => {
 
   it("should get all entries", () => {
     const registry = new AIPlayerRegistry();
-    registry.register("player-1", { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" });
-    registry.register("player-2", { name: "Haiku", modelId: "anthropic:claude-haiku-4-5" });
+    registry.register("player-1", { name: "GPT 5 Mini", modelId: "default:openai" });
+    registry.register("player-2", { name: "Haiku", modelId: "default:claude" });
 
     const entries = registry.getAll();
     expect(entries).toHaveLength(2);
     expect(entries[0]).toEqual({
       playerId: "player-1",
       name: "GPT 5 Mini",
-      modelId: "openai:gpt-5-mini",
+      modelId: "default:openai",
     });
   });
 
   it("should get model instances from registry", () => {
     const registry = new AIPlayerRegistry();
-    registry.register("player-1", { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" });
+    registry.register("player-1", { name: "GPT 5 Mini", modelId: "default:openai" });
 
     const model = registry.getModel("player-1");
     expect(model).toBeDefined();
@@ -79,9 +79,9 @@ describe("setupGameWithAI", () => {
       {
         humanName: "Drew",
         aiPlayers: [
-          { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" },
-          { name: "Haiku", modelId: "anthropic:claude-haiku-4-5" },
-          { name: "Gemini", modelId: "gemini:gemini-3-flash-preview" },
+          { name: "GPT 5 Mini", modelId: "default:openai" },
+          { name: "Haiku", modelId: "default:claude" },
+          { name: "Gemini", modelId: "default:gemini" },
         ],
       },
       registry
@@ -101,9 +101,9 @@ describe("setupAllAIGame", () => {
 
     const playerNames = setupAllAIGame(
       [
-        { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" },
-        { name: "Haiku", modelId: "anthropic:claude-haiku-4-5" },
-        { name: "Gemini", modelId: "gemini:gemini-3-flash-preview" },
+        { name: "GPT 5 Mini", modelId: "default:openai" },
+        { name: "Haiku", modelId: "default:claude" },
+        { name: "Gemini", modelId: "default:gemini" },
       ],
       registry
     );
@@ -120,8 +120,8 @@ describe("setupAllAIGame", () => {
     expect(() =>
       setupAllAIGame(
         [
-          { name: "GPT 5 Mini", modelId: "openai:gpt-5-mini" },
-          { name: "Haiku", modelId: "anthropic:claude-haiku-4-5" },
+          { name: "GPT 5 Mini", modelId: "default:openai" },
+          { name: "Haiku", modelId: "default:claude" },
         ],
         registry
       )

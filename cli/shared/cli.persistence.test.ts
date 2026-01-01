@@ -423,7 +423,7 @@ describe("cli.persistence", () => {
           playerId: "player-2",
           config: {
             name: "GeminiBot",
-            modelId: "google:gemini-flash-2.0",
+            modelId: "gemini:gemini-3-flash-preview",
           },
         },
       ];
@@ -435,7 +435,7 @@ describe("cli.persistence", () => {
       expect(loaded[0]?.playerId).toBe("player-1");
       expect(loaded[0]?.config.name).toBe("ClaudeBot");
       expect(loaded[1]?.playerId).toBe("player-2");
-      expect(loaded[1]?.config.modelId).toBe("google:gemini-flash-2.0");
+      expect(loaded[1]?.config.modelId).toBe("gemini:gemini-3-flash-preview");
     });
 
     it("returns empty array when no config file exists", () => {

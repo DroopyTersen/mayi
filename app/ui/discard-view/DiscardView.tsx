@@ -24,7 +24,9 @@ export function DiscardView({
   };
 
   const handleDiscard = () => {
+    console.log("[DiscardView] handleDiscard called, selectedCardId:", selectedCardId);
     if (selectedCardId) {
+      console.log("[DiscardView] Calling onDiscard with:", selectedCardId);
       onDiscard(selectedCardId);
     }
   };

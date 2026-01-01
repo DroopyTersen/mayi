@@ -11,7 +11,7 @@ export interface AIPlayerConfig {
   /** The player's display name */
   name: string;
 
-  /** Model ID from the registry (e.g., "openai:gpt-4o-mini", "anthropic:claude-haiku-4-5") */
+  /** Model ID from the registry (e.g., "default:openai", "default:claude") */
   modelId: ModelId;
 }
 

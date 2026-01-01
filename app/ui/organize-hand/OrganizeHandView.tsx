@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
+import { sortHandByRank, sortHandBySuit } from "core/engine/hand.reordering";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
@@ -11,9 +12,6 @@ interface OrganizeHandViewProps {
   onCancel: () => void;
   className?: string;
 }
-
-const RANK_ORDER = ["A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3", "2", "Joker"];
-const SUIT_ORDER = ["spades", "hearts", "diamonds", "clubs", null];
 
 export function OrganizeHandView({
   hand,
@@ -48,21 +46,13 @@ export function OrganizeHandView({
     setSelectedIndex(newIndex);
   };
 
-  const sortByRank = () => {
-    const sorted = [...cards].sort((a, b) => {
-      return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
-    });
-    setCards(sorted);
+  const handleSortByRank = () => {
+    setCards(sortHandByRank(cards));
     setSelectedIndex(null);
   };
 
-  const sortBySuit = () => {
-    const sorted = [...cards].sort((a, b) => {
-      const suitDiff = SUIT_ORDER.indexOf(a.suit) - SUIT_ORDER.indexOf(b.suit);
-      if (suitDiff !== 0) return suitDiff;
-      return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
-    });
-    setCards(sorted);
+  const handleSortBySuit = () => {
+    setCards(sortHandBySuit(cards));
     setSelectedIndex(null);
   };
 
@@ -117,10 +107,10 @@ export function OrganizeHandView({
 
       {/* Sort buttons */}
       <div className="flex justify-center gap-2">
-        <Button variant="secondary" size="sm" onClick={sortByRank}>
+        <Button variant="secondary" size="sm" onClick={handleSortByRank}>
           Sort by Rank
         </Button>
-        <Button variant="secondary" size="sm" onClick={sortBySuit}>
+        <Button variant="secondary" size="sm" onClick={handleSortBySuit}>
           Sort by Suit
         </Button>
       </div>

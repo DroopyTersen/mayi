@@ -20,7 +20,7 @@ async function main() {
     playerNames: ["Human", "AI Bot", "Carol"],
   });
 
-  const model = withDevTools(modelRegistry.languageModel("xai:grok-4-1-fast-reasoning"));
+  const model = withDevTools(modelRegistry.languageModel("default:grok"));
 
   const playerId = snapshot.players.find((p) => p.name === "AI Bot")?.id ?? snapshot.awaitingPlayerId;
 
