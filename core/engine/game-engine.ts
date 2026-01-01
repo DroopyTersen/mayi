@@ -304,8 +304,8 @@ export class GameEngine {
   }
 
   /** Lay off a card onto an existing meld */
-  layOff(playerId: string, cardId: string, meldId: string): CommandResult {
-    this.actor.send({ type: "LAY_OFF", playerId, cardId, meldId });
+  layOff(playerId: string, cardId: string, meldId: string, position?: "start" | "end"): CommandResult {
+    this.actor.send({ type: "LAY_OFF", playerId, cardId, meldId, position });
     return this.getSnapshot();
   }
 

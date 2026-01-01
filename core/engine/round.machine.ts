@@ -28,11 +28,10 @@ type ForwardedTurnEvent =
   | { type: "DRAW_FROM_DISCARD"; playerId?: string }
   | { type: "SKIP_LAY_DOWN"; playerId?: string }
   | { type: "LAY_DOWN"; playerId?: string; melds: unknown[] }
-  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string }
+  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string; position?: "start" | "end" }
   | { type: "DISCARD"; playerId?: string; cardId: string }
   | { type: "PASS_MAY_I" }
   | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string }
-  | { type: "GO_OUT"; playerId?: string; finalLayOffs: unknown[] }
   | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] };
 
 /**
@@ -610,7 +609,6 @@ export const roundMachine = setup({
             },
             PASS_MAY_I: { actions: sendTo("turn", ({ event }) => event) },
             SWAP_JOKER: { actions: sendTo("turn", ({ event }) => event) },
-            GO_OUT: { actions: sendTo("turn", ({ event }) => event) },
             REORDER_HAND: { actions: sendTo("turn", ({ event }) => event) },
             RESHUFFLE_STOCK: {
               guard: "stockEmpty",

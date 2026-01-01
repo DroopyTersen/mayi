@@ -7,6 +7,8 @@ import {
   validateCardOwnership,
   getCardFromHand,
   getRunInsertPosition,
+  needsPositionChoice,
+  resolveRunInsertPosition,
 } from "./layoff";
 import { turnMachine } from "./turn.machine";
 import type { Card } from "../card/card.types";
@@ -1854,6 +1856,463 @@ describe("all-wildcard meld edge cases", () => {
 
       // Even a wild card can't be added because we can't determine valid positions
       expect(canLayOffToRun(joker(), allWildRun)).toBe(false);
+    });
+  });
+});
+
+/**
+ * Tests for needsPositionChoice - determines if user should be prompted to choose position
+ */
+describe("needsPositionChoice", () => {
+  describe("returns true for wild that fits both ends", () => {
+    it("wild can fit both ends of mid-range run", () => {
+      // Run: 5♠ 6♠ 7♠ 8♠ - wild can extend to 4♠ or 9♠
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(needsPositionChoice(wild, run)).toBe(true);
+    });
+
+    it("2 (wild) can fit both ends of mid-range run", () => {
+      const run = createMeld("run", [
+        card("6", "hearts"),
+        card("7", "hearts"),
+        card("8", "hearts"),
+      ]);
+      const twoWild = card("2", "clubs");
+
+      expect(needsPositionChoice(twoWild, run)).toBe(true);
+    });
+  });
+
+  describe("returns false for wild that fits only one end", () => {
+    it("run starts at 3 - wild can only extend high", () => {
+      // Run: 3♠ 4♠ 5♠ 6♠ - can't go below 3
+      const run = createMeld("run", [
+        card("3", "spades"),
+        card("4", "spades"),
+        card("5", "spades"),
+        card("6", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(needsPositionChoice(wild, run)).toBe(false);
+    });
+
+    it("run ends at Ace - wild can only extend low", () => {
+      // Run: J♠ Q♠ K♠ A♠ - can't go above Ace
+      const run = createMeld("run", [
+        card("J", "spades"),
+        card("Q", "spades"),
+        card("K", "spades"),
+        card("A", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(needsPositionChoice(wild, run)).toBe(false);
+    });
+  });
+
+  describe("returns false for natural cards", () => {
+    it("natural card that fits low end", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const natural = card("4", "spades");
+
+      expect(needsPositionChoice(natural, run)).toBe(false);
+    });
+
+    it("natural card that fits high end", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const natural = card("8", "spades");
+
+      expect(needsPositionChoice(natural, run)).toBe(false);
+    });
+  });
+
+  describe("returns false for sets", () => {
+    it("wild card on a set does not need position", () => {
+      const set = createMeld("set", [
+        card("9", "hearts"),
+        card("9", "spades"),
+        card("9", "diamonds"),
+      ]);
+      const wild = joker();
+
+      expect(needsPositionChoice(wild, set)).toBe(false);
+    });
+  });
+});
+
+/**
+ * Tests for resolveRunInsertPosition - determines final insert position for a card
+ */
+describe("resolveRunInsertPosition", () => {
+  describe("natural cards - auto-determined position", () => {
+    it("natural card fitting low end returns 'start'", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const natural = card("4", "spades");
+
+      expect(resolveRunInsertPosition(natural, run)).toBe("start");
+    });
+
+    it("natural card fitting high end returns 'end'", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const natural = card("8", "spades");
+
+      expect(resolveRunInsertPosition(natural, run)).toBe("end");
+    });
+
+    it("ignores requested position for natural cards (auto-determines)", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const natural = card("4", "spades"); // Can only fit at start
+
+      // Even if "end" is requested, should return "start"
+      expect(resolveRunInsertPosition(natural, run, "end")).toBe("start");
+    });
+  });
+
+  describe("wild cards with requested position", () => {
+    it("wild with position 'start' returns 'start' when valid", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(resolveRunInsertPosition(wild, run, "start")).toBe("start");
+    });
+
+    it("wild with position 'end' returns 'end' when valid", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(resolveRunInsertPosition(wild, run, "end")).toBe("end");
+    });
+  });
+
+  describe("wild cards without requested position - defaults to 'end'", () => {
+    it("wild that fits both ends defaults to 'end'", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(resolveRunInsertPosition(wild, run)).toBe("end");
+    });
+
+    it("wild that only fits low returns 'start' even without requested position", () => {
+      // Run ends at Ace - can only extend low
+      const run = createMeld("run", [
+        card("J", "spades"),
+        card("Q", "spades"),
+        card("K", "spades"),
+        card("A", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(resolveRunInsertPosition(wild, run)).toBe("start");
+    });
+  });
+
+  describe("invalid position requests return null", () => {
+    it("returns null when requesting 'start' but only 'end' is valid", () => {
+      // Run starts at 3 - can only extend high
+      const run = createMeld("run", [
+        card("3", "spades"),
+        card("4", "spades"),
+        card("5", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(resolveRunInsertPosition(wild, run, "start")).toBeNull();
+    });
+
+    it("returns null when requesting 'end' but only 'start' is valid", () => {
+      // Run ends at Ace - can only extend low
+      const run = createMeld("run", [
+        card("J", "spades"),
+        card("Q", "spades"),
+        card("K", "spades"),
+        card("A", "spades"),
+      ]);
+      const wild = joker();
+
+      expect(resolveRunInsertPosition(wild, run, "end")).toBeNull();
+    });
+  });
+});
+
+/**
+ * Tests for LAY_OFF action with position parameter
+ */
+describe("LAY_OFF action with position", () => {
+  // Helper to create turn input for lay-off tests (player is already down)
+  function createTurnInputWithPosition(hand: Card[], table: Meld[]) {
+    return {
+      playerId: "player-0",
+      hand,
+      stock: [card("K", "clubs"), card("Q", "clubs")],
+      discard: [card("J", "clubs")],
+      roundNumber: 2 as RoundNumber,
+      isDown: true, // Already down from previous turn
+      laidDownThisTurn: false,
+      table,
+    };
+  }
+
+  describe("wild card position selection", () => {
+    it("should prepend wild to run when position is 'start'", () => {
+      // Run: 5♠ 6♠ 7♠ 8♠
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const wild = joker();
+
+      const input = createTurnInputWithPosition([wild, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off wild at start
+      actor.send({ type: "LAY_OFF", cardId: wild.id, meldId: run.id, position: "start" });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === run.id);
+      expect(updatedMeld?.cards.length).toBe(5);
+      // Wild should be first card (index 0)
+      expect(updatedMeld?.cards[0]?.id).toBe(wild.id);
+    });
+
+    it("should append wild to run when position is 'end'", () => {
+      // Run: 5♠ 6♠ 7♠ 8♠
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const wild = joker();
+
+      const input = createTurnInputWithPosition([wild, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off wild at end
+      actor.send({ type: "LAY_OFF", cardId: wild.id, meldId: run.id, position: "end" });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === run.id);
+      expect(updatedMeld?.cards.length).toBe(5);
+      // Wild should be last card (index 4)
+      expect(updatedMeld?.cards[4]?.id).toBe(wild.id);
+    });
+
+    it("should default to 'end' when position not specified for wild", () => {
+      // Run: 5♠ 6♠ 7♠ 8♠
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const wild = joker();
+
+      const input = createTurnInputWithPosition([wild, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Lay off wild without position (backward compatible)
+      actor.send({ type: "LAY_OFF", cardId: wild.id, meldId: run.id });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === run.id);
+      expect(updatedMeld?.cards.length).toBe(5);
+      // Wild should be last card (default to end)
+      expect(updatedMeld?.cards[4]?.id).toBe(wild.id);
+    });
+  });
+
+  describe("natural card position - auto-determined", () => {
+    it("should prepend natural card that fits low end", () => {
+      // Run: 5♠ 6♠ 7♠ 8♠
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const fourS = card("4", "spades");
+
+      const input = createTurnInputWithPosition([fourS, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({ type: "LAY_OFF", cardId: fourS.id, meldId: run.id });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === run.id);
+      expect(updatedMeld?.cards.length).toBe(5);
+      // 4♠ should be first card
+      expect(updatedMeld?.cards[0]?.id).toBe(fourS.id);
+    });
+
+    it("should append natural card that fits high end", () => {
+      // Run: 5♠ 6♠ 7♠ 8♠
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const nineS = card("9", "spades");
+
+      const input = createTurnInputWithPosition([nineS, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: run.id });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === run.id);
+      expect(updatedMeld?.cards.length).toBe(5);
+      // 9♠ should be last card
+      expect(updatedMeld?.cards[4]?.id).toBe(nineS.id);
+    });
+
+    it("should ignore position parameter for natural cards", () => {
+      // Run: 5♠ 6♠ 7♠ 8♠
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      const fourS = card("4", "spades"); // Can only go at start
+
+      const input = createTurnInputWithPosition([fourS, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Even with position: "end", 4♠ should go at start
+      actor.send({ type: "LAY_OFF", cardId: fourS.id, meldId: run.id, position: "end" });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === run.id);
+      expect(updatedMeld?.cards.length).toBe(5);
+      // 4♠ should still be first card
+      expect(updatedMeld?.cards[0]?.id).toBe(fourS.id);
+    });
+  });
+
+  describe("invalid position requests", () => {
+    it("should reject wild with position 'start' when only 'end' is valid", () => {
+      // Run starts at 3 - can only extend high
+      const run = createMeld("run", [
+        card("3", "spades"),
+        card("4", "spades"),
+        card("5", "spades"),
+        card("6", "spades"),
+      ]);
+      const wild = joker();
+
+      const input = createTurnInputWithPosition([wild, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+
+      // Try to lay off at start (invalid - can't go below 3)
+      actor.send({ type: "LAY_OFF", cardId: wild.id, meldId: run.id, position: "start" });
+
+      // Should fail - hand size unchanged
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+      // Should have error
+      expect(actor.getSnapshot().context.lastError).not.toBeNull();
+    });
+
+    it("should reject wild with position 'end' when only 'start' is valid", () => {
+      // Run ends at Ace - can only extend low
+      const run = createMeld("run", [
+        card("J", "spades"),
+        card("Q", "spades"),
+        card("K", "spades"),
+        card("A", "spades"),
+      ]);
+      const wild = joker();
+
+      const input = createTurnInputWithPosition([wild, card("K", "hearts")], [run]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      const handBefore = actor.getSnapshot().context.hand.length;
+
+      // Try to lay off at end (invalid - can't go above Ace)
+      actor.send({ type: "LAY_OFF", cardId: wild.id, meldId: run.id, position: "end" });
+
+      // Should fail - hand size unchanged
+      expect(actor.getSnapshot().context.hand.length).toBe(handBefore);
+      // Should have error
+      expect(actor.getSnapshot().context.lastError).not.toBeNull();
+    });
+  });
+
+  describe("set melds - position ignored", () => {
+    it("should ignore position for sets (order doesn't matter)", () => {
+      const set = createMeld("set", [
+        card("9", "hearts"),
+        card("9", "spades"),
+        card("9", "diamonds"),
+      ]);
+      const nineC = card("9", "clubs");
+
+      const input = createTurnInputWithPosition([nineC, card("K", "hearts")], [set]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      // Position should be ignored for sets
+      actor.send({ type: "LAY_OFF", cardId: nineC.id, meldId: set.id, position: "start" });
+
+      const updatedMeld = actor.getSnapshot().context.table.find((m) => m.id === set.id);
+      expect(updatedMeld?.cards.length).toBe(4);
+      // Card should be in the meld (position doesn't matter for sets)
+      expect(updatedMeld?.cards.find((c) => c.id === nineC.id)).toBeDefined();
     });
   });
 });

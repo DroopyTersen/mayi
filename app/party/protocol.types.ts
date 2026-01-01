@@ -134,7 +134,7 @@ export const gameActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("DRAW_FROM_STOCK") }),
   z.object({ type: z.literal("DRAW_FROM_DISCARD") }),
   z.object({ type: z.literal("LAY_DOWN"), melds: z.array(meldSpecSchema) }),
-  z.object({ type: z.literal("LAY_OFF"), cardId: z.string(), meldId: z.string() }),
+  z.object({ type: z.literal("LAY_OFF"), cardId: z.string(), meldId: z.string(), position: z.enum(["start", "end"]).optional() }),
   z.object({
     type: z.literal("SWAP_JOKER"),
     meldId: z.string(),

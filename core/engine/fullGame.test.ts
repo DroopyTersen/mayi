@@ -95,6 +95,18 @@ function completeTurnFromStock(actor: ReturnType<typeof createRoundActor>) {
   }
 }
 
+/**
+ * Helper: Go out by laying off all remaining cards sequentially
+ * Used with createCanGoOutState fixture where player 0 has cards that fit existing melds
+ */
+function goOutViaLayOff(actor: ReturnType<typeof createRoundActor>) {
+  // Lay off each card to trigger wentOut when hand empties
+  actor.send({ type: "LAY_OFF", cardId: "p0-Q-S", meldId: "meld-player-0-0" });
+  actor.send({ type: "LAY_OFF", cardId: "stock-Q-D", meldId: "meld-player-0-0" });
+  actor.send({ type: "LAY_OFF", cardId: "p0-J-C", meldId: "meld-player-0-1" });
+  // After last LAY_OFF, hand is empty → wentOut triggers automatically
+}
+
 describe("full game flow - setup to end", () => {
   describe("game initialization", () => {
     it("when: create new game, add 4 players, START_GAME, then: game transitions to 'playing'", () => {
@@ -153,17 +165,10 @@ describe("full game flow - setup to end", () => {
       };
       const actor = createRoundActor(input);
 
-      // Player 0 goes out via GO_OUT
+      // Player 0 goes out via sequential LAY_OFF
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       // Round should end in scoring state
       expect(actor.getSnapshot().value).toBe("scoring");
@@ -322,14 +327,7 @@ describe("single round flow", () => {
       // Turns repeat: player 0 goes out
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       // Round ended
       expect(actor.getSnapshot().status).toBe("done");
@@ -349,14 +347,7 @@ describe("single round flow", () => {
 
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       expect(actor.getSnapshot().value).toBe("scoring");
     });
@@ -373,14 +364,7 @@ describe("single round flow", () => {
 
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       const output = actor.getSnapshot().output;
       expect(output?.roundRecord).toBeDefined();
@@ -432,14 +416,7 @@ describe("turn sequencing within round (via invoke)", () => {
       // Player 0 goes out
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       // Now round has ended
       expect(actor.getSnapshot().status).toBe("done");
@@ -476,14 +453,7 @@ describe("turn sequencing within round (via invoke)", () => {
 
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       expect(actor.getSnapshot().value).toBe("scoring");
       expect(actor.getSnapshot().status).toBe("done");
@@ -774,14 +744,7 @@ describe("edge cases", () => {
       // Player 0 goes out on first turn
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       // Round ends after just 1 turn
       expect(actor.getSnapshot().status).toBe("done");
@@ -799,14 +762,7 @@ describe("edge cases", () => {
 
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       // Other players still have their original hands
       expect(actor.getSnapshot().context.players[1]!.hand.length).toBe(11);
@@ -825,14 +781,7 @@ describe("edge cases", () => {
 
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       const output = actor.getSnapshot().output;
       expect(output?.roundRecord.scores["player-0"]).toBe(0);
@@ -870,14 +819,7 @@ describe("edge cases", () => {
       // Player 0 goes out
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       expect(actor.getSnapshot().status).toBe("done");
     });
@@ -1235,14 +1177,7 @@ describe("game state at each phase", () => {
 
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      goOutViaLayOff(actor);
 
       // Round completed, scores calculated
       const output = actor.getSnapshot().output;

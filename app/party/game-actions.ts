@@ -147,7 +147,7 @@ export function executeGameAction(
           error: "MISSING_CARD_OR_MELD_ID",
         };
       }
-      result = adapter.layOff(lobbyPlayerId, action.cardId, action.meldId);
+      result = adapter.layOff(lobbyPlayerId, action.cardId, action.meldId, action.position);
       break;
     }
 
@@ -298,7 +298,7 @@ function logSuccessfulAction(
       break;
 
     case "LAY_OFF":
-      adapter.logLayOff(lobbyPlayerId, action.cardId, before, after);
+      adapter.logLayOff(lobbyPlayerId, action.cardId, before, after, action.position);
       break;
 
     case "CALL_MAY_I": {

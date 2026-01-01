@@ -1,5 +1,6 @@
 ---
 description: "Tells Claude to keep going without stopping and without asking the user for anything. Tells Claude to not stop until the plan is completely finished."
+argument-hint: "<plan or task description>"
 ---
 
 # /never-stop
@@ -7,6 +8,10 @@ description: "Tells Claude to keep going without stopping and without asking the
 ## Autonomous Execution Mode
 
 You are now in **autonomous execution mode**. Execute the provided plan, task list, or backlog completely without stopping for user feedback.
+
+## Your Task
+
+$ARGUMENTS
 
 ## Core Rules
 

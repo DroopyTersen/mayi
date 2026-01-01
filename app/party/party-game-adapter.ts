@@ -374,11 +374,12 @@ export class PartyGameAdapter {
   layOff(
     lobbyPlayerId: string,
     cardId: string,
-    meldId: string
+    meldId: string,
+    position?: "start" | "end"
   ): GameSnapshot | null {
     const engineId = this.lobbyIdToEngineId(lobbyPlayerId);
     if (!engineId) return null;
-    return this.engine.layOff(engineId, cardId, meldId);
+    return this.engine.layOff(engineId, cardId, meldId, position);
   }
 
   /**
@@ -564,8 +565,16 @@ export class PartyGameAdapter {
 
   /**
    * Log a lay off action
+   *
+   * @param position - Only shown in log when "start" (prepending to run)
    */
-  logLayOff(lobbyPlayerId: string, cardId: string, before: GameSnapshot, after: GameSnapshot): void {
+  logLayOff(
+    lobbyPlayerId: string,
+    cardId: string,
+    before: GameSnapshot,
+    after: GameSnapshot,
+    position?: "start" | "end"
+  ): void {
     const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
     if (!mapping) return;
 
@@ -575,7 +584,9 @@ export class PartyGameAdapter {
     if (beforePlayer && afterPlayer && afterPlayer.hand.length === beforePlayer.hand.length - 1) {
       const card = beforePlayer.hand.find((c) => c.id === cardId);
       if (card) {
-        this.logAction(lobbyPlayerId, "laid off", renderCard(card));
+        // Only show "at start" for prepending - appending is the default
+        const positionText = position === "start" ? " at start" : "";
+        this.logAction(lobbyPlayerId, `laid off${positionText}`, renderCard(card));
       }
     }
   }

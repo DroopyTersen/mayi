@@ -2861,17 +2861,12 @@ describe("going out - turn output", () => {
       const actor = createActor(roundMachine, { input });
       actor.start();
 
-      // Player 0 goes out via GO_OUT
+      // Player 0 goes out via sequential LAY_OFF
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      actor.send({ type: "LAY_OFF", cardId: "p0-Q-S", meldId: "meld-player-0-0" });
+      actor.send({ type: "LAY_OFF", cardId: "stock-Q-D", meldId: "meld-player-0-0" });
+      actor.send({ type: "LAY_OFF", cardId: "p0-J-C", meldId: "meld-player-0-1" });
 
       // Round should transition to scoring when turn completes with wentOut
       expect(actor.getSnapshot().value).toBe("scoring");
@@ -2897,17 +2892,12 @@ describe("going out - turn output", () => {
       const actor = createActor(roundMachine, { input });
       actor.start();
 
-      // Player 0 goes out
+      // Player 0 goes out via sequential LAY_OFF
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" });
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" },
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },
-        ],
-      });
+      actor.send({ type: "LAY_OFF", cardId: "p0-Q-S", meldId: "meld-player-0-0" });
+      actor.send({ type: "LAY_OFF", cardId: "stock-Q-D", meldId: "meld-player-0-0" });
+      actor.send({ type: "LAY_OFF", cardId: "p0-J-C", meldId: "meld-player-0-1" });
 
       return actor;
     }

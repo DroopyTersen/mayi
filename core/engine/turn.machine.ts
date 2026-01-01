@@ -21,6 +21,7 @@ import {
   canLayOffToRun,
   validateCardOwnership,
   getCardFromHand,
+  resolveRunInsertPosition,
 } from "./layoff";
 import { canSwapJokerWithCard } from "../meld/meld.joker";
 // Note: May I is now handled at the round level, not turn level
@@ -60,14 +61,6 @@ export interface TurnContext {
 }
 
 /**
- * Lay off specification for GO_OUT command
- */
-export interface LayOffSpec {
-  cardId: string;
-  meldId: string;
-}
-
-/**
  * Events that can be sent to the TurnMachine
  */
 export type TurnEvent =
@@ -77,9 +70,8 @@ export type TurnEvent =
   | { type: "CALL_MAY_I"; playerId: string }
   | { type: "SKIP_LAY_DOWN"; playerId?: string }
   | { type: "LAY_DOWN"; playerId?: string; melds: MeldProposal[] }
-  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string }
+  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string; position?: "start" | "end" }
   | { type: "DISCARD"; playerId?: string; cardId: string }
-  | { type: "GO_OUT"; playerId?: string; finalLayOffs: LayOffSpec[] }
   | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string }
   | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] };
 
@@ -301,7 +293,17 @@ export const turnMachine = setup({
       if (meld.type === "set") {
         return canLayOffToSet(card, meld);
       } else {
-        return canLayOffToRun(card, meld);
+        // For runs, also validate position if provided
+        if (!canLayOffToRun(card, meld)) return false;
+
+        // If position is specified, validate it's a valid position for this card/meld
+        if (event.position !== undefined) {
+          const resolvedPosition = resolveRunInsertPosition(card, meld, event.position);
+          if (resolvedPosition === null) {
+            return false; // Invalid position requested
+          }
+        }
+        return true;
       }
     },
     // Check if hand will be empty after discard
@@ -316,47 +318,6 @@ export const turnMachine = setup({
     // Check if hand is empty (went out via lay off)
     handIsEmpty: ({ context }) => {
       return context.hand.length === 0;
-    },
-    // Check if GO_OUT command is valid
-    canGoOut: ({ context, event }) => {
-      if (event.type !== "GO_OUT") return false;
-      // Must be current player (when provided)
-      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
-
-      // Player must be down
-      if (!context.isDown) return false;
-
-      // Must have the right number of lay offs to empty the hand
-      if (event.finalLayOffs.length !== context.hand.length) return false;
-
-      // Validate each lay off would be valid
-      // We need to simulate the lay offs in sequence
-      let simulatedHand = [...context.hand];
-      let simulatedTable = context.table.map((m) => ({ ...m, cards: [...m.cards] }));
-
-      for (const layOff of event.finalLayOffs) {
-        // Find the card in simulated hand
-        const card = simulatedHand.find((c) => c.id === layOff.cardId);
-        if (!card) return false;
-
-        // Find the meld in simulated table
-        const meld = simulatedTable.find((m) => m.id === layOff.meldId);
-        if (!meld) return false;
-
-        // Check if card fits the meld
-        if (meld.type === "set") {
-          if (!canLayOffToSet(card, meld)) return false;
-        } else {
-          if (!canLayOffToRun(card, meld)) return false;
-        }
-
-        // Simulate the lay off
-        simulatedHand = simulatedHand.filter((c) => c.id !== layOff.cardId);
-        meld.cards = [...meld.cards, card];
-      }
-
-      // After all lay offs, hand must be empty
-      return simulatedHand.length === 0;
     },
     // Check if it's round 6
     isRound6: ({ context }) => {
@@ -579,34 +540,15 @@ export const turnMachine = setup({
             // For sets, order doesn't matter - append
             return { ...meld, cards: [...meld.cards, card] };
           } else {
-            // For runs, we need to determine if it goes at low or high end
-            // This is handled in canLayOffToRun - here we just need to add it
-            // For now, append to end (more sophisticated positioning can be added)
-            return { ...meld, cards: [...meld.cards, card] };
+            // For runs, determine position (start = prepend, end = append)
+            const insertPosition = resolveRunInsertPosition(card, meld, event.position);
+            if (insertPosition === "start") {
+              return { ...meld, cards: [card, ...meld.cards] };
+            } else {
+              return { ...meld, cards: [...meld.cards, card] };
+            }
           }
         });
-      },
-    }),
-    // GO_OUT action - performs all lay offs in order
-    goOut: assign({
-      hand: () => [], // Hand becomes empty
-      table: ({ context, event }) => {
-        if (event.type !== "GO_OUT") return context.table;
-
-        // Apply all lay offs to the table
-        let updatedTable = context.table.map((m) => ({ ...m, cards: [...m.cards] }));
-
-        for (const layOff of event.finalLayOffs) {
-          const card = context.hand.find((c) => c.id === layOff.cardId);
-          if (!card) continue;
-
-          updatedTable = updatedTable.map((meld) => {
-            if (meld.id !== layOff.meldId) return meld;
-            return { ...meld, cards: [...meld.cards, card] };
-          });
-        }
-
-        return updatedTable;
       },
     }),
     // SWAP_JOKER action - swap a Joker from a run with a card from hand
@@ -798,11 +740,6 @@ export const turnMachine = setup({
           guard: "canSwapJoker",
           target: "drawn", // Stay in drawn state after swap
           actions: ["swapJoker", "clearError"],
-        },
-        GO_OUT: {
-          guard: "canGoOut",
-          target: "wentOut",
-          actions: ["goOut", "clearError"],
         },
         REORDER_HAND: [
           { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },

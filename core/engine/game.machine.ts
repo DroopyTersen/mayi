@@ -19,14 +19,13 @@ type ForwardedEvent =
   | { type: "DRAW_FROM_DISCARD"; playerId?: string }
   | { type: "SKIP_LAY_DOWN"; playerId?: string }
   | { type: "LAY_DOWN"; playerId?: string; melds: unknown[] }
-  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string }
+  | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string; position?: "start" | "end" }
   | { type: "DISCARD"; playerId?: string; cardId: string }
   | { type: "CALL_MAY_I"; playerId: string }
   | { type: "ALLOW_MAY_I"; playerId: string }
   | { type: "CLAIM_MAY_I"; playerId: string }
   | { type: "PASS_MAY_I" }
   | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string }
-  | { type: "GO_OUT"; playerId?: string; finalLayOffs: unknown[] }
   | { type: "RESHUFFLE_STOCK" }
   | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] };
 
@@ -230,7 +229,6 @@ export const gameMachine = setup({
         CLAIM_MAY_I: { actions: sendTo("round", ({ event }) => event) },
         PASS_MAY_I: { actions: sendTo("round", ({ event }) => event) },
         SWAP_JOKER: { actions: sendTo("round", ({ event }) => event) },
-        GO_OUT: { actions: sendTo("round", ({ event }) => event) },
         RESHUFFLE_STOCK: { actions: sendTo("round", ({ event }) => event) },
         REORDER_HAND: { actions: sendTo("round", ({ event }) => event) },
         // @internal Testing utility - see GameEvent type documentation

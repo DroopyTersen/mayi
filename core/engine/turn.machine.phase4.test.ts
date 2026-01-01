@@ -1316,49 +1316,10 @@ describe("TurnMachine - going out detection", () => {
     });
   });
 
-  describe("checked after GO_OUT", () => {
-    it("GO_OUT processes all finalLayOffs", () => {
-      // GO_OUT takes array of lay offs
-      const card1 = card("3", "spades");
-      const drawnCard = card("7", "hearts");
-      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
-      const existingRun = createMeld("run", [card("4", "hearts"), card("5", "hearts"), card("6", "hearts")]);
-
-      const input = {
-        playerId: "player-1",
-        hand: [card1],
-        stock: [drawnCard],
-        discard: [card("Q", "diamonds")],
-        roundNumber: 1 as RoundNumber,
-        isDown: true,
-        laidDownThisTurn: false,
-        table: [existingSet, existingRun],
-      };
-
-      const actor = createActor(turnMachine, { input });
-      actor.start();
-      actor.send({ type: "DRAW_FROM_STOCK" });
-
-      // GO_OUT with both cards (card1 + drawnCard)
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: card1.id, meldId: existingSet.id },
-          { cardId: drawnCard.id, meldId: existingRun.id },
-        ],
-      });
-
-      // Both cards should be added to melds
-      const table = actor.getSnapshot().output?.table;
-      expect(table).toBeDefined();
-      const set = table?.find((m) => m.id === existingSet.id);
-      const run = table?.find((m) => m.id === existingRun.id);
-      expect(set?.cards.length).toBe(4); // 3 + 1
-      expect(run?.cards.length).toBe(4); // 3 + 1
-    });
-
-    it("then checks hand.length", () => {
-      // After GO_OUT, hand should be empty (validated before execution)
+  describe("going out via sequential LAY_OFF (equivalence to GO_OUT)", () => {
+    it("sequential LAY_OFF of all cards triggers wentOut automatically", () => {
+      // This test proves that sequential LAY_OFF achieves the same result as GO_OUT
+      // The handIsEmpty guard triggers wentOut when hand becomes empty
       const card1 = card("3", "spades");
       const drawnCard = card("7", "hearts");
       const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
@@ -1379,29 +1340,39 @@ describe("TurnMachine - going out detection", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
       // Now have 2 cards: card1 and drawnCard
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: card1.id, meldId: existingSet.id },
-          { cardId: drawnCard.id, meldId: existingRun.id },
-        ],
-      });
 
-      // Hand is now empty
+      // Sequential LAY_OFF instead of GO_OUT
+      actor.send({ type: "LAY_OFF", cardId: card1.id, meldId: existingSet.id });
+      // Still in drawn state, one card left
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(1);
+
+      actor.send({ type: "LAY_OFF", cardId: drawnCard.id, meldId: existingRun.id });
+      // Hand empty → wentOut triggered automatically
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().status).toBe("done");
+      expect(actor.getSnapshot().output?.wentOut).toBe(true);
       expect(actor.getSnapshot().output?.hand.length).toBe(0);
+
+      // Verify melds received the cards
+      const table = actor.getSnapshot().output?.table;
+      const set = table?.find((m) => m.id === existingSet.id);
+      const run = table?.find((m) => m.id === existingRun.id);
+      expect(set?.cards.length).toBe(4); // 3 + 1
+      expect(run?.cards.length).toBe(4); // 3 + 1
     });
 
-    it("should be 0 (validated before execution)", () => {
-      // GO_OUT guard ensures all cards are laid off
-      const card1 = card("3", "spades");
-      const extraCard = card("K", "hearts"); // Won't be laid off
+    it("partial lay-off is handled gracefully (can still discard)", () => {
+      // If only some cards can be laid off, player can discard to end turn
+      const cardToLayOff = card("3", "spades");
+      const cardToDiscard = card("K", "hearts"); // Cannot be laid off
       const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
 
       const input = {
         playerId: "player-1",
-        hand: [card1, extraCard],
-        stock: [card("Q", "diamonds")], // Use stock instead - isDown players can't draw from discard
-        discard: [],
+        hand: [cardToLayOff, cardToDiscard],
+        stock: [card("A", "clubs")],
+        discard: [card("Q", "diamonds")],
         roundNumber: 1 as RoundNumber,
         isDown: true,
         laidDownThisTurn: false,
@@ -1410,51 +1381,21 @@ describe("TurnMachine - going out detection", () => {
 
       const actor = createActor(turnMachine, { input });
       actor.start();
-      actor.send({ type: "DRAW_FROM_STOCK" }); // Draw from stock since player is down
-
-      // Try GO_OUT with only 1 card - should fail validation
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [{ cardId: card1.id, meldId: existingSet.id }],
-      });
-
-      // GO_OUT rejected - still in drawn
-      expect(actor.getSnapshot().value).toBe("drawn");
-      expect(actor.getSnapshot().context.hand.length).toBe(3); // 2 + draw
-    });
-
-    it("transitions to wentOut", () => {
-      // Valid GO_OUT → wentOut
-      const card1 = card("3", "spades");
-      const drawnCard = card("7", "hearts");
-      const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
-      const existingRun = createMeld("run", [card("4", "hearts"), card("5", "hearts"), card("6", "hearts")]);
-
-      const input = {
-        playerId: "player-1",
-        hand: [card1],
-        stock: [drawnCard],
-        discard: [card("Q", "diamonds")],
-        roundNumber: 1 as RoundNumber,
-        isDown: true,
-        laidDownThisTurn: false,
-        table: [existingSet, existingRun],
-      };
-
-      const actor = createActor(turnMachine, { input });
-      actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
-      // Now have 2 cards: card1 and drawnCard - GO_OUT with both
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: card1.id, meldId: existingSet.id },
-          { cardId: drawnCard.id, meldId: existingRun.id },
-        ],
-      });
+      // Now have 3 cards
 
-      expect(actor.getSnapshot().value).toBe("wentOut");
-      expect(actor.getSnapshot().output?.wentOut).toBe(true);
+      // Lay off the one that fits
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(2);
+
+      // Can't lay off the king, so skip and discard
+      actor.send({ type: "SKIP_LAY_DOWN" });
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+
+      actor.send({ type: "DISCARD", cardId: cardToDiscard.id });
+      expect(actor.getSnapshot().value).toBe("turnComplete");
+      expect(actor.getSnapshot().output?.hand.length).toBe(1);
     });
   });
 
@@ -1762,15 +1703,8 @@ describe("TurnMachine - player not down behavior", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
 
-      // LAY_OFF is rejected
+      // LAY_OFF is rejected (not down)
       actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
-      expect(actor.getSnapshot().value).toBe("drawn");
-
-      // GO_OUT is rejected
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [{ cardId: cardToLayOff.id, meldId: existingSet.id }],
-      });
       expect(actor.getSnapshot().value).toBe("drawn");
 
       // SKIP_LAY_DOWN and DISCARD work
@@ -1836,7 +1770,7 @@ describe("TurnMachine - player not down behavior", () => {
     });
 
     it("must lay down contract first", () => {
-      // To go out, player must first lay down contract
+      // To go out via lay-off, player must first lay down contract
       const cardToLayOff = card("3", "spades");
       const existingSet = createMeld("set", [card("3", "clubs"), card("3", "diamonds"), card("3", "hearts")]);
 
@@ -1855,15 +1789,10 @@ describe("TurnMachine - player not down behavior", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
 
-      // Try GO_OUT - rejected because not down
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: cardToLayOff.id, meldId: existingSet.id },
-        ],
-      });
+      // Try LAY_OFF - rejected because not down
+      actor.send({ type: "LAY_OFF", cardId: cardToLayOff.id, meldId: existingSet.id });
 
-      // Still in drawn - GO_OUT rejected
+      // Still in drawn - LAY_OFF rejected
       expect(actor.getSnapshot().value).toBe("drawn");
       expect(actor.getSnapshot().context.isDown).toBe(false);
     });

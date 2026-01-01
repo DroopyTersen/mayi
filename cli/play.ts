@@ -80,7 +80,7 @@ try {
       handleDiscard(gameId, args[2]);
       break;
     case "layoff":
-      handleLayoff(gameId, args[2], args[3]);
+      handleLayoff(gameId, args[2], args[3], args[4]);
       break;
     case "swap":
       handleSwap(gameId, args[2], args[3], args[4]);
@@ -278,11 +278,11 @@ function handleDiscard(gameId: string, positionStr?: string): void {
   console.log(renderStatus(game.getSnapshot()));
 }
 
-function handleLayoff(gameId: string, cardPosStr?: string, meldNumStr?: string): void {
+function handleLayoff(gameId: string, cardPosStr?: string, meldNumStr?: string, positionStr?: string): void {
   game.loadGame(gameId);
 
   if (!cardPosStr || !meldNumStr) {
-    throw new Error("Specify: layoff <card-position> <meld-number>");
+    throw new Error("Specify: layoff <card-position> <meld-number> [start|end]");
   }
 
   const cardPos = parseInt(cardPosStr, 10);
@@ -291,7 +291,16 @@ function handleLayoff(gameId: string, cardPosStr?: string, meldNumStr?: string):
     throw new Error("Positions must be numbers");
   }
 
-  const after = game.layOff(cardPos, meldNum);
+  // Parse optional position argument (for wild cards on runs)
+  let position: "start" | "end" | undefined;
+  if (positionStr) {
+    if (positionStr !== "start" && positionStr !== "end") {
+      throw new Error("Position must be 'start' or 'end'");
+    }
+    position = positionStr;
+  }
+
+  const after = game.layOff(cardPos, meldNum, position);
   if (after.lastError) {
     throw new Error(after.lastError);
   }
@@ -472,7 +481,7 @@ Commands (require game ID):
   <game-id> skip              Skip laying down / laying off
   <game-id> discard <pos>     Discard card at position
 
-  <game-id> layoff <card> <meld>        Lay off card to meld
+  <game-id> layoff <card> <meld> [start|end]  Lay off card to meld (position for wilds on runs)
   <game-id> swap <meld> <pos> <card>    Swap card for Joker in run
 
   <game-id> mayi <player-id>  Call "May I?" as the specified player

@@ -11,6 +11,27 @@ const SAMPLE_HAND: Card[] = [
   { id: "h5", rank: "7", suit: "clubs" },
 ];
 
+/** Hand with a wild card (2 or Joker) for testing position selection */
+const HAND_WITH_WILD: Card[] = [
+  { id: "w1", rank: "2", suit: "hearts" },
+  { id: "w2", rank: "Joker", suit: "hearts" },
+  { id: "h3", rank: "K", suit: "spades" },
+];
+
+/** Run that can be extended at both ends (5-6-7 of clubs) */
+const EXTENSIBLE_RUN_MELDS: Meld[] = [
+  {
+    id: "run-both-ends",
+    type: "run",
+    ownerId: "p1",
+    cards: [
+      { id: "r1", rank: "5", suit: "clubs" },
+      { id: "r2", rank: "6", suit: "clubs" },
+      { id: "r3", rank: "7", suit: "clubs" },
+    ],
+  },
+];
+
 const TABLE_MELDS: Meld[] = [
   {
     id: "meld-1",
@@ -46,8 +67,9 @@ const TABLE_MELDS: Meld[] = [
 ];
 
 export function LayOffViewStory() {
-  const handleLayOff = (cardId: string, meldId: string) => {
-    alert(`Laid off card ${cardId} to meld ${meldId}`);
+  const handleLayOff = (cardId: string, meldId: string, position?: "start" | "end") => {
+    const posText = position ? ` at ${position}` : "";
+    alert(`Laid off card ${cardId} to meld ${meldId}${posText}`);
   };
 
   const handleDone = () => {
@@ -62,6 +84,23 @@ export function LayOffViewStory() {
           Add cards from hand to existing table melds.
         </p>
       </header>
+
+      {/* Wild Card Position Selection */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Wild Card Position Selection</h2>
+        <div className="border rounded-lg p-4 max-w-md">
+          <LayOffView
+            hand={HAND_WITH_WILD}
+            tableMelds={EXTENSIBLE_RUN_MELDS}
+            onLayOff={handleLayOff}
+            onDone={handleDone}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Select the 2♥ or Joker, then tap the run. A position choice dialog will appear
+          since wild cards can extend either end of this run (5-6-7♣).
+        </p>
+      </section>
 
       {/* With Table Melds */}
       <section>

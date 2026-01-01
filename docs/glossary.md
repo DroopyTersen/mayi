@@ -79,7 +79,7 @@ A contract rummy style game where you “May I?” to grab discards out of turn 
 | **May I**        | `callMayI()`  | Claim the exposed discard out of turn. The engine prompts higher-priority players to allow or claim. Winner takes the discard (+ penalty if not the current player). Down players are not in line. |
 | **Penalty card** | `penaltyCard` | The extra card drawn from stock when you May I               |
 | **Swap**         | `swapJoker()` | Replace a Joker in a run with the natural card it represents |
-| **Go out**       | `goOut()`     | Empty your hand to end the round                             |
+| **Go out**       | (automatic)   | When your hand becomes empty (via lay-off), the round ends   |
 
 ### Action Rules
 

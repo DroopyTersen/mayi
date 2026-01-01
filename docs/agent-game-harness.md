@@ -149,8 +149,13 @@ After laying down (when "down"):
 
 ```bash
 # Lay off a card onto an existing meld
-# layoff <hand-position> <meld-number>
+# layoff <hand-position> <meld-number> [start|end]
 bun cli/play.ts abc123 layoff 3 1
+
+# For wild cards (2s and Jokers) on runs that can extend both ends,
+# you can specify the position (start=prepend, end=append):
+bun cli/play.ts abc123 layoff 2 1 start  # prepend to run
+bun cli/play.ts abc123 layoff 2 1 end    # append to run (default if omitted)
 
 # Swap a joker from a run (Phase 7 feature)
 # swap <meld-number> <joker-position> <hand-position>

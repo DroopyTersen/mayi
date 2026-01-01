@@ -306,3 +306,129 @@ export function getRunInsertPosition(card: Card, meld: Meld): "low" | "high" | n
 
   return null;
 }
+
+/**
+ * Checks if a wild card can be laid off at both ends of a run,
+ * meaning the user should be prompted to choose a position.
+ *
+ * Returns true only when:
+ * - Card is wild (2 or Joker)
+ * - Meld is a run (not a set)
+ * - Run can extend at BOTH low and high ends
+ *
+ * @param card - The card to check
+ * @param meld - The meld to check against
+ * @returns true if position choice is needed, false otherwise
+ */
+export function needsPositionChoice(card: Card, meld: Meld): boolean {
+  if (!isWild(card)) return false;
+  if (meld.type !== "run") return false;
+
+  const bounds = getRunBounds(meld.cards);
+  if (!bounds) return false;
+
+  const canExtendStart = bounds.lowValue > 3;
+  const canExtendEnd = bounds.highValue < 14;
+
+  return canExtendStart && canExtendEnd;
+}
+
+/**
+ * Resolves the insert position for a card being laid off to a run.
+ *
+ * Position semantics:
+ * - "start" = prepend to run (low end, smaller rank)
+ * - "end" = append to run (high end, larger rank)
+ *
+ * Logic:
+ * - Natural cards: auto-determined (can only fit one end), ignores requestedPosition
+ * - Wilds with requested position: validates and uses requested if valid, returns null if invalid
+ * - Wilds without requested position: default to "end" for backward compatibility
+ *
+ * @param card - The card being laid off
+ * @param meld - The target run
+ * @param requestedPosition - User's requested position (optional)
+ * @returns "start" | "end" | null (null if card doesn't fit or invalid position requested)
+ */
+export function resolveRunInsertPosition(
+  card: Card,
+  meld: Meld,
+  requestedPosition?: "start" | "end"
+): "start" | "end" | null {
+  if (meld.type !== "run") {
+    return null;
+  }
+
+  const bounds = getRunBounds(meld.cards);
+  if (!bounds) {
+    return null;
+  }
+
+  const { lowValue, highValue, suit } = bounds;
+  const canExtendLow = lowValue > 3;
+  const canExtendHigh = highValue < 14;
+
+  let fitsLow = false;
+  let fitsHigh = false;
+
+  if (isWild(card)) {
+    fitsLow = canExtendLow;
+    fitsHigh = canExtendHigh;
+  } else {
+    // Natural card - auto-determine position
+    if (card.suit !== suit) {
+      return null;
+    }
+
+    const cardValue = getRankValue(card.rank);
+    if (cardValue === null) {
+      return null;
+    }
+
+    // Check if card value is already in the run
+    if (cardValue >= lowValue && cardValue <= highValue) {
+      return null;
+    }
+
+    const lowExtensionValue = lowValue - 1;
+    const highExtensionValue = highValue + 1;
+
+    fitsLow = canExtendLow && cardValue === lowExtensionValue;
+    fitsHigh = canExtendHigh && cardValue === highExtensionValue;
+  }
+
+  // If card doesn't fit either end, return null
+  if (!fitsLow && !fitsHigh) {
+    return null;
+  }
+
+  // For natural cards, auto-determine (ignore requested position)
+  if (!isWild(card)) {
+    if (fitsLow) return "start";
+    if (fitsHigh) return "end";
+    return null;
+  }
+
+  // Wild card with requested position - validate the request
+  if (requestedPosition !== undefined) {
+    if (requestedPosition === "start" && fitsLow) {
+      return "start";
+    }
+    if (requestedPosition === "end" && fitsHigh) {
+      return "end";
+    }
+    // Requested position is invalid for this run
+    return null;
+  }
+
+  // Wild card without requested position - default behavior
+  // If fits only one end, use that end
+  if (fitsLow && !fitsHigh) {
+    return "start";
+  }
+  if (fitsHigh && !fitsLow) {
+    return "end";
+  }
+  // Fits both ends - default to "end" for backward compatibility
+  return "end";
+}

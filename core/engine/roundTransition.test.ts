@@ -335,15 +335,10 @@ describe("round end to round start flow", () => {
       actor.send({ type: "DRAW_FROM_STOCK" });
       actor.send({ type: "DRAW_FROM_STOCK" }); // Close May I window
 
-      // Player 0 goes out by laying off all cards
-      actor.send({
-        type: "GO_OUT",
-        finalLayOffs: [
-          { cardId: "p0-Q-S", meldId: "meld-player-0-0" },   // Q♠ to Queens meld
-          { cardId: "stock-Q-D", meldId: "meld-player-0-0" }, // Q♦ to Queens meld (drawn)
-          { cardId: "p0-J-C", meldId: "meld-player-0-1" },    // J♣ to Jacks meld
-        ],
-      });
+      // Player 0 goes out by laying off all cards (sequential LAY_OFF triggers wentOut)
+      actor.send({ type: "LAY_OFF", cardId: "p0-Q-S", meldId: "meld-player-0-0" });   // Q♠ to Queens meld
+      actor.send({ type: "LAY_OFF", cardId: "stock-Q-D", meldId: "meld-player-0-0" }); // Q♦ to Queens meld (drawn)
+      actor.send({ type: "LAY_OFF", cardId: "p0-J-C", meldId: "meld-player-0-1" });    // J♣ to Jacks meld
 
       // Round ends and transitions to scoring state
       expect(actor.getSnapshot().value).toBe("scoring");

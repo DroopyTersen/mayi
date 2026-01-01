@@ -144,7 +144,7 @@ export class CliGameAdapter {
     return after;
   }
 
-  layOff(cardPosition: number, meldNumber: number): GameSnapshot {
+  layOff(cardPosition: number, meldNumber: number, position?: "start" | "end"): GameSnapshot {
     const engine = this.requireEngine();
     const before = engine.getSnapshot();
     const playerId = before.awaitingPlayerId;
@@ -165,14 +165,16 @@ export class CliGameAdapter {
       throw new Error(`Meld number out of range: ${meldNumber}`);
     }
 
-    const after = engine.layOff(playerId, card.id, numberedMeld.meld.id);
+    const after = engine.layOff(playerId, card.id, numberedMeld.meld.id, position);
     this.persist();
     const afterPlayer = after.players.find((p) => p.id === playerId);
     if (afterPlayer && afterPlayer.hand.length === player.hand.length - 1) {
+      // Only show "at start" for prepending - appending is the default
+      const positionText = position === "start" ? " at start" : "";
       this.logAction(
         before,
         playerId,
-        "laid off",
+        `laid off${positionText}`,
         `${renderCard(card)} → meld ${meldNumber}`
       );
     }

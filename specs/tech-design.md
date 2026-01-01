@@ -308,8 +308,8 @@ export type Command =
       targetMeldId: string;
       jokerPosition: number;
     }
-  | { type: "DISCARD"; cardId: string }
-  | { type: "GO_OUT"; finalLayOffs?: LayOff[] }; // Round 6 only
+  | { type: "DISCARD"; cardId: string };
+  // Note: Going out happens automatically when hand becomes empty via LAY_OFF
 
 export interface ProposedMeld {
   type: "set" | "run";
@@ -610,9 +610,11 @@ describe("Round 6 going out", () => {
 
   test("can go out by laying off last card", () => {
     const state = hydrateGame(fixtures.round6CanLayOffToZero);
+    // Going out happens automatically when hand becomes empty via LAY_OFF
     const result = send(state, {
-      type: "GO_OUT",
-      finalLayOffs: [{ cardId: "last-card", targetMeldId: "meld-1" }],
+      type: "LAY_OFF",
+      cardId: "last-card",
+      meldId: "meld-1",
     });
     expect(result.state.roundPhase).toBe("roundEnd");
   });

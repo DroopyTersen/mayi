@@ -13,7 +13,7 @@ import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import type { Player, RoundNumber } from "../../core/engine/engine.types";
 import type { Card } from "../../core/card/card.types";
 import type { Meld } from "../../core/meld/meld.types";
-import { canLayOffToSet, canLayOffToRun } from "../../core/engine/layoff";
+import { canLayOffToSet, canLayOffToRun, needsPositionChoice } from "../../core/engine/layoff";
 import { canPlayerCallMayI } from "../../core/engine/game-engine.availability";
 import { listSavedGames, readActionLog, formatGameDate, saveAIPlayerConfigs, loadAIPlayerConfigs } from "../shared/cli.persistence";
 import { formatRecentActivity } from "../shared/cli.activity";
@@ -463,8 +463,22 @@ async function handleLayoff(state: GameSnapshot): Promise<void> {
   console.log("");
 
   const meldNum = await promptNumber(`> `, 1, state.table.length);
+  const targetMeld = state.table[meldNum - 1]!;
 
-  const after = game.layOff(cardPos, meldNum);
+  // Check if position choice is needed (wild card that can fit both ends of a run)
+  let position: "start" | "end" | undefined;
+  if (needsPositionChoice(card, targetMeld)) {
+    console.log("");
+    console.log("This wild card can extend either end of the run. Where would you like to place it?");
+    console.log("");
+    console.log("  [1] Start of run (prepend)");
+    console.log("  [2] End of run (append)");
+    console.log("");
+    const posChoice = await promptNumber("> ", 1, 2);
+    position = posChoice === 1 ? "start" : "end";
+  }
+
+  const after = game.layOff(cardPos, meldNum, position);
   if (!after.lastError) {
     console.log("");
     console.log("Laid off.");

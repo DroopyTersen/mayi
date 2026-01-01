@@ -99,8 +99,8 @@ export function GameView({
 
   // Handle lay off action
   const handleLayOff = useCallback(
-    (cardId: string, meldId: string) => {
-      onAction?.("layOff", { cardId, meldId });
+    (cardId: string, meldId: string, position?: "start" | "end") => {
+      onAction?.("layOff", { cardId, meldId, position });
       // Don't close - user might want to lay off more cards
     },
     [onAction]

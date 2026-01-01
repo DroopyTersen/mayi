@@ -254,9 +254,9 @@ export function createOneCardLeftState(): PredefinedRoundState {
 }
 
 /**
- * Fixture: Player can go out via GO_OUT command
+ * Fixture: Player can go out via sequential LAY_OFF
  * Player 0 is down, has 2 cards that can be laid off to existing melds
- * After drawing, they can GO_OUT with all 3 cards
+ * After drawing, they can LAY_OFF all 3 cards to trigger wentOut
  */
 export function createCanGoOutState(): PredefinedRoundState {
   // Player 0 is down and has 2 Queens (can lay off to Queens meld)
