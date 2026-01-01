@@ -146,5 +146,5 @@ export async function createWorkerAIModelAsync(modelId: string, env: AIEnv): Pro
  * Get the default AI model for game play
  */
 export function getDefaultWorkerAIModel(env: AIEnv): LanguageModel {
-  return createWorkerAIModel("xai:grok-4-1-fast-reasoning", env);
+  return createWorkerAIModel("default:grok", env);
 }

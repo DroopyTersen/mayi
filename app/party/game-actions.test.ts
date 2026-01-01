@@ -20,7 +20,7 @@ describe("executeGameAction", () => {
     {
       playerId: "ai-abc123",
       name: "ClaudeBot",
-      modelId: "anthropic:claude-haiku-4-5",
+      modelId: "default:claude",
       modelDisplayName: "Claude",
     },
   ];

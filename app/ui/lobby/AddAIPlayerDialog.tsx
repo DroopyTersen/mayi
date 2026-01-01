@@ -33,13 +33,13 @@ interface AddAIPlayerDialogProps {
 export function AddAIPlayerDialog({ onAdd, disabled }: AddAIPlayerDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [modelId, setModelId] = useState<AIModelId>("xai:grok-4-1-fast-reasoning");
+  const [modelId, setModelId] = useState<AIModelId>("default:grok");
 
   const handleAdd = () => {
     if (name.trim().length === 0) return;
     onAdd(name.trim(), modelId);
     setName("");
-    setModelId("xai:grok-4-1-fast-reasoning");
+    setModelId("default:grok");
     setOpen(false);
   };
 
@@ -48,7 +48,7 @@ export function AddAIPlayerDialog({ onAdd, disabled }: AddAIPlayerDialogProps) {
     if (!newOpen) {
       // Reset form when closing
       setName("");
-      setModelId("xai:grok-4-1-fast-reasoning");
+      setModelId("default:grok");
     }
   };
 

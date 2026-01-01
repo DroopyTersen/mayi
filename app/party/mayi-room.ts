@@ -838,7 +838,7 @@ export class MayIRoom extends Server {
       // Small delay to let clients see the thinking indicator
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const modelToUse = aiPlayer.aiModelId ?? "xai:grok-4-1-fast-reasoning";
+      const modelToUse = aiPlayer.aiModelId ?? "default:grok";
 
       // Execute the AI turn
       const result = await executeAITurn({

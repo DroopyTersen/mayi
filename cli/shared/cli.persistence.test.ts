@@ -416,14 +416,14 @@ describe("cli.persistence", () => {
           playerId: "player-1",
           config: {
             name: "ClaudeBot",
-            modelId: "anthropic:claude-haiku-4-5",
+            modelId: "default:claude",
           },
         },
         {
           playerId: "player-2",
           config: {
             name: "GeminiBot",
-            modelId: "gemini:gemini-3-flash-preview",
+            modelId: "default:gemini",
           },
         },
       ];
@@ -435,7 +435,7 @@ describe("cli.persistence", () => {
       expect(loaded[0]?.playerId).toBe("player-1");
       expect(loaded[0]?.config.name).toBe("ClaudeBot");
       expect(loaded[1]?.playerId).toBe("player-2");
-      expect(loaded[1]?.config.modelId).toBe("gemini:gemini-3-flash-preview");
+      expect(loaded[1]?.config.modelId).toBe("default:gemini");
     });
 
     it("returns empty array when no config file exists", () => {

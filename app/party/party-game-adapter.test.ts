@@ -12,7 +12,7 @@ describe("PartyGameAdapter", () => {
     {
       playerId: "ai-abc123",
       name: "ClaudeBot",
-      modelId: "anthropic:claude-haiku-4-5",
+      modelId: "default:claude",
       modelDisplayName: "Claude",
     },
   ];
@@ -65,7 +65,7 @@ describe("PartyGameAdapter", () => {
         engineId: "player-2",
         name: "ClaudeBot",
         isAI: true,
-        aiModelId: "anthropic:claude-haiku-4-5",
+        aiModelId: "default:claude",
       });
     });
 

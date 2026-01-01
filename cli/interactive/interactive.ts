@@ -40,10 +40,10 @@ const AI_FIRST_NAMES = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Gra
  * Available AI models for player selection
  */
 const MODEL_OPTIONS: readonly { id: ModelId; name: string; provider: string }[] = [
-  { id: "xai:grok-4-1-fast-reasoning", name: "Grok", provider: "xAI" },
-  { id: "anthropic:claude-haiku-4-5", name: "Claude", provider: "Anthropic" },
-  { id: "openai:gpt-5-mini", name: "GPT", provider: "OpenAI" },
-  { id: "gemini:gemini-3-flash-preview", name: "Gemini", provider: "Google" },
+  { id: "default:grok", name: "Grok", provider: "xAI" },
+  { id: "default:claude", name: "Claude", provider: "Anthropic" },
+  { id: "default:openai", name: "GPT", provider: "OpenAI" },
+  { id: "default:gemini", name: "Gemini", provider: "Google" },
 ];
 
 const DEFAULT_MODEL_INDEX = 0; // Grok is default (fastest)

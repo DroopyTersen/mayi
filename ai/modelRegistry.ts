@@ -11,8 +11,8 @@
  *   const model = modelRegistry.languageModel("default:gemini");  // Gemini 3 Flash Preview
  *   const model = modelRegistry.languageModel("default:grok");    // Grok 4.1 Fast
  *
- *   // Direct provider access (for experimentation only)
- *   const model = modelRegistry.languageModel("openai:gpt-5-mini");
+ *   // Direct provider access (for experimentation only - not tested!)
+ *   const model = modelRegistry.languageModel("openai:some-model-id");
  */
 
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -79,7 +79,7 @@ export const CANONICAL_MODELS = {
  * Wrap a model with devtools middleware for debugging
  *
  * Usage:
- *   const model = withDevTools(modelRegistry.languageModel("xai:grok-4-1-fast-reasoning"));
+ *   const model = withDevTools(modelRegistry.languageModel("default:grok"));
  */
 export function withDevTools<T extends ReturnType<typeof wrapLanguageModel>>(
   model: T
