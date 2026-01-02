@@ -124,6 +124,52 @@ export function DiscardPileDisplayStory() {
         </p>
       </section>
 
+      {/* Disabled vs Interactive Comparison */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Disabled vs Interactive</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          When no onClick handler is provided, the pile appears muted to indicate pickup is not available.
+        </p>
+        <div className="flex gap-6 items-end">
+          <div className="text-center">
+            <DiscardPileDisplay topCard={FACE_CARD} size="md" />
+            <p className="text-xs text-muted-foreground mt-2">Disabled (no onClick)</p>
+          </div>
+          <div className="text-center">
+            <DiscardPileDisplay
+              topCard={FACE_CARD}
+              size="md"
+              onClick={() => alert("Clicked!")}
+              isClickable
+            />
+            <p className="text-xs text-muted-foreground mt-2">Clickable</p>
+          </div>
+          <div className="text-center">
+            <DiscardPileDisplay
+              topCard={FACE_CARD}
+              size="md"
+              interactiveLabel="pickup"
+              onClick={() => alert("Pickup!")}
+            />
+            <p className="text-xs text-muted-foreground mt-2">Interactive Pickup</p>
+          </div>
+        </div>
+        <div className="flex gap-6 items-end mt-6">
+          <div className="text-center">
+            <DiscardPileDisplay topCard={SAMPLE_CARD} size="sm" />
+            <p className="text-xs text-muted-foreground mt-2">Small disabled</p>
+          </div>
+          <div className="text-center">
+            <DiscardPileDisplay topCard={WILD_CARD} size="lg" />
+            <p className="text-xs text-muted-foreground mt-2">Large disabled</p>
+          </div>
+          <div className="text-center">
+            <DiscardPileDisplay topCard={JOKER} size="md" />
+            <p className="text-xs text-muted-foreground mt-2">Joker disabled</p>
+          </div>
+        </div>
+      </section>
+
       {/* Interactive with May I? Label */}
       <section>
         <h2 className="text-lg font-semibold mb-3">Interactive: May I?</h2>

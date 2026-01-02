@@ -37,6 +37,8 @@ export function DiscardPileDisplay({
   const { width, height } = DIMENSIONS[size];
   const hasInteractiveLabel = Boolean(interactiveLabel && onClick);
   const showClickableRing = isClickable && onClick && !hasInteractiveLabel;
+  // Show disabled state when there's no way to interact with the pile
+  const isDisabled = !onClick;
 
   return (
     <div className={cn("flex flex-col items-center gap-1", className)}>
@@ -52,7 +54,12 @@ export function DiscardPileDisplay({
       ) : (
         <div
           className="relative"
-          style={{ width: width + 4, height: height + 4 }}
+          style={{
+            width: width + 4,
+            height: height + 4,
+            filter: isDisabled ? "saturate(0.3)" : undefined,
+            cursor: isDisabled ? "not-allowed" : undefined,
+          }}
         >
           {/* Stack effect - back cards */}
           <div
