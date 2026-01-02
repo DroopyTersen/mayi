@@ -4,6 +4,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/shadcn/components/ui/card";
+import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import { ConnectionStatusIndicator } from "./ConnectionStatusIndicator";
 import { LobbyPlayersList } from "./LobbyPlayersList";
@@ -13,6 +14,7 @@ import { AddAIPlayerDialog } from "./AddAIPlayerDialog";
 import { AIPlayersList } from "./AIPlayersList";
 import { StartingRoundSelector } from "./StartingRoundSelector";
 import { StartGameButton } from "./StartGameButton";
+import { UserPlus, Pencil } from "lucide-react";
 import type {
   ConnectionStatus,
   JoinStatus,
@@ -69,6 +71,10 @@ export function LobbyView({
   const isJoining = joinStatus === "joining";
   const isJoined = joinStatus === "joined";
 
+  // Get current player's name for pre-filling the name dialog
+  const currentPlayer = players.find((p) => p.playerId === currentPlayerId);
+  const currentPlayerName = currentPlayer?.name;
+
   // Calculate total player count (human + AI)
   const humanCount = players.length;
   const aiCount = gameSettings?.aiPlayers.length ?? 0;
@@ -86,6 +92,26 @@ export function LobbyView({
         </div>
         <ConnectionStatusIndicator status={connectionStatus} />
       </div>
+
+      {/* Join/Change Name button - prominent CTA */}
+      <Button
+        size="lg"
+        className="w-full"
+        variant={isJoined ? "outline" : "default"}
+        onClick={() => onNamePromptChange(true)}
+      >
+        {isJoined ? (
+          <>
+            <Pencil className="h-4 w-4 mr-2" />
+            Change Name
+          </>
+        ) : (
+          <>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Join Game
+          </>
+        )}
+      </Button>
 
       {/* Share link card */}
       <ShareLinkCard roomId={roomId} shareUrl={shareUrl} />
@@ -177,6 +203,7 @@ export function LobbyView({
         onOpenChange={onNamePromptChange}
         onSubmit={onJoin}
         isSubmitting={isJoining}
+        defaultName={currentPlayerName}
       />
     </div>
   );
