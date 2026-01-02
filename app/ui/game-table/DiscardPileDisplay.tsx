@@ -1,5 +1,6 @@
 import type { Card } from "core/card/card.types";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
+import { CARD_DIMENSIONS, type CardSize } from "~/ui/playing-card/playing-card.constants";
 import { cn } from "~/shadcn/lib/utils";
 
 type InteractiveLabel = "pickup" | "may-i";
@@ -8,7 +9,7 @@ interface DiscardPileDisplayProps {
   topCard: Card | null;
   onClick?: () => void;
   isClickable?: boolean;
-  size?: "sm" | "md" | "lg";
+  size?: CardSize;
   /** Shows a targeting overlay with label for touch interaction */
   interactiveLabel?: InteractiveLabel;
   className?: string;
@@ -19,13 +20,6 @@ const LABEL_TEXT: Record<InteractiveLabel, string> = {
   "may-i": "May I?",
 };
 
-// Card dimensions for positioning the stack effect (must match PlayingCard sizes)
-const DIMENSIONS = {
-  sm: { width: 48, height: 68 },
-  md: { width: 64, height: 90 },
-  lg: { width: 96, height: 134 },
-} as const;
-
 export function DiscardPileDisplay({
   topCard,
   onClick,
@@ -34,7 +28,7 @@ export function DiscardPileDisplay({
   interactiveLabel,
   className,
 }: DiscardPileDisplayProps) {
-  const { width, height } = DIMENSIONS[size];
+  const { width, height } = CARD_DIMENSIONS[size];
   const hasInteractiveLabel = Boolean(interactiveLabel && onClick);
   const showClickableRing = isClickable && onClick && !hasInteractiveLabel;
   // Show disabled state when there's no way to interact with the pile

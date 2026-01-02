@@ -15,8 +15,15 @@ import { LayOffView } from "~/ui/lay-off-view/LayOffView";
 import { DiscardView } from "~/ui/discard-view/DiscardView";
 import { SwapJokerView } from "~/ui/swap-joker-view/SwapJokerView";
 import { OrganizeHandView } from "~/ui/organize-hand/OrganizeHandView";
+import { HandDrawer } from "~/ui/hand-drawer/HandDrawer";
+import { useMediaQuery } from "~/shadcn/hooks/useMediaQuery";
+import { MOBILE_MEDIA_QUERY } from "~/ui/playing-card/playing-card.constants";
+import { getDiscardInteractiveLabel, getTurnPhaseText } from "./game-view.utils";
 import { cn } from "~/shadcn/lib/utils";
 import { Layers } from "lucide-react";
+
+/** Height reserved for the mobile hand drawer at bottom */
+const MOBILE_DRAWER_PADDING = 300;
 
 interface ActivityEntry {
   id: string;
@@ -47,9 +54,7 @@ export function GameView({
   errorMessage,
   className,
 }: GameViewProps) {
-  // Debug logging for error message
-  console.log("[GameView] errorMessage prop:", errorMessage);
-
+  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(
     new Set()
   );
@@ -123,8 +128,6 @@ export function GameView({
   // Handle discard action
   const handleDiscard = useCallback(
     (cardId: string) => {
-      console.log("[GameView] handleDiscard called with cardId:", cardId);
-      console.log("[GameView] onAction exists:", !!onAction);
       onAction?.("discard", { selectedCardIds: [cardId] });
       setActiveDrawer(null);
     },
@@ -195,15 +198,21 @@ export function GameView({
   const currentPlayerId = gameState.awaitingPlayerId;
 
   // Interactive discard label - driven by availableActions
-  const discardInteractiveLabel = useMemo(() => {
-    if (gameState.availableActions.canDrawFromDiscard) {
-      return "pickup" as const;
-    }
-    if (gameState.availableActions.canMayI) {
-      return "may-i" as const;
-    }
-    return undefined;
-  }, [gameState.availableActions]);
+  const discardInteractiveLabel = useMemo(
+    () => getDiscardInteractiveLabel(gameState.availableActions),
+    [gameState.availableActions]
+  );
+
+  // Turn phase text for display
+  const awaitingPlayerName = useMemo(() => {
+    const opponent = gameState.opponents.find((o) => o.id === currentPlayerId);
+    return opponent?.name;
+  }, [gameState.opponents, currentPlayerId]);
+
+  const turnPhaseText = useMemo(
+    () => getTurnPhaseText(gameState.isYourTurn, gameState.turnPhase, awaitingPlayerName),
+    [gameState.isYourTurn, gameState.turnPhase, awaitingPlayerName]
+  );
 
   return (
     <div className={cn("flex flex-col min-h-screen", className)}>
@@ -231,45 +240,30 @@ export function GameView({
       )}
 
       {/* Main Content - Responsive Layout */}
-      <div className="flex-1 p-4">
+      <div className={cn(
+        "flex-1 p-4 min-h-0 overflow-y-auto",
+        isMobile && `pb-[${MOBILE_DRAWER_PADDING}px]`
+      )}>
         {/* Desktop: 2-column layout, Mobile: stacked */}
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-          {/* Left Column: Game Table Area */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Table and Discard */}
-            <div className="rounded-lg border bg-card p-4 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          {/* Left Column: Game Table Area - scroll container on desktop */}
+          <div className="lg:col-span-2 flex flex-col min-h-0">
+            {/* Table - Melds only (piles moved to bottom section) */}
+            <div className="rounded-lg border bg-card p-4 flex flex-col min-h-0 flex-1">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-4 shrink-0">
                 <Layers className="w-4 h-4" />
                 <span>Table</span>
               </div>
 
-              {/* Discard pile and stock pile */}
-              <div className="flex items-start gap-4">
-                <DiscardPileDisplay
-                  topCard={gameState.topDiscard}
-                  size="md"
-                  isClickable={gameState.availableActions.canDrawFromDiscard}
-                  interactiveLabel={discardInteractiveLabel}
-                  onClick={
-                    discardInteractiveLabel
-                      ? () => handleAction(discardInteractiveLabel === "pickup" ? "pickUpDiscard" : "mayI")
-                      : undefined
-                  }
-                />
-                <StockPileDisplay
-                  size="md"
-                  isClickable={gameState.availableActions.canDrawFromStock}
-                  onClick={() => handleAction("drawStock")}
+              {/* Melds on table - scrollable */}
+              <div className="overflow-y-auto flex-1 min-h-0">
+                <TableDisplay
+                  melds={gameState.table}
+                  players={tablePlayers}
+                  currentPlayerId={currentPlayerId}
+                  viewingPlayerId={gameState.viewingPlayerId}
                 />
               </div>
-
-              {/* Melds on table */}
-              <TableDisplay
-                melds={gameState.table}
-                players={tablePlayers}
-                currentPlayerId={currentPlayerId}
-                viewingPlayerId={gameState.viewingPlayerId}
-              />
             </div>
           </div>
 
@@ -298,49 +292,85 @@ export function GameView({
         </div>
       </div>
 
-      {/* Your Hand - Fixed at bottom on mobile, inline on desktop */}
-      <div className="sticky bottom-0 z-10 bg-background border-t">
-        <div className="max-w-6xl mx-auto p-4 space-y-3">
-          {/* Turn status indicator */}
-          <div className="flex items-center justify-between text-sm">
-            <span
-              className={cn(
-                "font-medium",
-                gameState.isYourTurn ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              {gameState.isYourTurn
-                ? gameState.turnPhase === "AWAITING_DRAW"
-                  ? "Your turn - Draw a card"
-                  : gameState.turnPhase === "AWAITING_DISCARD"
-                    ? "Your turn - Discard a card"
-                    : "Your turn"
-                : `Waiting for ${gameState.opponents.find((o) => o.id === currentPlayerId)?.name ?? "other player"}`}
-            </span>
-            {selectedCardIds.size > 0 && (
-              <span className="text-muted-foreground">
-                {selectedCardIds.size} card{selectedCardIds.size !== 1 && "s"}{" "}
-                selected
+      {/* Mobile: Swipeable Hand Drawer */}
+      {isMobile && (
+        <HandDrawer
+          hand={gameState.yourHand}
+          topDiscard={gameState.topDiscard}
+          turnPhaseText={turnPhaseText}
+          selectedCardIds={selectedCardIds}
+          onCardClick={handleCardClick}
+          onAction={handleAction}
+          availableActions={gameState.availableActions}
+        />
+      )}
+
+      {/* Desktop: Fixed bottom section with piles + hand + action bar */}
+      {!isMobile && (
+        <div className="sticky bottom-0 z-10 bg-background border-t">
+          <div className="max-w-6xl mx-auto p-4 space-y-3">
+            {/* Turn status indicator */}
+            <div className="flex items-center justify-between text-sm">
+              <span
+                className={cn(
+                  "font-medium",
+                  gameState.isYourTurn ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                {turnPhaseText}
               </span>
-            )}
+              {selectedCardIds.size > 0 && (
+                <span className="text-muted-foreground">
+                  {selectedCardIds.size} card{selectedCardIds.size !== 1 && "s"}{" "}
+                  selected
+                </span>
+              )}
+            </div>
+
+            {/* Piles + Hand - Flexible layout */}
+            <div className="flex flex-wrap items-end justify-center gap-4 lg:gap-6">
+              {/* Discard and Stock piles - sized to match hand cards */}
+              <div className="flex gap-4 shrink-0">
+                <DiscardPileDisplay
+                  topCard={gameState.topDiscard}
+                  size="lg"
+                  isClickable={gameState.availableActions.canDrawFromDiscard}
+                  interactiveLabel={discardInteractiveLabel}
+                  onClick={
+                    discardInteractiveLabel
+                      ? () => handleAction(discardInteractiveLabel === "pickup" ? "pickUpDiscard" : "mayI")
+                      : undefined
+                  }
+                />
+                {gameState.isYourTurn && (
+                  <StockPileDisplay
+                    size="lg"
+                    isClickable={gameState.availableActions.canDrawFromStock}
+                    onClick={() => handleAction("drawStock")}
+                  />
+                )}
+              </div>
+
+              {/* Hand Display - flexible, centered */}
+              <div className="flex-1 min-w-0 basis-48">
+                <HandDisplay
+                  cards={gameState.yourHand}
+                  selectedIds={selectedCardIds}
+                  onCardClick={handleCardClick}
+                  size="auto"
+                  className="justify-center"
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Hand Display - centered with full width for container query */}
-          <HandDisplay
-            cards={gameState.yourHand}
-            selectedIds={selectedCardIds}
-            onCardClick={handleCardClick}
-            size="auto"
-            className="justify-center"
+          {/* Action Bar */}
+          <ActionBar
+            availableActions={gameState.availableActions}
+            onAction={handleAction}
           />
         </div>
-
-        {/* Action Bar */}
-        <ActionBar
-          availableActions={gameState.availableActions}
-          onAction={handleAction}
-        />
-      </div>
+      )}
 
       {/* Lay Down Drawer */}
       <ResponsiveDrawer
@@ -369,6 +399,8 @@ export function GameView({
         <LayOffView
           hand={gameState.yourHand}
           tableMelds={gameState.table}
+          players={tablePlayers}
+          viewingPlayerId={gameState.viewingPlayerId}
           onLayOff={handleLayOff}
           onDone={closeDrawer}
         />

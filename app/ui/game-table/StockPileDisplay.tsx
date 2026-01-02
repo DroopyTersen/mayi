@@ -1,19 +1,13 @@
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
+import { CARD_DIMENSIONS, type CardSize } from "~/ui/playing-card/playing-card.constants";
 import { cn } from "~/shadcn/lib/utils";
 
 interface StockPileDisplayProps {
   isClickable?: boolean;
   onClick?: () => void;
-  size?: "sm" | "md" | "lg";
+  size?: CardSize;
   className?: string;
 }
-
-// Card dimensions - shared with DiscardPileDisplay (must match PlayingCard sizes)
-const DIMENSIONS = {
-  sm: { width: 48, height: 68 },
-  md: { width: 64, height: 90 },
-  lg: { width: 96, height: 134 },
-} as const;
 
 /**
  * Stock pile display showing a facedown card
@@ -26,7 +20,7 @@ export function StockPileDisplay({
 }: StockPileDisplayProps) {
   // We need a dummy card for faceDown rendering
   const dummyCard = { id: "stock", rank: "A" as const, suit: "spades" as const };
-  const { width, height } = DIMENSIONS[size];
+  const { width, height } = CARD_DIMENSIONS[size];
 
   return (
     <div className={cn("flex flex-col items-center gap-1", className)}>
