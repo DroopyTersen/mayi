@@ -11,13 +11,17 @@ interface PlayerStatus {
 
 interface PlayersTableDisplayProps {
   players: PlayerStatus[];
-  currentPlayerId?: string;
+  /** The player viewing this table (shows "(You)" label) */
+  viewingPlayerId?: string;
+  /** The player whose turn it is (highlighted row) */
+  activePlayerId?: string;
   className?: string;
 }
 
 export function PlayersTableDisplay({
   players,
-  currentPlayerId,
+  viewingPlayerId,
+  activePlayerId,
   className,
 }: PlayersTableDisplayProps) {
   return (
@@ -33,25 +37,26 @@ export function PlayersTableDisplay({
         </thead>
         <tbody>
           {players.map((player) => {
-            const isCurrentPlayer = player.id === currentPlayerId;
+            const isViewingPlayer = player.id === viewingPlayerId;
+            const isActivePlayer = player.id === activePlayerId;
             return (
               <tr
                 key={player.id}
                 className={cn(
                   "border-t border-border",
-                  isCurrentPlayer && "bg-primary/5"
+                  isActivePlayer && "bg-primary/10"
                 )}
               >
                 <td className="py-2 px-3">
                   <span
                     className={cn(
                       "font-medium",
-                      isCurrentPlayer && "text-primary"
+                      isActivePlayer && "text-primary"
                     )}
                   >
                     {player.name}
                   </span>
-                  {isCurrentPlayer && (
+                  {isViewingPlayer && (
                     <span className="ml-1 text-xs text-muted-foreground">
                       (You)
                     </span>

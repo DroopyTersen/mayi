@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import type { PlayerView } from "~/party/protocol.types";
 import { GameHeader } from "~/ui/game-status/GameHeader";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
@@ -54,6 +54,20 @@ export function GameView({
     new Set()
   );
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+
+  // Clean up stale selected card IDs when hand changes
+  // This fixes the bug where "X cards selected" persists after discarding
+  useEffect(() => {
+    const handCardIds = new Set(gameState.yourHand.map((c) => c.id));
+    setSelectedCardIds((prev) => {
+      const cleaned = new Set([...prev].filter((id) => handCardIds.has(id)));
+      // Only update if there's a difference to avoid infinite loops
+      if (cleaned.size !== prev.size) {
+        return cleaned;
+      }
+      return prev;
+    });
+  }, [gameState.yourHand]);
 
   // Toggle card selection
   const handleCardClick = useCallback((cardId: string) => {
@@ -137,6 +151,7 @@ export function GameView({
 
 
   // Build players list for TableDisplay and PlayersTableDisplay
+  // Players are ordered by turnOrder from the game state
   const allPlayers = useMemo(() => {
     const self = {
       id: gameState.viewingPlayerId,
@@ -145,14 +160,30 @@ export function GameView({
       isDown: gameState.youAreDown,
       score: gameState.yourTotalScore,
     };
-    const others = gameState.opponents.map((opp) => ({
-      id: opp.id,
-      name: opp.name,
-      cardCount: opp.handCount,
-      isDown: opp.isDown,
-      score: opp.totalScore,
-    }));
-    return [self, ...others];
+    const othersMap = new Map(
+      gameState.opponents.map((opp) => [
+        opp.id,
+        {
+          id: opp.id,
+          name: opp.name,
+          cardCount: opp.handCount,
+          isDown: opp.isDown,
+          score: opp.totalScore,
+        },
+      ])
+    );
+
+    // Order players by turnOrder (if available), otherwise fall back to self-first
+    if (gameState.turnOrder && gameState.turnOrder.length > 0) {
+      return gameState.turnOrder.map((playerId) =>
+        playerId === gameState.viewingPlayerId
+          ? self
+          : othersMap.get(playerId)!
+      );
+    }
+
+    // Fallback for older state without turnOrder
+    return [self, ...Array.from(othersMap.values())];
   }, [gameState]);
 
   // Build simple players list for TableDisplay (just id and name)
@@ -237,6 +268,7 @@ export function GameView({
                 melds={gameState.table}
                 players={tablePlayers}
                 currentPlayerId={currentPlayerId}
+                viewingPlayerId={gameState.viewingPlayerId}
               />
             </div>
           </div>
@@ -250,7 +282,8 @@ export function GameView({
               </h3>
               <PlayersTableDisplay
                 players={allPlayers}
-                currentPlayerId={gameState.viewingPlayerId}
+                viewingPlayerId={gameState.viewingPlayerId}
+                activePlayerId={gameState.awaitingPlayerId}
               />
             </div>
 

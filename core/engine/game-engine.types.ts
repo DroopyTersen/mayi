@@ -299,6 +299,13 @@ export interface PlayerView {
 
   /** What actions this player can currently take */
   availableActions: AvailableActions;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Turn Order
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** All player IDs in turn order (for UI display) */
+  turnOrder: string[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

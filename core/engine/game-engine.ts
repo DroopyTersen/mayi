@@ -238,6 +238,7 @@ export class GameEngine {
       roundHistory: [...snapshot.roundHistory],
       mayIContext: snapshot.mayIContext ? { ...snapshot.mayIContext } : null,
       availableActions: getAvailableActions(snapshot, playerId),
+      turnOrder: snapshot.players.map((p) => p.id),
     };
   }
 

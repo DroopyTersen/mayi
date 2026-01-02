@@ -35,19 +35,22 @@ export function PlayersTableDisplayStory() {
         <PlayersTableDisplay players={SAMPLE_PLAYERS} />
       </section>
 
-      {/* With Current Player */}
+      {/* With Active Player (whose turn) */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">With Current Player</h2>
-        <PlayersTableDisplay players={SAMPLE_PLAYERS} currentPlayerId="p1" />
+        <h2 className="text-lg font-semibold mb-3">With Active Player</h2>
+        <PlayersTableDisplay players={SAMPLE_PLAYERS} activePlayerId="p1" viewingPlayerId="p2" />
         <p className="text-xs text-muted-foreground mt-2">
-          Alice is the current player, row is highlighted.
+          Alice's turn (highlighted). Bob is "You".
         </p>
       </section>
 
-      {/* Current Player in Middle */}
+      {/* Your Turn */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Current Player in Middle</h2>
-        <PlayersTableDisplay players={SAMPLE_PLAYERS} currentPlayerId="p3" />
+        <h2 className="text-lg font-semibold mb-3">Your Turn</h2>
+        <PlayersTableDisplay players={SAMPLE_PLAYERS} activePlayerId="p1" viewingPlayerId="p1" />
+        <p className="text-xs text-muted-foreground mt-2">
+          Alice is both the viewing player and active player.
+        </p>
       </section>
 
       {/* Early Game */}
@@ -55,19 +58,20 @@ export function PlayersTableDisplayStory() {
         <h2 className="text-lg font-semibold mb-3">Early Game</h2>
         <PlayersTableDisplay
           players={EARLY_GAME_PLAYERS}
-          currentPlayerId="p2"
+          activePlayerId="p2"
+          viewingPlayerId="p1"
         />
         <p className="text-xs text-muted-foreground mt-2">
-          No one is down yet, all scores are 0.
+          No one is down yet, all scores are 0. Bob's turn.
         </p>
       </section>
 
       {/* Two Players */}
       <section>
         <h2 className="text-lg font-semibold mb-3">Two Players</h2>
-        <PlayersTableDisplay players={TWO_PLAYERS} currentPlayerId="p2" />
+        <PlayersTableDisplay players={TWO_PLAYERS} activePlayerId="p2" viewingPlayerId="p1" />
         <p className="text-xs text-muted-foreground mt-2">
-          Bob just went out (0 cards).
+          Bob just went out (0 cards). Bob's turn.
         </p>
       </section>
 
@@ -75,7 +79,7 @@ export function PlayersTableDisplayStory() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Full Width</h2>
         <div className="max-w-xl">
-          <PlayersTableDisplay players={SAMPLE_PLAYERS} currentPlayerId="p1" />
+          <PlayersTableDisplay players={SAMPLE_PLAYERS} activePlayerId="p3" viewingPlayerId="p1" />
         </div>
       </section>
 
@@ -87,7 +91,7 @@ export function PlayersTableDisplayStory() {
         </p>
         <ViewportComparison>
           <div className="p-2">
-            <PlayersTableDisplay players={SAMPLE_PLAYERS} currentPlayerId="p1" />
+            <PlayersTableDisplay players={SAMPLE_PLAYERS} activePlayerId="p1" viewingPlayerId="p2" />
           </div>
         </ViewportComparison>
       </section>
