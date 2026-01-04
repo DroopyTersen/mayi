@@ -18,8 +18,13 @@ import { OrganizeHandViewStory } from "~/ui/organize-hand/OrganizeHandView.story
 import { SwapJokerViewStory } from "~/ui/swap-joker-view/SwapJokerView.story";
 import { MayIRequestViewStory } from "~/ui/may-i-request/MayIRequestView.story";
 import { LobbyViewStory } from "~/ui/lobby/LobbyView.story";
+import { GameViewStory } from "~/ui/game-view/GameView.story";
+import { HandDrawerStory, HandDrawerFullscreenTest } from "~/ui/hand-drawer/HandDrawer.story";
 
-const STORIES: Array<{ path: string; label: string; component: React.ComponentType }> = [
+const STORIES: Array<{ path: string; label: string; component: React.ComponentType; fullscreen?: boolean }> = [
+  { path: "game-view", label: "GameView (Layout)", component: GameViewStory },
+  { path: "hand-drawer", label: "HandDrawer (Mobile)", component: HandDrawerStory },
+  { path: "hand-drawer-fullscreen", label: "HandDrawer (Fullscreen)", component: HandDrawerFullscreenTest, fullscreen: true },
   { path: "lobby-view", label: "LobbyView", component: LobbyViewStory },
   { path: "playing-card", label: "PlayingCard", component: PlayingCardStory },
   { path: "hand-display", label: "HandDisplay", component: HandDisplayStory },
@@ -45,6 +50,11 @@ export function StorybookLayout() {
   const currentPath = params["*"] || "";
   const currentStory = STORIES.find((s) => s.path === currentPath);
   const StoryComponent = currentStory?.component;
+
+  // Fullscreen stories render without the sidebar layout
+  if (currentStory?.fullscreen && StoryComponent) {
+    return <StoryComponent />;
+  }
 
   return (
     <div className="flex h-screen bg-background">

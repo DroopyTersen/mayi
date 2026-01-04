@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { Drawer } from "vaul";
 import type { Card } from "core/card/card.types";
 import type { AvailableActions } from "core/engine/game-engine.availability";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
@@ -13,8 +14,6 @@ interface HandDrawerProps {
   hand: Card[];
   /** Top card of the discard pile */
   topDiscard: Card | null;
-  /** Turn phase text to display */
-  turnPhaseText: string;
   /** Currently selected card IDs */
   selectedCardIds: Set<string>;
   /** Callback when a card is clicked */
@@ -23,42 +22,51 @@ interface HandDrawerProps {
   onAction: (action: string) => void;
   /** Available actions - drives all button visibility and interactions */
   availableActions: AvailableActions;
+  /** Optional container element for Portal (useful for storybook/testing) */
+  container?: HTMLElement | null;
 }
 
-type DrawerState = "minimized" | "collapsed" | "expanded";
-
-// Heights for each state
-const DRAWER_HEIGHTS = {
-  minimized: "100px",
-  collapsed: "280px",
-  expanded: "85vh",
-} as const;
+// Snap points: minimized (peek cards), half (comfortable view), expanded (full + actions)
+const SNAP_POINTS = ["85px", "50%", 0.9] as const;
+type SnapPoint = (typeof SNAP_POINTS)[number];
 
 /**
- * Bottom drawer for the player's hand on mobile.
- * Three states: minimized (peek), collapsed (hand visible), expanded (full view).
+ * Bottom drawer for the player's hand on mobile using Vaul snap points.
+ *
+ * Three states:
+ * - Minimized (85px): Cards peek out, not interactive. Tap/swipe to expand.
+ * - Half (50%): Full hand view with piles, scrollable, interactive.
+ * - Expanded (90%): Full view with action bar visible.
+ *
+ * Background overlay appears at half+ and tapping it minimizes the drawer.
  */
 export function HandDrawer({
   hand,
   topDiscard,
-  turnPhaseText,
   selectedCardIds,
   onCardClick,
   onAction,
   availableActions,
+  container,
 }: HandDrawerProps) {
-  const [drawerState, setDrawerState] = useState<DrawerState>("collapsed");
-  const touchStartY = useRef<number | null>(null);
+  const [snap, setSnap] = useState<SnapPoint | null>(SNAP_POINTS[0]);
 
-  // Derive turn state from available actions (same pattern as ActionBar)
-  const isYourTurn = availableActions.canDrawFromStock || availableActions.canLayDown ||
-                     availableActions.canDiscard || availableActions.canLayOff;
+  // Derive turn state from available actions
+  const isYourTurn =
+    availableActions.canDrawFromStock ||
+    availableActions.canLayDown ||
+    availableActions.canDiscard ||
+    availableActions.canLayOff;
 
-  // Interactive label for discard pile - reuses shared utility
+  // Interactive label for discard pile
   const discardInteractiveLabel = useMemo(
     () => getDiscardInteractiveLabel(availableActions),
     [availableActions]
   );
+
+  // State checks
+  const isMinimized = snap === SNAP_POINTS[0];
+  const isHalfOrExpanded = snap === SNAP_POINTS[1] || snap === SNAP_POINTS[2];
 
   // Handle discard pile click
   const handleDiscardClick = useCallback(() => {
@@ -76,141 +84,115 @@ export function HandDrawer({
     }
   }, [availableActions.canDrawFromStock, onAction]);
 
-  // Touch handlers for swipe gesture on the handle
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    if (touch) {
-      touchStartY.current = touch.clientY;
-    }
+  // Handle overlay click - minimize the drawer
+  const handleOverlayClick = useCallback(() => {
+    setSnap(SNAP_POINTS[0]);
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (touchStartY.current === null) return;
-
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-
-    const touchEndY = touch.clientY;
-    const deltaY = touchStartY.current - touchEndY;
-
-    // Swipe up = expand one level, swipe down = collapse one level
-    if (deltaY > 50) {
-      // Swipe up
-      setDrawerState(prev => {
-        if (prev === "minimized") return "collapsed";
-        if (prev === "collapsed") return "expanded";
-        return prev;
-      });
-    } else if (deltaY < -50) {
-      // Swipe down
-      setDrawerState(prev => {
-        if (prev === "expanded") return "collapsed";
-        if (prev === "collapsed") return "minimized";
-        return prev;
-      });
-    }
-
-    touchStartY.current = null;
-  }, []);
-
-  // Cycle through states on tap
-  const handleToggle = useCallback(() => {
-    setDrawerState(prev => {
-      if (prev === "minimized") return "collapsed";
-      if (prev === "collapsed") return "expanded";
-      return "minimized";
-    });
-  }, []);
-
-  // When minimized, the entire drawer should be swipeable to expand
-  const isMinimized = drawerState === "minimized";
+  // Handle card click - only if not minimized
+  const handleCardClick = useCallback(
+    (cardId: string) => {
+      if (!isMinimized) {
+        onCardClick(cardId);
+      }
+    },
+    [isMinimized, onCardClick]
+  );
 
   return (
-    <div
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-50 flex flex-col",
-        "bg-background border-t rounded-t-xl shadow-lg",
-        "transition-[height] duration-300 ease-out",
-        // When minimized, make entire drawer swipeable
-        isMinimized && "touch-none cursor-grab active:cursor-grabbing"
-      )}
-      style={{ height: DRAWER_HEIGHTS[drawerState] }}
-      // Apply touch handlers to entire drawer when minimized
-      onTouchStart={isMinimized ? handleTouchStart : undefined}
-      onTouchEnd={isMinimized ? handleTouchEnd : undefined}
-      onClick={isMinimized ? handleToggle : undefined}
+    <Drawer.Root
+      open={true}
+      snapPoints={SNAP_POINTS as unknown as (string | number)[]}
+      activeSnapPoint={snap}
+      setActiveSnapPoint={setSnap as (snap: string | number | null) => void}
+      fadeFromIndex={1}
+      modal={false}
+      dismissible={false}
     >
-      {/* Drag Handle - swipeable area (always works, but entire drawer works when minimized) */}
-      <div
-        className={cn(
-          "flex flex-col items-center pt-3 pb-2 shrink-0",
-          // Only show grab cursor on handle when not minimized (whole drawer has it when minimized)
-          !isMinimized && "cursor-grab active:cursor-grabbing touch-none"
+      <Drawer.Portal container={container}>
+        {/* Overlay - only visible at half+ */}
+        {isHalfOrExpanded && (
+          <div
+            className={cn(
+              "bg-black/40 z-40",
+              container ? "absolute inset-0" : "fixed inset-0"
+            )}
+            onClick={handleOverlayClick}
+            aria-hidden="true"
+          />
         )}
-        onTouchStart={!isMinimized ? handleTouchStart : undefined}
-        onTouchEnd={!isMinimized ? handleTouchEnd : undefined}
-        onClick={!isMinimized ? handleToggle : undefined}
-      >
-        <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
-      </div>
 
-      {/* Turn Status - always visible */}
-      <div className="px-4 pb-2 text-sm text-center shrink-0">
-        <span
+        <Drawer.Content
           className={cn(
-            "font-medium",
-            isYourTurn ? "text-primary" : "text-muted-foreground"
+            "inset-x-0 bottom-0 z-50 flex flex-col",
+            "bg-background border-t rounded-t-xl",
+            "outline-none",
+            "h-full max-h-[97%]",
+            container ? "absolute" : "fixed"
           )}
         >
-          {turnPhaseText}
-        </span>
-        {selectedCardIds.size > 0 && (
-          <span className="ml-2 text-muted-foreground">
-            ({selectedCardIds.size} selected)
-          </span>
-        )}
-      </div>
+          {/* Drag Handle */}
+          <div className="flex justify-center pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing">
+            <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
+          </div>
 
-      {/* Hand + Piles Area - scrollable content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-2 min-h-0 flex flex-col">
-        {/* Hand - shown first/above */}
-        <div className="mb-3">
-          <HandDisplay
-            cards={hand}
-            selectedIds={selectedCardIds}
-            onCardClick={onCardClick}
-            size="auto"
-            className="justify-center"
-          />
-        </div>
-
-        {/* Piles row - below hand (only show when not minimized) */}
-        {drawerState !== "minimized" && (
-          <div className="flex gap-3 justify-center mt-auto">
-            <DiscardPileDisplay
-              topCard={topDiscard}
-              size="sm"
-              interactiveLabel={discardInteractiveLabel}
-              isClickable={!!discardInteractiveLabel}
-              onClick={handleDiscardClick}
-            />
-            {isYourTurn && (
-              <StockPileDisplay
-                size="sm"
-                isClickable={availableActions.canDrawFromStock}
-                onClick={handleStockClick}
+          {/* Hand + Piles Area - scrollable content */}
+          <div
+            className={cn(
+              "flex-1 overflow-y-auto px-4 pb-2 min-h-0 flex flex-col",
+              // Disable pointer events when minimized
+              isMinimized && "pointer-events-none"
+            )}
+          >
+            {/* Hand Display */}
+            <div className="mb-3">
+              <HandDisplay
+                cards={hand}
+                selectedIds={isMinimized ? new Set() : selectedCardIds}
+                onCardClick={handleCardClick}
+                size="auto"
+                className="justify-center"
               />
+            </div>
+
+            {/* Selection indicator - only when not minimized */}
+            {!isMinimized && selectedCardIds.size > 0 && (
+              <div className="text-center text-sm text-muted-foreground mb-2">
+                {selectedCardIds.size} card{selectedCardIds.size !== 1 && "s"} selected
+              </div>
+            )}
+
+            {/* Piles row - only show when not minimized */}
+            {isHalfOrExpanded && (
+              <div className="flex gap-3 justify-center mt-auto pt-2">
+                <DiscardPileDisplay
+                  topCard={topDiscard}
+                  size="sm"
+                  interactiveLabel={discardInteractiveLabel}
+                  isClickable={!!discardInteractiveLabel}
+                  onClick={handleDiscardClick}
+                />
+                {isYourTurn && (
+                  <StockPileDisplay
+                    size="sm"
+                    isClickable={availableActions.canDrawFromStock}
+                    onClick={handleStockClick}
+                  />
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Action Bar - same component as desktop */}
-      <ActionBar
-        availableActions={availableActions}
-        onAction={onAction}
-        className="shrink-0"
-      />
-    </div>
+          {/* Action Bar - only when half or expanded */}
+          {isHalfOrExpanded && (
+            <ActionBar
+              availableActions={availableActions}
+              onAction={onAction}
+              className="shrink-0"
+            />
+          )}
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }
