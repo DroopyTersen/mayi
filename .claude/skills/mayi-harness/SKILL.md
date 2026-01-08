@@ -124,4 +124,4 @@ To test laying off a wild card to a run at start vs end:
 }
 ```
 
-See `specs/hydrate-agent-harness.spec.md` for the complete example and full format documentation.
+See `docs/agent-game-harness.md` (Custom Test States section) for the complete example and full format documentation.
