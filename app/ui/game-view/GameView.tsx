@@ -21,6 +21,8 @@ import { MOBILE_MEDIA_QUERY } from "~/ui/playing-card/playing-card.constants";
 import { getDiscardInteractiveLabel, getTurnPhaseText } from "./game-view.utils";
 import { cn } from "~/shadcn/lib/utils";
 import { Layers } from "lucide-react";
+import { identifyJokerPositions } from "core/meld/meld.joker";
+import type { SwappableJoker } from "~/ui/swap-joker-view/swap-joker-view.types";
 
 /** Height reserved for the mobile hand drawer at bottom */
 const MOBILE_DRAWER_PADDING = 300;
@@ -73,6 +75,35 @@ export function GameView({
       return prev;
     });
   }, [gameState.yourHand]);
+
+  // Compute swappable jokers - find jokers in runs where player has matching natural card
+  const swappableJokers = useMemo((): SwappableJoker[] => {
+    const result: SwappableJoker[] = [];
+
+    for (const meld of gameState.table) {
+      if (meld.type !== "run") continue;
+
+      const positions = identifyJokerPositions(meld);
+      for (const pos of positions) {
+        if (!pos.isJoker) continue; // Only actual Jokers, not 2s
+
+        // Check if player has a matching natural card in hand
+        const hasMatchingCard = gameState.yourHand.some(
+          (c) => c.rank === pos.actingAsRank && c.suit === pos.actingAsSuit
+        );
+        if (hasMatchingCard) {
+          result.push({
+            meldId: meld.id,
+            jokerCardId: pos.wildCard.id,
+            jokerIndex: pos.positionIndex,
+            replacementRank: pos.actingAsRank,
+            replacementSuit: pos.actingAsSuit,
+          });
+        }
+      }
+    }
+    return result;
+  }, [gameState.table, gameState.yourHand]);
 
   // Toggle card selection
   const handleCardClick = useCallback((cardId: string) => {
@@ -136,8 +167,8 @@ export function GameView({
 
   // Handle swap joker action
   const handleSwapJoker = useCallback(
-    (meldId: string, jokerIndex: number, cardId: string) => {
-      onAction?.("swapJoker", { meldId, jokerCardId: `joker-${jokerIndex}`, swapCardId: cardId });
+    (meldId: string, jokerCardId: string, swapCardId: string) => {
+      onAction?.("swapJoker", { meldId, jokerCardId, swapCardId });
       setActiveDrawer(null);
     },
     [onAction]
@@ -216,11 +247,13 @@ export function GameView({
 
   return (
     <div className={cn("flex flex-col min-h-screen", className)}>
-      {/* Header */}
+      {/* Header - includes turn status on mobile */}
       <GameHeader
         round={gameState.currentRound}
         totalRounds={6}
         contract={gameState.contract}
+        turnStatus={isMobile ? turnPhaseText : undefined}
+        isYourTurn={isMobile ? gameState.isYourTurn : undefined}
       />
 
       {/* AI Thinking Indicator */}
@@ -297,7 +330,6 @@ export function GameView({
         <HandDrawer
           hand={gameState.yourHand}
           topDiscard={gameState.topDiscard}
-          turnPhaseText={turnPhaseText}
           selectedCardIds={selectedCardIds}
           onCardClick={handleCardClick}
           onAction={handleAction}
@@ -432,7 +464,7 @@ export function GameView({
         <SwapJokerView
           hand={gameState.yourHand}
           meldsWithJokers={gameState.table.filter(m => m.cards.some(c => c.rank === "Joker"))}
-          swappableJokers={[]}
+          swappableJokers={swappableJokers}
           onSwap={handleSwapJoker}
           onCancel={closeDrawer}
         />

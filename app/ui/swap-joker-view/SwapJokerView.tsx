@@ -1,23 +1,17 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
 import type { Meld } from "core/meld/meld.types";
+import type { SwappableJoker } from "./swap-joker-view.types";
 import { MeldDisplay } from "~/ui/game-table/MeldDisplay";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 
-interface SwappableJoker {
-  meldId: string;
-  jokerIndex: number;
-  replacementRank: string;
-  replacementSuit: string;
-}
-
 interface SwapJokerViewProps {
   hand: Card[];
   meldsWithJokers: Meld[];
   swappableJokers: SwappableJoker[];
-  onSwap: (meldId: string, jokerIndex: number, cardId: string) => void;
+  onSwap: (meldId: string, jokerCardId: string, swapCardId: string) => void;
   onCancel: () => void;
   className?: string;
 }
@@ -45,7 +39,7 @@ export function SwapJokerView({
 
   const handleConfirmSwap = (cardId: string) => {
     if (selectedSwap) {
-      onSwap(selectedSwap.meldId, selectedSwap.jokerIndex, cardId);
+      onSwap(selectedSwap.meldId, selectedSwap.jokerCardId, cardId);
     }
   };
 

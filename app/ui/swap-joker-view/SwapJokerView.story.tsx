@@ -1,6 +1,7 @@
 import { SwapJokerView } from "./SwapJokerView";
 import type { Card } from "core/card/card.types";
 import type { Meld } from "core/meld/meld.types";
+import type { SwappableJoker } from "./swap-joker-view.types";
 import { ViewportComparison } from "~/storybook/ViewportSimulator";
 
 const SAMPLE_HAND: Card[] = [
@@ -23,9 +24,10 @@ const MELDS_WITH_JOKERS: Meld[] = [
   },
 ];
 
-const SWAPPABLE_JOKERS = [
+const SWAPPABLE_JOKERS: SwappableJoker[] = [
   {
     meldId: "meld-1",
+    jokerCardId: "2", // The Joker card's ID from MELDS_WITH_JOKERS
     jokerIndex: 1,
     replacementRank: "J",
     replacementSuit: "hearts",
@@ -33,8 +35,8 @@ const SWAPPABLE_JOKERS = [
 ];
 
 export function SwapJokerViewStory() {
-  const handleSwap = (meldId: string, jokerIndex: number, cardId: string) => {
-    alert(`Swapped joker at index ${jokerIndex} in meld ${meldId} with card ${cardId}`);
+  const handleSwap = (meldId: string, jokerCardId: string, swapCardId: string) => {
+    alert(`Swapped joker ${jokerCardId} in meld ${meldId} with card ${swapCardId}`);
   };
 
   const handleCancel = () => {

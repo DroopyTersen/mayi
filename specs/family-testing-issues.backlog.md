@@ -523,3 +523,29 @@ Issues collected from family testing sessions.
 - Or multiple ROUND_ENDED messages causing state thrashing
 
 ---
+
+## FT-1025: Swap Joker UI always shows "No Jokers available" ✅ FIXED
+
+**Description:** When clicking "Swap Joker" button, the UI always showed "No Jokers available to swap" even when the player had the exact natural card needed to swap for a Joker in a run.
+
+**Root Cause:** In `GameView.tsx`, the `swappableJokers` prop was hardcoded as an empty array (`swappableJokers={[]}`). The code never computed which jokers could actually be swapped based on the player's hand.
+
+**Fix:**
+1. Added `useMemo` to compute `swappableJokers` by finding jokers in runs where player has matching natural card
+2. Fixed `handleSwapJoker` callback to pass actual `jokerCardId` instead of constructing fake ID
+3. Extracted `SwappableJoker` interface to shared types file with proper `Rank`/`Suit` types
+4. Updated `SwapJokerView` to use the properly computed swappableJokers array
+
+**Replication Steps:**
+1. Have a run on the table with a Joker (e.g., 10♥-Joker-Q♥-K♥)
+2. Have the natural card in hand that the Joker represents (e.g., J♥)
+3. Click "Swap Joker" button
+4. ~~UI shows "No Jokers available to swap"~~ **FIXED - now shows swappable joker**
+
+**Files Modified:**
+- `app/ui/game-view/GameView.tsx` - Added swappableJokers computation and fixed callback
+- `app/ui/swap-joker-view/SwapJokerView.tsx` - Updated to use shared types
+- `app/ui/swap-joker-view/swap-joker-view.types.ts` - NEW: Shared SwappableJoker interface
+- `app/ui/swap-joker-view/SwapJokerView.story.tsx` - Updated to use proper types
+
+---
