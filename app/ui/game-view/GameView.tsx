@@ -10,7 +10,7 @@ import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
 import { AIThinkingIndicator } from "./AIThinkingIndicator";
 import { ResponsiveDrawer } from "~/ui/responsive-drawer/ResponsiveDrawer";
-import { LayDownView } from "~/ui/lay-down-view/LayDownView";
+import { LayDownDrawer } from "~/ui/lay-down-view/LayDownDrawer";
 import { LayOffView } from "~/ui/lay-off-view/LayOffView";
 import { DiscardView } from "~/ui/discard-view/DiscardView";
 import { SwapJokerView } from "~/ui/swap-joker-view/SwapJokerView";
@@ -405,20 +405,14 @@ export function GameView({
       )}
 
       {/* Lay Down Drawer */}
-      <ResponsiveDrawer
+      <LayDownDrawer
         open={activeDrawer === "layDown"}
         onOpenChange={(open) => !open && closeDrawer()}
-        title="Lay Down"
-        description="Arrange your cards into melds"
-        className="sm:max-w-lg"
-      >
-        <LayDownView
-          hand={gameState.yourHand}
-          contract={gameState.contract}
-          onLayDown={handleLayDown}
-          onCancel={closeDrawer}
-        />
-      </ResponsiveDrawer>
+        hand={gameState.yourHand}
+        contract={gameState.contract}
+        onLayDown={handleLayDown}
+        onCancel={closeDrawer}
+      />
 
       {/* Lay Off Drawer */}
       <ResponsiveDrawer

@@ -87,77 +87,11 @@ export function LayDownView({
   );
 
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
-      <div className="text-center">
-        <h2 className="text-lg font-semibold">Lay Down Your Contract</h2>
-        <p className="text-sm text-muted-foreground">
-          {contract.sets} set{contract.sets !== 1 ? "s" : ""} + {contract.runs} run{contract.runs !== 1 ? "s" : ""}
-        </p>
-      </div>
-
-      {/* Staging areas */}
-      <div className="space-y-3">
-        {stagedMelds.map((meld, index) => (
-          <div
-            key={index}
-            data-testid={`meld-${meld.type}-${index + 1}`}
-            data-meld-index={index}
-            data-meld-type={meld.type}
-            data-meld-active={activeMeldIndex === index}
-            className={cn(
-              "p-3 rounded-lg border-2 cursor-pointer",
-              activeMeldIndex === index
-                ? "border-primary bg-primary/5"
-                : "border-dashed border-muted-foreground/30"
-            )}
-            onClick={() => setActiveMeldIndex(index)}
-          >
-            <div className="text-xs text-muted-foreground mb-2 font-medium">
-              {meld.type === "set" ? "Set" : "Run"} {index + 1}
-              {(() => {
-                const minCards = meld.type === "set" ? 3 : 4;
-                const needed = minCards - meld.cards.length;
-                return needed > 0 ? (
-                  <span className="text-destructive ml-2">
-                    (need {needed} more)
-                  </span>
-                ) : null;
-              })()}
-            </div>
-            {meld.cards.length > 0 ? (
-              <div className="flex gap-1 flex-wrap">
-                {meld.cards.map((card) => (
-                  <div
-                    key={card.id}
-                    className="relative group cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeCardFromMeld(index, card.id);
-                    }}
-                  >
-                    <PlayingCard card={card} size="sm" />
-                    {/* Remove overlay on hover */}
-                    <div className="absolute inset-0 bg-destructive/0 group-hover:bg-destructive/30 rounded-lg transition-colors flex items-center justify-center">
-                      <span className="text-transparent group-hover:text-destructive-foreground text-xs font-bold">
-                        ✕
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">
-                Tap cards below to add
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Available cards */}
-      <div>
+    <div className={cn("flex flex-col flex-1 min-h-0", className)}>
+      {/* Fixed header with contract description and hand */}
+      <div className="flex-shrink-0 pb-3 border-b">
         <p className="text-sm text-muted-foreground mb-2 text-center">
-          Your hand (tap to add to selected meld)
+          {contract.sets} set{contract.sets !== 1 ? "s" : ""} + {contract.runs} run{contract.runs !== 1 ? "s" : ""}
         </p>
         <div className="flex justify-center">
           <HandDisplay
@@ -168,14 +102,77 @@ export function LayDownView({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-center gap-3 pt-2">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button onClick={handleLayDown} disabled={!allMeldsValid}>
-          Lay Down
-        </Button>
+      {/* Scrollable staging areas */}
+      <div className="flex-1 overflow-y-auto py-3 min-h-0">
+        <div className="space-y-3">
+          {stagedMelds.map((meld, index) => (
+            <div
+              key={index}
+              data-testid={`meld-${meld.type}-${index + 1}`}
+              data-meld-index={index}
+              data-meld-type={meld.type}
+              data-meld-active={activeMeldIndex === index}
+              className={cn(
+                "p-3 rounded-lg border-2 cursor-pointer",
+                activeMeldIndex === index
+                  ? "border-primary bg-primary/5"
+                  : "border-dashed border-muted-foreground/30"
+              )}
+              onClick={() => setActiveMeldIndex(index)}
+            >
+              <div className="text-xs text-muted-foreground mb-2 font-medium">
+                {meld.type === "set" ? "Set" : "Run"} {index + 1}
+                {(() => {
+                  const minCards = meld.type === "set" ? 3 : 4;
+                  const needed = minCards - meld.cards.length;
+                  return needed > 0 ? (
+                    <span className="text-destructive ml-2">
+                      (need {needed} more)
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+              {meld.cards.length > 0 ? (
+                <div className="flex gap-1 flex-wrap">
+                  {meld.cards.map((card) => (
+                    <div
+                      key={card.id}
+                      className="relative group cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeCardFromMeld(index, card.id);
+                      }}
+                    >
+                      <PlayingCard card={card} size="sm" />
+                      {/* Remove overlay on hover */}
+                      <div className="absolute inset-0 bg-destructive/0 group-hover:bg-destructive/30 rounded-lg transition-colors flex items-center justify-center">
+                        <span className="text-transparent group-hover:text-destructive-foreground text-xs font-bold">
+                          ✕
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  Add cards from your hand
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Fixed footer with actions */}
+      <div className="flex-shrink-0 pt-3 border-t">
+        <div className="flex justify-center gap-3">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={handleLayDown} disabled={!allMeldsValid}>
+            Lay Down
+          </Button>
+        </div>
       </div>
     </div>
   );
