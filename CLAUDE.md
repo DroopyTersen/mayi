@@ -72,6 +72,22 @@ bun cli/play.ts new           # Command mode
 bun cli/play.ts --interactive # Interactive mode
 ```
 
+## Testing with Custom Game States
+
+For testing specific scenarios, create a game state file directly to bypass random dealing:
+
+```bash
+# Create test directory and state file
+mkdir -p .data/my-test
+# Write game-state.json with desired state
+
+# Load and play from that state
+bun cli/play.ts my-test status
+bun cli/play.ts my-test draw stock
+```
+
+See [docs/agent-game-harness.md](docs/agent-game-harness.md#custom-test-states) for complete format documentation.
+
 # Build
 
 bun run build

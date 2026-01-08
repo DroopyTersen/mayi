@@ -944,3 +944,163 @@ describe("RoundMachine - May I Edge Cases", () => {
     });
   });
 });
+
+describe("RoundMachine - May I skips down players during turn", () => {
+  /**
+   * Test that after a player lays down and COMPLETES their turn,
+   * the next May-I correctly skips them because isDown syncs via onDone.
+   */
+  it("skips player who laid down in PREVIOUS turn when May-I is called on next turn", () => {
+    // Setup: 4 players, player-1 will lay down and complete their turn
+    // Then player-2's turn starts, and player-3 calls May-I
+    // Player-1 should be skipped (they're down from previous turn)
+    const k1 = { id: "k1", suit: "hearts" as const, rank: "K" as const };
+    const k2 = { id: "k2", suit: "diamonds" as const, rank: "K" as const };
+    const k3 = { id: "k3", suit: "clubs" as const, rank: "K" as const };
+    const q1 = { id: "q1", suit: "hearts" as const, rank: "Q" as const };
+    const q2 = { id: "q2", suit: "diamonds" as const, rank: "Q" as const };
+    const q3 = { id: "q3", suit: "clubs" as const, rank: "Q" as const };
+    const extra = { id: "extra", suit: "spades" as const, rank: "5" as const };
+
+    const input: RoundInput = {
+      roundNumber: 1,
+      players: createTestPlayers(4),
+      dealerIndex: 0,
+      predefinedState: {
+        hands: [
+          // Player 0 (dealer, doesn't play first)
+          [{ id: "p0-1", suit: "hearts" as const, rank: "5" as const }],
+          // Player 1 (current player, can lay down 2 sets, has one extra for discard)
+          [k1, k2, k3, q1, q2, q3, extra],
+          // Player 2
+          [{ id: "p2-1", suit: "clubs" as const, rank: "5" as const }],
+          // Player 3
+          [{ id: "p3-1", suit: "spades" as const, rank: "3" as const }],
+        ],
+        stock: [
+          { id: "stock-1", suit: "hearts" as const, rank: "A" as const },
+          { id: "stock-2", suit: "diamonds" as const, rank: "A" as const },
+          { id: "stock-3", suit: "clubs" as const, rank: "A" as const },
+        ],
+        discard: [{ id: "discard-original", suit: "hearts" as const, rank: "2" as const }],
+        playerDownStatus: [false, false, false, false],
+      },
+    };
+    const actor = createRoundActor(input);
+
+    // Player 1 (current) draws from stock
+    actor.send({ type: "DRAW_FROM_STOCK" });
+
+    // Player 1 lays down (2 sets)
+    actor.send({
+      type: "LAY_DOWN",
+      melds: [
+        { type: "set", cardIds: [k1.id, k2.id, k3.id] },
+        { type: "set", cardIds: [q1.id, q2.id, q3.id] },
+      ],
+    });
+
+    // Player 1 discards (completes turn -> turn machine onDone fires -> round syncs isDown)
+    actor.send({ type: "DISCARD", cardId: extra.id });
+
+    // Now it's player-2's turn
+    const ctxAfterTurn = getContext(actor);
+    expect(ctxAfterTurn.currentPlayerIndex).toBe(2);
+
+    // Verify player-1 is marked as down in round context
+    const player1 = ctxAfterTurn.players.find((p) => p.id === "player-1");
+    expect(player1?.isDown).toBe(true);
+
+    // Player 3 calls May-I for the card player-1 discarded (extra/5♠)
+    actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+    const ctxAfterMayI = getContext(actor);
+
+    // Player-1 should NOT be in playersToCheck because they're down
+    expect(ctxAfterMayI.mayIResolution?.playersToCheck).not.toContain("player-1");
+
+    // Player-2 (current player, not down) should be the only one to check
+    // (since they haven't drawn from stock yet)
+    expect(ctxAfterMayI.mayIResolution?.playersToCheck).toContain("player-2");
+    expect(ctxAfterMayI.mayIResolution?.playerBeingPrompted).toBe("player-2");
+  });
+
+  /**
+   * BUG: If a player lays down during their turn and someone calls May-I
+   * BEFORE the current player discards, the player who just laid down
+   * should be skipped in May-I resolution.
+   *
+   * This tests that the round context's isDown is updated in real-time,
+   * not just when the turn ends (onDone).
+   */
+  it("skips player who laid down THIS turn when May-I is called before they discard", () => {
+    // Setup: 4 players, player-1 will lay down and then someone calls May-I
+    // Need cards that can form valid melds for Round 1 (2 sets of 3)
+    const k1 = { id: "k1", suit: "hearts" as const, rank: "K" as const };
+    const k2 = { id: "k2", suit: "diamonds" as const, rank: "K" as const };
+    const k3 = { id: "k3", suit: "clubs" as const, rank: "K" as const };
+    const q1 = { id: "q1", suit: "hearts" as const, rank: "Q" as const };
+    const q2 = { id: "q2", suit: "diamonds" as const, rank: "Q" as const };
+    const q3 = { id: "q3", suit: "clubs" as const, rank: "Q" as const };
+    const extra1 = { id: "extra1", suit: "spades" as const, rank: "5" as const };
+    const extra2 = { id: "extra2", suit: "spades" as const, rank: "6" as const };
+
+    const input: RoundInput = {
+      roundNumber: 1,
+      players: createTestPlayers(4),
+      dealerIndex: 0,
+      predefinedState: {
+        hands: [
+          // Player 0 (dealer, doesn't play first)
+          [{ id: "p0-1", suit: "hearts" as const, rank: "5" as const }],
+          // Player 1 (current player, can lay down 2 sets)
+          [k1, k2, k3, q1, q2, q3, extra1, extra2],
+          // Player 2
+          [{ id: "p2-1", suit: "clubs" as const, rank: "5" as const }],
+          // Player 3
+          [{ id: "p3-1", suit: "spades" as const, rank: "3" as const }],
+        ],
+        stock: [
+          { id: "stock-1", suit: "hearts" as const, rank: "A" as const },
+          { id: "stock-2", suit: "diamonds" as const, rank: "A" as const },
+          { id: "stock-3", suit: "clubs" as const, rank: "A" as const },
+        ],
+        discard: [{ id: "discard-top", suit: "spades" as const, rank: "K" as const }],
+        playerDownStatus: [false, false, false, false],
+      },
+    };
+    const actor = createRoundActor(input);
+
+    // Player 1 (current player) draws from stock
+    actor.send({ type: "DRAW_FROM_STOCK" });
+
+    // Player 1 lays down (becomes "down")
+    actor.send({
+      type: "LAY_DOWN",
+      melds: [
+        { type: "set", cardIds: [k1.id, k2.id, k3.id] },
+        { type: "set", cardIds: [q1.id, q2.id, q3.id] },
+      ],
+    });
+
+    // At this point, player-1 is in AWAITING_DISCARD phase
+    // They have laid down but haven't discarded yet
+    // The turn machine knows they're down, but has the round context synced?
+
+    // Player 3 calls May-I (for the K♠ still in the discard)
+    // Player-1 is "ahead" of player-3 in turn order
+    // But player-1 just laid down, so they should be SKIPPED
+    actor.send({ type: "CALL_MAY_I", playerId: "player-3" });
+
+    const ctx = getContext(actor);
+
+    // THE BUG: Player-1 should NOT be in playersToCheck because they're down
+    // But if the round context hasn't synced isDown from the turn machine,
+    // player-1 will incorrectly be included
+    expect(ctx.mayIResolution?.playersToCheck).not.toContain("player-1");
+
+    // Since player-1 is skipped and player-2 is the only one ahead who isn't down,
+    // player-2 should be the first to be prompted
+    expect(ctx.mayIResolution?.playerBeingPrompted).toBe("player-2");
+  });
+});

@@ -602,9 +602,27 @@ export class PartyGameAdapter {
   }
 
   /**
-   * Log May I winner
+   * Log when a player allows May-I to proceed
    */
-  logMayIWinner(lobbyPlayerId: string, card: string): void {
-    this.logAction(lobbyPlayerId, "won May I", card);
+  logMayIAllow(lobbyPlayerId: string): void {
+    this.logAction(lobbyPlayerId, "allowed May I");
+  }
+
+  /**
+   * Log when a player claims and blocks the original caller
+   */
+  logMayIClaim(lobbyPlayerId: string, cardRendered: string): void {
+    this.logAction(lobbyPlayerId, "claimed May I", cardRendered);
+  }
+
+  /**
+   * Log May I resolution - who took the card
+   */
+  logMayIResolved(winnerLobbyId: string, cardRendered: string, wasBlocked: boolean): void {
+    if (wasBlocked) {
+      this.logAction(winnerLobbyId, "took the May I card", cardRendered);
+    } else {
+      this.logAction(winnerLobbyId, "took the May I card", cardRendered);
+    }
   }
 }

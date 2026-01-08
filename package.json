@@ -12,7 +12,7 @@
     "build": "react-router build",
     "preview": "bun run build && vite preview",
     "check": "bun run typecheck && bun run build && wrangler deploy --dry-run",
-    "deploy": "wrangler deploy",
+    "deploy": "bun run build && wrangler deploy",
     "cf-typegen": "wrangler types && react-router typegen",
     "devtools": "bunx @ai-sdk/devtools",
     "devtools:test": "bun ai/devtools-test.ts"

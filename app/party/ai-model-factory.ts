@@ -85,6 +85,23 @@ function createBaseModel(modelId: string, env: AIEnv): LanguageModel {
     case "gemini":
       return createGoogleGenerativeAI({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY })(model);
 
+    case "default":
+      // Map default: aliases to their actual models
+      // These match the definitions in ai/modelRegistry.ts
+      switch (model) {
+        case "grok":
+          return createXai({ apiKey: env.XAI_API_KEY })("grok-4-1-fast-reasoning");
+        case "openai":
+          return createOpenAI({ apiKey: env.OPENAI_API_KEY })("gpt-5-mini");
+        case "claude":
+          return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })("claude-haiku-4-5-latest");
+        case "gemini":
+          return createGoogleGenerativeAI({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY })("gemini-3-flash-preview-20241219");
+        default:
+          console.warn(`Unknown default model: ${model}, falling back to grok`);
+          return createXai({ apiKey: env.XAI_API_KEY })("grok-4-1-fast-reasoning");
+      }
+
     default:
       console.warn(`Unknown provider: ${provider}, falling back to xai`);
       return createXai({ apiKey: env.XAI_API_KEY })("grok-4-1-fast-reasoning");

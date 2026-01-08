@@ -10,7 +10,10 @@ interface Player {
 interface TableDisplayProps {
   melds: Meld[];
   players: Player[];
+  /** The player whose turn it is (for highlighting) */
   currentPlayerId?: string;
+  /** The player viewing the game (for "(You)" label) */
+  viewingPlayerId?: string;
   className?: string;
 }
 
@@ -18,6 +21,7 @@ export function TableDisplay({
   melds,
   players,
   currentPlayerId,
+  viewingPlayerId,
   className,
 }: TableDisplayProps) {
   // Group melds by player
@@ -54,7 +58,8 @@ export function TableDisplay({
           key={player.id}
           playerName={player.name}
           melds={meldsByPlayer.get(player.id) ?? []}
-          isCurrentPlayer={player.id === currentPlayerId}
+          isActiveTurn={player.id === currentPlayerId}
+          isViewingPlayer={player.id === viewingPlayerId}
         />
       ))}
     </div>

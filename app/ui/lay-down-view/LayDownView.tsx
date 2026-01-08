@@ -100,6 +100,10 @@ export function LayDownView({
         {stagedMelds.map((meld, index) => (
           <div
             key={index}
+            data-testid={`meld-${meld.type}-${index + 1}`}
+            data-meld-index={index}
+            data-meld-type={meld.type}
+            data-meld-active={activeMeldIndex === index}
             className={cn(
               "p-3 rounded-lg border-2 cursor-pointer",
               activeMeldIndex === index

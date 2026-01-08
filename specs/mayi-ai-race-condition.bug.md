@@ -722,3 +722,99 @@ describe("executeTurn with abortSignal", () => {
 - **Real integration tests** - agent abort tested with actual LLM
 - **Room stays thin** - just wires dependencies, barely needs tests
 - **Testable abort flow** - can simulate timing precisely
+
+---
+
+## Implementation Summary
+
+### Complete Scope
+
+This fix addresses two related bugs:
+
+| Bug | Description | Severity |
+|-----|-------------|----------|
+| Race condition | May-I during AI turn gets overwritten by stale state | High |
+| AI prompt responses | AI never responds to May-I prompts, game hangs | Critical |
+
+### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `app/party/ai-turn-coordinator.ts` | Extracted coordination logic with abort/persist |
+| `app/party/ai-turn-coordinator.test.ts` | Unit tests with dependency injection |
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `ai/mayIAgent.ts` | Add `abortSignal`, `onPersist` to `ExecuteTurnConfig` and `executeTurn()` |
+| `app/party/ai-turn-handler.ts` | Thread params through `executeAITurn()`, make fallback async |
+| `app/party/mayi-room.ts` | Use coordinator, add `executeAIMayIResponseIfNeeded()`, wire abort |
+
+### Implementation Order
+
+1. **Add parameters to interfaces** (non-breaking changes)
+   - `ExecuteTurnConfig`: add `abortSignal?: AbortSignal`, `onPersist?: () => Promise<void>`
+   - `ExecuteAITurnOptions`: same parameters
+
+2. **Update `executeTurn()`** in `mayIAgent.ts`
+   - Pass `abortSignal` to `generateText()`
+   - Call `onPersist()` in `onStepFinish` after tool results
+
+3. **Update `executeAITurn()`** in `ai-turn-handler.ts`
+   - Thread `abortSignal` and `onPersist` to `executeTurn()`
+   - Handle `AbortError` gracefully
+
+4. **Make fallback async** in `ai-turn-handler.ts`
+   - Accept `abortSignal` and `onPersist`
+   - Add delays between phases for May-I window
+   - Check abort signal between phases
+
+5. **Create `AITurnCoordinator`** class
+   - Manage AbortController lifecycle
+   - Coordinate persist callbacks
+   - Handle abort errors cleanly
+
+6. **Integrate into `MayIRoom`**
+   - Use coordinator for `executeAITurnsIfNeeded()`
+   - Add `executeAIMayIResponseIfNeeded()` (reuses `executeTurn()`)
+   - Call `abortCurrentTurn()` on `CALL_MAY_I`
+   - Call `executeAIMayIResponseIfNeeded()` after May-I broadcasts
+
+7. **Write unit tests** for coordinator
+   - Abort mid-turn
+   - Persist callbacks
+   - Clean exit on abort
+   - Chained AI turns
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Reuse `executeTurn()` for May-I responses** | Tools and prompts already exist, enables prompt caching |
+| **No recursion for chained AI responses** | Let normal game flow handle it, keeps logic in one place |
+| **Abortable May-I responses** | Consistent with regular turns, handles edge cases |
+| **Fallback needs async + delays** | Without delays, no May-I window during fallback |
+| **Dependency injection for coordinator** | Enables unit testing without PartyKit |
+| **Immediate persistence via `onPersist`** | Ensures partial state is saved before abort |
+
+### Expected Behavior After Fix
+
+```
+Scenario: Human calls May-I during AI turn
+
+1. AI 1 discards 7♠, turn ends
+2. AI 2's turn starts, draws from stock
+3. State persisted (AI 2 has drawn)
+4. Human clicks "May I" for 7♠
+5. AbortController.abort() fires
+6. AI 2's LLM call stops cleanly
+7. Phase → RESOLVING_MAY_I
+8. AI 1 is in priority queue, prompted
+9. executeAIMayIResponseIfNeeded() calls executeTurn()
+10. AI 1 sees "MAY I? — Your decision for 7♠"
+11. AI 1 calls allow_may_i or claim_may_i
+12. Resolution continues...
+13. After resolution, AI 2 resumes at AWAITING_ACTION
+14. AI 2 completes turn (discard)
+```

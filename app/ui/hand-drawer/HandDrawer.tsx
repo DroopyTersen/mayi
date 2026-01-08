@@ -26,8 +26,8 @@ interface HandDrawerProps {
   container?: HTMLElement | null;
 }
 
-// Snap points: minimized (peek cards), half (comfortable view), expanded (full + actions)
-const SNAP_POINTS = ["85px", "50%", 0.9] as const;
+// Snap points: minimized (peek cards), half (comfortable view), expanded (full)
+const SNAP_POINTS = ["85px", "50%", 1] as const;
 type SnapPoint = (typeof SNAP_POINTS)[number];
 
 /**
@@ -108,6 +108,7 @@ export function HandDrawer({
       fadeFromIndex={1}
       modal={false}
       dismissible={false}
+      snapToSequentialPoint
     >
       <Drawer.Portal container={container}>
         {/* Overlay - only visible at half+ */}

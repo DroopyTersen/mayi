@@ -5,21 +5,25 @@ import { cn } from "~/shadcn/lib/utils";
 interface PlayerMeldsDisplayProps {
   playerName: string;
   melds: Meld[];
-  isCurrentPlayer?: boolean;
+  /** Whether it's currently this player's turn (for highlighting) */
+  isActiveTurn?: boolean;
+  /** Whether this is the viewing player's meld section (for "(You)" label) */
+  isViewingPlayer?: boolean;
   className?: string;
 }
 
 export function PlayerMeldsDisplay({
   playerName,
   melds,
-  isCurrentPlayer = false,
+  isActiveTurn = false,
+  isViewingPlayer = false,
   className,
 }: PlayerMeldsDisplayProps) {
   return (
     <div
       className={cn(
         "rounded-lg border p-3",
-        isCurrentPlayer ? "border-primary bg-primary/5" : "border-border",
+        isActiveTurn ? "border-primary bg-primary/5" : "border-border",
         className
       )}
     >
@@ -27,11 +31,11 @@ export function PlayerMeldsDisplay({
       <h3
         className={cn(
           "text-sm font-semibold mb-2",
-          isCurrentPlayer && "text-primary"
+          isActiveTurn && "text-primary"
         )}
       >
         {playerName}
-        {isCurrentPlayer && (
+        {isViewingPlayer && (
           <span className="ml-2 text-xs font-normal text-muted-foreground">
             (You)
           </span>

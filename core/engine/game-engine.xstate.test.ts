@@ -606,5 +606,96 @@ describe("GameEngine (XState-backed)", () => {
       // awaitingPlayerId should be the player being prompted
       expect(afterSnapshot.awaitingPlayerId).toBe(prompted);
     });
+
+    it("non-current player claiming May-I receives discard + penalty card", () => {
+      // This test replicates the bug where a non-current player (like player-2) claims
+      // after the current player allows, and the card disappears instead of going to claimer
+      engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol", "Dave"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const currentPlayerId = snapshot.awaitingPlayerId;
+      const topDiscard = snapshot.discard[0]!;
+      const initialStockLength = snapshot.stock.length;
+
+      // Dave (player-3) calls May I
+      const callerId = "player-3";
+      engine.callMayI(callerId);
+
+      // Current player (player-1) is first prompted - they allow
+      let state = engine.getSnapshot();
+      expect(state.mayIContext?.playerBeingPrompted).toBe(currentPlayerId);
+      engine.allowMayI(currentPlayerId);
+
+      // Now player-2 is prompted - they claim instead
+      state = engine.getSnapshot();
+      const claimer = state.mayIContext?.playerBeingPrompted;
+      expect(claimer).toBe("player-2");
+
+      // Get player-2's initial hand size
+      const player2Before = state.players.find((p) => p.id === claimer)!;
+      const player2HandSizeBefore = player2Before.hand.length;
+
+      engine.claimMayI(claimer!);
+
+      const afterSnapshot = engine.getSnapshot();
+
+      // Should be back to ROUND_ACTIVE
+      expect(afterSnapshot.phase).toBe("ROUND_ACTIVE");
+
+      // The claimer (player-2) should have the claimed card + penalty card
+      const player2After = afterSnapshot.players.find((p) => p.id === claimer)!;
+      expect(player2After.hand.some((c) => c.id === topDiscard.id)).toBe(true);
+      // Should have 2 more cards (discard + penalty)
+      expect(player2After.hand.length).toBe(player2HandSizeBefore + 2);
+
+      // Stock should be reduced by 1 (penalty card drawn)
+      expect(afterSnapshot.stock.length).toBe(initialStockLength - 1);
+
+      // The original caller (player-3) should NOT have received any cards
+      const caller = afterSnapshot.players.find((p) => p.id === callerId)!;
+      const callerBefore = snapshot.players.find((p) => p.id === callerId)!;
+      expect(caller.hand.length).toBe(callerBefore.hand.length);
+      expect(caller.hand.some((c) => c.id === topDiscard.id)).toBe(false);
+    });
+
+    it("original caller receives discard + penalty when all ahead allow", () => {
+      // This is the main user flow: caller gets the cards when everyone allows
+      engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const currentPlayerId = snapshot.awaitingPlayerId;
+      const topDiscard = snapshot.discard[0]!;
+      const initialStockLength = snapshot.stock.length;
+
+      // Carol (player-2) calls May I
+      const callerId = "player-2";
+      const callerBefore = snapshot.players.find((p) => p.id === callerId)!;
+      const callerHandSizeBefore = callerBefore.hand.length;
+
+      engine.callMayI(callerId);
+
+      // Current player (player-1) is prompted - they allow
+      let state = engine.getSnapshot();
+      expect(state.mayIContext?.playerBeingPrompted).toBe(currentPlayerId);
+      engine.allowMayI(currentPlayerId);
+
+      const afterSnapshot = engine.getSnapshot();
+
+      // Should be back to ROUND_ACTIVE (all ahead have allowed)
+      expect(afterSnapshot.phase).toBe("ROUND_ACTIVE");
+
+      // The original caller (player-2) should have the claimed card + penalty card
+      const callerAfter = afterSnapshot.players.find((p) => p.id === callerId)!;
+      expect(callerAfter.hand.some((c) => c.id === topDiscard.id)).toBe(true);
+      // Should have 2 more cards (discard + penalty)
+      expect(callerAfter.hand.length).toBe(callerHandSizeBefore + 2);
+
+      // Stock should be reduced by 1 (penalty card drawn)
+      expect(afterSnapshot.stock.length).toBe(initialStockLength - 1);
+    });
   });
 });

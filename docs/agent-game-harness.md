@@ -336,3 +336,276 @@ Use the harness to test game scenarios:
 5. **Joker swaps**: Test swapping jokers from runs
 6. **Going out**: Test round completion and scoring
 7. **Round 6**: Test no-discard-to-go-out rule
+
+## Custom Test States
+
+You can create games with specific card arrangements for testing edge cases. This bypasses random dealing and lets you set up exact scenarios.
+
+### Creating a Test State
+
+1. **Examine an existing save file** to understand the format:
+   ```bash
+   cat .data/<existing-game-id>/game-state.json | head -100
+   ```
+
+2. **Create a new game directory**:
+   ```bash
+   mkdir -p .data/my-test
+   ```
+
+3. **Create the state file** at `.data/my-test/game-state.json` with your desired state
+
+4. **Load and play**:
+   ```bash
+   bun cli/play.ts my-test status
+   bun cli/play.ts my-test draw stock
+   # ... continue playing
+   ```
+
+### Save File Structure
+
+The save file contains a nested XState snapshot:
+
+```
+game-state.json
+├── version: "3.0"
+├── gameId, createdAt, updatedAt
+└── engineSnapshot
+    ├── value: "playing"
+    ├── context: { players, currentRound, ... }
+    └── children.round.snapshot
+        ├── context: { players with hands, stock, discard, table, ... }
+        └── children.turn.snapshot
+            ├── value: "awaitingDraw" | "awaitingAction" | "awaitingDiscard"
+            └── context: { hand, stock, discard, table, hasDrawn, isDown, ... }
+```
+
+### Consistency Requirements
+
+When crafting a state, data must be consistent across levels:
+- Turn context's `hand`, `stock`, `discard`, `table` must match round context
+- `playerDownStatus` must match each player's `isDown` flag
+- Card IDs must be unique across all cards
+
+### Card Format
+
+```json
+{
+  "id": "card-42",
+  "suit": "spades",
+  "rank": "K"
+}
+```
+
+- `suit`: `"hearts"` | `"diamonds"` | `"clubs"` | `"spades"` | `null` (for Joker)
+- `rank`: `"2"`-`"10"` | `"J"` | `"Q"` | `"K"` | `"A"` | `"Joker"`
+
+### Meld Format
+
+```json
+{
+  "id": "meld-player-0-0",
+  "type": "run",
+  "cards": [/* Card[] */],
+  "ownerId": "player-0"
+}
+```
+
+### Complete Example: Wild Lay-off Test
+
+This example sets up a scenario where player-0 is down, has a wild card (2♣) and a 3♠, and there's a run (5♠-8♠) on the table. Perfect for testing wild card lay-off position selection.
+
+```json
+{
+  "version": "3.0",
+  "gameId": "wild-test",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "engineSnapshot": {
+    "status": "active",
+    "value": "playing",
+    "historyValue": {},
+    "context": {
+      "gameId": "",
+      "players": [
+        { "id": "player-0", "name": "Alice", "hand": [], "isDown": true, "totalScore": 0 },
+        { "id": "player-1", "name": "Bob", "hand": [], "isDown": false, "totalScore": 0 },
+        { "id": "player-2", "name": "Carol", "hand": [], "isDown": false, "totalScore": 0 }
+      ],
+      "currentRound": 1,
+      "dealerIndex": 2,
+      "roundHistory": [],
+      "winners": [],
+      "lastError": null
+    },
+    "children": {
+      "round": {
+        "snapshot": {
+          "status": "active",
+          "value": { "active": "playing" },
+          "historyValue": {},
+          "context": {
+            "roundNumber": 1,
+            "contract": { "roundNumber": 1, "sets": 2, "runs": 0 },
+            "players": [
+              {
+                "id": "player-0", "name": "Alice",
+                "hand": [
+                  { "id": "card-wild", "suit": "clubs", "rank": "2" },
+                  { "id": "card-3s", "suit": "spades", "rank": "3" }
+                ],
+                "isDown": true, "totalScore": 0
+              },
+              {
+                "id": "player-1", "name": "Bob",
+                "hand": [
+                  { "id": "card-b1", "suit": "diamonds", "rank": "5" },
+                  { "id": "card-b2", "suit": "diamonds", "rank": "6" }
+                ],
+                "isDown": false, "totalScore": 0
+              },
+              {
+                "id": "player-2", "name": "Carol",
+                "hand": [
+                  { "id": "card-c1", "suit": "hearts", "rank": "K" },
+                  { "id": "card-c2", "suit": "diamonds", "rank": "K" }
+                ],
+                "isDown": false, "totalScore": 0
+              }
+            ],
+            "currentPlayerIndex": 0,
+            "dealerIndex": 2,
+            "stock": [
+              { "id": "card-s1", "suit": "hearts", "rank": "10" },
+              { "id": "card-s2", "suit": "hearts", "rank": "J" },
+              { "id": "card-s3", "suit": "hearts", "rank": "Q" }
+            ],
+            "discard": [
+              { "id": "card-d1", "suit": "clubs", "rank": "4" }
+            ],
+            "table": [
+              {
+                "id": "meld-player-0-0", "type": "set",
+                "cards": [
+                  { "id": "card-t1", "suit": "hearts", "rank": "Q" },
+                  { "id": "card-t2", "suit": "diamonds", "rank": "Q" },
+                  { "id": "card-t3", "suit": "clubs", "rank": "Q" }
+                ],
+                "ownerId": "player-0"
+              },
+              {
+                "id": "meld-player-0-1", "type": "set",
+                "cards": [
+                  { "id": "card-t4", "suit": "hearts", "rank": "J" },
+                  { "id": "card-t5", "suit": "diamonds", "rank": "J" },
+                  { "id": "card-t6", "suit": "spades", "rank": "J" }
+                ],
+                "ownerId": "player-0"
+              },
+              {
+                "id": "meld-player-0-2", "type": "run",
+                "cards": [
+                  { "id": "card-t7", "suit": "spades", "rank": "5" },
+                  { "id": "card-t8", "suit": "spades", "rank": "6" },
+                  { "id": "card-t9", "suit": "spades", "rank": "7" },
+                  { "id": "card-t10", "suit": "spades", "rank": "8" }
+                ],
+                "ownerId": "player-0"
+              }
+            ],
+            "winnerPlayerId": null,
+            "turnNumber": 5,
+            "lastDiscardedByPlayerId": "player-2",
+            "predefinedState": null,
+            "mayIResolution": null,
+            "discardClaimed": false,
+            "currentPlayerHasDrawnFromStock": false
+          },
+          "children": {
+            "turn": {
+              "snapshot": {
+                "status": "active",
+                "value": "awaitingDraw",
+                "historyValue": {},
+                "context": {
+                  "playerId": "player-0",
+                  "hand": [
+                    { "id": "card-wild", "suit": "clubs", "rank": "2" },
+                    { "id": "card-3s", "suit": "spades", "rank": "3" }
+                  ],
+                  "stock": [
+                    { "id": "card-s1", "suit": "hearts", "rank": "10" },
+                    { "id": "card-s2", "suit": "hearts", "rank": "J" },
+                    { "id": "card-s3", "suit": "hearts", "rank": "Q" }
+                  ],
+                  "discard": [
+                    { "id": "card-d1", "suit": "clubs", "rank": "4" }
+                  ],
+                  "hasDrawn": false,
+                  "roundNumber": 1,
+                  "isDown": true,
+                  "laidDownThisTurn": false,
+                  "table": [
+                    {
+                      "id": "meld-player-0-0", "type": "set",
+                      "cards": [
+                        { "id": "card-t1", "suit": "hearts", "rank": "Q" },
+                        { "id": "card-t2", "suit": "diamonds", "rank": "Q" },
+                        { "id": "card-t3", "suit": "clubs", "rank": "Q" }
+                      ],
+                      "ownerId": "player-0"
+                    },
+                    {
+                      "id": "meld-player-0-1", "type": "set",
+                      "cards": [
+                        { "id": "card-t4", "suit": "hearts", "rank": "J" },
+                        { "id": "card-t5", "suit": "diamonds", "rank": "J" },
+                        { "id": "card-t6", "suit": "spades", "rank": "J" }
+                      ],
+                      "ownerId": "player-0"
+                    },
+                    {
+                      "id": "meld-player-0-2", "type": "run",
+                      "cards": [
+                        { "id": "card-t7", "suit": "spades", "rank": "5" },
+                        { "id": "card-t8", "suit": "spades", "rank": "6" },
+                        { "id": "card-t9", "suit": "spades", "rank": "7" },
+                        { "id": "card-t10", "suit": "spades", "rank": "8" }
+                      ],
+                      "ownerId": "player-0"
+                    }
+                  ],
+                  "lastError": null,
+                  "playerOrder": ["player-0", "player-1", "player-2"],
+                  "playerDownStatus": {
+                    "player-0": true,
+                    "player-1": false,
+                    "player-2": false
+                  },
+                  "lastDiscardedByPlayerId": "player-2"
+                },
+                "children": {}
+              },
+              "src": "turnMachine",
+              "syncSnapshot": false
+            }
+          }
+        },
+        "src": "roundMachine",
+        "syncSnapshot": false
+      }
+    }
+  }
+}
+```
+
+**Usage:**
+```bash
+mkdir -p .data/wild-test
+# Save the JSON above to .data/wild-test/game-state.json
+
+bun cli/play.ts wild-test status
+bun cli/play.ts wild-test draw stock
+bun cli/play.ts wild-test layoff 1 3 start   # Lay off 2♣ at START (becomes 4♠)
+bun cli/play.ts wild-test layoff 1 3         # Lay off 3♠ (becomes 3♠)
+```

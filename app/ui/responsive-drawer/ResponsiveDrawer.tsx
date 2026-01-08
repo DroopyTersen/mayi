@@ -55,15 +55,15 @@ export function ResponsiveDrawer({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-        <DialogContent className={cn("sm:max-w-[425px]", className)}>
-          <DialogHeader>
+        <DialogContent className={cn("sm:max-w-[425px] max-h-[85vh] flex flex-col", className)}>
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{title}</DialogTitle>
             {description && (
               <DialogDescription>{description}</DialogDescription>
             )}
           </DialogHeader>
-          <div className="py-4">{children}</div>
-          {footer && <DialogFooter>{footer}</DialogFooter>}
+          <div className="py-4 flex-1 min-h-0 overflow-hidden flex flex-col">{children}</div>
+          {footer && <DialogFooter className="flex-shrink-0">{footer}</DialogFooter>}
         </DialogContent>
       </Dialog>
     );
@@ -72,15 +72,15 @@ export function ResponsiveDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
-      <DrawerContent className={className}>
-        <DrawerHeader className="text-left">
+      <DrawerContent className={cn("flex flex-col", className)}>
+        <DrawerHeader className="text-left flex-shrink-0">
           <DrawerTitle>{title}</DrawerTitle>
           {description && (
             <DrawerDescription>{description}</DrawerDescription>
           )}
         </DrawerHeader>
-        <div className="px-4 pb-4 overflow-y-auto">{children}</div>
-        {footer && <DrawerFooter className="pt-2">{footer}</DrawerFooter>}
+        <div className="px-4 pb-4 flex-1 min-h-0 overflow-hidden flex flex-col">{children}</div>
+        {footer && <DrawerFooter className="pt-2 flex-shrink-0">{footer}</DrawerFooter>}
       </DrawerContent>
     </Drawer>
   );

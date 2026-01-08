@@ -12,6 +12,7 @@ import type { PartyGameAdapter, PlayerMapping } from "./party-game-adapter";
 import { executeTurn, type ExecuteTurnResult } from "../../ai/mayIAgent";
 import { createWorkerAIModelAsync, type AIEnv } from "./ai-model-factory";
 import { isValidRun, isValidSet } from "../../core/meld/meld.validation";
+import { renderCard } from "../../cli/shared/cli.renderer";
 
 /**
  * Adapter that makes PartyGameAdapter look like AIGameAdapter for AI agent
@@ -214,17 +215,42 @@ class AIGameAdapterProxy implements AIGameAdapter {
   }
 
   allowMayI(_playerId: string): GameSnapshot {
+    const before = this.adapter.getSnapshot();
     const result = this.adapter.allowMayI(this.aiPlayerId);
     if (!result) {
       return this.adapter.getSnapshot();
+    }
+    // Log the allow action
+    this.adapter.logMayIAllow(this.aiPlayerId);
+    // If May-I just resolved (phase changed), log who got the card
+    if (before.phase === "RESOLVING_MAY_I" && result.phase === "ROUND_ACTIVE") {
+      const mayIContext = before.mayIContext;
+      if (mayIContext) {
+        const cardRendered = renderCard(mayIContext.cardBeingClaimed);
+        const winnerEngineId = mayIContext.originalCaller;
+        const winnerMapping = this.adapter.getAllPlayerMappings().find(
+          (m) => m.engineId === winnerEngineId
+        );
+        if (winnerMapping) {
+          this.adapter.logMayIResolved(winnerMapping.lobbyId, cardRendered, false);
+        }
+      }
     }
     return result;
   }
 
   claimMayI(_playerId: string): GameSnapshot {
+    const before = this.adapter.getSnapshot();
     const result = this.adapter.claimMayI(this.aiPlayerId);
     if (!result) {
       return this.adapter.getSnapshot();
+    }
+    // Log the claim action and resolution
+    const mayIContext = before.mayIContext;
+    if (mayIContext) {
+      const cardRendered = renderCard(mayIContext.cardBeingClaimed);
+      this.adapter.logMayIClaim(this.aiPlayerId, cardRendered);
+      this.adapter.logMayIResolved(this.aiPlayerId, cardRendered, true);
     }
     return result;
   }
@@ -245,13 +271,112 @@ export interface AITurnResult {
 }
 
 /**
+ * Options for fallback turn execution
+ */
+export interface FallbackTurnOptions {
+  /** AbortSignal to cancel mid-turn (e.g., when May-I is called) */
+  abortSignal?: AbortSignal;
+  /** Callback invoked after each action to persist state immediately */
+  onPersist?: () => Promise<void>;
+  /** Delay between phases in ms (default: 300, allows May-I window) */
+  phaseDelayMs?: number;
+}
+
+/**
+ * Helper to wait with abort support
+ */
+async function delayWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timeout);
+      reject(new DOMException("Aborted", "AbortError"));
+    }, { once: true });
+  });
+}
+
+/**
  * Execute a fallback turn (draw, skip, discard first card)
  *
  * Used when AI agent fails or for disconnected players.
+ * Now async with abort support and delays between phases.
  */
-export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string): AITurnResult {
+export async function executeFallbackTurn(
+  adapter: PartyGameAdapter,
+  playerId: string,
+  options: FallbackTurnOptions = {}
+): Promise<AITurnResult> {
+  const { abortSignal, onPersist, phaseDelayMs = 300 } = options;
   const actions: string[] = [];
   let snapshot = adapter.getSnapshot();
+
+  // Handle May-I response phase - when player is prompted to allow/claim
+  if (snapshot.phase === "RESOLVING_MAY_I") {
+    const mayIContext = snapshot.mayIContext;
+    if (!mayIContext) {
+      return {
+        success: false,
+        actions: [],
+        error: "No May-I context in RESOLVING_MAY_I phase",
+        usedFallback: true,
+      };
+    }
+
+    // Check if this player is the one being prompted
+    const mapping = adapter.getPlayerMapping(playerId);
+    if (!mapping || mayIContext.playerBeingPrompted !== mapping.engineId) {
+      return {
+        success: false,
+        actions: [],
+        error: "Not the player being prompted for May-I response",
+        usedFallback: true,
+      };
+    }
+
+    // Auto-allow May-I as fallback behavior
+    const before = snapshot;
+    const result = adapter.allowMayI(playerId);
+    if (!result || result.lastError) {
+      return {
+        success: false,
+        actions: [],
+        error: result?.lastError ?? "Failed to allow May-I",
+        usedFallback: true,
+      };
+    }
+
+    // Log the allow action
+    adapter.logMayIAllow(playerId);
+    // If May-I just resolved (phase changed), log who got the card
+    if (before.phase === "RESOLVING_MAY_I" && result.phase === "ROUND_ACTIVE") {
+      if (mayIContext) {
+        const cardRendered = renderCard(mayIContext.cardBeingClaimed);
+        const winnerEngineId = mayIContext.originalCaller;
+        const winnerMapping = adapter.getAllPlayerMappings().find(
+          (m) => m.engineId === winnerEngineId
+        );
+        if (winnerMapping) {
+          adapter.logMayIResolved(winnerMapping.lobbyId, cardRendered, false);
+        }
+      }
+    }
+
+    actions.push("allow_may_i");
+
+    // Persist immediately after allowing
+    if (onPersist) {
+      await onPersist();
+    }
+
+    return {
+      success: true,
+      actions,
+      usedFallback: true,
+    };
+  }
 
   // If not this player's turn, return error
   if (adapter.getAwaitingLobbyPlayerId() !== playerId) {
@@ -263,93 +388,127 @@ export function executeFallbackTurn(adapter: PartyGameAdapter, playerId: string)
     };
   }
 
-  // Draw phase - draw from stock
-  if (snapshot.turnPhase === "AWAITING_DRAW") {
-    const before = snapshot;
-    const result = adapter.drawFromStock(playerId);
-    if (!result || result.lastError) {
+  try {
+    // Draw phase - draw from stock
+    if (snapshot.turnPhase === "AWAITING_DRAW") {
+      const before = snapshot;
+      const result = adapter.drawFromStock(playerId);
+      if (!result || result.lastError) {
+        return {
+          success: false,
+          actions,
+          error: result?.lastError ?? "Failed to draw from stock",
+          usedFallback: true,
+        };
+      }
+      // Log the draw
+      adapter.logDraw(playerId, before, result, "stock");
+      actions.push("draw_from_stock");
+      snapshot = result;
+
+      // Persist immediately after draw
+      if (onPersist) {
+        await onPersist();
+      }
+
+      // Delay for May-I window
+      await delayWithAbort(phaseDelayMs, abortSignal);
+    }
+
+    // Action phase - skip (don't try to lay down)
+    if (snapshot.turnPhase === "AWAITING_ACTION") {
+      const result = adapter.skip(playerId);
+      if (!result || result.lastError) {
+        return {
+          success: false,
+          actions,
+          error: result?.lastError ?? "Failed to skip",
+          usedFallback: true,
+        };
+      }
+      // Skip is not logged (filtered as boring)
+      actions.push("skip");
+      snapshot = result;
+
+      // Persist immediately after skip
+      if (onPersist) {
+        await onPersist();
+      }
+
+      // Delay for May-I window
+      await delayWithAbort(phaseDelayMs, abortSignal);
+    }
+
+    // Discard phase - discard first card
+    if (snapshot.turnPhase === "AWAITING_DISCARD") {
+      // Find the current player's hand
+      const mapping = adapter.getPlayerMapping(playerId);
+      if (!mapping) {
+        return {
+          success: false,
+          actions,
+          error: "Player not found",
+          usedFallback: true,
+        };
+      }
+
+      const player = snapshot.players.find((p) => p.id === mapping.engineId);
+      if (!player || player.hand.length === 0) {
+        return {
+          success: false,
+          actions,
+          error: "No cards to discard",
+          usedFallback: true,
+        };
+      }
+
+      const cardToDiscard = player.hand[0];
+      if (!cardToDiscard) {
+        return {
+          success: false,
+          actions,
+          error: "No cards to discard",
+          usedFallback: true,
+        };
+      }
+
+      const before = snapshot;
+      const result = adapter.discard(playerId, cardToDiscard.id);
+      if (!result || result.lastError) {
+        return {
+          success: false,
+          actions,
+          error: result?.lastError ?? "Failed to discard",
+          usedFallback: true,
+        };
+      }
+      // Log the discard
+      adapter.logDiscard(playerId, before, result, cardToDiscard.id);
+      actions.push(`discard(${cardToDiscard.id})`);
+
+      // Persist immediately after discard
+      if (onPersist) {
+        await onPersist();
+      }
+    }
+
+    return {
+      success: true,
+      actions,
+      usedFallback: true,
+    };
+  } catch (error) {
+    // Check if this was an intentional abort (e.g., May-I was called)
+    if (error instanceof Error && error.name === "AbortError") {
       return {
-        success: false,
+        success: true, // Abort is a clean exit, not a failure
         actions,
-        error: result?.lastError ?? "Failed to draw from stock",
+        error: undefined,
         usedFallback: true,
       };
     }
-    // Log the draw
-    adapter.logDraw(playerId, before, result, "stock");
-    actions.push("draw_from_stock");
-    snapshot = result;
+    throw error; // Re-throw unexpected errors
   }
-
-  // Action phase - skip (don't try to lay down)
-  if (snapshot.turnPhase === "AWAITING_ACTION") {
-    const result = adapter.skip(playerId);
-    if (!result || result.lastError) {
-      return {
-        success: false,
-        actions,
-        error: result?.lastError ?? "Failed to skip",
-        usedFallback: true,
-      };
-    }
-    // Skip is not logged (filtered as boring)
-    actions.push("skip");
-    snapshot = result;
-  }
-
-  // Discard phase - discard first card
-  if (snapshot.turnPhase === "AWAITING_DISCARD") {
-    // Find the current player's hand
-    const mapping = adapter.getPlayerMapping(playerId);
-    if (!mapping) {
-      return {
-        success: false,
-        actions,
-        error: "Player not found",
-        usedFallback: true,
-      };
-    }
-
-    const player = snapshot.players.find((p) => p.id === mapping.engineId);
-    if (!player || player.hand.length === 0) {
-      return {
-        success: false,
-        actions,
-        error: "No cards to discard",
-        usedFallback: true,
-      };
-    }
-
-    const cardToDiscard = player.hand[0];
-    if (!cardToDiscard) {
-      return {
-        success: false,
-        actions,
-        error: "No cards to discard",
-        usedFallback: true,
-      };
-    }
-
-    const before = snapshot;
-    const result = adapter.discard(playerId, cardToDiscard.id);
-    if (!result || result.lastError) {
-      return {
-        success: false,
-        actions,
-        error: result?.lastError ?? "Failed to discard",
-        usedFallback: true,
-      };
-    }
-    // Log the discard
-    adapter.logDiscard(playerId, before, result, cardToDiscard.id);
-    actions.push(`discard(${cardToDiscard.id})`);
-  }
-
-  return {
-    success: true,
-    actions,
-    usedFallback: true,
-  };
 }
 
 /**
@@ -372,6 +531,10 @@ export interface ExecuteAITurnOptions {
   debug?: boolean;
   /** Use fallback on AI failure (default: true) */
   useFallbackOnError?: boolean;
+  /** AbortSignal to cancel the LLM call mid-turn (e.g., when May-I is called) */
+  abortSignal?: AbortSignal;
+  /** Callback invoked after each tool execution to persist state immediately */
+  onPersist?: () => Promise<void>;
 }
 
 /**
@@ -390,6 +553,8 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     maxSteps = 10,
     debug = false,
     useFallbackOnError = true,
+    abortSignal,
+    onPersist,
   } = options;
 
   // Check if it's this player's turn
@@ -431,6 +596,8 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
       maxSteps,
       debug,
       telemetry: false, // Disable telemetry for server-side execution
+      abortSignal,
+      onPersist,
     });
 
     if (result.success) {
@@ -441,12 +608,27 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
       };
     }
 
+    // Check if the AI was aborted (e.g., May-I was called)
+    // Abort is a clean exit, not a failure - don't run fallback
+    const isAbortError = result.error?.toLowerCase().includes('abort');
+    if (isAbortError) {
+      if (debug) {
+        console.log(`[AI] Turn aborted (May-I or similar interrupt)`);
+      }
+      return {
+        success: true,
+        actions: result.actions,
+        error: undefined,
+        usedFallback: false,
+      };
+    }
+
     // AI failed - try fallback if enabled
     if (useFallbackOnError) {
       if (debug) {
         console.log(`[AI] Agent failed: ${result.error}. Using fallback.`);
       }
-      return executeFallbackTurn(adapter, aiPlayerId);
+      return await executeFallbackTurn(adapter, aiPlayerId, { abortSignal, onPersist });
     }
 
     return {
@@ -456,6 +638,20 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
       usedFallback: false,
     };
   } catch (error) {
+    // Check if this was an intentional abort (e.g., May-I was called)
+    // AbortError means we should exit cleanly without fallback
+    if (error instanceof Error && error.name === "AbortError") {
+      if (debug) {
+        console.log(`[AI] Turn aborted (May-I or similar interrupt)`);
+      }
+      return {
+        success: true, // Abort is a clean exit, not a failure
+        actions: [],
+        error: undefined,
+        usedFallback: false,
+      };
+    }
+
     // Unexpected error - try fallback if enabled
     const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -463,7 +659,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
       if (debug) {
         console.log(`[AI] Agent error: ${errorMessage}. Using fallback.`);
       }
-      return executeFallbackTurn(adapter, aiPlayerId);
+      return await executeFallbackTurn(adapter, aiPlayerId, { abortSignal, onPersist });
     }
 
     return {

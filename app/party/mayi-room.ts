@@ -40,8 +40,9 @@ import {
   executeAITurn,
   executeFallbackTurn,
   isAIPlayerTurn,
-  type AITurnResult,
 } from "./ai-turn-handler";
+import { AITurnCoordinator } from "./ai-turn-coordinator";
+import type { AIEnv } from "./ai-model-factory";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const AUTO_PLAY_TIMEOUT_MS = 30 * 1000; // 30 seconds before auto-play for disconnected
@@ -64,6 +65,42 @@ function safeJsonParse(value: string): unknown {
 export class MayIRoom extends Server {
   // MVP: disable hibernation for simplicity + dev/prod parity.
   static override options = { hibernate: false };
+
+  /** AI turn coordinator for abort support */
+  private aiCoordinator: AITurnCoordinator | null = null;
+
+  /** Debug logging with game ID prefix */
+  private log(message: string, ...args: unknown[]): void {
+    console.log(`[Game ${this.name}] ${message}`, ...args);
+  }
+
+  /** Debug logging for May-I specific events */
+  private logMayI(message: string, ...args: unknown[]): void {
+    console.log(`[Game ${this.name}] [May-I] ${message}`, ...args);
+  }
+
+  /** Get or create the AI turn coordinator */
+  private getAICoordinator(): AITurnCoordinator {
+    if (!this.aiCoordinator) {
+      // Enable debug and tool delay for May-I testing
+      // TODO: Make these configurable via environment variables
+      const enableMayITestMode = true; // Set to true to slow down AI for May-I testing
+
+      this.aiCoordinator = new AITurnCoordinator({
+        getState: () => this.getGameState(),
+        setState: (s) => this.setGameState(s),
+        broadcast: () => this.broadcastGameState(),
+        executeAITurn: (options) => executeAITurn(options),
+        env: this.env as AIEnv,
+        // Debug mode: shows whether LLM or fallback is used
+        debug: enableMayITestMode,
+        // Add 2 second delay after each tool execution to give time for May-I clicks
+        // This is critical for testing - without it, AI turns complete too fast
+        toolDelayMs: enableMayITestMode ? 2000 : 0,
+      });
+    }
+    return this.aiCoordinator;
+  }
 
   override async onConnect(
     conn: Connection<MayIRoomConnectionState>,
@@ -463,10 +500,20 @@ export class MayIRoom extends Server {
     const phaseBefore = snapshotBefore.phase;
     const roundBefore = snapshotBefore.currentRound;
 
+    // If this is a CALL_MAY_I action, abort any running AI turn first
+    // The AI's partial state is already persisted via onPersist, so this is safe
+    if (msg.action.type === "CALL_MAY_I") {
+      const wasRunning = this.getAICoordinator().isRunning();
+      this.logMayI(`CALL_MAY_I received from ${callerPlayerId}, AI turn running: ${wasRunning}`);
+      this.getAICoordinator().abortCurrentTurn();
+      this.logMayI(`AI turn aborted`);
+    }
+
     // Execute the action
     const result = executeGameAction(adapter, callerPlayerId, msg.action);
 
     if (!result.success) {
+      this.log(`Action ${msg.action.type} failed: ${result.error}`);
       conn.send(
         JSON.stringify({
           type: "ERROR",
@@ -484,14 +531,31 @@ export class MayIRoom extends Server {
     const snapshot = adapter.getSnapshot();
     const phaseAfter = snapshot.phase;
 
+    if (msg.action.type === "CALL_MAY_I") {
+      this.logMayI(`Phase transition: ${phaseBefore} -> ${phaseAfter}`);
+      if (snapshot.mayIContext) {
+        this.logMayI(`May-I context: caller=${snapshot.mayIContext.originalCaller}, prompted=${snapshot.mayIContext.playerBeingPrompted}, card=${JSON.stringify(snapshot.mayIContext.cardBeingClaimed)}`);
+      } else {
+        this.logMayI(`WARNING: No May-I context after CALL_MAY_I!`);
+      }
+    }
+
     if (phaseBefore !== "RESOLVING_MAY_I" && phaseAfter === "RESOLVING_MAY_I") {
       // May I was just called - broadcast MAY_I_PROMPT
+      this.logMayI(`Entering RESOLVING_MAY_I phase, broadcasting prompt...`);
       await this.broadcastMayIPrompt(adapter);
+      // If prompted player is AI, execute their response
+      this.logMayI(`Checking if prompted player is AI...`);
+      await this.executeAIMayIResponseIfNeeded(adapter);
     } else if (phaseBefore === "RESOLVING_MAY_I" && phaseAfter === "RESOLVING_MAY_I") {
       // Still resolving (someone allowed) - prompt next player
+      this.logMayI(`Still in RESOLVING_MAY_I, prompting next player...`);
       await this.broadcastMayIPrompt(adapter);
+      // If prompted player is AI, execute their response
+      await this.executeAIMayIResponseIfNeeded(adapter);
     } else if (phaseBefore === "RESOLVING_MAY_I" && phaseAfter !== "RESOLVING_MAY_I") {
       // May I was just resolved
+      this.logMayI(`May-I resolved, new phase: ${phaseAfter}`);
       await this.broadcastMayIResolved(adapter);
     }
 
@@ -800,6 +864,105 @@ export class MayIRoom extends Server {
   }
 
   /**
+   * Execute AI response if the player being prompted for May-I is an AI
+   *
+   * When May-I is called and we're prompting players in turn order,
+   * if the prompted player is an AI, we need to execute their turn
+   * so they can respond (allowMayI or claimMayI).
+   */
+  private async executeAIMayIResponseIfNeeded(adapter: PartyGameAdapter): Promise<void> {
+    const snapshot = adapter.getSnapshot();
+    const mayIContext = snapshot.mayIContext;
+    if (!mayIContext) {
+      this.logMayI(`executeAIMayIResponseIfNeeded: No May-I context, skipping`);
+      return;
+    }
+
+    const promptedEngineId = mayIContext.playerBeingPrompted;
+    if (!promptedEngineId) {
+      this.logMayI(`executeAIMayIResponseIfNeeded: No player being prompted, skipping`);
+      return;
+    }
+
+    // Find the prompted player's mapping
+    const promptedMapping = adapter.getAllPlayerMappings().find(
+      (m) => m.engineId === promptedEngineId
+    );
+    if (!promptedMapping?.isAI) {
+      this.logMayI(`executeAIMayIResponseIfNeeded: Prompted player ${promptedMapping?.name || promptedEngineId} is human, waiting for their response`);
+      return;
+    }
+
+    this.logMayI(`AI ${promptedMapping.name} (${promptedMapping.lobbyId}) being prompted for May-I response`);
+
+    // It's an AI's turn to respond to May-I
+    this.broadcastAIThinking(promptedMapping.lobbyId, promptedMapping.name);
+
+    // Small delay for UX
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const modelToUse = promptedMapping.aiModelId ?? "default:grok";
+    this.logMayI(`Executing AI May-I response with model ${modelToUse}`);
+
+    try {
+      // Execute AI turn - the AI will use allowMayI or claimMayI tools
+      // Note: May-I responses are short and don't need abort support
+      // (they happen after the main turn was already aborted)
+      const result = await executeAITurn({
+        adapter,
+        aiPlayerId: promptedMapping.lobbyId,
+        modelId: modelToUse,
+        env: this.env as AIEnv,
+        playerName: promptedMapping.name,
+        maxSteps: 5, // May-I response is simple - allow or claim
+        debug: true, // Enable debug for May-I responses
+        useFallbackOnError: true, // Use fallback if AI fails - auto-allow
+        onPersist: async () => {
+          await this.setGameState(adapter.getStoredState());
+          await this.broadcastGameState();
+        },
+      });
+
+      this.broadcastAIDone(promptedMapping.lobbyId);
+      this.logMayI(`AI May-I response result: success=${result.success}, actions=${result.actions.join(", ")}, error=${result.error || "none"}`);
+
+      if (result.success) {
+        // Save state after AI response
+        await this.setGameState(adapter.getStoredState());
+
+        // Check new phase
+        const newSnapshot = adapter.getSnapshot();
+        const newPhase = newSnapshot.phase;
+        this.logMayI(`After AI May-I response, phase is: ${newPhase}`);
+
+        if (newPhase === "RESOLVING_MAY_I") {
+          // Still resolving - prompt next player (may trigger another AI)
+          this.logMayI(`Still resolving, prompting next player...`);
+          await this.broadcastMayIPrompt(adapter);
+          await this.executeAIMayIResponseIfNeeded(adapter);
+        } else if (newPhase === "ROUND_ACTIVE") {
+          // May-I resolved - broadcast and continue with turns
+          this.logMayI(`May-I fully resolved, continuing game`);
+          await this.broadcastMayIResolved(adapter);
+          await this.broadcastGameState();
+          // Continue with AI turns if needed
+          await this.executeAITurnsIfNeeded();
+        } else {
+          this.logMayI(`Unexpected phase after May-I response: ${newPhase}`);
+        }
+      } else {
+        this.logMayI(`AI May-I response FAILED for ${promptedMapping.name}: ${result.error}`);
+        console.error(`[AI] May-I response failed for ${promptedMapping.name}: ${result.error}`);
+        // AI failed to respond - human will need to handle via timeout or retry
+      }
+    } catch (error) {
+      this.broadcastAIDone(promptedMapping.lobbyId);
+      this.logMayI(`AI May-I response ERROR for ${promptedMapping.name}: ${error}`);
+      console.error(`[AI] May-I response error for ${promptedMapping.name}:`, error);
+    }
+  }
+
+  /**
    * Broadcast MAY_I_RESOLVED to all clients
    */
   private async broadcastMayIResolved(adapter: PartyGameAdapter): Promise<void> {
@@ -847,80 +1010,24 @@ export class MayIRoom extends Server {
 
   /**
    * Execute AI turns if it's an AI player's turn
-   * Handles chained AI turns (multiple AIs in a row)
+   *
+   * Delegates to AITurnCoordinator which handles:
+   * - AbortController lifecycle for interrupting AI turns (e.g., when May-I is called)
+   * - Immediate state persistence via onPersist callbacks
+   * - Chained AI turns with safety limits
    */
   private async executeAITurnsIfNeeded(): Promise<void> {
-    const MAX_CHAINED_TURNS = 8; // Safety limit to prevent infinite loops
-    let turnsExecuted = 0;
-
-    while (turnsExecuted < MAX_CHAINED_TURNS) {
-      const gameState = await this.getGameState();
-      if (!gameState) return;
-
-      const adapter = PartyGameAdapter.fromStoredState(gameState);
-
-      // Check if it's an AI player's turn
-      const aiPlayer = isAIPlayerTurn(adapter);
-      if (!aiPlayer) return;
-
-      // Track state before AI turn for transition detection
-      const snapshotBefore = adapter.getSnapshot();
-      const phaseBefore = snapshotBefore.phase;
-      const roundBefore = snapshotBefore.currentRound;
-
-      // Broadcast AI_THINKING
-      this.broadcastAIThinking(aiPlayer.lobbyId, aiPlayer.name);
-
-      // Small delay to let clients see the thinking indicator
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const modelToUse = aiPlayer.aiModelId ?? "default:grok";
-
-      // Execute the AI turn
-      const result = await executeAITurn({
-        adapter,
-        aiPlayerId: aiPlayer.lobbyId,
-        modelId: modelToUse,
-        env: this.env,
-        playerName: aiPlayer.name,
-        maxSteps: 10,
-        debug: false,
-        useFallbackOnError: true,
-      });
-
-      // Broadcast AI_DONE
-      this.broadcastAIDone(aiPlayer.lobbyId);
-
-      // Save updated state
-      await this.setGameState(adapter.getStoredState());
-
-      // Check for round/game end transitions
-      await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore);
-
-      // Broadcast updated game state
-      await this.broadcastGameState();
-
-      turnsExecuted++;
-
-      if (!result.success) {
-        console.error(`[AI] Turn failed for ${aiPlayer.name}: ${result.error}`);
-        // Continue to next iteration to check if it's still an AI's turn
-        // (fallback should have completed the turn)
-      }
-
-      // Exit if game ended
-      const phaseAfter = adapter.getSnapshot().phase;
-      if (phaseAfter === "GAME_END") {
-        return;
-      }
-
-      // Small delay between AI turns for better UX
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
-    if (turnsExecuted >= MAX_CHAINED_TURNS) {
-      console.warn("[AI] Hit max chained turns limit");
-    }
+    await this.getAICoordinator().executeAITurnsIfNeeded({
+      onAIThinking: (playerId, playerName) => {
+        this.broadcastAIThinking(playerId, playerName);
+      },
+      onAIDone: (playerId) => {
+        this.broadcastAIDone(playerId);
+      },
+      onTransitionCheck: async (adapter, phaseBefore, roundBefore) => {
+        await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore);
+      },
+    });
   }
 
   /**
@@ -959,7 +1066,7 @@ export class MayIRoom extends Server {
       `[Auto-play] Executing fallback for disconnected player ${mapping.name} (${awaitingId})`
     );
 
-    const result = executeFallbackTurn(adapter, awaitingId);
+    const result = await executeFallbackTurn(adapter, awaitingId);
 
     if (result.success) {
       // Save updated state

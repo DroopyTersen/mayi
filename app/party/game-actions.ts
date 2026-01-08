@@ -8,6 +8,7 @@
 import type { GameAction } from "./protocol.types";
 import type { PartyGameAdapter } from "./party-game-adapter";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
+import { renderCard } from "../../cli/shared/cli.renderer";
 
 export interface ActionResult {
   success: boolean;
@@ -309,7 +310,36 @@ function logSuccessfulAction(
       break;
     }
 
-    // SKIP, REORDER_HAND, ALLOW_MAY_I, CLAIM_MAY_I, SWAP_JOKER
-    // are not logged (too verbose or handled elsewhere)
+    case "ALLOW_MAY_I": {
+      adapter.logMayIAllow(lobbyPlayerId);
+      // If May-I just resolved (phase changed), log who got the card
+      if (before.phase === "RESOLVING_MAY_I" && after.phase === "ROUND_ACTIVE") {
+        const mayIContext = before.mayIContext;
+        if (mayIContext) {
+          const cardRendered = renderCard(mayIContext.cardBeingClaimed);
+          const winnerEngineId = mayIContext.originalCaller;
+          const winnerMapping = adapter.getAllPlayerMappings().find(
+            (m) => m.engineId === winnerEngineId
+          );
+          if (winnerMapping) {
+            adapter.logMayIResolved(winnerMapping.lobbyId, cardRendered, false);
+          }
+        }
+      }
+      break;
+    }
+
+    case "CLAIM_MAY_I": {
+      const mayIContext = before.mayIContext;
+      if (mayIContext) {
+        const cardRendered = renderCard(mayIContext.cardBeingClaimed);
+        adapter.logMayIClaim(lobbyPlayerId, cardRendered);
+        // Claimer is this player, they took the card
+        adapter.logMayIResolved(lobbyPlayerId, cardRendered, true);
+      }
+      break;
+    }
+
+    // SKIP, REORDER_HAND, SWAP_JOKER are not logged (too verbose)
   }
 }

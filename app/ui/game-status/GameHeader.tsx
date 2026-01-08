@@ -9,6 +9,10 @@ interface GameHeaderProps {
   round: number;
   totalRounds: number;
   contract: Contract;
+  /** Turn status text - shown on mobile below the main header info */
+  turnStatus?: string;
+  /** Whether it's the viewing player's turn - affects turn status styling */
+  isYourTurn?: boolean;
   className?: string;
 }
 
@@ -27,23 +31,40 @@ export function GameHeader({
   round,
   totalRounds,
   contract,
+  turnStatus,
+  isYourTurn,
   className,
 }: GameHeaderProps) {
   return (
     <header
       className={cn(
-        "flex items-center justify-center gap-3 py-2 px-4",
+        "flex flex-col items-center py-2 px-4",
         "bg-muted/50 border-b",
         className
       )}
     >
-      <span className="font-bold text-lg tracking-wide">MAY I?</span>
-      <span className="text-muted-foreground">—</span>
-      <span className="text-sm">
-        Round {round} of {totalRounds}
-      </span>
-      <span className="text-muted-foreground">—</span>
-      <span className="text-sm font-medium">{formatContract(contract)}</span>
+      {/* Main header row */}
+      <div className="flex items-center justify-center gap-3">
+        <span className="font-bold text-lg tracking-wide">MAY I?</span>
+        <span className="text-muted-foreground">—</span>
+        <span className="text-sm">
+          Round {round} of {totalRounds}
+        </span>
+        <span className="text-muted-foreground">—</span>
+        <span className="text-sm font-medium">{formatContract(contract)}</span>
+      </div>
+
+      {/* Turn status row - shown on mobile */}
+      {turnStatus && (
+        <div
+          className={cn(
+            "text-sm mt-1",
+            isYourTurn ? "text-primary font-medium" : "text-muted-foreground"
+          )}
+        >
+          {turnStatus}
+        </div>
+      )}
     </header>
   );
 }

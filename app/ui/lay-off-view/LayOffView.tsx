@@ -7,9 +7,16 @@ import { MeldDisplay } from "~/ui/game-table/MeldDisplay";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 
+interface Player {
+  id: string;
+  name: string;
+}
+
 interface LayOffViewProps {
   hand: Card[];
   tableMelds: Meld[];
+  players: Player[];
+  viewingPlayerId: string;
   onLayOff: (cardId: string, meldId: string, position?: "start" | "end") => void;
   onDone: () => void;
   className?: string;
@@ -24,6 +31,8 @@ interface PositionPrompt {
 export function LayOffView({
   hand,
   tableMelds,
+  players,
+  viewingPlayerId,
   onLayOff,
   onDone,
   className,
@@ -64,52 +73,27 @@ export function LayOffView({
     setPositionPrompt(null);
   };
 
+  // Group melds by player (like TableDisplay)
+  const meldsByPlayer = new Map<string, Meld[]>();
+  for (const meld of tableMelds) {
+    const existing = meldsByPlayer.get(meld.ownerId) ?? [];
+    existing.push(meld);
+    meldsByPlayer.set(meld.ownerId, existing);
+  }
+
+  // Get players who have melds (in order of players array)
+  const playersWithMelds = players.filter(
+    (p) => meldsByPlayer.has(p.id) && meldsByPlayer.get(p.id)!.length > 0
+  );
+
+  const getPlayerDisplayName = (player: Player) => {
+    return player.id === viewingPlayerId ? `${player.name} (You)` : player.name;
+  };
+
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
-      <div className="text-center">
-        <h2 className="text-lg font-semibold">Lay Off Cards</h2>
-        <p className="text-sm text-muted-foreground">
-          Select a card, then tap a meld to add it
-        </p>
-      </div>
-
-      {/* Position selection dialog */}
-      {positionPrompt && (
-        <div className="p-4 rounded-lg border border-primary bg-primary/5">
-          <p className="text-sm text-center mb-3">
-            This wild card can extend either end of the run. Where would you like to place it?
-          </p>
-          <div className="flex justify-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePositionSelect("start")}
-            >
-              Start (prepend)
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePositionSelect("end")}
-            >
-              End (append)
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancelPosition}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Your hand */}
-      <div>
-        <p className="text-sm text-muted-foreground mb-2 text-center">
-          Your hand
-        </p>
+    <div className={cn("flex flex-col flex-1 min-h-0", className)}>
+      {/* Fixed header with hand - centered */}
+      <div className="flex-shrink-0 pb-3 border-b">
         <div className="flex justify-center">
           <HandDisplay
             cards={hand}
@@ -118,42 +102,88 @@ export function LayOffView({
             size="sm"
           />
         </div>
+
+        {/* Position selection dialog */}
+        {positionPrompt && (
+          <div className="mt-3 p-3 rounded-lg border border-primary bg-primary/5">
+            <p className="text-sm text-center mb-2">
+              Where should this wild card go?
+            </p>
+            <div className="flex justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePositionSelect("start")}
+              >
+                Start
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePositionSelect("end")}
+              >
+                End
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelPosition}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Table melds */}
-      <div>
-        <p className="text-sm text-muted-foreground mb-2 text-center">
+      {/* Scrollable melds section */}
+      <div className="flex-1 overflow-y-auto py-3 min-h-0">
+        <p className="text-xs text-muted-foreground mb-2 text-center">
           Table melds (tap to add selected card)
         </p>
-        {tableMelds.length === 0 ? (
+        {playersWithMelds.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground italic py-4">
             No melds on table
           </p>
         ) : (
-          <div className="space-y-2">
-            {tableMelds.map((meld) => (
-              <div
-                key={meld.id}
-                className={cn(
-                  "p-2 rounded-lg border cursor-pointer transition-colors",
-                  selectedCardId && !positionPrompt
-                    ? "border-primary/50 hover:border-primary hover:bg-primary/5"
-                    : "border-border"
-                )}
-                onClick={() => !positionPrompt && handleMeldClick(meld.id)}
-              >
-                <MeldDisplay meld={meld} size="sm" />
+          <div className="space-y-3">
+            {playersWithMelds.map((player) => (
+              <div key={player.id} className="rounded-lg border border-border p-2">
+                {/* Player name header */}
+                <h3 className="text-xs font-medium text-muted-foreground mb-2">
+                  {getPlayerDisplayName(player)}
+                </h3>
+
+                {/* Melds displayed horizontally */}
+                <div className="flex flex-wrap gap-2">
+                  {meldsByPlayer.get(player.id)!.map((meld) => (
+                    <div
+                      key={meld.id}
+                      className={cn(
+                        "p-1.5 rounded-md border cursor-pointer transition-colors",
+                        selectedCardId && !positionPrompt
+                          ? "border-primary/50 hover:border-primary hover:bg-primary/5"
+                          : "border-transparent"
+                      )}
+                      onClick={() => !positionPrompt && handleMeldClick(meld.id)}
+                    >
+                      <MeldDisplay meld={meld} size="sm" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-center gap-3 pt-2">
-        <Button onClick={onDone}>
-          Done
-        </Button>
+      {/* Fixed footer with actions */}
+      <div className="flex-shrink-0 pt-3 border-t">
+        <div className="flex justify-center">
+          <Button onClick={onDone}>
+            Done
+          </Button>
+        </div>
       </div>
     </div>
   );

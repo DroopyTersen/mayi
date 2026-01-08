@@ -67,16 +67,17 @@ export function PlayerMeldsDisplayStory() {
         <PlayerMeldsDisplay playerName="Alice" melds={PLAYER_WITH_MELDS} />
       </section>
 
-      {/* Current Player */}
+      {/* Viewing Player (Active Turn) */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Current Player</h2>
+        <h2 className="text-lg font-semibold mb-3">Viewing Player (Their Turn)</h2>
         <PlayerMeldsDisplay
           playerName="You"
           melds={PLAYER_WITH_MELDS}
-          isCurrentPlayer
+          isActiveTurn
+          isViewingPlayer
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Current player has highlighted border and "(You)" label.
+          isActiveTurn highlights the border, isViewingPlayer shows "(You)" label.
         </p>
       </section>
 
@@ -102,7 +103,8 @@ export function PlayerMeldsDisplayStory() {
           <PlayerMeldsDisplay
             playerName="Alice"
             melds={PLAYER_WITH_MELDS}
-            isCurrentPlayer
+            isActiveTurn
+            isViewingPlayer
           />
           <PlayerMeldsDisplay
             playerName="Bob"
@@ -123,7 +125,8 @@ export function PlayerMeldsDisplayStory() {
             <PlayerMeldsDisplay
               playerName="Alice"
               melds={PLAYER_WITH_MANY_MELDS}
-              isCurrentPlayer
+              isActiveTurn
+              isViewingPlayer
             />
           </div>
         </ViewportComparison>

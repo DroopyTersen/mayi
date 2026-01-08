@@ -59,3 +59,69 @@ bun cli/play.ts abc123 log               # View action log
 ## Playing as Multiple Players
 
 When testing, you control all players. Make reasonable decisions for each player based on their hand and the game state. Consider what a human player would do given the information visible to that player.
+
+## Creating Test Scenarios
+
+You can create custom game states for testing specific scenarios by writing directly to the save file format. This bypasses random dealing and lets you test exact card configurations.
+
+### How to Create a Test State
+
+1. **Read an existing save file** to understand the structure:
+   ```bash
+   cat .data/<existing-game-id>/game-state.json
+   ```
+
+2. **Create your state directory**:
+   ```bash
+   mkdir -p .data/my-test-scenario
+   ```
+
+3. **Write the state file**: Create `.data/my-test-scenario/game-state.json` with your desired state
+
+4. **Load and play**:
+   ```bash
+   bun cli/play.ts my-test-scenario status
+   ```
+
+### Key Fields to Customize
+
+The save file contains a nested XState snapshot (game → round → turn). Key fields:
+
+| Level | Field | Purpose |
+|-------|-------|---------|
+| Turn | `snapshot.value` | Turn phase: `awaitingDraw`, `awaitingAction`, `awaitingDiscard` |
+| Turn | `context.hand` | Current player's cards |
+| Turn | `context.hasDrawn` | Whether player has drawn this turn |
+| Turn | `context.isDown` | Current player's down status |
+| Round | `context.players[].hand` | All players' hands |
+| Round | `context.players[].isDown` | Which players have laid down |
+| Round | `context.table` | Melds on the table |
+| Round | `context.stock` | Stock pile cards |
+| Round | `context.discard` | Discard pile (top card first) |
+
+### Consistency Rules
+
+Data must be consistent across all three levels:
+- Turn context's `hand`, `stock`, `discard`, `table` must match the round context
+- `playerDownStatus` must match each player's `isDown` flag
+- Card IDs must be unique across all cards in the game
+
+### Example: Testing Wild Lay-off
+
+To test laying off a wild card to a run at start vs end:
+
+```json
+{
+  "version": "3.0",
+  "gameId": "wild-test",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "engineSnapshot": {
+    "status": "active",
+    "value": "playing",
+    ...
+  }
+}
+```
+
+See `specs/hydrate-agent-harness.spec.md` for the complete example and full format documentation.

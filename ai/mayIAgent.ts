@@ -71,6 +71,12 @@ export interface ExecuteTurnConfig {
 
   /** Optional action log entries for LLM context (only used in CLI mode) */
   actionLog?: ActionLogEntry[];
+
+  /** AbortSignal to cancel the LLM call mid-turn (e.g., when May-I is called) */
+  abortSignal?: AbortSignal;
+
+  /** Callback invoked after each tool execution to persist state immediately */
+  onPersist?: () => Promise<void>;
 }
 
 /**
@@ -105,6 +111,8 @@ export async function executeTurn(
     debug = false,
     telemetry = true,
     actionLog,
+    abortSignal,
+    onPersist,
   } = config;
 
   const tools = createMayITools(game, playerId, { actionLog });
@@ -168,6 +176,7 @@ export async function executeTurn(
       system: systemPrompt,
       prompt: initialGameState,
       tools,
+      abortSignal,
       stopWhen: stopWhenTurnComplete(maxSteps),
       prepareStep: async () => {
         // Get current game state (may have changed since last step)
@@ -202,7 +211,7 @@ export async function executeTurn(
             },
           }
         : undefined,
-      onStepFinish: (step) => {
+      onStepFinish: async (step) => {
         if (step.toolCalls && step.toolCalls.length > 0) {
           for (const call of step.toolCalls) {
             const actionName = call.toolName;
@@ -224,6 +233,12 @@ export async function executeTurn(
                 console.log(`[AI] Turn complete`);
               }
             }
+          }
+
+          // Persist state immediately after tool execution
+          // This ensures partial progress (e.g., draw) is saved before abort
+          if (onPersist) {
+            await onPersist();
           }
         }
       },
