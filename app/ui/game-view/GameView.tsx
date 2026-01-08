@@ -435,6 +435,7 @@ export function GameView({
           viewingPlayerId={gameState.viewingPlayerId}
           onLayOff={handleLayOff}
           onDone={closeDrawer}
+          onCancel={closeDrawer}
         />
       </ResponsiveDrawer>
 

@@ -458,26 +458,33 @@ Issues collected from family testing sessions.
 
 ---
 
-## FT-1022: Lay-off should allow retracting card before saving
+## FT-1022: Lay-off should allow retracting card before saving ✅ FIXED
 
 **Description:** After adding a card to a meld during lay-off, there's no way to undo/retract before clicking Done. Should be able to remove the card and try a different meld.
+
+**Root Cause:** LayOffView immediately called `onLayOff` when clicking a meld, sending the action to the server with no local staging.
+
+**Fix:**
+1. Added `stagedLayOffs` state array to track pending lay-offs locally
+2. Changed `handleMeldClick` to stage lay-offs instead of sending immediately
+3. Added "Staged (tap to retract)" section showing pending lay-offs with card + target meld info
+4. Click on staged card retracts it back to hand
+5. "Done" commits all staged lay-offs, "Cancel" discards and closes
+6. Wild card position dialog still appears immediately, then stages with the selected position
+7. Fixed edge case: wild cards on runs with only one valid end now auto-determine position
 
 **Replication Steps:**
 1. Enter lay-off mode
 2. Select a card
 3. Click on a meld to add card to it
-4. Realize you wanted to add to different meld
-5. No way to undo - card is already sent to server
+4. ~~No way to undo~~ **FIXED - card appears in "Staged" section, click to retract**
+5. Can stage multiple cards, retract any of them
+6. Click "Done" to commit all, or "Cancel" to discard
 
-**Expected vs Actual:**
-- **Expected:** Lay-off should be staged locally, with ability to remove before committing
-- **Actual:** Each lay-off immediately sends to server (no undo)
-
-**Relevant Files:**
-- `app/ui/lay-off-view/LayOffView.tsx:48-61` - handleMeldClick immediately calls onLayOff
-- `app/ui/game-view/GameView.tsx:119-125` - handleLayOff sends action immediately
-- Would need to add local staging state in LayOffView, only send on "Done" click
-- Similar to how LayDownView stages cards before sending
+**Files Modified:**
+- `app/ui/lay-off-view/LayOffView.tsx` - Added staging state, staged section UI, retract functionality
+- `app/ui/lay-off-view/LayOffView.story.tsx` - Updated stories with new onCancel prop
+- `app/ui/game-view/GameView.tsx` - Added onCancel prop to LayOffView
 
 ---
 

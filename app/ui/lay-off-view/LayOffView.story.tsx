@@ -117,10 +117,26 @@ const MANY_MELDS: Meld[] = [
 /** Interactive drawer demo component */
 function LayOffDrawerDemo({ melds, hand }: { melds: Meld[]; hand: Card[] }) {
   const [open, setOpen] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
 
   const handleLayOff = (cardId: string, meldId: string, position?: "start" | "end") => {
     const posText = position ? ` at ${position}` : "";
-    alert(`Laid off card ${cardId} to meld ${meldId}${posText}`);
+    const msg = `Laid off card ${cardId} to meld ${meldId}${posText}`;
+    setLog((prev) => [...prev, msg]);
+    console.log(msg);
+  };
+
+  const handleDone = () => {
+    if (log.length > 0) {
+      alert(`Committed ${log.length} lay-off(s):\n${log.join("\n")}`);
+    }
+    setLog([]);
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
+    setLog([]);
+    setOpen(false);
   };
 
   return (
@@ -139,7 +155,8 @@ function LayOffDrawerDemo({ melds, hand }: { melds: Meld[]; hand: Card[] }) {
           players={PLAYERS}
           viewingPlayerId={VIEWING_PLAYER_ID}
           onLayOff={handleLayOff}
-          onDone={() => setOpen(false)}
+          onDone={handleDone}
+          onCancel={handleCancel}
         />
       </ResponsiveDrawer>
     </>
@@ -149,11 +166,15 @@ function LayOffDrawerDemo({ melds, hand }: { melds: Meld[]; hand: Card[] }) {
 export function LayOffViewStory() {
   const handleLayOff = (cardId: string, meldId: string, position?: "start" | "end") => {
     const posText = position ? ` at ${position}` : "";
-    alert(`Laid off card ${cardId} to meld ${meldId}${posText}`);
+    console.log(`Laid off card ${cardId} to meld ${meldId}${posText}`);
   };
 
   const handleDone = () => {
-    alert("Done laying off");
+    console.log("Done laying off");
+  };
+
+  const handleCancel = () => {
+    console.log("Cancelled laying off");
   };
 
   return (
@@ -194,6 +215,7 @@ export function LayOffViewStory() {
             viewingPlayerId={VIEWING_PLAYER_ID}
             onLayOff={handleLayOff}
             onDone={handleDone}
+            onCancel={handleCancel}
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
@@ -213,6 +235,7 @@ export function LayOffViewStory() {
             viewingPlayerId={VIEWING_PLAYER_ID}
             onLayOff={handleLayOff}
             onDone={handleDone}
+            onCancel={handleCancel}
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
@@ -231,6 +254,7 @@ export function LayOffViewStory() {
             viewingPlayerId={VIEWING_PLAYER_ID}
             onLayOff={handleLayOff}
             onDone={handleDone}
+            onCancel={handleCancel}
           />
         </div>
       </section>
@@ -250,6 +274,7 @@ export function LayOffViewStory() {
               viewingPlayerId={VIEWING_PLAYER_ID}
               onLayOff={handleLayOff}
               onDone={handleDone}
+              onCancel={handleCancel}
             />
           </div>
         </ViewportComparison>

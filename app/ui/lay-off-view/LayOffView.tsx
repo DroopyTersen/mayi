@@ -1,15 +1,23 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
 import type { Meld } from "core/meld/meld.types";
-import { needsPositionChoice } from "core/engine/layoff";
+import { needsPositionChoice, getRunInsertPosition } from "core/engine/layoff";
+import { isWild } from "core/card/card.utils";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
-import { MeldDisplay } from "~/ui/game-table/MeldDisplay";
+import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 
 interface Player {
   id: string;
   name: string;
+}
+
+/** A staged lay-off waiting to be committed */
+export interface StagedLayOff {
+  cardId: string;
+  meldId: string;
+  position?: "start" | "end";
 }
 
 interface LayOffViewProps {
@@ -19,6 +27,7 @@ interface LayOffViewProps {
   viewingPlayerId: string;
   onLayOff: (cardId: string, meldId: string, position?: "start" | "end") => void;
   onDone: () => void;
+  onCancel: () => void;
   className?: string;
 }
 
@@ -35,10 +44,16 @@ export function LayOffView({
   viewingPlayerId,
   onLayOff,
   onDone,
+  onCancel,
   className,
 }: LayOffViewProps) {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [positionPrompt, setPositionPrompt] = useState<PositionPrompt | null>(null);
+  const [stagedLayOffs, setStagedLayOffs] = useState<StagedLayOff[]>([]);
+
+  // Cards not yet staged (available to select)
+  const stagedCardIds = new Set(stagedLayOffs.map((s) => s.cardId));
+  const availableCards = hand.filter((c) => !stagedCardIds.has(c.id));
 
   const handleCardClick = (cardId: string) => {
     setSelectedCardId(cardId === selectedCardId ? null : cardId);
@@ -48,22 +63,32 @@ export function LayOffView({
   const handleMeldClick = (meldId: string) => {
     if (!selectedCardId) return;
 
-    const selectedCard = hand.find((c) => c.id === selectedCardId);
+    const selectedCard = availableCards.find((c) => c.id === selectedCardId);
     const targetMeld = tableMelds.find((m) => m.id === meldId);
 
     if (selectedCard && targetMeld && needsPositionChoice(selectedCard, targetMeld)) {
       // Show position selection dialog
       setPositionPrompt({ cardId: selectedCardId, meldId });
     } else {
-      // No position choice needed, lay off immediately
-      onLayOff(selectedCardId, meldId);
+      // No position choice needed, stage immediately
+      // For wild cards on runs, auto-determine the valid position
+      let position: "start" | "end" | undefined;
+      if (selectedCard && targetMeld?.type === "run" && isWild(selectedCard)) {
+        const insertPos = getRunInsertPosition(selectedCard, targetMeld);
+        position = insertPos === "low" ? "start" : insertPos === "high" ? "end" : undefined;
+      }
+      setStagedLayOffs((prev) => [...prev, { cardId: selectedCardId, meldId, position }]);
       setSelectedCardId(null);
     }
   };
 
   const handlePositionSelect = (position: "start" | "end") => {
     if (positionPrompt) {
-      onLayOff(positionPrompt.cardId, positionPrompt.meldId, position);
+      // Stage with the selected position
+      setStagedLayOffs((prev) => [
+        ...prev,
+        { cardId: positionPrompt.cardId, meldId: positionPrompt.meldId, position },
+      ]);
       setPositionPrompt(null);
       setSelectedCardId(null);
     }
@@ -71,6 +96,24 @@ export function LayOffView({
 
   const handleCancelPosition = () => {
     setPositionPrompt(null);
+  };
+
+  const handleRetract = (cardId: string) => {
+    setStagedLayOffs((prev) => prev.filter((s) => s.cardId !== cardId));
+  };
+
+  const handleDone = () => {
+    // Commit all staged lay-offs
+    for (const staged of stagedLayOffs) {
+      onLayOff(staged.cardId, staged.meldId, staged.position);
+    }
+    onDone();
+  };
+
+  const handleCancel = () => {
+    // Discard staged and close
+    setStagedLayOffs([]);
+    onCancel();
   };
 
   // Group melds by player (like TableDisplay)
@@ -90,13 +133,28 @@ export function LayOffView({
     return player.id === viewingPlayerId ? `${player.name} (You)` : player.name;
   };
 
+  // Get staged cards for a specific meld
+  const getStagedForMeld = (meldId: string) => {
+    return stagedLayOffs
+      .filter((s) => s.meldId === meldId)
+      .map((s) => ({
+        ...s,
+        card: hand.find((c) => c.id === s.cardId)!,
+      }))
+      .filter((s) => s.card); // Filter out any with missing cards
+  };
+
+  // Overlap for meld cards (matching MeldDisplay)
+  const OVERLAP = { sm: "-ml-4", md: "-ml-5" } as const;
+
   return (
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
-      {/* Fixed header with hand - centered */}
+      {/* Fixed header with hand */}
       <div className="flex-shrink-0 pb-3 border-b">
+        {/* Hand display */}
         <div className="flex justify-center">
           <HandDisplay
-            cards={hand}
+            cards={availableCards}
             selectedIds={selectedCardId ? new Set([selectedCardId]) : new Set()}
             onCardClick={handleCardClick}
             size="sm"
@@ -156,20 +214,80 @@ export function LayOffView({
 
                 {/* Melds displayed horizontally */}
                 <div className="flex flex-wrap gap-2">
-                  {meldsByPlayer.get(player.id)!.map((meld) => (
-                    <div
-                      key={meld.id}
-                      className={cn(
-                        "p-1.5 rounded-md border cursor-pointer transition-colors",
-                        selectedCardId && !positionPrompt
-                          ? "border-primary/50 hover:border-primary hover:bg-primary/5"
-                          : "border-transparent"
-                      )}
-                      onClick={() => !positionPrompt && handleMeldClick(meld.id)}
-                    >
-                      <MeldDisplay meld={meld} size="sm" />
-                    </div>
-                  ))}
+                  {meldsByPlayer.get(player.id)!.map((meld) => {
+                    const stagedForThisMeld = getStagedForMeld(meld.id);
+                    const startStaged = stagedForThisMeld.filter((s) => s.position === "start");
+                    const endStaged = stagedForThisMeld.filter((s) => s.position !== "start");
+
+                    return (
+                      <div
+                        key={meld.id}
+                        className={cn(
+                          "p-1.5 rounded-md border transition-colors",
+                          selectedCardId && !positionPrompt
+                            ? "border-primary/50 hover:border-primary hover:bg-primary/5 cursor-pointer"
+                            : "border-transparent"
+                        )}
+                        onClick={() => !positionPrompt && handleMeldClick(meld.id)}
+                      >
+                        {/* Meld label */}
+                        <div className="text-xs text-muted-foreground mb-1 font-medium">
+                          {meld.type === "set" ? "Set" : "Run"}
+                        </div>
+
+                        {/* Cards with staged cards inline */}
+                        <div className="flex items-end">
+                          {/* Staged cards at start */}
+                          {startStaged.map((staged, index) => (
+                            <div
+                              key={staged.cardId}
+                              className={cn(
+                                "relative cursor-pointer",
+                                index > 0 && OVERLAP.sm
+                              )}
+                              style={{ zIndex: index }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRetract(staged.cardId);
+                              }}
+                            >
+                              <PlayingCard card={staged.card} size="sm" />
+                              {/* Blue overlay */}
+                              <div className="absolute inset-0 bg-blue-500/30 rounded-md pointer-events-none" />
+                            </div>
+                          ))}
+
+                          {/* Original meld cards */}
+                          {meld.cards.map((card, index) => (
+                            <div
+                              key={card.id}
+                              className={cn((index > 0 || startStaged.length > 0) && OVERLAP.sm)}
+                              style={{ zIndex: startStaged.length + index }}
+                            >
+                              <PlayingCard card={card} size="sm" />
+                            </div>
+                          ))}
+
+                          {/* Staged cards at end */}
+                          {endStaged.map((staged, index) => (
+                            <div
+                              key={staged.cardId}
+                              className={cn("relative cursor-pointer", OVERLAP.sm)}
+                              style={{ zIndex: startStaged.length + meld.cards.length + index }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRetract(staged.cardId);
+                              }}
+                            >
+                              <PlayingCard card={staged.card} size="sm" />
+                              {/* Blue overlay */}
+                              <div className="absolute inset-0 bg-blue-500/30 rounded-md pointer-events-none" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -179,8 +297,11 @@ export function LayOffView({
 
       {/* Fixed footer with actions */}
       <div className="flex-shrink-0 pt-3 border-t">
-        <div className="flex justify-center">
-          <Button onClick={onDone}>
+        <div className="flex justify-center gap-3">
+          <Button variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button onClick={handleDone}>
             Done
           </Button>
         </div>
