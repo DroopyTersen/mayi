@@ -372,25 +372,23 @@ Issues collected from family testing sessions.
 
 ---
 
-## FT-1018: Wild card lay-off position on runs - allow start or end always
+## FT-1018: Wild card lay-off position on runs - allow start or end always ✅ FIXED
 
-**Description:** When laying off a wild card onto a run, users should always be able to choose start or end position (when both are valid). Currently the position choice may be inconsistent.
+**Description:** When laying off a wild card onto a run, the position dialog appeared correctly but clicking "Start" always placed the wild at the end.
+
+**Root Cause:** The route handler at `app/routes/game.$roomId.tsx:255-261` was not passing the `position` field through to the game action. The payload included `position`, but it was lost when creating the `LAY_OFF` action.
+
+**Fix:** Updated the route handler to include `position: p.position` when constructing the `LAY_OFF` game action.
 
 **Replication Steps:**
 1. Have a wild card (2 or Joker) in hand
 2. There's a run on table (e.g., 5-6-7 of hearts)
 3. Try to lay off the wild card
-4. May not get option to choose start vs end position
+4. Position dialog appears with Start/End buttons
+5. ~~Clicking "Start" places wild at end anyway~~ **FIXED**
 
-**Expected vs Actual:**
-- **Expected:** Always prompt for position choice when wild can go at either end
-- **Actual:** `needsPositionChoice` only prompts when BOTH ends are valid, otherwise auto-places
-
-**Relevant Files:**
-- `core/engine/layoff.ts:323-334` - `needsPositionChoice` function
-- `app/ui/lay-off-view/LayOffView.tsx:54-56` - Shows position dialog when needed
-- `app/ui/lay-off-view/LayOffView.tsx:107-136` - Position selection UI
-- Issue may be in run bounds detection or auto-placement logic
+**Files Modified:**
+- `app/routes/game.$roomId.tsx:255-261` - Added `position` to LAY_OFF action construction
 
 ---
 

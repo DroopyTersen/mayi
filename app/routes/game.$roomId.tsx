@@ -253,10 +253,10 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           break;
         }
         case "layOff": {
-          // payload should have cardId and meldId
-          const p = payload as { cardId?: string; meldId?: string } | undefined;
+          // payload should have cardId, meldId, and optional position for wild cards
+          const p = payload as { cardId?: string; meldId?: string; position?: "start" | "end" } | undefined;
           if (p?.cardId && p?.meldId) {
-            gameAction = { type: "LAY_OFF", cardId: p.cardId, meldId: p.meldId };
+            gameAction = { type: "LAY_OFF", cardId: p.cardId, meldId: p.meldId, position: p.position };
           }
           break;
         }
