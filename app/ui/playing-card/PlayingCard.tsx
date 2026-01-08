@@ -14,6 +14,13 @@ const SIZE_CLASSES = {
   lg: "w-24 h-[134px] text-lg",
 } as const;
 
+// Suit symbol sizes - explicit pixels for reliable rendering
+const SUIT_FONT_SIZE = {
+  sm: "16px",  // vs 12px for rank (33% larger)
+  md: "18px",  // vs 14px for rank (29% larger)
+  lg: "18px",  // same as md - large cards have center pip
+} as const;
+
 const JOKER_ICON_SIZE = {
   sm: 24,
   md: 32,
@@ -84,7 +91,7 @@ export function PlayingCard({
   const CornerContent = () => (
     <div className="flex flex-col items-center leading-none">
       <span className="font-bold">{displayRank}</span>
-      <span className="-mt-0.5">{suitSymbol}</span>
+      <span style={{ fontSize: SUIT_FONT_SIZE[size], lineHeight: 1 }}>{suitSymbol}</span>
     </div>
   );
 
