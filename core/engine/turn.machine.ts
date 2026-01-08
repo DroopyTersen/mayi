@@ -73,7 +73,8 @@ export type TurnEvent =
   | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string; position?: "start" | "end" }
   | { type: "DISCARD"; playerId?: string; cardId: string }
   | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string }
-  | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] };
+  | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] }
+  | { type: "SYNC_HAND"; hand: Card[] };
 
 /**
  * Input required to create a TurnMachine actor
@@ -494,6 +495,10 @@ export const turnMachine = setup({
         discard: event.discard,
       };
     }),
+    syncHand: assign(({ event }) => {
+      if (event.type !== "SYNC_HAND") return {};
+      return { hand: event.hand };
+    }),
     layDown: assign({
       hand: ({ context, event }) => {
         if (event.type !== "LAY_DOWN") return context.hand;
@@ -637,6 +642,7 @@ export const turnMachine = setup({
   initial: "awaitingDraw",
   on: {
     SYNC_PILES: { actions: "syncPiles" },
+    SYNC_HAND: { actions: "syncHand" },
   },
   context: ({ input }) => ({
     playerId: input.playerId,
@@ -666,8 +672,7 @@ export const turnMachine = setup({
       wentOut: context.hand.length === 0,
     };
   },
-  // Note: REORDER_HAND is handled in individual states (awaitingDraw, drawn, awaitingDiscard)
-  // to ensure proper event handling with nested invoked actors
+  // Note: REORDER_HAND is now handled at round level and synced via SYNC_HAND
   states: {
     awaitingDraw: {
       on: {
@@ -691,13 +696,10 @@ export const turnMachine = setup({
           target: "drawn",
           actions: ["drawFromDiscard", "clearError"],
         },
-        REORDER_HAND: [
-          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
-          { actions: "setReorderError" },
-        ],
       },
     },
     // Note: mayIWindow state removed - May I is now handled at round level
+    // Note: REORDER_HAND is now handled at round level via SYNC_HAND
     drawn: {
       on: {
         SKIP_LAY_DOWN: {
@@ -741,10 +743,6 @@ export const turnMachine = setup({
           target: "drawn", // Stay in drawn state after swap
           actions: ["swapJoker", "clearError"],
         },
-        REORDER_HAND: [
-          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
-          { actions: "setReorderError" },
-        ],
         // Allow direct discard from drawn state (implicitly skips lay down)
         DISCARD: [
           {
@@ -782,10 +780,6 @@ export const turnMachine = setup({
             target: "turnComplete",
             actions: ["discardCard", "clearError"],
           },
-        ],
-        REORDER_HAND: [
-          { guard: "canReorderHand", actions: ["reorderHand", "clearError"] },
-          { actions: "setReorderError" },
         ],
       },
     },

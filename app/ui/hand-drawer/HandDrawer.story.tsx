@@ -52,6 +52,7 @@ const DRAW_PHASE_ACTIONS: AvailableActions = {
   canSwapJoker: false,
   canAllowMayI: false,
   canClaimMayI: false,
+  canReorderHand: true,
 };
 
 const PLAY_PHASE_ACTIONS: AvailableActions = {
@@ -64,6 +65,7 @@ const PLAY_PHASE_ACTIONS: AvailableActions = {
   canSwapJoker: false,
   canAllowMayI: false,
   canClaimMayI: false,
+  canReorderHand: true,
 };
 
 const WAITING_ACTIONS: AvailableActions = {
@@ -76,6 +78,7 @@ const WAITING_ACTIONS: AvailableActions = {
   canSwapJoker: false,
   canAllowMayI: false,
   canClaimMayI: false,
+  canReorderHand: true, // Can still organize hand while waiting
 };
 
 // Mock table content for context

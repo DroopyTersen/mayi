@@ -87,21 +87,22 @@ describe("GameEngine round advancement", () => {
 
 describe("GameEngine.reorderHand", () => {
   describe("validation via state", () => {
-    it("wrong player - state unchanged", () => {
+    it("non-current player can reorder their hand", () => {
       const engine = GameEngine.createGame({
         playerNames: ["Alice", "Bob", "Carol"],
       });
 
       const before = engine.getSnapshot();
-      const wrongPlayerId = before.players.find((p) => p.id !== before.awaitingPlayerId)!.id;
-      const wrongPlayer = before.players.find((p) => p.id === wrongPlayerId)!;
-      const newOrder = [...wrongPlayer.hand].reverse().map((c) => c.id);
+      const nonCurrentPlayerId = before.players.find((p) => p.id !== before.awaitingPlayerId)!.id;
+      const nonCurrentPlayer = before.players.find((p) => p.id === nonCurrentPlayerId)!;
+      const originalOrder = nonCurrentPlayer.hand.map((c) => c.id);
+      const newOrder = [...originalOrder].reverse();
 
-      const after = engine.reorderHand(wrongPlayerId, newOrder);
+      const after = engine.reorderHand(nonCurrentPlayerId, newOrder);
 
-      // State unchanged - XState guards reject wrong player
-      const playerAfter = after.players.find((p) => p.id === wrongPlayerId)!;
-      expect(playerAfter.hand.map((c) => c.id)).toEqual(wrongPlayer.hand.map((c) => c.id));
+      // Reorder succeeds - any player can reorder their hand during the round
+      const playerAfter = after.players.find((p) => p.id === nonCurrentPlayerId)!;
+      expect(playerAfter.hand.map((c) => c.id)).toEqual(newOrder);
     });
 
     it("card count mismatch - state unchanged", () => {

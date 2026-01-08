@@ -33,6 +33,8 @@ export interface AvailableActions {
   canAllowMayI: boolean;
   /** Can claim the card instead of allowing (during resolution) */
   canClaimMayI: boolean;
+  /** Can reorder hand (free action, available during round for any player) */
+  canReorderHand: boolean;
 }
 
 /**
@@ -66,6 +68,7 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
     canMayI: false,
     canAllowMayI: false,
     canClaimMayI: false,
+    canReorderHand: false,
   };
 
   // Handle RESOLVING_MAY_I phase - only allow/claim available for prompted player
@@ -79,6 +82,12 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
   // No actions during ROUND_END or GAME_END
   if (snapshot.phase === "ROUND_END" || snapshot.phase === "GAME_END") {
     return actions;
+  }
+
+  // Hand reordering is available during active round for any player (free action)
+  // Not available during May I resolution (handled above with early return)
+  if (snapshot.phase === "ROUND_ACTIVE") {
+    actions.canReorderHand = true;
   }
 
   // May I is available when:

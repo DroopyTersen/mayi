@@ -13,6 +13,7 @@ import {
   PartyGameAdapter,
   type StoredGameState,
   type PlayerMapping,
+  mergeAIStatePreservingOtherPlayerHands,
 } from "./party-game-adapter";
 import {
   executeAITurn as realExecuteAITurn,
@@ -175,7 +176,14 @@ export class AITurnCoordinator {
           abortSignal: this.abortController.signal,
           onPersist: async () => {
             // Persist after each tool call
-            await this.deps.setState(adapter.getStoredState());
+            // Use merge to preserve other players' hands (fixes race condition with reorders)
+            const freshState = await this.deps.getState();
+            const mergedState = mergeAIStatePreservingOtherPlayerHands(
+              freshState,
+              adapter.getStoredState(),
+              aiPlayer.engineId
+            );
+            await this.deps.setState(mergedState);
             await this.deps.broadcast();
 
             // Add delay after tool execution to give time for May-I clicks
@@ -198,7 +206,14 @@ export class AITurnCoordinator {
         callbacks?.onAIDone?.(aiPlayer.lobbyId);
 
         // Normal completion - save final state
-        await this.deps.setState(adapter.getStoredState());
+        // Use merge to preserve other players' hands (fixes race condition with reorders)
+        const freshStateAtEnd = await this.deps.getState();
+        const mergedStateAtEnd = mergeAIStatePreservingOtherPlayerHands(
+          freshStateAtEnd,
+          adapter.getStoredState(),
+          aiPlayer.engineId
+        );
+        await this.deps.setState(mergedStateAtEnd);
 
         // Check for round/game end transitions
         if (callbacks?.onTransitionCheck) {

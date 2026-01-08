@@ -683,39 +683,66 @@ async function maybeOfferHumanMayI(state: GameSnapshot): Promise<void> {
   if (state.turnPhase !== "AWAITING_DRAW") return;
   if (state.awaitingPlayerId === HUMAN_PLAYER_ID) return;
 
-  // Engine-level check for May I eligibility (phase, discard, not down, didn't discard)
-  if (!canPlayerCallMayI(state, HUMAN_PLAYER_ID)) return;
-
+  // Check if May I is available for this player
+  const canMayI = canPlayerCallMayI(state, HUMAN_PLAYER_ID);
   const topDiscard = state.discard[0];
-  if (!topDiscard) return; // Satisfies TypeScript, already checked by canPlayerCallMayI
 
+  // Offer options while waiting (organize is always available during round)
+  const human = getHumanPlayer(state);
   console.log("");
-  console.log(`May I? (${renderCard(topDiscard)} + penalty card)`);
+  console.log("Waiting for other players...");
   console.log("");
-  console.log("  1. Yes, May I!");
-  console.log("  2. No thanks");
+  printHand(human);
   console.log("");
 
-  const choice = await promptNumber("> ", 1, 2);
-  if (choice !== 1) return;
+  let options: { num: number; label: string; action: string }[] = [];
+  let optNum = 1;
 
-  const before = game.getSnapshot();
-  game.callMayI(HUMAN_PLAYER_ID);
-  await resolveMayIIfNeeded();
+  if (canMayI && topDiscard) {
+    options.push({ num: optNum++, label: `May I? (${renderCard(topDiscard)} + penalty card)`, action: "mayi" });
+  }
+  options.push({ num: optNum++, label: "Organize your hand", action: "organize" });
+  options.push({ num: optNum++, label: "Continue waiting", action: "continue" });
 
-  const after = game.getSnapshot();
-  if (after.phase === "RESOLVING_MAY_I") {
+  for (const opt of options) {
+    console.log(`  ${opt.num}. ${opt.label}`);
+  }
+  console.log("");
+
+  const choice = await promptNumber("> ", 1, options.length);
+  const selected = options.find((o) => o.num === choice);
+  if (!selected) return;
+
+  if (selected.action === "organize") {
+    await handleOrganizeHand(state);
+    // After organizing, recursively offer options again
+    await maybeOfferHumanMayI(game.getSnapshot());
     return;
   }
 
-  const humanAfter = after.players.find((p) => p.id === HUMAN_PLAYER_ID);
-  const humanBefore = before.players.find((p) => p.id === HUMAN_PLAYER_ID);
-  if (humanBefore && humanAfter && humanAfter.hand.length > humanBefore.hand.length) {
-    console.log("");
-    console.log("✅ You won May I.");
-  } else {
-    console.log("");
-    console.log("❌ You did not win May I.");
+  if (selected.action === "continue") {
+    return; // Let AI take turn
+  }
+
+  if (selected.action === "mayi") {
+    const before = game.getSnapshot();
+    game.callMayI(HUMAN_PLAYER_ID);
+    await resolveMayIIfNeeded();
+
+    const after = game.getSnapshot();
+    if (after.phase === "RESOLVING_MAY_I") {
+      return;
+    }
+
+    const humanAfter = after.players.find((p) => p.id === HUMAN_PLAYER_ID);
+    const humanBefore = before.players.find((p) => p.id === HUMAN_PLAYER_ID);
+    if (humanBefore && humanAfter && humanAfter.hand.length > humanBefore.hand.length) {
+      console.log("");
+      console.log("✅ You won May I.");
+    } else {
+      console.log("");
+      console.log("❌ You did not win May I.");
+    }
   }
 }
 

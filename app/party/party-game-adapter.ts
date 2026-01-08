@@ -79,6 +79,105 @@ export interface CreateGameFromLobbyOptions {
 // PartyGameAdapter Class
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// State Merge Utility
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Merge AI's state changes with fresh state, preserving other players' hands.
+ *
+ * This fixes a race condition where:
+ * 1. AI turn starts, loads state A
+ * 2. Human reorders hand during AI turn, saves state B
+ * 3. AI finishes, would normally save state A' (losing human's reorder)
+ *
+ * With this merge:
+ * - Use AI's game state (stock, discard, table, turn, current player's hand)
+ * - Preserve fresh state's hands for non-current players (reorders, etc.)
+ *
+ * XState v5 persisted snapshot structure:
+ * - snapshot.context.players: player metadata with empty hands
+ * - snapshot.children.round.snapshot.context.players: round actor's players with actual hands
+ *
+ * @param freshState - Latest state from storage (may include other players' changes)
+ * @param aiState - AI's adapter state after its actions
+ * @param currentPlayerEngineId - Engine ID of the current player (e.g., "player-0")
+ * @returns Merged state that preserves other players' hands
+ */
+export function mergeAIStatePreservingOtherPlayerHands(
+  freshState: StoredGameState | null,
+  aiState: StoredGameState,
+  currentPlayerEngineId: string
+): StoredGameState {
+  // If no fresh state, just use AI state
+  if (!freshState) return aiState;
+
+  // Parse snapshots
+  const freshSnapshot = JSON.parse(freshState.engineSnapshot);
+  const aiSnapshot = JSON.parse(aiState.engineSnapshot);
+
+  // Navigate to players array in both snapshots
+  // XState v5 structure: snapshot.children.round.snapshot.context.players
+  const freshPlayers =
+    freshSnapshot?.children?.round?.snapshot?.context?.players;
+  const aiPlayers =
+    aiSnapshot?.children?.round?.snapshot?.context?.players;
+
+  // If we can't find players in both, fall back to AI state
+  if (!freshPlayers || !aiPlayers || freshPlayers.length !== aiPlayers.length) {
+    return aiState;
+  }
+
+  // Find current player index by engine ID
+  const currentPlayerIndex = aiPlayers.findIndex(
+    (p: { id: string }) => p.id === currentPlayerEngineId
+  );
+
+  // If current player not found, fall back to AI state to avoid corruption
+  if (currentPlayerIndex === -1) {
+    return aiState;
+  }
+
+  // Merge: AI's snapshot with fresh hands for non-current players
+  const mergedPlayers = aiPlayers.map(
+    (aiPlayer: { id: string; hand: unknown }, index: number) => {
+      if (index === currentPlayerIndex) {
+        // Use AI's version for current player (their hand may have changed from draws/discards)
+        return aiPlayer;
+      }
+      // Use fresh version for other players (preserves their reorders)
+      const freshPlayer = freshPlayers[index];
+      if (freshPlayer && freshPlayer.hand !== undefined) {
+        return { ...aiPlayer, hand: freshPlayer.hand };
+      }
+      return aiPlayer;
+    }
+  );
+
+  // Build merged snapshot - update players in the round actor's context
+  const mergedSnapshot = {
+    ...aiSnapshot,
+    children: {
+      ...aiSnapshot.children,
+      round: {
+        ...aiSnapshot.children?.round,
+        snapshot: {
+          ...aiSnapshot.children?.round?.snapshot,
+          context: {
+            ...aiSnapshot.children?.round?.snapshot?.context,
+            players: mergedPlayers,
+          },
+        },
+      },
+    },
+  };
+
+  return {
+    ...aiState,
+    engineSnapshot: JSON.stringify(mergedSnapshot),
+  };
+}
+
 export class PartyGameAdapter {
   private engine: GameEngine;
   private playerMappings: PlayerMapping[];

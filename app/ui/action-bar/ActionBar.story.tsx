@@ -14,6 +14,7 @@ function createAvailableActions(overrides: Partial<AvailableActions> = {}): Avai
     canMayI: false,
     canAllowMayI: false,
     canClaimMayI: false,
+    canReorderHand: false,
     ...overrides,
   };
 }
@@ -42,6 +43,7 @@ export function ActionBarStory() {
           availableActions={createAvailableActions({
             canDrawFromStock: true,
             canDrawFromDiscard: true,
+            canReorderHand: true,
           })}
           onAction={handleAction}
         />
@@ -57,6 +59,7 @@ export function ActionBarStory() {
           availableActions={createAvailableActions({
             canLayDown: true,
             canDiscard: true,
+            canReorderHand: true,
           })}
           onAction={handleAction}
         />
@@ -72,6 +75,7 @@ export function ActionBarStory() {
           availableActions={createAvailableActions({
             canLayOff: true,
             canDiscard: true,
+            canReorderHand: true,
           })}
           onAction={handleAction}
         />
@@ -86,6 +90,7 @@ export function ActionBarStory() {
         <ActionBar
           availableActions={createAvailableActions({
             canMayI: true,
+            canReorderHand: true,
           })}
           onAction={handleAction}
         />
@@ -93,12 +98,14 @@ export function ActionBarStory() {
 
       {/* Waiting - Cannot May I */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Waiting (No Actions)</h2>
+        <h2 className="text-lg font-semibold mb-3">Waiting (Can Organize)</h2>
         <p className="text-sm text-muted-foreground mb-2">
-          Not your turn, no May I available.
+          Not your turn, no May I available, but can organize hand.
         </p>
         <ActionBar
-          availableActions={createAvailableActions()}
+          availableActions={createAvailableActions({
+            canReorderHand: true,
+          })}
           onAction={handleAction}
         />
       </section>
@@ -129,6 +136,7 @@ export function ActionBarStory() {
             availableActions={createAvailableActions({
               canLayOff: true,
               canDiscard: true,
+              canReorderHand: true,
             })}
             onAction={handleAction}
           />

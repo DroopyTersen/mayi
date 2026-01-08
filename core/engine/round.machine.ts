@@ -19,6 +19,7 @@ import { CONTRACTS } from "./contracts";
 import { createDeck, shuffle, deal } from "../card/card.deck";
 import { turnMachine, type TurnInput, type TurnOutput, type TurnContext as TurnMachineContext } from "./turn.machine";
 import { calculateHandScore } from "../scoring/scoring";
+import { reorderHand as reorderHandUtil } from "./hand.reordering";
 
 /**
  * Events that need to be forwarded to child turn actor
@@ -213,6 +214,26 @@ export const roundMachine = setup({
       if (!("playerId" in event)) return false;
       const currentPlayer = context.players[context.currentPlayerIndex];
       return currentPlayer?.id === event.playerId && !context.currentPlayerHasDrawnFromStock;
+    },
+
+    canReorderPlayerHand: ({ context, event }) => {
+      if (event.type !== "REORDER_HAND") return false;
+      const playerId = event.playerId;
+      if (!playerId) return false;
+
+      const player = context.players.find((p) => p.id === playerId);
+      if (!player) return false;
+
+      // For current player, always return true (action will validate with turn context)
+      // This is needed because after a draw, the turn machine has the authoritative hand
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (playerId === currentPlayer?.id) {
+        return true;
+      }
+
+      // For non-current players, validate against round context (authoritative for them)
+      const result = reorderHandUtil(player.hand, event.newOrder);
+      return result.success;
     },
   },
   actions: {
@@ -449,6 +470,81 @@ export const roundMachine = setup({
       stock: context.stock,
       discard: context.discard,
     })),
+
+    reorderPlayerHand: assign(({ context, event, self }) => {
+      if (event.type !== "REORDER_HAND") return {};
+      const playerId = event.playerId;
+      if (!playerId) return {};
+
+      const playerIndex = context.players.findIndex((p) => p.id === playerId);
+      if (playerIndex === -1) return {};
+
+      const player = context.players[playerIndex]!;
+
+      // Get effective hand - use turn context for current player (has drawn card)
+      let hand = player.hand;
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (playerId === currentPlayer?.id && self) {
+        const snapshot = self.getSnapshot() as { children?: { turn?: { getSnapshot: () => { context?: { hand?: Card[] } } } } };
+        const turnActor = snapshot?.children?.turn;
+        if (turnActor) {
+          const turnSnapshot = turnActor.getSnapshot();
+          if (turnSnapshot?.context?.hand) {
+            hand = turnSnapshot.context.hand;
+          }
+        }
+      }
+
+      const result = reorderHandUtil(hand, event.newOrder);
+      if (!result.success) return {};
+
+      return {
+        players: context.players.map((p, i) =>
+          i === playerIndex ? { ...p, hand: result.hand } : p
+        ),
+      };
+    }),
+
+    syncTurnHand: sendTo("turn", ({ context, event, self }) => {
+      if (event.type !== "REORDER_HAND") {
+        // Return no-op - shouldn't happen but type-safe
+        return { type: "SYNC_PILES" as const, stock: context.stock, discard: context.discard };
+      }
+
+      const playerId = event.playerId;
+      const currentPlayer = context.players[context.currentPlayerIndex];
+
+      // Only sync if reorder is for the current player (turn actor exists for them)
+      if (currentPlayer?.id === playerId) {
+        // Get effective hand - use turn context for current player (has drawn card)
+        const playerIndex = context.players.findIndex((p) => p.id === playerId);
+        if (playerIndex !== -1) {
+          const player = context.players[playerIndex]!;
+          let hand = player.hand;
+
+          // Try to get turn context hand (authoritative for current player after draw)
+          if (self) {
+            const snapshot = self.getSnapshot() as { children?: { turn?: { getSnapshot: () => { context?: { hand?: Card[] } } } } };
+            const turnActor = snapshot?.children?.turn;
+            if (turnActor) {
+              const turnSnapshot = turnActor.getSnapshot();
+              if (turnSnapshot?.context?.hand) {
+                hand = turnSnapshot.context.hand;
+              }
+            }
+          }
+
+          // Validate using the same utility function
+          const result = reorderHandUtil(hand, event.newOrder);
+          if (result.success) {
+            return { type: "SYNC_HAND" as const, hand: result.hand };
+          }
+        }
+      }
+
+      // Not current player or invalid - return no-op sync
+      return { type: "SYNC_PILES" as const, stock: context.stock, discard: context.discard };
+    }),
   },
 }).createMachine({
   id: "round",
@@ -609,7 +705,11 @@ export const roundMachine = setup({
             },
             PASS_MAY_I: { actions: sendTo("turn", ({ event }) => event) },
             SWAP_JOKER: { actions: sendTo("turn", ({ event }) => event) },
-            REORDER_HAND: { actions: sendTo("turn", ({ event }) => event) },
+            // REORDER_HAND is handled at round level so any player can reorder anytime
+            REORDER_HAND: {
+              guard: "canReorderPlayerHand",
+              actions: ["reorderPlayerHand", "syncTurnHand"],
+            },
             RESHUFFLE_STOCK: {
               guard: "stockEmpty",
               actions: "reshuffleStock",

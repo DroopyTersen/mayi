@@ -31,6 +31,7 @@ export function ActionBar({
     canMayI,
     canAllowMayI,
     canClaimMayI,
+    canReorderHand,
   } = availableActions;
 
   // Check if any main action is available (for showing waiting message)
@@ -44,9 +45,6 @@ export function ActionBar({
     canMayI ||
     canAllowMayI ||
     canClaimMayI;
-
-  // Is it the player's turn? (has draw/action/discard abilities)
-  const isYourTurn = canDrawFromStock || canLayDown || canDiscard || canLayOff;
 
   return (
     <div
@@ -121,8 +119,8 @@ export function ActionBar({
         </span>
       )}
 
-      {/* Organize always available during your turn */}
-      {isYourTurn && (
+      {/* Organize available during round for any player (free action) */}
+      {canReorderHand && (
         <Button
           onClick={() => onAction("organize")}
           variant="ghost"

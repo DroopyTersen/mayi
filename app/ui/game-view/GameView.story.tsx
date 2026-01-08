@@ -157,6 +157,7 @@ const MOCK_GAME_STATE: PlayerView = {
     canMayI: true, // Can call May I on Alice's turn
     canAllowMayI: false,
     canClaimMayI: false,
+    canReorderHand: true, // Can organize hand even when not your turn
   },
   turnOrder: ["p1", "p2", "p3", "p4"],
 };
