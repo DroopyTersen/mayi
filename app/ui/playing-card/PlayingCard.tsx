@@ -88,6 +88,14 @@ export function PlayingCard({
     </div>
   );
 
+  // Data attributes for testability and automation
+  const dataAttrs = {
+    "data-card-id": card.id,
+    "data-card-rank": card.rank,
+    "data-card-suit": card.suit || "none",
+    "data-testid": `card-${card.rank}${card.suit ? `-${card.suit}` : ""}`,
+  };
+
   // Face-down card rendering
   if (faceDown) {
     return (
@@ -95,6 +103,7 @@ export function PlayingCard({
         type="button"
         onClick={onClick}
         disabled={!onClick}
+        {...dataAttrs}
         className={cn(
           "relative rounded-lg border-2 shadow-sm overflow-hidden",
           "transition-all duration-150",
@@ -102,7 +111,8 @@ export function PlayingCard({
           "bg-blue-700 border-blue-800",
           selected && "ring-2 ring-primary ring-offset-2",
           onClick && "cursor-pointer hover:bg-blue-600 hover:shadow-md",
-          !onClick && "cursor-default",
+          // When not interactive, allow clicks to pass through to parent (FT-1002)
+          !onClick && "cursor-default pointer-events-none",
           className
         )}
       >
@@ -122,6 +132,7 @@ export function PlayingCard({
       type="button"
       onClick={onClick}
       disabled={!onClick}
+      {...dataAttrs}
       className={cn(
         "relative rounded-lg border-2 bg-white shadow-sm",
         "transition-all duration-150",
@@ -138,7 +149,8 @@ export function PlayingCard({
         isWild && !selected && "bg-amber-100 border-amber-300",
         // Interactive states
         onClick && "cursor-pointer hover:border-gray-400 hover:shadow-md",
-        !onClick && "cursor-default",
+        // When not interactive, allow clicks to pass through to parent (FT-1002)
+        !onClick && "cursor-default pointer-events-none",
         className
       )}
     >

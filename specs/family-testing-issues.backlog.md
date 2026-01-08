@@ -26,26 +26,24 @@ Issues collected from family testing sessions.
 
 ---
 
-## FT-1002: Bug with laying off - can't click card
+## FT-1002: Bug with laying off - can't click card ✅ FIXED
 
-**Description:** Users report being unable to click/select a card when in the lay-off view. The card click handler may not be working correctly.
+**Description:** Users report being unable to click on a meld to lay off a card. Clicking directly on a card within the meld doesn't work - only clicking in the padding area around the meld works.
+
+**Root Cause:** `PlayingCard` uses a `<button>` element. When no `onClick` is provided (like in `MeldDisplay`), the button was `disabled`. Disabled buttons still capture click events and stop propagation, preventing clicks from bubbling up to the parent meld container's `onClick` handler.
+
+**Fix:** Added `pointer-events-none` to `PlayingCard` when no `onClick` is provided. This allows clicks to pass through to parent elements.
 
 **Replication Steps:**
 1. Lay down your contract in a previous turn
 2. On a subsequent turn, draw a card
 3. Click "Lay Off" button to enter lay-off mode
-4. Try to click on a card in your hand to select it
-5. Card may not respond to clicks
+4. Select a card from your hand
+5. Try to click on a meld to add the card to it
+6. ~~Clicking directly on a card in the meld doesn't register~~ **FIXED**
 
-**Expected vs Actual:**
-- **Expected:** Clicking a card in LayOffView should select it (highlight it)
-- **Actual:** Card click may not register or card may not become selected
-
-**Relevant Files:**
-- `app/ui/lay-off-view/LayOffView.tsx:43-46` - handleCardClick toggles selectedCardId
-- `app/ui/lay-off-view/LayOffView.tsx:98-103` - HandDisplay with onCardClick
-- `app/ui/player-hand/HandDisplay.tsx` - HandDisplay component
-- `app/ui/playing-card/PlayingCard.tsx:129-193` - PlayingCard button with onClick
+**Files Modified:**
+- `app/ui/playing-card/PlayingCard.tsx:114-115, 151-152` - Added `pointer-events-none` when no onClick
 
 ---
 
