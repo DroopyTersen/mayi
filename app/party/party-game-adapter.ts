@@ -116,6 +116,22 @@ export function mergeAIStatePreservingOtherPlayerHands(
   const freshSnapshot = JSON.parse(freshState.engineSnapshot);
   const aiSnapshot = JSON.parse(aiState.engineSnapshot);
 
+  // Get round numbers from both snapshots
+  const freshRoundNumber =
+    freshSnapshot?.children?.round?.snapshot?.context?.roundNumber;
+  const aiRoundNumber =
+    aiSnapshot?.children?.round?.snapshot?.context?.roundNumber;
+
+  // If rounds differ, a transition occurred - use fresh state entirely
+  // Fresh state has the newly dealt hands from the new round
+  if (
+    freshRoundNumber !== undefined &&
+    aiRoundNumber !== undefined &&
+    freshRoundNumber !== aiRoundNumber
+  ) {
+    return freshState;
+  }
+
   // Navigate to players array in both snapshots
   // XState v5 structure: snapshot.children.round.snapshot.context.players
   const freshPlayers =
@@ -123,9 +139,11 @@ export function mergeAIStatePreservingOtherPlayerHands(
   const aiPlayers =
     aiSnapshot?.children?.round?.snapshot?.context?.players;
 
-  // If we can't find players in both, fall back to AI state
+  // If we can't find valid players in fresh state, prefer fresh state
+  // (it's from storage and more authoritative than stale AI adapter state)
+  // Only proceed with merge if we have valid data in BOTH states
   if (!freshPlayers || !aiPlayers || freshPlayers.length !== aiPlayers.length) {
-    return aiState;
+    return freshState;
   }
 
   // Find current player index by engine ID
@@ -133,9 +151,9 @@ export function mergeAIStatePreservingOtherPlayerHands(
     (p: { id: string }) => p.id === currentPlayerEngineId
   );
 
-  // If current player not found, fall back to AI state to avoid corruption
+  // If current player not found, prefer fresh state (authoritative from storage)
   if (currentPlayerIndex === -1) {
-    return aiState;
+    return freshState;
   }
 
   // Merge: AI's snapshot with fresh hands for non-current players

@@ -132,10 +132,10 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
     expect(result).toBe(state);
   });
 
-  it("falls back to AI state when snapshot structure is invalid", () => {
+  it("prefers fresh state when snapshot structure is invalid", () => {
     const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
 
-    // Create an invalid fresh state
+    // Create an invalid fresh state (simulating mid-transition)
     const invalidFresh: StoredGameState = {
       ...state,
       engineSnapshot: JSON.stringify({ invalid: true }),
@@ -147,11 +147,12 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
       "player-1"
     );
 
-    // Should return AI state since fresh is invalid
-    expect(result).toBe(state);
+    // Should return fresh state (authoritative from storage) when structure is invalid
+    // This prevents stale AI data from overwriting fresh storage state
+    expect(result).toBe(invalidFresh);
   });
 
-  it("handles player count mismatch by returning AI state", () => {
+  it("prefers fresh state when player count mismatch", () => {
     const state3Players = createTestGameState(["A", "B", "C"]);
     const state4Players = createTestGameState(["A", "B", "C", "D"]);
 
@@ -161,11 +162,11 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
       "player-1"
     );
 
-    // Should return AI state since player counts don't match
-    expect(result).toBe(state4Players);
+    // Should return fresh state (authoritative from storage) when player counts don't match
+    expect(result).toBe(state3Players);
   });
 
-  it("handles invalid currentPlayerEngineId by returning AI state", () => {
+  it("prefers fresh state when currentPlayerEngineId is invalid", () => {
     const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
 
     const result = mergeAIStatePreservingOtherPlayerHands(
@@ -174,7 +175,7 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
       "player-999" // Invalid ID
     );
 
-    // Should return AI state since current player not found
+    // Should return fresh state since merge can't proceed safely
     expect(result).toBe(state);
   });
 
@@ -213,5 +214,125 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
     const ai3Hand = getPlayerHand(state, "player-3");
     expect(getPlayerHand(merged, "player-2")).toEqual(ai2Hand);
     expect(getPlayerHand(merged, "player-3")).toEqual(ai3Hand);
+  });
+
+  describe("round transition handling", () => {
+    // Helper to get round number from stored state
+    function getRoundNumber(state: StoredGameState): number | undefined {
+      const snapshot = JSON.parse(state.engineSnapshot);
+      return snapshot.children?.round?.snapshot?.context?.roundNumber;
+    }
+
+    // Helper to create a state with specific round number
+    function createStateWithRound(
+      baseState: StoredGameState,
+      roundNumber: number
+    ): StoredGameState {
+      const snapshot = JSON.parse(baseState.engineSnapshot);
+      if (snapshot.children?.round?.snapshot?.context) {
+        snapshot.children.round.snapshot.context.roundNumber = roundNumber;
+      }
+      return {
+        ...baseState,
+        engineSnapshot: JSON.stringify(snapshot),
+      };
+    }
+
+    it("returns fresh state when round numbers differ", () => {
+      // Setup: 3-player game
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      // Create two states with different rounds
+      // Fresh state is round 2, AI state is round 1 (stale)
+      const freshState = createStateWithRound(state, 2);
+      const staleAiState = createStateWithRound(state, 1);
+
+      // Verify our setup
+      expect(getRoundNumber(freshState)).toBe(2);
+      expect(getRoundNumber(staleAiState)).toBe(1);
+
+      // When round numbers differ, should return fresh state entirely
+      // (not merge stale hands from old round)
+      const result = mergeAIStatePreservingOtherPlayerHands(
+        freshState,
+        staleAiState,
+        "player-1"
+      );
+
+      // Should return fresh state, not stale AI state
+      expect(getRoundNumber(result)).toBe(2);
+      // The result should be the fresh state (not merged)
+      expect(result.engineSnapshot).toBe(freshState.engineSnapshot);
+    });
+
+    it("still merges when round numbers are the same", () => {
+      // Setup: 3-player game
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+      const adapter = PartyGameAdapter.fromStoredState(state);
+      const humanMapping = adapter
+        .getAllPlayerMappings()
+        .find((m) => !m.isAI)!;
+
+      // Get human's original hand and create reversed version
+      const originalHand = getPlayerHand(state, humanMapping.engineId)!;
+      const reversedHand = [...originalHand].reverse();
+
+      // Simulate human reorder -> fresh state
+      const adapter2 = PartyGameAdapter.fromStoredState(state);
+      adapter2.reorderHand(humanMapping.lobbyId, reversedHand);
+      const freshState = adapter2.getStoredState();
+
+      // Both states are round 1 (same round)
+      expect(getRoundNumber(state)).toBe(1);
+      expect(getRoundNumber(freshState)).toBe(1);
+
+      // Same round should still merge properly (preserve human's reorder)
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        freshState, // Has human's reorder
+        state, // Original (AI's stale view)
+        "player-1" // AI is current player
+      );
+
+      // Human's reordered hand should be preserved from fresh state
+      expect(getPlayerHand(merged, humanMapping.engineId)).toEqual(reversedHand);
+    });
+
+    it("prefers fresh state when fallback conditions are met", () => {
+      // Bug fix test: When the merge function can't find valid player data,
+      // it should return fresh state (authoritative from storage)
+      // rather than stale AI state
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      // Create a fresh state with invalid round structure
+      // (simulating mid-transition state)
+      const freshState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify({
+          ...JSON.parse(state.engineSnapshot),
+          children: {
+            round: {
+              snapshot: {
+                context: {
+                  // Missing players array - simulates mid-transition
+                  roundNumber: 2,
+                },
+              },
+            },
+          },
+        }),
+      };
+
+      // Currently, this would return staleAiState (bug)
+      // After fix, it should return freshState
+      const result = mergeAIStatePreservingOtherPlayerHands(
+        freshState,
+        state, // Stale AI state with old round data
+        "player-1"
+      );
+
+      // Should return fresh state, not stale AI state
+      // This test will FAIL until the bug is fixed
+      expect(result).toBe(freshState);
+    });
   });
 });
