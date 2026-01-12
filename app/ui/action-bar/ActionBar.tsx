@@ -32,6 +32,7 @@ export function ActionBar({
     canAllowMayI,
     canClaimMayI,
     canReorderHand,
+    hasPendingMayIRequest,
   } = availableActions;
 
   // Check if any main action is available (for showing waiting message)
@@ -44,7 +45,8 @@ export function ActionBar({
     canDiscard ||
     canMayI ||
     canAllowMayI ||
-    canClaimMayI;
+    canClaimMayI ||
+    hasPendingMayIRequest;
 
   return (
     <div
@@ -97,6 +99,13 @@ export function ActionBar({
       {canMayI && (
         <Button onClick={() => onAction("mayI")} variant="secondary">
           May I?
+        </Button>
+      )}
+
+      {/* May I pending - waiting for resolution */}
+      {hasPendingMayIRequest && (
+        <Button variant="secondary" disabled>
+          Waiting...
         </Button>
       )}
 

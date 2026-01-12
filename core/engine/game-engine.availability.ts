@@ -35,6 +35,8 @@ export interface AvailableActions {
   canClaimMayI: boolean;
   /** Can reorder hand (free action, available during round for any player) */
   canReorderHand: boolean;
+  /** True when this player has called May I and is waiting for resolution */
+  hasPendingMayIRequest: boolean;
 }
 
 /**
@@ -57,6 +59,9 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
   const isYourTurn = snapshot.awaitingPlayerId === playerId;
   const isRound6 = snapshot.currentRound === 6;
 
+  // Check if this player has a pending May I request (they are the originalCaller)
+  const hasPendingMayIRequest = snapshot.mayIContext?.originalCaller === playerId;
+
   // Default: nothing available
   const actions: AvailableActions = {
     canDrawFromStock: false,
@@ -69,6 +74,7 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
     canAllowMayI: false,
     canClaimMayI: false,
     canReorderHand: false,
+    hasPendingMayIRequest,
   };
 
   // Handle RESOLVING_MAY_I phase - only allow/claim available for prompted player

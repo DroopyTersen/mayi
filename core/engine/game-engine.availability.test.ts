@@ -9,6 +9,7 @@ import {
   getMeldPlaceholderCount,
   canPlayerCallMayI,
   getLaydownCommandHint,
+  getAvailableActions,
 } from "./game-engine.availability";
 import type { GameSnapshot } from "./game-engine.types";
 
@@ -181,5 +182,78 @@ describe("getLaydownCommandHint", () => {
   it("works for mixed contracts", () => {
     const hint = getLaydownCommandHint({ roundNumber: 5, sets: 2, runs: 1 });
     expect(hint).toBe('laydown "<meld1>" "<meld2>" "<meld3>"');
+  });
+});
+
+describe("hasPendingMayIRequest", () => {
+  it("is true when player is the originalCaller during May I resolution", () => {
+    const engine = GameEngine.createGame({
+      gameId: "test-pending-mayi",
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    let snapshot = engine.getSnapshot();
+
+    // Player 1 starts, draw and discard
+    const currentPlayerId = snapshot.players[snapshot.currentPlayerIndex]!.id;
+    engine.drawFromStock(currentPlayerId);
+    const afterDraw = engine.getSnapshot();
+    engine.skip(currentPlayerId);
+    const card = afterDraw.players.find((p) => p.id === currentPlayerId)!.hand[0]!;
+    engine.discard(currentPlayerId, card.id);
+
+    // Another player calls May I
+    const afterDiscard = engine.getSnapshot();
+    const callerPlayer = afterDiscard.players.find((p) => p.id !== currentPlayerId)!;
+    engine.callMayI(callerPlayer.id);
+
+    // Now check that the caller has hasPendingMayIRequest = true
+    const afterMayI = engine.getSnapshot();
+    const callerActions = getAvailableActions(afterMayI, callerPlayer.id);
+
+    expect(callerActions.hasPendingMayIRequest).toBe(true);
+  });
+
+  it("is false when player is not the originalCaller during May I resolution", () => {
+    const engine = GameEngine.createGame({
+      gameId: "test-pending-mayi-other",
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    let snapshot = engine.getSnapshot();
+
+    // Player 1 starts, draw and discard
+    const currentPlayerId = snapshot.players[snapshot.currentPlayerIndex]!.id;
+    engine.drawFromStock(currentPlayerId);
+    const afterDraw = engine.getSnapshot();
+    engine.skip(currentPlayerId);
+    const card = afterDraw.players.find((p) => p.id === currentPlayerId)!.hand[0]!;
+    engine.discard(currentPlayerId, card.id);
+
+    // Another player calls May I
+    const afterDiscard = engine.getSnapshot();
+    const callerPlayer = afterDiscard.players.find((p) => p.id !== currentPlayerId)!;
+    const nonCallerPlayer = afterDiscard.players.find(
+      (p) => p.id !== currentPlayerId && p.id !== callerPlayer.id
+    )!;
+    engine.callMayI(callerPlayer.id);
+
+    // Check that a non-caller player does NOT have hasPendingMayIRequest = true
+    const afterMayI = engine.getSnapshot();
+    const nonCallerActions = getAvailableActions(afterMayI, nonCallerPlayer.id);
+
+    expect(nonCallerActions.hasPendingMayIRequest).toBe(false);
+  });
+
+  it("is false when no May I context exists", () => {
+    const engine = GameEngine.createGame({
+      gameId: "test-no-pending-mayi",
+      playerNames: ["Alice", "Bob", "Carol"],
+    });
+    const snapshot = engine.getSnapshot();
+
+    // No May I called - just normal game start
+    const anyPlayer = snapshot.players[0]!;
+    const actions = getAvailableActions(snapshot, anyPlayer.id);
+
+    expect(actions.hasPendingMayIRequest).toBe(false);
   });
 });
