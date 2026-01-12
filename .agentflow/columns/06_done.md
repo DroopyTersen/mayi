@@ -28,8 +28,39 @@ Card arrives from Human Review after approval.
 - Card context contains the full history
 - Commits (spec and implementation) are in repository history
 - Card remains for future reference
+- Dependent cards are notified (if any)
 
-No further action required.
+### Notify Dependent Cards
+
+When a card reaches Done, check if any other cards depend on it:
+
+**For GitHub backend:**
+```bash
+# Search for issues that have this card as a predecessor
+# Look for "Blocked by: #THIS_NUMBER" in issue bodies
+gh search issues "Blocked by: #{NUMBER}" --repo {OWNER}/{REPO} --json number,title
+```
+
+**For JSON backend:**
+```
+Search all card context files for:
+- "Blocked by:" containing this card's ID
+```
+
+**For each dependent found:**
+Add a comment notifying them the predecessor is complete:
+
+```
+/af context {dependent-id} append "
+## Conversation Log
+
+**[Agent - {date}]:** Predecessor #{this-id} ({title}) has been completed and merged to main.
+- This card is now unblocked from that dependency
+- Check remaining dependencies with \`/af depends {dependent-id}\`
+"
+```
+
+This helps dependent cards know when they can proceed or rebase onto main.
 
 ---
 
@@ -182,6 +213,7 @@ None (terminal state)
 - **Commits are linked** - spec and implementation commits are recorded
 - **History tells the story** - the history table shows progression
 - **Keep for reference** - valuable for understanding past decisions
+- **Dependents are notified** - when this card completes, cards that depend on it are informed
 
 ---
 

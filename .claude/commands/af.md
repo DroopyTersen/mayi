@@ -32,6 +32,7 @@ This backend uses GitHub Projects as the board and GitHub Issues as cards.
 | `/af loop` | Continuous work mode |
 | `/af review <id>` | Run code review on card |
 | `/af feedback <id>` | Respond to needs-feedback card |
+| `/af depends <id> [on|remove] <predecessor>` | Manage card dependencies |
 
 ---
 
@@ -163,8 +164,15 @@ Filter to only show items where:
 - Status is: Approved, Refinement, Tech Design, or Implementation
 - Issue does NOT have `needs-feedback` label
 - Issue does NOT have `blocked` label
+- All predecessors are in `done` column (check `## Dependencies` section)
 
 Items are returned in board order (position = priority).
+
+**Indicators:**
+- 🤖 = Agent-workable column
+- ⏸️ = Has `needs-feedback` label
+- 🚫 = Has `blocked` label
+- ⏳ = Has unfinished predecessors (dependency-blocked)
 
 ---
 
@@ -191,8 +199,11 @@ Total cards: 12
    #125 Dashboard update (Implementation) [medium]
 
 ⏸️ Needs feedback: 2
-   #126 Dark mode (Refinement) — needs-feedbacks pending
+   #126 Dark mode (Refinement) — questions pending
    #127 API refactor (Tech Design) — awaiting approval
+
+⏳ Waiting on predecessors: 1
+   #130 OAuth scopes (Approved) — waiting on #123
 
 👀 Final review: 2
    #128 Caching (Final Review) — score: 85/100
@@ -405,6 +416,20 @@ Work on highest priority workable card.
 5. Announce: "Working on: #{number} {title} ({column})"
 6. Execute `/af work {number}` logic
 
+**Dependency-aware selection:**
+
+By default, `/af list --workable` excludes cards with unfinished predecessors. However, if ALL workable cards are dependency-blocked, the agent should assess whether to start one anyway:
+
+| Predecessor State | Agent Behavior |
+|-------------------|----------------|
+| All in `done` | Proceed normally (branch from main) |
+| Some in `final-review` | Use judgment — may proceed if confident predecessor will land soon |
+| Some in earlier columns | Warn and suggest waiting — but human can override |
+
+If proceeding with unfinished predecessors:
+1. Add comment to Conversation Log explaining the decision
+2. Note which predecessor branch to use (see `01b_approved.md` for branching)
+
 ---
 
 ## `/af feedback <id>` — Respond to Needs-Feedback Card
@@ -426,6 +451,65 @@ Provide human feedback to a card waiting on input.
    gh issue edit {NUMBER} --remove-label "needs-feedback"
    ```
 8. Confirm: "✅ Feedback recorded. Issue #{number} is now workable."
+
+---
+
+## `/af depends <id> [on|remove] <predecessor>` — Manage Dependencies
+
+Track dependencies between cards. A card with unfinished predecessors is "dependency-blocked."
+
+**Actions:**
+- `on` — Add a dependency (this card depends on predecessor)
+- `remove` — Remove a dependency
+- (no action) — Show current dependencies and their status
+
+**Process for adding dependency:**
+1. Get current issue body
+2. Find or create `## Dependencies` section
+3. Add/update `Blocked by: #123, #456` line
+4. Update issue body
+
+```bash
+# Get current body
+gh issue view {NUMBER} --json body -q '.body' > /tmp/issue-body.md
+
+# Add Dependencies section if not present, or update existing
+# The section should look like:
+# ## Dependencies
+# Blocked by: #123, #456
+
+gh issue edit {NUMBER} --body-file /tmp/issue-body.md
+```
+
+**Process for showing dependencies:**
+1. Parse `## Dependencies` section from issue body
+2. For each predecessor, check its status column
+3. Display status:
+
+```
+Dependencies for #{NUMBER}:
+  #123 Add user auth — ✅ done
+  #456 Add OAuth — 🔄 implementation (not yet in main)
+
+Status: Partially blocked (1 predecessor not in main)
+```
+
+**Dependency states:**
+| Predecessor State | This Card |
+|-------------------|-----------|
+| `done` | Unblocked (predecessor in main) |
+| `final-review` | Soft-blocked (predecessor almost done) |
+| Earlier columns | Harder-blocked (predecessor still in progress) |
+
+**Examples:**
+```
+/af depends 789 on 123        # Card #789 depends on #123
+/af depends 789 on 456        # Add another dependency
+/af depends 789 remove 123    # Remove dependency on #123
+/af depends 789               # Show dependencies for #789
+```
+
+**Confirm:** "✅ #{id} now depends on #{predecessor}" or "✅ Dependency on #{predecessor} removed from #{id}"
 
 ---
 
@@ -476,6 +560,7 @@ Invoke code-reviewer agent on a card's implementation.
 | Invalid column | "Unknown column: {col}. Valid: new, approved, refinement, tech-design, implementation, final-review, done" |
 | Has needs-feedback | "Issue #{number} is waiting for feedback. Use `/af feedback {number}` to respond." |
 | Has blocked label | "Issue #{number} is blocked: check issue for details" |
+| Has unfinished predecessors | "Issue #{number} is waiting on predecessors: #X (column), #Y (column). Use `/af depends {number}` for details." |
 
 ---
 

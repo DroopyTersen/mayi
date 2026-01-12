@@ -16,7 +16,8 @@ The Ralph Loop picks up cards from this column, creates a feature branch, and mo
 
 ## Definition of Done
 
-- Feature branch created and checked out
+- Dependencies checked (if any)
+- Feature branch created and checked out (from main or predecessor)
 - Branch name recorded in card context
 - Card moved to `refinement` column
 
@@ -28,10 +29,20 @@ The Ralph Loop picks up cards from this column, creates a feature branch, and mo
 
 The next Ralph Loop iteration:
 1. Picks up the card from `approved`
-2. Creates feature branch (or checks out existing)
-3. Records branch name in card context
-4. Moves card to `refinement`
-5. Continues with refinement phase
+2. Checks for dependencies (predecessors)
+3. Creates feature branch (from main or predecessor's branch)
+4. Records branch name in card context
+5. Moves card to `refinement`
+6. Continues with refinement phase
+
+### Dependency Handling
+
+If the card has dependencies (`## Dependencies` section):
+- **All predecessors in `done`:** Branch from main as usual
+- **Some predecessors incomplete:** Agent uses judgment:
+  - May wait (exit without starting) if predecessor is close
+  - May proceed (branch from predecessor) if urgent or human approved
+  - Documents decision in Conversation Log
 
 ---
 
@@ -68,8 +79,33 @@ SLUG=$(echo "{card.title}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' 
 BRANCH="${TYPE}/${ID}-${SLUG}"
 ```
 
-### Step 3: Create and Checkout Branch
+### Step 3: Check for Dependencies
 
+Before creating the branch, check if this card has predecessors:
+
+```
+Look for "## Dependencies" section in card context
+Parse "Blocked by:" line for predecessor IDs
+```
+
+**For each predecessor:**
+1. Check predecessor's column (use `/af show {predecessor-id}`)
+2. Determine if predecessor is complete
+
+| Predecessor State | Action |
+|-------------------|--------|
+| `done` | Predecessor is in main — branch from main |
+| `final-review` | Almost done — agent decides: wait or branch from predecessor |
+| Earlier columns | In progress — agent decides: wait or branch from predecessor |
+
+**Decision guidance:**
+- If ALL predecessors are in `done` → proceed normally, branch from main
+- If predecessor is in `final-review` and task is urgent → may branch from predecessor
+- If predecessor is in earlier columns → prefer waiting, but can proceed if human approves
+
+### Step 4: Create and Checkout Branch
+
+**If branching from main** (no unfinished predecessors):
 ```bash
 # Ensure we're on main and up to date
 git checkout main
@@ -79,13 +115,48 @@ git pull origin main
 git checkout -b "$BRANCH"
 ```
 
-### Step 4: Record Branch in Card Context
+**If branching from predecessor** (starting with unfinished predecessor):
+```bash
+# Get predecessor's branch from their card context
+PREDECESSOR_BRANCH={from predecessor's ## Branch section}
+
+# Fetch and checkout predecessor's branch
+git fetch origin
+git checkout "$PREDECESSOR_BRANCH"
+git pull origin "$PREDECESSOR_BRANCH"
+
+# Create new branch from predecessor
+git checkout -b "$BRANCH"
+```
+
+**Document the decision** in Conversation Log:
+```
+/af context {id} append "
+## Conversation Log
+
+**[Agent - {date}]:** Starting with predecessor #{predecessor-id} not yet in main.
+- Predecessor status: {column}
+- Decision: Branching from \`{predecessor-branch}\` instead of main
+- Rationale: {why proceeding now vs waiting}
+
+Note: Will need to rebase if predecessor gets updates before this lands.
+"
+```
+
+### Step 5: Record Branch in Card Context
 
 Add to card context using `/af context`:
 ```
 /af context {id} append "
 ## Branch
 \`{branch-name}\`
+"
+```
+
+**If branched from predecessor, also note:**
+```
+/af context {id} append "
+Branched from: \`{predecessor-branch}\` (predecessor not yet in main)
 "
 ```
 

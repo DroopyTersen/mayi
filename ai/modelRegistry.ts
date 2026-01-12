@@ -100,6 +100,7 @@ const defaultPlayerSettings = defaultSettingsMiddleware({
   },
 });
 
+
 export const modelRegistry = createProviderRegistry(
   {
     default: customProvider({
@@ -132,3 +133,5 @@ export const modelRegistry = createProviderRegistry(
   },
   { separator: ":" }
 );
+
+modelProviders.gemini("gemini-3-flash-preview")

@@ -24,10 +24,13 @@ Run `/af list --workable` to get cards that are:
 - In columns: `approved`, `refinement`, `tech-design`, or `implementation`
 - NOT tagged `needs-feedback`
 - NOT tagged `blocked`
+- All predecessors in `done` column (check `## Dependencies` section)
 
 **If no workable cards exist:**
 Output exactly: `AGENTFLOW_NO_WORKABLE_CARDS`
 Then exit immediately. Do not do anything else.
+
+**Note on dependencies:** If ALL cards in agent columns are dependency-blocked, you may need to assess whether to start one anyway. See "Working with Dependencies" section below.
 
 ---
 
@@ -146,6 +149,7 @@ Keep entries concise. This file helps future iterations skip exploration.
 - **ONE card per iteration** — Do not process multiple cards
 - **Announce before working** — Write STARTING entry to progress.txt before beginning work
 - **Check for interruptions** — If last progress entry is STARTING without completion, assess and recover
+- **Check dependencies** — Cards with unfinished predecessors are soft-blocked; use judgment
 - **Complete the phase fully** — Don't leave partial work
 - **Move or tag the card** — Card must move forward OR get `needs-feedback` tag
 - **Read the column doc** — Follow the detailed instructions for the phase
@@ -155,6 +159,7 @@ Keep entries concise. This file helps future iterations skip exploration.
 - **Exit when blocked** — If waiting on human, add tag and exit
 - **Use the agents** — Call code-explorer, code-architect, code-reviewer as specified
 - **Skip tagged cards** — Never pick up cards with `needs-feedback` or `blocked` tags
+- **Notify dependents** — When a card reaches `done`, notify cards that depend on it
 
 ---
 
@@ -190,6 +195,57 @@ If during implementation you discover the tech design needs significant changes:
 2. Run `/af tag <id> add needs-feedback`
 3. Add note explaining what needs revision
 4. Exit and let a human review
+
+---
+
+## Working with Dependencies
+
+Cards can have dependencies on other cards (predecessors). Check the `## Dependencies` section in card context for `Blocked by:` entries.
+
+### Checking Dependency Status
+
+Use `/af depends <id>` to see a card's dependencies and their current status.
+
+### When All Predecessors Are Done
+
+Proceed normally. The card branches from `main`, which contains all predecessor changes.
+
+### When Some Predecessors Are Incomplete
+
+Use judgment:
+
+| Predecessor State | Recommended Action |
+|-------------------|-------------------|
+| `done` | Unblocked — proceed |
+| `final-review` | Almost done — consider waiting, or proceed if urgent |
+| `implementation` or earlier | In progress — prefer waiting |
+
+**If proceeding with incomplete predecessors:**
+1. Branch from the predecessor's branch (not `main`)
+2. Document the decision in Conversation Log:
+   ```
+   /af context <id> append "
+   ## Conversation Log
+
+   **[Agent - {date}]:** Starting with predecessor #{X} not yet in main.
+   - Predecessor status: {column}
+   - Decision: Branching from predecessor's branch
+   - Rationale: {why}
+   "
+   ```
+3. Note: Will need to rebase when predecessor lands in main
+
+**If choosing to wait:**
+1. Skip this card for now
+2. Select another card, or exit if no other workable cards
+
+### When Predecessor Completes
+
+When you move a card to `done`, check if other cards depend on it:
+- Search for cards with "Blocked by: #{this-id}" in their dependencies
+- Add a comment to each dependent notifying them the predecessor is complete
+
+See `06_done.md` for details.
 
 ---
 
