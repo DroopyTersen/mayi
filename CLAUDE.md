@@ -26,6 +26,7 @@ alwaysApply: false
 app/           Web app (React Router, deployed to Cloudflare Workers)
   routes/      Page routes
   ui/          Game-specific UI components (PlayingCard, HandDisplay, etc.)
+  storybook/   DIY component showcase (no external deps)
   shadcn/      shadcn/ui components (Button, Card, Input, etc.)
   party/       PartyServer WebSocket rooms
   workers/     Cloudflare Worker entry point
@@ -241,6 +242,17 @@ Game components in `app/ui/` should:
 1. Import shadcn primitives from `~/shadcn/components/ui/`
 2. Use the `cn()` utility from `~/shadcn/lib/utils` for class merging
 3. Follow the same patterns as shadcn (variants via CVA, composable APIs)
+
+### Component Storybook
+
+A lightweight DIY component showcase at `/storybook` (no Storybook.js dependency). Each component in `app/ui/` has a colocated `.story.tsx` file.
+
+```bash
+bun run dev
+# Navigate to http://localhost:5173/storybook
+```
+
+See [docs/component-storybook.md](docs/component-storybook.md) for writing stories and using the ViewportSimulator.
 
 ### Configuration
 
