@@ -35,17 +35,14 @@ export function PlayersTableDisplay({
             <th className="text-right py-2 px-3 font-medium">Score</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border">
           {players.map((player) => {
             const isViewingPlayer = player.id === viewingPlayerId;
             const isActivePlayer = player.id === activePlayerId;
             return (
               <tr
                 key={player.id}
-                className={cn(
-                  "border-t border-border",
-                  isActivePlayer && "bg-primary/10"
-                )}
+                className={cn(isActivePlayer && "bg-primary/10")}
               >
                 <td className="py-2 px-3">
                   <span
