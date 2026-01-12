@@ -521,6 +521,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             winnerId={gameEndData.winnerId}
             playerNames={gameEndData.playerNames}
             currentPlayerId={currentPlayerId ?? ""}
+            onNewGame={onLeaveGame}
             onLeave={onLeaveGame}
           />
         )}
