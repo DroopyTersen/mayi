@@ -145,18 +145,33 @@ Note: Will need to rebase if predecessor gets updates before this lands.
 
 ### Step 5: Record Branch in Card Context
 
-Add to card context using `/af context`:
+Get the GitHub repo URL to create a branch link:
+```bash
+# Extract owner/repo from git remote
+REMOTE=$(git remote get-url origin)
+# Handle both HTTPS and SSH formats
+REPO_URL=$(echo "$REMOTE" | sed -E 's#git@github.com:#https://github.com/#' | sed 's/\.git$//')
+BRANCH_URL="${REPO_URL}/tree/${BRANCH}"
+```
+
+Add to card context using `/af context` with a clickable link:
 ```
 /af context {id} append "
 ## Branch
-\`{branch-name}\`
+[{branch-name}]({branch-url})
 "
+```
+
+**Example:**
+```markdown
+## Branch
+[bug/123-fix-login-flow](https://github.com/owner/repo/tree/bug/123-fix-login-flow)
 ```
 
 **If branched from predecessor, also note:**
 ```
 /af context {id} append "
-Branched from: \`{predecessor-branch}\` (predecessor not yet in main)
+Branched from: [{predecessor-branch}]({predecessor-branch-url}) (predecessor not yet in main)
 "
 ```
 

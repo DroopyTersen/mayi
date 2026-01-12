@@ -53,7 +53,37 @@ fi
 ```bash
 gh project item-list $PROJECT --owner $OWNER --format json
 # Returns: { "items": [...] }
+# Each item has: id, title, status, labels[], content.number, content.body, etc.
 ```
+
+## Performance — Avoid N+1 Queries
+
+**CRITICAL:** The `gh project item-list` response contains EVERYTHING you need for listing and filtering cards. Do NOT make separate API calls for each issue.
+
+❌ **SLOW (N+1 queries):**
+```bash
+# DON'T DO THIS - makes 1 + N API calls
+items=$(gh project item-list $PROJECT --owner $OWNER --format json)
+for issue in $(echo $items | jq -r '.items[].content.number'); do
+  gh issue view $issue --json labels  # BAD: separate call per issue
+done
+```
+
+✅ **FAST (1 query):**
+```bash
+# DO THIS - everything in one call
+gh project item-list $PROJECT --owner $OWNER --format json | jq '
+  .items[] | {
+    number: .content.number,
+    title: .title,
+    status: .status,
+    labels: .content.labels,
+    body: .content.body
+  }
+'
+```
+
+The project item-list includes issue body, labels, and all metadata. Use it.
 
 ### Get Item ID for Issue
 ```bash

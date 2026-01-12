@@ -435,13 +435,13 @@ Each card gets its own git branch. This isolates work and enables clean commits.
 
 ### Branch Detection
 
-The card context contains the branch name:
+The card context contains the branch as a link:
 ```markdown
 ## Branch
-`feature/123-add-user-authentication`
+[feature/123-add-user-authentication](https://github.com/owner/repo/tree/feature/123-add-user-authentication)
 ```
 
-If this section exists, the branch was already created. Checkout and rebase:
+If this section exists, the branch was already created. Extract the branch name from the link text, then checkout and rebase:
 ```bash
 git checkout feature/123-add-user-authentication
 git fetch origin

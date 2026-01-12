@@ -7,7 +7,14 @@ description: AgentFlow Kanban workflow for AI-assisted development. Use when the
 
 A friendly interface to the AgentFlow Kanban workflow. Translates informal requests into `/af` commands.
 
-Please read @.claude/commands/af.md for the complete command reference.
+## Documentation Structure
+
+- `@.claude/commands/af.md` — Command dispatcher (start here)
+- `@.claude/skills/agentflow/core.md` — Shared concepts (columns, tags, agents)
+- `@.claude/skills/agentflow/github/` — GitHub Projects backend implementation
+- `@.claude/skills/agentflow/json/` — Local JSON backend implementation
+
+The af.md dispatcher will guide you to read the appropriate backend-specific files based on which config exists (`.agentflow/github.json` or `.agentflow/board.json`).
 
 ## How This Works
 
@@ -62,7 +69,7 @@ Then present the subagent's summary to the user in a nice format.
 | "I answered the questions on abc123"              | `/af feedback abc123`                             |
 | "move abc123 to done"                             | `/af move abc123 done`                            |
 | "review the code on abc123"                       | `/af review abc123`                               |
-| "start the loop" / "run autonomously"             | Launch background loop, monitor progress (see Autonomous Mode) |
+| "start the loop" / "run autonomously"             | Launch loop directly — NO status check first! (see Autonomous Mode) |
 | "card X depends on Y" / "X is blocked by Y"       | `/af depends X on Y`                              |
 
 ## Quick Reference
@@ -117,21 +124,48 @@ Creates a card in the New column. Will prompt for type (feature/bug/refactor) an
 
 ### Autonomous Mode (Ralph Loop)
 
-Run the Ralph Loop in the background:
+**IMPORTANT: Launch the loop directly. Do NOT run `/af status` first.** The loop checks the board itself — a preliminary status check wastes 1-2 minutes.
 
-**Starting the loop:**
-```
-Use Bash tool with run_in_background: true
-Command: .agentflow/loop.sh 50
+**Two ways to run the loop:**
+
+| Method | When to use |
+|--------|-------------|
+| Terminal | User runs `.agentflow/loop.sh` directly in their terminal |
+| Task agent | Claude runs the loop via Task tool (subagent) |
+
+**From terminal (recommended for long runs):**
+```bash
+.agentflow/loop.sh 50   # User runs this in their terminal
 ```
 
-Save the task_id and tell the user it's running.
+**From within Claude (via Task agent) — launch immediately, no status check:**
+```
+Use Task tool with:
+  subagent_type: "general-purpose"
+  run_in_background: true
+  prompt: |
+    Run the AgentFlow loop. Read .agentflow/RALPH_LOOP_PROMPT.md and execute iterations.
+    For each iteration:
+    1. Run /af list --workable to find cards
+    2. If no workable cards, output AGENTFLOW_NO_WORKABLE_CARDS and stop
+    3. Select highest priority card, run /af work <id>
+    4. After completing the phase, continue to next iteration
+    Max iterations: 50
+```
+
+**Important:** Do NOT use `Bash` with `run_in_background: true` to run `loop.sh`. The bash script spawns `claude` CLI subprocesses which stalls when run from within Claude. Use the Task agent approach instead.
+
+**Loop output files:**
+- `.agentflow/loop_status.txt` — Quick status summary (always small, read this first)
+- `.agentflow/iterations/` — Per-iteration output files (only last 5 kept)
+- `.agentflow/progress.txt` — Accumulated progress log
 
 **When user asks for status** ("how's the loop?", "what's the progress?"):
-1. Check loop output: `TaskOutput(task_id, block=false)`
-2. Read `.agentflow/progress.txt` for completed work
-3. Run `/af status` to see current board state
-4. Summarize for user
+1. Read `.agentflow/loop_status.txt` for quick loop state
+2. Read `.agentflow/progress.txt` for completed work summary
+3. Optionally read latest iteration file for details: `tail -50 .agentflow/iterations/iteration_*.txt | tail -50`
+4. Run `/af status` (via subagent) to see current board state
+5. Summarize for user
 
 **Example response:**
 ```
@@ -144,7 +178,7 @@ Loop: Running (iteration 12/50)
 Needs attention: #126 has questions (needs-feedback)
 ```
 
-That's it — launch in background, check when asked.
+**Note:** Don't read the full task output (it grows large). Use `loop_status.txt` instead.
 
 ## Interpreting User Intent
 
@@ -160,7 +194,11 @@ When the user seems stuck:
 - If cards are in `final-review` → prompt them to approve/reject
 - If no workable cards → explain the board state
 
+**When starting the loop:** Don't run `/af status` first. Just launch the loop directly — it will check the board itself. The preliminary status check wastes time.
+
 ## Full Command Reference
 
-For complete command documentation, see:
-@.claude/commands/af.md
+For complete command documentation:
+1. Start with `@.claude/commands/af.md` (dispatcher)
+2. Read `@.claude/skills/agentflow/core.md` for shared concepts
+3. Read backend-specific files as directed by af.md

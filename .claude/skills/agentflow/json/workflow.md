@@ -158,21 +158,60 @@ Can be used standalone outside the normal workflow.
 
 ## /af loop
 
-External bash script, not a Claude command.
+External bash script for terminal use, or Task agent for running from within Claude.
 
-### Usage
+### From Terminal (Recommended)
 
 ```bash
 .agentflow/loop.sh              # Default: 20 iterations
 .agentflow/loop.sh 50           # Custom max
 ```
 
-### How It Works
+The script pipes `.agentflow/RALPH_LOOP_PROMPT.md` to Claude with `--chrome` flag. Each iteration:
+1. Claude runs `/af list --workable`, selects card, executes phase
+2. Claude updates card, pushes commits, returns to main, exits
+3. Script checks for `AGENTFLOW_NO_WORKABLE_CARDS` or continues
 
-1. Script pipes `.agentflow/RALPH_LOOP_PROMPT.md` to Claude
-2. Claude runs `/af list --workable`, selects card, executes phase
-3. Claude updates card, exits
-4. Script checks for `AGENTFLOW_NO_WORKABLE_CARDS` or continues
+### From Within Claude (Task Agent)
+
+**Do NOT use Bash with `run_in_background: true` to run loop.sh** — it spawns Claude subprocesses which stalls.
+
+Instead, use a Task agent:
+```
+Use Task tool with:
+  subagent_type: "general-purpose"
+  run_in_background: true
+  prompt: |
+    Run the AgentFlow loop. Read .agentflow/RALPH_LOOP_PROMPT.md and execute iterations.
+    For each iteration:
+    1. Run /af list --workable to find cards
+    2. If no workable cards, output AGENTFLOW_NO_WORKABLE_CARDS and stop
+    3. Select highest priority card, run /af work <id>
+    4. After completing the phase, continue to next iteration
+    Max iterations: 50
+```
+
+### Output Files
+
+| File | Purpose |
+|------|---------|
+| `.agentflow/loop_status.txt` | Quick status summary (read this first) |
+| `.agentflow/iterations/` | Per-iteration output (last 5 kept) |
+| `.agentflow/progress.txt` | Accumulated work log across iterations |
+
+### Checking Progress
+
+When user asks "how's the loop?":
+
+1. Read `loop_status.txt` for current state
+2. Read `progress.txt` for completed work
+3. Optionally run `/af status` for board state
+4. Summarize for user
+
+```bash
+cat .agentflow/loop_status.txt
+tail -50 .agentflow/progress.txt
+```
 
 ### Exit Conditions
 
