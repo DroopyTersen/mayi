@@ -7,7 +7,8 @@ interface RoundEndOverlayProps {
   scores: Record<string, number>;
   playerNames: Record<string, string>;
   currentPlayerId: string;
-  onDismiss?: () => void;
+  /** Duration of the countdown in seconds (default: 4) */
+  countdownSeconds?: number;
   className?: string;
 }
 
@@ -16,25 +17,19 @@ export function RoundEndOverlay({
   scores,
   playerNames,
   currentPlayerId,
-  onDismiss,
+  countdownSeconds = 4,
   className,
 }: RoundEndOverlayProps) {
-  const [countdown, setCountdown] = useState(4);
+  const [countdown, setCountdown] = useState(countdownSeconds);
 
-  // Auto-dismiss after countdown
+  // Simple countdown display - no callback, no dependencies that could cause re-triggers
   useEffect(() => {
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          onDismiss?.();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [onDismiss]);
+  }, []); // Empty deps - runs once on mount, stable behavior
 
   // Sort players by score (ascending - lowest is best)
   const sortedPlayers = Object.entries(scores).sort(([, a], [, b]) => a - b);
@@ -83,7 +78,9 @@ export function RoundEndOverlay({
 
           {/* Next round countdown */}
           <div className="text-center text-sm text-muted-foreground">
-            Next round starting in {countdown}...
+            {countdown > 0
+              ? `Next round starting in ${countdown}...`
+              : "Starting now..."}
           </div>
         </CardContent>
       </Card>

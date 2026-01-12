@@ -407,6 +407,8 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             scores: msg.scores,
             playerNames: msg.playerNames,
           });
+          // Auto-clear after countdown (4 seconds + 500ms buffer)
+          setTimeout(() => setRoundEndData(null), 4500);
           return;
         }
         case "GAME_ENDED": {
@@ -489,7 +491,6 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             scores={roundEndData.scores}
             playerNames={roundEndData.playerNames}
             currentPlayerId={currentPlayerId ?? ""}
-            onDismiss={() => setRoundEndData(null)}
           />
         )}
         {/* Phase 3.8: Game End Screen */}
