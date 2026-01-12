@@ -9,7 +9,7 @@
 #
 # Requirements:
 #   - Claude Code CLI installed
-#   - .agentflow/board.json exists
+#   - Backend config: .agentflow/board.json (local) or .agentflow/github.json (GitHub)
 #   - .agentflow/RALPH_LOOP_PROMPT.md exists
 #
 
@@ -20,8 +20,8 @@ ITERATION=0
 PROMPT_FILE=".agentflow/RALPH_LOOP_PROMPT.md"
 OUTPUT_FILE=".agentflow/.last_output.txt"
 
-# Verify setup
-[[ -f ".agentflow/board.json" ]] || { echo "Error: .agentflow/board.json not found"; exit 1; }
+# Verify setup - supports both local (board.json) and GitHub (github.json) backends
+[[ -f ".agentflow/board.json" || -f ".agentflow/github.json" ]] || { echo "Error: No backend found (.agentflow/board.json or .agentflow/github.json)"; exit 1; }
 [[ -f "$PROMPT_FILE" ]] || { echo "Error: $PROMPT_FILE not found"; exit 1; }
 
 echo "AgentFlow Loop | Max: $MAX_ITERATIONS iterations | Ctrl+C to stop"

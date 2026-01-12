@@ -10,7 +10,7 @@ This document explains how the Ralph Wiggum-style autonomous loop works.
 │                  (.agentflow/loop.sh)                           │
 │                                                                 │
 │  while workable_cards_exist && iteration < max:                 │
-│    1. Read board.json, display next card info                   │
+│    1. Read board state, display next card info                  │
 │    2. Pipe RALPH_LOOP_PROMPT.md to Claude Code                │
 │    3. Claude processes ONE card phase                           │
 │    4. Claude moves card, exits                                  │
@@ -25,7 +25,7 @@ This document explains how the Ralph Wiggum-style autonomous loop works.
 │                    (one per iteration)                          │
 │                                                                 │
 │  1. Reads RALPH_LOOP_PROMPT.md instructions                   │
-│  2. Reads board.json, selects highest priority card             │
+│  2. Reads board state, selects highest priority card            │
 │  3. Reads card context file                                     │
 │  4. Reads column-specific instructions (columns/*.md)           │
 │  5. Executes phase (calls sub-agents as needed)                 │
@@ -58,7 +58,8 @@ This approach has several advantages:
 |------|---------|
 | `.agentflow/loop.sh` | External bash loop script |
 | `.agentflow/RALPH_LOOP_PROMPT.md` | Instructions piped to Claude each iteration |
-| `.agentflow/board.json` | Board state (cards, columns) |
+| `.agentflow/board.json` | Board state - local backend |
+| `.agentflow/github.json` | Board config - GitHub Projects backend |
 | `.agentflow/cards/*.md` | Card context files (accumulate over time) |
 | `.agentflow/columns/*.md` | Column-specific execution instructions |
 | `.agentflow/PROJECT_LOOP_PROMPT.md` | Project-specific instructions |
@@ -120,14 +121,15 @@ The loop skips cards with `needs-feedback` or `blocked` tags, and cards in `new`
 .agentflow/loop.sh 50           # Max 50 iterations
 .agentflow/loop.sh 50 "DONE"    # Custom completion promise
 
-# Monitor in another terminal
+# Monitor in another terminal (local backend only)
 watch -n 1 'jq ".cards | group_by(.column) | map({column: .[0].column, count: length})" .agentflow/board.json'
+# For GitHub backend, use: /af list
 ```
 
 ## Safety Considerations
 
 1. **Iteration limit**: Always set a reasonable max (default: 20)
 2. **Ctrl+C friendly**: Script exits cleanly on interrupt
-3. **State in files**: Can always inspect/modify board.json manually
+3. **State in files**: Can always inspect board state manually (or via GitHub UI)
 4. **Drift prevention**: Claude adds `needs-feedback` tag if tech design needs revision
 5. **Human gates**: Cannot skip `new` or `final-review` columns or cards with `needs-feedback` tag
