@@ -121,6 +121,8 @@ bun test integration/
 
 All verification must pass before proceeding.
 
+**If verification cannot be completed:** See [Verification Blockers](#verification-blockers) below.
+
 ### Step 8: Create Implementation Commit and Push
 
 ```bash
@@ -276,8 +278,62 @@ Do NOT continue implementing if the design is wrong.
 | Condition | Action |
 |-----------|--------|
 | Tech design needs revision | Add `needs-feedback`, document issue |
+| Verification cannot be completed | Add `blocked`, document reason |
 | External blocker | Add `blocked`, document reason |
 | Generally no tags in this phase | Proceed through to final-review |
+
+---
+
+## Verification Blockers
+
+If you cannot complete any expected verification step, **do not move the card forward**. This includes situations such as:
+
+- **UI verification unavailable** - Claude Chrome extension not configured or accessible
+- **Test harness broken** - Tests fail to run due to environment issues (not test failures)
+- **Build system errors** - Build fails due to missing dependencies or configuration
+- **Integration environment down** - External services needed for verification are unavailable
+- **Missing tools** - Required tools (typecheck, linter, etc.) not installed or configured
+
+### When Blocked on Verification
+
+1. **Stop immediately** - Do not proceed to commit or move the card
+2. **Add `blocked` tag** to the card
+3. **Add detailed comment** to the Conversation Log explaining:
+   - Which verification step failed
+   - What error or issue was encountered
+   - What was attempted to resolve it
+   - What is needed to unblock (e.g., "Chrome extension needs to be enabled", "test database needs to be running")
+4. **Exit this iteration** - Allow human to review and resolve
+
+### Card Update for Verification Blocker
+
+```markdown
+---
+
+### Conversation Log
+
+**Agent ({YYYY-MM-DD}):**
+Blocked on verification. Unable to complete: {verification step}
+
+**Issue:** {Detailed description of what failed}
+
+**Attempted:** {What was tried to resolve it}
+
+**Needed to unblock:** {What human action or configuration is required}
+
+---
+```
+
+### Example Blockers
+
+| Verification Step | Blocker Example | Comment |
+|-------------------|-----------------|---------|
+| UI testing | "Claude Chrome MCP not available in non-interactive mode" | "Need to configure --mcp-config for Chrome extension or run verification manually" |
+| Type check | "npx tsc command not found" | "TypeScript not installed, run: bun install" |
+| Integration tests | "Connection refused to localhost:5432" | "PostgreSQL database not running, start with: docker-compose up -d" |
+| Build | "Module '@/components' not found" | "Path aliases not configured, check tsconfig.json" |
+
+**Critical:** The card must NOT move to Final Review if verification is incomplete. A blocked card with clear documentation allows humans to either fix the environment or manually verify and move the card forward.
 
 ---
 
