@@ -24,6 +24,7 @@ KEEP_ITERATIONS=5
 PROMPT_FILE=".agentflow/RALPH_LOOP_PROMPT.md"
 ITERATIONS_DIR=".agentflow/iterations"
 STATUS_FILE=".agentflow/loop_status.txt"
+START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
 # Verify setup - supports both local (board.json) and GitHub (github.json) backends
 [[ -f ".agentflow/board.json" || -f ".agentflow/github.json" ]] || { echo "Error: No backend found (.agentflow/board.json or .agentflow/github.json)"; exit 1; }
@@ -36,7 +37,7 @@ mkdir -p "$ITERATIONS_DIR"
 cat > "$STATUS_FILE" << EOF
 AgentFlow Loop Status
 =====================
-Started: $(date '+%Y-%m-%d %H:%M:%S')
+Started: $START_TIME
 Max iterations: $MAX_ITERATIONS
 Status: running
 Current: 0/$MAX_ITERATIONS
@@ -62,7 +63,7 @@ update_status() {
     cat > "$STATUS_FILE" << EOF
 AgentFlow Loop Status
 =====================
-Started: $(date '+%Y-%m-%d %H:%M:%S')
+Started: $START_TIME
 Max iterations: $MAX_ITERATIONS
 Status: $status
 Current: $iteration/$MAX_ITERATIONS

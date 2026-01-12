@@ -154,15 +154,23 @@ After completing the phase, **append** to `.agentflow/progress.txt`:
 
 ```
 ---
-[{YYYY-MM-DD HH:MM}] Card: {card.id} - {card.title}
-Phase: {old-column} → {new-column}
-What was done: {brief description of work completed}
-Decisions: {any key decisions made and why}
-Files changed: {list of files created/modified}
-Notes for next iteration: {anything the next agent should know}
+[{YYYY-MM-DD HH:MM}] #{id}: {old-column} → {new-column}
+{One sentence: what happened and outcome}
 ```
 
-Keep entries concise. This file helps future iterations skip exploration.
+**Examples of good entries:**
+```
+[2026-01-12 10:30] #2: approved → refinement
+Created branch, documented requirements, ready for tech-design.
+
+[2026-01-12 14:00] #16: tech-design → implementation (needs-feedback)
+Designed 3 approaches, recommended Pragmatic. Waiting for human to pick.
+
+[2026-01-12 23:00] #2: implementation → final-review
+Implemented run.normalizer.ts (28 tests), code review 92/100, pushed.
+```
+
+**Keep it to 1-2 lines.** The card context contains the details. Progress.txt is just a breadcrumb trail.
 
 ---
 
@@ -375,21 +383,15 @@ The goal: Don't waste cycles retrying something that's fundamentally blocked. Su
    Column: {column}
    ```
 
-2. **Completion entry** (Step 7) — Written after work completes:
+2. **Completion entry** (Step 8) — Written after work completes:
    ```
-   [{timestamp}] Card: {card.id} - {card.title}
-   Phase: {old-column} → {new-column}
-   What was done: ...
+   [{timestamp}] #{id}: {old-column} → {new-column}
+   {One sentence summary}
    ```
 
 A STARTING entry without a subsequent completion entry indicates an interrupted iteration.
 
-**What to include in completion entries:**
-- Card completed and phase transition
-- Key decisions made and reasoning
-- Files created/modified
-- Blockers encountered
-- Notes for next iteration
+**Keep completion entries to 1-2 lines.** The card context has all the details.
 
 **Cleanup:**
 Don't keep `progress.txt` forever. Delete it when your sprint is done or all cards reach Done. The cards and git history provide permanent records.
