@@ -26,6 +26,16 @@ Run `/af list --workable` to get cards that are:
 - NOT tagged `blocked`
 - All predecessors in `done` column (check `## Dependencies` section)
 
+**IMPORTANT: Approved cards ARE workable!** Cards in `approved` are waiting for you to pick them up. They are ready for work — just create a branch and move to refinement. Don't skip them thinking they're "not started yet."
+
+**Workable columns (all of these are fair game):**
+| Column | What to do |
+|--------|------------|
+| `approved` | Pick up: create branch, move to refinement, start exploration |
+| `refinement` | Continue exploration, document requirements |
+| `tech-design` | Continue design work |
+| `implementation` | Continue implementation |
+
 **If no workable cards exist:**
 Output exactly: `AGENTFLOW_NO_WORKABLE_CARDS`
 Then exit immediately. Do not do anything else.
@@ -147,6 +157,7 @@ Keep entries concise. This file helps future iterations skip exploration.
 ## Important Rules
 
 - **ONE card per iteration** — Do not process multiple cards
+- **Approved = workable** — Cards in `approved` ARE workable! Pick them up, create branch, start work
 - **Announce before working** — Write STARTING entry to progress.txt before beginning work
 - **Check for interruptions** — If last progress entry is STARTING without completion, assess and recover
 - **Check dependencies** — Cards with unfinished predecessors are soft-blocked; use judgment
@@ -155,8 +166,8 @@ Keep entries concise. This file helps future iterations skip exploration.
 - **Read the column doc** — Follow the detailed instructions for the phase
 - **Document everything** — Use `/af context` to update card before moving
 - **Update progress.txt** — Always append completion entry before exiting
-- **Commit your work** — Commits let future iterations see changes via git history
-- **Exit when blocked** — If waiting on human, add tag and exit
+- **Commit and push** — Always `git push` after committing; unpushed commits are invisible to other iterations
+- **Exit cleanly, not permanently** — After completing work or tagging a card, exit cleanly. The loop script restarts you for another iteration. Only output `AGENTFLOW_NO_WORKABLE_CARDS` when there are truly ZERO cards in workable columns.
 - **Use the agents** — Call code-explorer, code-architect, code-reviewer as specified
 - **Skip tagged cards** — Never pick up cards with `needs-feedback` or `blocked` tags
 - **Notify dependents** — When a card reaches `done`, notify cards that depend on it
@@ -278,7 +289,10 @@ Check for signs of complexity vs external interruption:
   - What signs of complexity you observed
   - Your suspicion of what might have gone wrong
 - Run `/af tag <id> add needs-feedback`
-- Exit and let a human investigate
+- **Then pick another workable card** — don't exit the loop entirely!
+  - Go back to Step 2 and find another card to work on
+  - If there are cards in `approved`, pick one up
+  - Only output `AGENTFLOW_NO_WORKABLE_CARDS` if there truly are ZERO workable cards
 
 **3. Example Conversation Log entry for complexity:**
 
@@ -399,3 +413,17 @@ If rebase has conflicts:
 3. If complex, abort and flag for human: `git rebase --abort`, then add `needs-feedback` tag
 
 If the branch doesn't exist, create it (see `01b_approved.md`).
+
+### After Every Commit: Push
+
+**Always push immediately after committing:**
+```bash
+git push origin HEAD
+```
+
+Unpushed commits are invisible to:
+- Other loop iterations (they clone/fetch from remote)
+- Human reviewers
+- CI/CD pipelines
+
+Never finish an iteration with unpushed commits.
