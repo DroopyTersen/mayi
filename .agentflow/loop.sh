@@ -24,6 +24,7 @@ KEEP_ITERATIONS=5
 PROMPT_FILE=".agentflow/RALPH_LOOP_PROMPT.md"
 ITERATIONS_DIR=".agentflow/iterations"
 STATUS_FILE=".agentflow/loop_status.txt"
+START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
 # Verify setup - supports both local (board.json) and GitHub (github.json) backends
 [[ -f ".agentflow/board.json" || -f ".agentflow/github.json" ]] || { echo "Error: No backend found (.agentflow/board.json or .agentflow/github.json)"; exit 1; }
@@ -36,7 +37,7 @@ mkdir -p "$ITERATIONS_DIR"
 cat > "$STATUS_FILE" << EOF
 AgentFlow Loop Status
 =====================
-Started: $(date '+%Y-%m-%d %H:%M:%S')
+Started: $START_TIME
 Max iterations: $MAX_ITERATIONS
 Status: running
 Current: 0/$MAX_ITERATIONS
@@ -62,7 +63,7 @@ update_status() {
     cat > "$STATUS_FILE" << EOF
 AgentFlow Loop Status
 =====================
-Started: $(date '+%Y-%m-%d %H:%M:%S')
+Started: $START_TIME
 Max iterations: $MAX_ITERATIONS
 Status: $status
 Current: $iteration/$MAX_ITERATIONS
@@ -103,7 +104,7 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
         update_status "$i" "error" "Iteration $i failed with exit code $EXIT_CODE"
     fi
 
-    # Stop if Claude says no workable cards
+    # Check for completion signals
     # Match the actual output signal, not documentation (which contains backtick-quoted version)
     if grep -q '"text":"AGENTFLOW_NO_WORKABLE_CARDS"' "$ITERATION_FILE" 2>/dev/null; then
         echo ""
@@ -112,6 +113,15 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
         cleanup_old_iterations
         echo "Loop finished after $i iteration(s)"
         exit 0
+    fi
+
+    # Check if iteration completed normally (one card processed)
+    if grep -q '"text":"AGENTFLOW_ITERATION_COMPLETE"' "$ITERATION_FILE" 2>/dev/null; then
+        echo "Card processed successfully."
+    else
+        # Neither signal found - agent may have been cut off
+        echo "Warning: No completion signal found. Agent may have been interrupted."
+        update_status "$i" "warning" "Iteration $i: No completion signal. Continuing anyway..."
     fi
 
     # Cleanup old iterations to save disk space

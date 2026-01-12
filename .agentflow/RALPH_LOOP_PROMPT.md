@@ -2,6 +2,11 @@
 
 You are running in AgentFlow autonomous mode. Complete ONE card's current phase, then exit.
 
+**⚠️ CRITICAL: ONE CARD ONLY ⚠️**
+Process exactly ONE card, then output `AGENTFLOW_ITERATION_COMPLETE` and STOP.
+Do NOT process multiple cards. Do NOT continue after the completion signal.
+The external loop will restart you for the next card.
+
 ---
 
 ## Step 1: Load Context
@@ -44,9 +49,9 @@ Then exit immediately. Do not do anything else.
 
 ---
 
-## Step 3: Select a Card
+## Step 3: Select ONE Card
 
-From the workable cards, select based on:
+From the workable cards, select **ONE** card based on:
 
 1. User provided guidance (if any)
 2. Momentum — continue working on whatever you worked on last in progress.txt if it's unblocked
@@ -117,6 +122,8 @@ Read the column-specific instructions for detailed execution steps:
 | `tech-design` | `code-architect` | Design + spec commit OR `needs-feedback` tag |
 | `implementation` | `code-reviewer` | Code + impl commit → final-review |
 
+**After completing the phase work, proceed immediately to Steps 7-9. Do NOT start another card.**
+
 ---
 
 ## Step 7: Update the Card
@@ -154,15 +161,23 @@ After completing the phase, **append** to `.agentflow/progress.txt`:
 
 ```
 ---
-[{YYYY-MM-DD HH:MM}] Card: {card.id} - {card.title}
-Phase: {old-column} → {new-column}
-What was done: {brief description of work completed}
-Decisions: {any key decisions made and why}
-Files changed: {list of files created/modified}
-Notes for next iteration: {anything the next agent should know}
+[{YYYY-MM-DD HH:MM}] #{id}: {old-column} → {new-column}
+{One sentence: what happened and outcome}
 ```
 
-Keep entries concise. This file helps future iterations skip exploration.
+**Examples of good entries:**
+```
+[2026-01-12 10:30] #2: approved → refinement
+Created branch, documented requirements, ready for tech-design.
+
+[2026-01-12 14:00] #16: tech-design → implementation (needs-feedback)
+Designed 3 approaches, recommended Pragmatic. Waiting for human to pick.
+
+[2026-01-12 23:00] #2: implementation → final-review
+Implemented run.normalizer.ts (28 tests), code review 92/100, pushed.
+```
+
+**Keep it to 1-2 lines.** The card context contains the details. Progress.txt is just a breadcrumb trail.
 
 ---
 
@@ -187,7 +202,12 @@ Keep entries concise. This file helps future iterations skip exploration.
    Phase: {old-column} → {new-column}
    ```
 
-4. Exit cleanly. The external loop will start a new iteration.
+4. **Output the completion signal and STOP:**
+   ```
+   AGENTFLOW_ITERATION_COMPLETE
+   ```
+
+**CRITICAL: You MUST stop generating after outputting `AGENTFLOW_ITERATION_COMPLETE`.** Do not process another card. Do not look for more work. Do not generate any more text. The external loop will restart you for the next iteration.
 
 **Why cleanup matters:**
 - Next iteration may work on a different card with a different branch
@@ -198,7 +218,7 @@ Keep entries concise. This file helps future iterations skip exploration.
 
 ## Important Rules
 
-- **ONE card per iteration** — Do not process multiple cards
+- **⚠️ ONE CARD PER ITERATION ⚠️** — Process ONE card, output `AGENTFLOW_ITERATION_COMPLETE`, then STOP. Do not process another card. Do not continue generating text.
 - **Approved = workable** — Cards in `approved` ARE workable! Pick them up, create branch, start work
 - **Announce before working** — Write STARTING entry to progress.txt before beginning work
 - **Check for interruptions** — If last progress entry is STARTING without completion, assess and recover
@@ -210,7 +230,7 @@ Keep entries concise. This file helps future iterations skip exploration.
 - **Update progress.txt** — Always append completion entry before exiting
 - **Commit and push** — Always `git push` after committing; unpushed commits are invisible to other iterations
 - **Return to main** — Before exiting, push and switch back to main so next iteration starts clean
-- **Exit cleanly, not permanently** — After completing work or tagging a card, exit cleanly. The loop script restarts you for another iteration. Only output `AGENTFLOW_NO_WORKABLE_CARDS` when there are truly ZERO cards in workable columns.
+- **Output completion signal and STOP** — After completing work, output `AGENTFLOW_ITERATION_COMPLETE` and stop generating. Do NOT process another card. Only output `AGENTFLOW_NO_WORKABLE_CARDS` when there are truly ZERO cards in workable columns.
 - **Use the agents** — Call code-explorer, code-architect, code-reviewer as specified
 - **Skip tagged cards** — Never pick up cards with `needs-feedback` or `blocked` tags
 - **Notify dependents** — When a card reaches `done`, notify cards that depend on it
@@ -357,9 +377,10 @@ The goal: Don't waste cycles retrying something that's fundamentally blocked. Su
 
 ## Completion Signals
 
-- `AGENTFLOW_NO_WORKABLE_CARDS` — No cards available (all in human columns or tagged)
-- Normal exit after moving a card — External loop continues
-- Error message — External loop continues but logs the issue
+- `AGENTFLOW_ITERATION_COMPLETE` — Card processed, iteration done. **STOP generating after this.**
+- `AGENTFLOW_NO_WORKABLE_CARDS` — No cards available (all in human columns or tagged). **STOP generating after this.**
+
+After outputting either signal, you MUST stop. Do not continue generating text.
 
 ---
 
@@ -375,21 +396,15 @@ The goal: Don't waste cycles retrying something that's fundamentally blocked. Su
    Column: {column}
    ```
 
-2. **Completion entry** (Step 7) — Written after work completes:
+2. **Completion entry** (Step 8) — Written after work completes:
    ```
-   [{timestamp}] Card: {card.id} - {card.title}
-   Phase: {old-column} → {new-column}
-   What was done: ...
+   [{timestamp}] #{id}: {old-column} → {new-column}
+   {One sentence summary}
    ```
 
 A STARTING entry without a subsequent completion entry indicates an interrupted iteration.
 
-**What to include in completion entries:**
-- Card completed and phase transition
-- Key decisions made and reasoning
-- Files created/modified
-- Blockers encountered
-- Notes for next iteration
+**Keep completion entries to 1-2 lines.** The card context has all the details.
 
 **Cleanup:**
 Don't keep `progress.txt` forever. Delete it when your sprint is done or all cards reach Done. The cards and git history provide permanent records.
@@ -470,3 +485,17 @@ Unpushed commits are invisible to:
 - CI/CD pipelines
 
 Never finish an iteration with unpushed commits.
+
+---
+
+## ⚠️ FINAL REMINDER: STOP AFTER ONE CARD ⚠️
+
+After completing Steps 1-9 for ONE card:
+
+1. You have output `AGENTFLOW_ITERATION_COMPLETE`
+2. **STOP NOW**
+3. Do not look for another card
+4. Do not check for more workable cards
+5. Do not continue generating text
+
+The external loop will restart you. Your job for THIS iteration is done.
