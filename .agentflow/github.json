@@ -1,0 +1,16 @@
+{
+  "project": 2,
+  "owner": "DroopyTersen",
+  "repo": "mayi",
+  "projectId": "PVT_kwHOAD1XTs4BMZjP",
+  "statusFieldId": "PVTSSF_lAHOAD1XTs4BMZjPzg7sSoY",
+  "statusOptions": {
+    "new": "599ada18",
+    "approved": "0511d83b",
+    "refinement": "20148574",
+    "tech-design": "e37dee26",
+    "implementation": "e44105fc",
+    "final-review": "8b044c34",
+    "done": "d5a74bed"
+  }
+}
