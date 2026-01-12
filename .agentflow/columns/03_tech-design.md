@@ -134,9 +134,11 @@ After all agents complete:
 5. **Ask the user** which approach they prefer (or what blend)
 
 Then:
-- Document everything in the card context
+- Post approaches to card **discussion** (not body — see backend docs)
 - Add `needs-feedback` tag
-- Exit this iteration — human will respond
+- Exit this iteration — human will respond in discussion
+
+**Important:** Proposed approaches are options, not decisions. Never put multiple approaches in the card body. The body only gets the final chosen design.
 
 **Exception — skip to finalize (rare):**
 
@@ -151,8 +153,8 @@ If skipping, document why in the card context, then proceed to Step 5.
 ### Step 4: Human Responds (only if tagged)
 
 This step happens outside the Ralph Loop:
-1. Human reviews tech design options
-2. Human responds in Conversation Log:
+1. Human reviews tech design options (in discussion)
+2. Human responds in discussion:
    - Approves approach, OR
    - Selects from options, OR
    - Provides feedback
@@ -162,11 +164,12 @@ Next Ralph iteration picks up the card and continues.
 
 ### Step 5: Finalize Design
 
-1. Read human's decision (if there was one)
-2. Clean up the design:
-   - Remove unchosen approaches (if multiple were proposed)
-   - Add Decision section with rationale
-   - Fully document the chosen approach
+1. Read human's decision from discussion (see backend docs for how)
+2. **Now update the card body** with the chosen design only:
+   - Add Tech Design section with the selected approach
+   - Include Decision section noting which approach was chosen and why
+   - Do NOT include unchosen approaches in the body
+   - Do NOT include conversation in the body
 3. Ensure documentation includes:
    - Files to create/modify
    - Implementation sequence
@@ -240,112 +243,45 @@ Examples:
 
 ### If Human Input Needed (awaiting feedback)
 
-```markdown
----
+**Post to discussion** (see backend docs for how):
 
-## Tech Design
-**Date:** {YYYY-MM-DD}
-**Agent:** code-architect
-**Status:** Awaiting feedback
+```
+Agent (YYYY-MM-DD): Tech Design Options
 
-### Requirements Summary
-**Must Have:**
-- Requirement 1 (from refinement)
+I've analyzed three approaches for this work item.
 
-**Constraints:**
-- Constraint 1
-
-### Proposed Approaches
-
-#### Approach 1: Minimal
+## Approach 1: Minimal
 {The smallest change that solves the problem}
+- **Pros:** Quick to implement, low risk
+- **Cons:** May accumulate tech debt
+- **Complexity:** Low | **Risk:** Low
 
-**Overview:** {Brief description}
-**Pros:**
-- Quick to implement
-- Low risk of breaking existing code
-
-**Cons:**
-- May accumulate tech debt
-- Doesn't handle edge case X
-
-**Complexity:** Low | **Risk:** Low
-
-#### Approach 2: Idealistic
+## Approach 2: Clean Architecture
 {The "right" way if we had unlimited time}
+- **Pros:** Handles all edge cases, easy to extend
+- **Cons:** Significant effort, may be over-engineered
+- **Complexity:** High | **Risk:** Medium
 
-**Overview:** {Brief description}
-**Pros:**
-- Clean architecture
-- Handles all edge cases
-- Easy to extend later
-
-**Cons:**
-- Significant implementation effort
-- May be over-engineered for current needs
-
-**Complexity:** High | **Risk:** Medium
-
-#### Approach 3: Pragmatic
+## Approach 3: Pragmatic
 {Balanced middle ground}
+- **Pros:** Addresses core problem well, maintainable
+- **Cons:** {trade-off}
+- **Complexity:** Medium | **Risk:** Low
 
-**Overview:** {Brief description}
-**Pros:**
-- Addresses core problem well
-- Maintainable without over-engineering
-- Reasonable scope
-
-**Cons:**
-- Trade-off description
-
-**Complexity:** Medium | **Risk:** Low
-
-### Comparison Summary
-
-| Aspect | Minimal | Idealistic | Pragmatic |
-|--------|---------|------------|-----------|
-| Implementation effort | Low | High | Medium |
-| Maintainability | Fair | Excellent | Good |
-| Handles edge cases | Partial | Full | Most |
-| Tech debt risk | Higher | None | Low |
-
-### Recommendation
-**Recommended:** Approach {N} ({Name})
-
-**Rationale:** {Why this approach is recommended — consider the specific context, timeline, and priorities}
-
-**Alternative consideration:** {When another approach might be better}
-
----
-
-## Conversation Log
-
-... (previous entries) ...
-
-**Agent ({date}):** I've designed three approaches for {card title}:
-
-**Minimal:** {2-3 sentence summary}
-**Clean:** {2-3 sentence summary}
-**Pragmatic:** {2-3 sentence summary}
-
-**Key differences:**
-- Minimal touches {N} files, Clean touches {M} files
-- Clean adds {abstraction}, Minimal reuses existing {pattern}
-- {Other concrete difference}
-
-**Trade-offs:**
+## Comparison
 | Aspect | Minimal | Clean | Pragmatic |
 |--------|---------|-------|-----------|
 | Effort | Low | High | Medium |
-| Risk | Low | Medium | Low |
 | Maintainability | Fair | Excellent | Good |
+| Edge cases | Partial | Full | Most |
 
-**My recommendation:** {Approach} — {reasoning specific to this task, considering urgency, complexity, project maturity}
+## Recommendation
+I recommend **Approach {N}** because {reasoning specific to this task}.
 
-Which approach would you like? Or a blend (e.g., "Pragmatic, but use Clean's abstraction for X")?
-
-{Human will respond below}
+Which approach would you prefer? Or a blend?
 ```
+
+**Do NOT update card body.** Proposed approaches belong in discussion until human selects one.
 
 ### If Complete (moving to implementation)
 
@@ -409,19 +345,9 @@ Which approach would you like? Or a blend (e.g., "Pragmatic, but use Clean's abs
 **SHA:** `{sha}`
 **Branch:** `{branch-name}`
 **Date:** {YYYY-MM-DD}
-
----
-
-## Conversation Log
-
-... (previous entries) ...
-
-**Agent ({date}):** I've analyzed two approaches. I recommend Approach 2. Which would you prefer?
-
-**Human ({date}):** Go with Approach 2, but keep the API simple.
-
-**Agent ({date}):** Understood. Using Approach 2 with simplified API surface.
 ```
+
+**Note:** No Conversation Log in the body. The discussion about approach selection lives in the discussion area (see backend docs).
 
 ---
 

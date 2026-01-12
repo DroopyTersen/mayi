@@ -64,15 +64,17 @@ Based on the exploration, decide:
 - Skip to Step 5 (finalize)
 
 **If UNCLEAR (need human input):**
-- Document questions in Conversation Log
+- Post questions to card **discussion** (not body — see backend docs)
 - Add `needs-feedback` tag
-- Exit this iteration (human will respond)
+- Exit this iteration (human will respond in discussion)
+
+**Important:** Questions are conversation, not finalized documentation. Never put questions in the card body.
 
 ### Step 4: Human Responds (only if tagged)
 
 This step happens outside the Ralph Loop:
-1. Human reviews card
-2. Human answers questions in Conversation Log
+1. Human reviews questions (in discussion)
+2. Human responds in discussion
 3. Human removes `needs-feedback` tag
 
 Next Ralph iteration picks up the card and continues.
@@ -132,33 +134,24 @@ Document complete functional requirements:
 
 ### If Questions Needed (awaiting feedback)
 
-```markdown
----
+**Post to discussion** (see backend docs for how):
 
-## Refinement
-**Date:** {YYYY-MM-DD}
-**Agent:** code-explorer
-**Status:** Awaiting feedback
+```
+Agent (YYYY-MM-DD): Refinement Questions
 
-### Relevant Files
-| File | Purpose | Relevance |
-|------|---------|-----------|
-| `path/to/file.ts` | Description | Why it matters |
-
-### Codebase Context
-{What the agent learned about existing code and patterns}
-
----
-
-## Conversation Log
-
-**Agent ({YYYY-MM-DD}):** I've explored the codebase and have some questions:
+I've explored the codebase and have some questions:
 
 1. {Question 1}
 2. {Question 2}
 
-{Human will respond below}
+**Context from exploration:**
+- Found relevant code in `path/to/file.ts`
+- Current pattern does X, should we follow that?
+
+Please respond and remove `needs-feedback` when ready.
 ```
+
+**Do NOT update card body.** Questions belong in discussion, not the spec.
 
 ### If Complete (moving to tech-design)
 
@@ -209,21 +202,9 @@ Document complete functional requirements:
 
 - Scenario A: {how to verify}
 - Scenario B: {how to verify}
-
----
-
-## Conversation Log
-
-**Agent ({date}):** I've explored the codebase and have some questions:
-1. Should we support both OAuth providers or just Google?
-2. Where should user sessions be stored?
-
-**Human ({date}):**
-1. Start with Google only
-2. Use Redis for sessions
-
-**Agent ({date}):** Got it. Scoping requirements to Google OAuth with Redis sessions.
 ```
+
+**Note:** No Conversation Log in the body. Any Q&A discussion lives in the discussion area (see backend docs).
 
 ---
 

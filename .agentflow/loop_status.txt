@@ -1,0 +1,11 @@
+AgentFlow Loop Status
+=====================
+Started: 2026-01-12 14:12:36
+Max iterations: 50
+Status: running
+Current: 1/50
+Last update: 14:12:36
+
+Processing iteration 1...
+
+Recent iterations: .agentflow/iterations/

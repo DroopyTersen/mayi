@@ -373,6 +373,7 @@ Each card gets its own git branch. This isolates work and enables clean commits.
 - **One branch per card** — Created when card enters `approved`
 - **Always push** — Every commit pushes to remote
 - **Check branch first** — Before working, ensure correct branch is checked out
+- **Rebase before work** — When checking out an existing branch, always rebase on main first
 - **Reuse on rework** — If card returns from rejection, checkout existing branch (don't create new)
 
 ### Branch Detection
@@ -383,9 +384,18 @@ The card context contains the branch name:
 `feature/123-add-user-authentication`
 ```
 
-If this section exists, the branch was already created. Just checkout:
+If this section exists, the branch was already created. Checkout and rebase:
 ```bash
 git checkout feature/123-add-user-authentication
+git fetch origin
+git rebase origin/main
 ```
 
-If it doesn't exist, create the branch (see `01b_approved.md`).
+**Always rebase on main** before starting work on an existing branch. This ensures you have the latest changes and avoids conflicts later.
+
+If rebase has conflicts:
+1. Assess if you can resolve them
+2. If trivial, resolve and continue: `git rebase --continue`
+3. If complex, abort and flag for human: `git rebase --abort`, then add `needs-feedback` tag
+
+If the branch doesn't exist, create it (see `01b_approved.md`).
