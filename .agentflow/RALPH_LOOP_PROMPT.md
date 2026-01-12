@@ -57,9 +57,33 @@ Once selected, run `/af show <id>` to get full card details and context.
 
 ---
 
-## Step 4: Announce Work
+## Step 4: Move Card to Working Column
 
-Before starting work, **append** to `.agentflow/progress.txt`:
+**Before starting work, ensure the card is in the correct column.** The board should reflect what you're actually doing.
+
+| Card's Current Column | Previous Phase Complete? | Action |
+|-----------------------|--------------------------|--------|
+| `approved` | N/A | Move to `refinement` |
+| `refinement` | Requirements documented | Move to `tech-design` |
+| `tech-design` | Design complete (`Status: Complete`) | Move to `implementation` |
+| `implementation` | N/A | Stay in `implementation` |
+
+**Check the card context** for completion indicators:
+- Refinement complete: Has `## Requirements` section with documented requirements
+- Tech design complete: Has `## Tech Design` with `**Status:** Complete`
+
+If the previous phase is complete, move the card now:
+```
+/af move <id> <next-column>
+```
+
+This ensures the board shows reality — if you're doing implementation work, the card is in `implementation`.
+
+---
+
+## Step 5: Announce Work
+
+Before starting work, **append** to `.agentflow/progress.txt` (use the NEW column after any move):
 
 ```
 ---
@@ -71,7 +95,7 @@ This creates a breadcrumb. If the iteration gets interrupted, the next agent can
 
 ---
 
-## Step 5: Execute Phase
+## Step 6: Execute Phase
 
 Read the column-specific instructions for detailed execution steps:
 
@@ -95,7 +119,7 @@ Read the column-specific instructions for detailed execution steps:
 
 ---
 
-## Step 6: Update the Card
+## Step 7: Update the Card
 
 After completing the phase, use `/af` commands to update the card:
 
@@ -124,7 +148,7 @@ Content here...
 
 ---
 
-## Step 7: Update Progress Log
+## Step 8: Update Progress Log
 
 After completing the phase, **append** to `.agentflow/progress.txt`:
 
@@ -142,15 +166,33 @@ Keep entries concise. This file helps future iterations skip exploration.
 
 ---
 
-## Step 8: Exit
+## Step 9: Cleanup and Exit
 
-1. Summarize what was done:
+**Before exiting, ensure the repo is in a clean state for the next iteration.**
+
+1. **Push any unpushed commits:**
+   ```bash
+   git push origin HEAD 2>/dev/null || true
+   ```
+
+2. **Switch back to main:**
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+
+3. **Summarize what was done:**
    ```
    ✓ Completed: {card.title}
    Phase: {old-column} → {new-column}
    ```
 
-2. Exit cleanly. The external loop will start a new iteration.
+4. Exit cleanly. The external loop will start a new iteration.
+
+**Why cleanup matters:**
+- Next iteration may work on a different card with a different branch
+- Starting from main ensures clean branch creation
+- Unpushed commits would be invisible to other iterations
 
 ---
 
@@ -167,6 +209,7 @@ Keep entries concise. This file helps future iterations skip exploration.
 - **Document everything** — Use `/af context` to update card before moving
 - **Update progress.txt** — Always append completion entry before exiting
 - **Commit and push** — Always `git push` after committing; unpushed commits are invisible to other iterations
+- **Return to main** — Before exiting, push and switch back to main so next iteration starts clean
 - **Exit cleanly, not permanently** — After completing work or tagging a card, exit cleanly. The loop script restarts you for another iteration. Only output `AGENTFLOW_NO_WORKABLE_CARDS` when there are truly ZERO cards in workable columns.
 - **Use the agents** — Call code-explorer, code-architect, code-reviewer as specified
 - **Skip tagged cards** — Never pick up cards with `needs-feedback` or `blocked` tags

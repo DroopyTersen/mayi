@@ -104,7 +104,8 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     fi
 
     # Stop if Claude says no workable cards
-    if grep -q "AGENTFLOW_NO_WORKABLE_CARDS" "$ITERATION_FILE" 2>/dev/null; then
+    # Match the actual output signal, not documentation (which contains backtick-quoted version)
+    if grep -q '"text":"AGENTFLOW_NO_WORKABLE_CARDS"' "$ITERATION_FILE" 2>/dev/null; then
         echo ""
         echo "No workable cards remain."
         update_status "$i" "complete" "No workable cards remain. Loop finished after $i iteration(s)."

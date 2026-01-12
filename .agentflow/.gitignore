@@ -1,5 +1,7 @@
 # Loop temp files
 .last_output.txt
+loop_status.txt
+iterations/
 
 # Session memory (delete after sprint)
 progress.txt
