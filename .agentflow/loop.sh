@@ -81,22 +81,36 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     echo "--- Iteration $i/$MAX_ITERATIONS ---"
     update_status "$i" "running" "Processing iteration $i..."
 
-    # Run Claude, capture output to iteration file
-    # Also show minimal progress to stdout (for background task output)
+    # Run Claude in background, show progress dots every 10 seconds
     set +e
     claude -p "$(cat $PROMPT_FILE)" \
         --output-format stream-json \
         --allowedTools "Read,Write,Edit,Bash,Glob,Grep,Task" \
         --chrome \
-        2>&1 > "$ITERATION_FILE"
+        > "$ITERATION_FILE" 2>&1 &
+    CLAUDE_PID=$!
+
+    # Show dots while waiting (flush immediately)
+    while kill -0 $CLAUDE_PID 2>/dev/null; do
+        sleep 10
+        echo -n "." >&2
+    done
+    wait $CLAUDE_PID
     EXIT_CODE=$?
     set -e
 
-    # Show brief summary to stdout (keeps background task output small)
+    echo "" >&2  # newline after dots
     echo "[$(date '+%H:%M:%S')] Iteration $i complete (exit: $EXIT_CODE)"
 
-    # Extract card info from output if possible (last few lines often have summary)
-    tail -5 "$ITERATION_FILE" | grep -E "(Completed|AGENTFLOW|Moving|Created)" || true
+    # Show what was added to progress.txt (last entry)
+    if [[ -f ".agentflow/progress.txt" ]]; then
+        echo "--- Progress ---"
+        # Show from last "---" separator to end (tail -r is macOS version of tac)
+        tail -r .agentflow/progress.txt 2>/dev/null | sed '/^---$/q' | tail -r 2>/dev/null || \
+        tac .agentflow/progress.txt 2>/dev/null | sed '/^---$/q' | tac 2>/dev/null || \
+        tail -20 .agentflow/progress.txt
+        echo "----------------"
+    fi
 
     # Check for errors
     if [[ $EXIT_CODE -ne 0 ]]; then
@@ -105,8 +119,9 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     fi
 
     # Check for completion signals
-    # Match the actual output signal, not documentation (which contains backtick-quoted version)
-    if grep -q '"text":"AGENTFLOW_NO_WORKABLE_CARDS"' "$ITERATION_FILE" 2>/dev/null; then
+    # Only match in result/assistant output, not in loaded documentation
+    # The "result" field contains the final agent output
+    if grep -q '"result":"[^"]*AGENTFLOW_NO_WORKABLE_CARDS' "$ITERATION_FILE" 2>/dev/null; then
         echo ""
         echo "No workable cards remain."
         update_status "$i" "complete" "No workable cards remain. Loop finished after $i iteration(s)."
@@ -116,7 +131,8 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     fi
 
     # Check if iteration completed normally (one card processed)
-    if grep -q '"text":"AGENTFLOW_ITERATION_COMPLETE"' "$ITERATION_FILE" 2>/dev/null; then
+    # Only match in result field, not in loaded documentation
+    if grep -q '"result":"[^"]*AGENTFLOW_ITERATION_COMPLETE' "$ITERATION_FILE" 2>/dev/null; then
         echo "Card processed successfully."
     else
         # Neither signal found - agent may have been cut off
