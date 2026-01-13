@@ -18,9 +18,11 @@ This column is typically agent-only with no human interaction (unless blocked or
 
 - Tests written (before implementation when possible)
 - Implementation complete per tech design
-- All verification steps passing
-- Code review completed (score >= 70)
+- Dual code review completed (Claude + Codex)
+- Suggestions synthesized (valid ones implemented, others documented as skipped)
 - Implementation committed
+- Review fixes committed (if any valid suggestions were implemented)
+- All verification steps passing
 - Card moved to Final Review
 
 ---
@@ -76,28 +78,160 @@ If using TDD, iterate until tests pass:
 - Make the failing tests pass
 - Refactor if needed while keeping tests green
 
-### Step 6: Code Review
+### Step 6: Dual Code Review (Claude + Codex)
 
-Invoke the code-reviewer agent:
+Run both Claude's code-reviewer agent and OpenAI Codex in parallel. Two independent reviewers catch more issues than one. Focus is on **actionable suggestions**, not scores.
+
+#### 6a: Launch Reviews in Parallel
+
+**Start Codex review first (runs in background):**
+
+```bash
+# Create review prompt with context
+BRANCH=$(git branch --show-current)
+FILES_CHANGED=$(git diff --name-only main..HEAD | tr '\n' ', ')
+
+codex exec "You are a code reviewer. Review the changes on branch '$BRANCH' compared to main.
+
+Files changed: $FILES_CHANGED
+
+Focus on finding real issues:
+1. Bugs and logic errors (most important)
+2. Security vulnerabilities
+3. Missing error handling in critical paths
+4. Performance issues with significant impact
+
+For each issue, provide:
+- File path and line number
+- What the problem is
+- Why it matters
+- Concrete fix (before/after code)
+
+Skip style preferences, minor optimizations, and speculative suggestions.
+Only suggest what you can verify from the actual code.
+Format as markdown." \
+  --full-auto \
+  --output-last-message .agentflow/codex-review.txt \
+  --sandbox read-only &
+
+CODEX_PID=$!
+echo "Codex review started (PID: $CODEX_PID)"
+```
+
+**Run Claude code-reviewer agent:**
 
 ```
 Agent("code-reviewer")
+> Review the changes for this card
 > Card: {card.title}
 > Tech design: {from card}
 > Files changed: {list of files}
 ```
 
-**Evaluate the score:**
+**Wait for Codex to complete:**
 
-| Score | Verdict | Action |
-|-------|---------|--------|
-| 90-100 | Excellent | Proceed to full verification |
-| 80-89 | Good | Proceed, note minor issues |
-| 70-79 | Acceptable | Proceed, address noted issues |
-| 50-69 | Needs Work | Fix critical issues, re-review |
-| 0-49 | Significant Issues | Must fix before proceeding |
+```bash
+wait $CODEX_PID
+echo "Codex review complete"
+cat .agentflow/codex-review.txt
+```
 
-If score < 70: Address issues and invoke code-reviewer again.
+#### 6b: Post Reviews to GitHub Issue
+
+Post each review as a separate comment on the card's GitHub issue so the human can review them individually.
+
+**Get the issue number from the card context** (look for the GitHub issue link).
+
+**Post Claude's review:**
+
+```bash
+gh issue comment {ISSUE_NUMBER} --body "## 🟣 Claude Code Review
+
+$(cat << 'EOF'
+{Claude's review output here}
+EOF
+)"
+```
+
+**Post Codex's review:**
+
+```bash
+gh issue comment {ISSUE_NUMBER} --body "## 🟢 Codex Code Review
+
+$(cat .agentflow/codex-review.txt)"
+```
+
+**Labels to distinguish:**
+- 🟣 **Claude** - purple circle
+- 🟢 **Codex** - green circle
+
+#### 6d: Synthesize Suggestions
+
+Collect suggestions from both reviewers. Evaluate each one:
+
+| Signal | Likely Valid | Action |
+|--------|--------------|--------|
+| Both reviewers found it | High confidence | Fix it |
+| Clear bug/security issue | Valid regardless of source | Fix it |
+| Concrete before/after code | Reviewer is confident | Evaluate merit |
+| Vague or speculative | Likely false positive | Skip it |
+| Style preference only | Low value | Skip it |
+
+**Questions to ask for each suggestion:**
+- Is this a real bug or just a preference?
+- Does the suggested fix actually improve the code?
+- Would ignoring this cause problems?
+
+Create a decision list:
+
+```markdown
+## Review Synthesis
+
+### Will Implement
+| Suggestion | Source | Why |
+|------------|--------|-----|
+| Add null check in parseInput() | Both | Prevents crash on malformed input |
+| Use parameterized query | Codex | Fixes SQL injection vulnerability |
+
+### Skipping
+| Suggestion | Source | Why Not |
+|------------|--------|---------|
+| Rename 'data' to 'userData' | Codex | Style preference, existing convention |
+| Add try-catch around X | Claude | Error already handled upstream |
+```
+
+#### 6e: Implement Valid Suggestions
+
+Work through the "Will Implement" list:
+
+1. Apply each fix
+2. Run tests after each to catch regressions
+3. If a fix is complex, assess if it's blocking or can be follow-up
+
+```bash
+# After each fix
+bun test  # or npm test
+```
+
+#### 6f: Commit Review Fixes
+
+If any fixes were made, create a dedicated commit:
+
+```bash
+git add .
+git commit -m "fix({scope}): address code review feedback
+
+Applied from dual review (Claude + Codex):
+- {fix 1}
+- {fix 2}
+
+Reviewed and skipped:
+- {suggestion}: {why}"
+
+git push origin HEAD
+```
+
+**Note:** Separate commit from implementation. Documents that code was reviewed and improved.
 
 ### Step 7: Full Verification
 
@@ -198,15 +332,27 @@ Do NOT continue implementing if the design is wrong.
 
 ---
 
-## Code Review Scoring
+## Dual Code Review Philosophy
 
-**Score Breakdown:**
-| Category | Points | What It Measures |
-|----------|--------|------------------|
-| Functionality | 40 | Does it work correctly? |
-| Architecture Compliance | 20 | Does it follow the tech design? |
-| Code Quality | 20 | Is it clean, readable, maintainable? |
-| Safety/Security | 20 | Are there security concerns? |
+Two reviewers provide independent perspectives. Focus is on **valid suggestions**, not scores.
+
+**Why dual review?**
+- Different models catch different issues
+- Suggestions found by both are high-confidence
+- Reduces false negatives (missed bugs)
+- Cross-checking filters out false positives (bad suggestions)
+
+**What makes a suggestion valid?**
+- Identifies a real bug, security issue, or logic error
+- Provides concrete before/after code
+- The fix demonstrably improves the code
+- Not just a style preference or speculative concern
+
+**What to skip:**
+- Vague concerns without concrete fixes
+- Style preferences that don't affect functionality
+- Speculative suggestions about "potential" issues
+- Minor optimizations with unclear benefit
 
 ---
 
@@ -247,28 +393,37 @@ Do NOT continue implementing if the design is wrong.
 
 ---
 
-## Code Review
+## Dual Code Review
 **Date:** {YYYY-MM-DD}
-**Agent:** code-reviewer
-**Score:** {XX}/100
 
-**Verdict:** {PASS | NEEDS WORK}
+### Suggestions Received
 
-### Breakdown
-| Category | Score | Notes |
-|----------|-------|-------|
-| Functionality | /40 | |
-| Architecture Compliance | /20 | |
-| Code Quality | /20 | |
-| Safety/Security | /20 | |
+**From Claude (code-reviewer):**
+- {suggestion 1}
+- {suggestion 2}
 
-### Issues Found
-{Any issues and how they were addressed}
+**From Codex:**
+- {suggestion 1}
+- {suggestion 2}
 
-### Implementation Commit
-**SHA:** `{sha}`
+### Review Synthesis
+
+#### Implemented
+| Suggestion | Source | Why Valid |
+|------------|--------|-----------|
+| Add null check in parseInput() | Both | Prevents crash on malformed input |
+| Use parameterized query | Codex | Fixes SQL injection |
+
+#### Skipped
+| Suggestion | Source | Why Not |
+|------------|--------|---------|
+| Rename variable | Codex | Style preference only |
+| Add extra logging | Claude | Not needed for this feature |
+
+### Commits
+**Implementation:** `{sha1}` - {type}({scope}): {title}
+**Review Fixes:** `{sha2}` - fix({scope}): address code review feedback
 **Branch:** `{branch-name}`
-**Date:** {YYYY-MM-DD}
 ```
 
 ---
@@ -350,9 +505,11 @@ Blocked on verification. Unable to complete: {verification step}
 
 - Tests written and passing
 - Implementation matches tech design
-- All verification steps passed
-- Code review completed (score >= 70)
+- Dual code review completed (Claude + Codex)
+- Suggestions synthesized and documented (implemented vs skipped with reasons)
 - Implementation committed
+- Review fixes committed (if any valid suggestions were implemented)
+- All verification steps passed
 - Card moved to `final-review`
 
 ---
@@ -363,8 +520,11 @@ Blocked on verification. Unable to complete: {verification step}
 - **For bugs, start with a failing test** - it proves you understand the bug
 - **Follow the tech design** - don't deviate without good reason
 - **Run full verification** - don't skip steps from the verification plan
-- **Fix code review issues** - don't proceed with score < 70
-- **Sequence: Cursory → Code Review → Full** - catches issues early
+- **Dual review is required** - run both Claude and Codex reviewers
+- **Focus on valid suggestions** - real bugs and security issues, not style preferences
+- **Document decisions** - record what was implemented AND what was skipped (with reasons)
+- **Commit fixes separately** - review fixes get their own commit after implementation
+- **Sequence: Cursory → Dual Review → Fix → Full Verify** - catches issues early
 
 ---
 
