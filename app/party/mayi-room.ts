@@ -61,6 +61,8 @@ type RoomPhase = "lobby" | "playing";
 
 type MayIRoomConnectionState = { playerId: string };
 
+const AGENT_TESTING_ENABLED = import.meta.env.MODE !== "production";
+
 function safeJsonParse(value: string): unknown {
   return JSON.parse(value) as unknown;
 }
@@ -467,6 +469,17 @@ export class MayIRoom extends Server {
     conn: Connection<MayIRoomConnectionState>,
     msg: InjectStateMessage
   ) {
+    if (!AGENT_TESTING_ENABLED) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "AGENT_TESTING_DISABLED",
+          message: "Agent state injection is disabled in production",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
     // Check if already in a game
     const roomPhase = await this.getRoomPhase();
     if (roomPhase === "playing") {
@@ -475,6 +488,19 @@ export class MayIRoom extends Server {
           type: "ERROR",
           error: "GAME_ALREADY_STARTED",
           message: "Cannot inject state into a game already in progress",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    const humanPlayers = msg.state.players.filter((p) => !p.isAI);
+    const humanPlayer = humanPlayers[0] ?? null;
+    if (humanPlayers.length !== 1 || !humanPlayer) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "INVALID_STATE",
+          message: `Injected state must include exactly one human player; found ${humanPlayers.length}`,
         } satisfies ServerMessage)
       );
       return;
@@ -492,18 +518,16 @@ export class MayIRoom extends Server {
         name: player.name,
         joinedAt: now,
         lastSeenAt: now,
-        isConnected: !player.isAI, // Human is connected, AIs are not
-        currentConnectionId: player.isAI ? null : conn.id,
-        connectedAt: player.isAI ? null : now,
+        isConnected: player.id === humanPlayer.id,
+        currentConnectionId: player.id === humanPlayer.id ? conn.id : null,
+        connectedAt: player.id === humanPlayer.id ? now : null,
         disconnectedAt: null,
       };
       await this.ctx.storage.put(key, stored);
-
-      // For the human player sending this message, associate the connection
-      if (!player.isAI) {
-        conn.setState({ playerId: player.id });
-      }
     }
+
+    // Associate the injecting connection to the single human player.
+    conn.setState({ playerId: humanPlayer.id });
 
     // Set up lobby state with AI players
     const aiPlayers = msg.state.players
@@ -526,16 +550,13 @@ export class MayIRoom extends Server {
     await this.setRoomPhase("playing");
 
     // Send JOINED to the caller
-    const humanPlayer = msg.state.players.find((p) => !p.isAI);
-    if (humanPlayer) {
-      conn.send(
-        JSON.stringify({
-          type: "JOINED",
-          playerId: humanPlayer.id,
-          playerName: humanPlayer.name,
-        } satisfies ServerMessage)
-      );
-    }
+    conn.send(
+      JSON.stringify({
+        type: "JOINED",
+        playerId: humanPlayer.id,
+        playerName: humanPlayer.name,
+      } satisfies ServerMessage)
+    );
 
     // Broadcast GAME_STARTED to the injecting player
     const adapter = PartyGameAdapter.fromStoredState(storedState);

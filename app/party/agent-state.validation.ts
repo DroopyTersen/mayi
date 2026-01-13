@@ -105,6 +105,17 @@ export const agentTestStateSchema = z
     turn: turnStateSchema,
   })
   .superRefine((data, ctx) => {
+    // Require exactly one human player (the agent under test).
+    // This keeps injection deterministic and avoids ambiguous connection mapping.
+    const humanCount = data.players.filter((p) => !p.isAI).length;
+    if (humanCount !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Exactly one human player (isAI: false) is required; found ${humanCount}`,
+        path: ["players"],
+      });
+    }
+
     // Validate currentPlayerIndex is within bounds
     if (data.turn.currentPlayerIndex >= data.players.length) {
       ctx.addIssue({

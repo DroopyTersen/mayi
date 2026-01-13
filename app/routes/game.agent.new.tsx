@@ -19,6 +19,10 @@ import type { AgentTestState } from "~/party/agent-state.types";
 import { createDefaultTestDeck } from "~/party/agent-state.deck";
 
 export function loader({}: Route.LoaderArgs) {
+  if (import.meta.env.MODE === "production") {
+    throw new Response("Not Found", { status: 404 });
+  }
+
   const roomId = nanoid(8);
   const state = createDefaultAgentTestState();
   const encodedState = encodeAgentTestState(state);

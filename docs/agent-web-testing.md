@@ -20,6 +20,8 @@ curl -L http://localhost:5173/game/agent/new
 
 ### `/game/agent/new` — Quick Start
 
+This route is only enabled in development mode. In production, it returns `404`.
+
 Creates a new room with a default 3-player test state:
 
 - Player 0: Human "Agent" (the AI agent being tested)
@@ -31,6 +33,8 @@ The game starts at Round 1 with the human player's turn to draw.
 **Response:** Redirects to `/game/:roomId?agentState=<base64url>`
 
 ### `/game/agent/state/:state` — Custom State Injection
+
+This route is only enabled in development mode. In production, it returns `404`.
 
 Creates a new room with a custom game state.
 
@@ -203,7 +207,8 @@ The server responds with:
 2. **Joker cards must have `suit: null`**
 3. **Non-Joker cards must have a valid suit**
 4. **AI players must have `aiModelId` specified**
-5. **The first non-AI player becomes the human (agent) player**
+5. **Exactly one human player (`isAI: false`) is required**
+6. **`INJECT_STATE` is rejected in production**
 
 ## Validation
 

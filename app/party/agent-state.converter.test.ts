@@ -127,7 +127,7 @@ describe("agent-state.converter", () => {
             { id: "card-m2", suit: "diamonds", rank: "Q" },
             { id: "card-m3", suit: "clubs", rank: "Q" },
           ],
-          ownerId: "player-0",
+          ownerId: "agent-1",
         },
       ];
       testState.players[0]!.isDown = true;
@@ -139,6 +139,7 @@ describe("agent-state.converter", () => {
       expect(snapshot.table.length).toBe(1);
       expect(snapshot.table[0]!.type).toBe("set");
       expect(snapshot.table[0]!.cards.length).toBe(3);
+      expect(snapshot.table[0]!.ownerId).toBe("player-0");
     });
 
     it("sets correct turn phase", () => {

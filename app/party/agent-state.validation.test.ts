@@ -151,6 +151,30 @@ describe("agent-state.validation", () => {
       expect(result.success).toBe(false);
     });
 
+    it("rejects state with zero human players", () => {
+      const state = createValidState();
+      state.players[0]!.isAI = true;
+      state.players[0]!.aiModelId = "default:grok";
+
+      const result = parseAgentTestState(state);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Exactly one human player");
+      }
+    });
+
+    it("rejects state with multiple human players", () => {
+      const state = createValidState();
+      state.players[2]!.isAI = false;
+      state.players[2]!.aiModelId = undefined;
+
+      const result = parseAgentTestState(state);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("Exactly one human player");
+      }
+    });
+
     it("rejects state with out-of-bounds currentPlayerIndex", () => {
       const state = createValidState();
       state.turn.currentPlayerIndex = 5;

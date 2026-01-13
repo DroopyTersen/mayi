@@ -7,7 +7,6 @@
 
 import type { AgentTestState } from "./agent-state.types";
 import type { StoredGameState, PlayerMapping } from "./party-game-adapter";
-import type { AIModelId, AI_MODEL_DISPLAY_NAMES } from "./protocol.types";
 import { CONTRACTS } from "../../core/engine/contracts";
 
 /**
@@ -31,6 +30,10 @@ export function convertAgentTestStateToStoredState(
     aiModelId: player.isAI ? player.aiModelId : undefined,
   }));
 
+  const lobbyIdToEngineId = new Map(
+    playerMappings.map((m) => [m.lobbyId, m.engineId] as const)
+  );
+
   // Map players to engine format
   const enginePlayers = state.players.map((player, index) => ({
     id: `player-${index}`,
@@ -38,6 +41,12 @@ export function convertAgentTestStateToStoredState(
     hand: player.hand,
     isDown: player.isDown,
     totalScore: player.totalScore ?? 0,
+  }));
+
+  // Translate meld ownership from lobby IDs → engine IDs
+  const translatedTable = state.table.map((meld) => ({
+    ...meld,
+    ownerId: lobbyIdToEngineId.get(meld.ownerId) ?? meld.ownerId,
   }));
 
   // Get contract for the round
@@ -97,7 +106,7 @@ export function convertAgentTestStateToStoredState(
             dealerIndex,
             stock: state.stock,
             discard: state.discard,
-            table: state.table,
+            table: translatedTable,
             winnerPlayerId: null,
             turnNumber: 1, // We start at turn 1 for injected state
             lastDiscardedByPlayerId:
@@ -124,7 +133,7 @@ export function convertAgentTestStateToStoredState(
                   roundNumber: state.roundNumber,
                   isDown: currentPlayer.isDown,
                   laidDownThisTurn: false,
-                  table: state.table,
+                  table: translatedTable,
                   lastError: null,
                   playerOrder,
                   playerDownStatus,

@@ -18,6 +18,10 @@ import type { Route } from "./+types/game.agent.state.$state";
 import { decodeAndParseAgentTestState, encodeAgentTestState } from "~/party/agent-state.validation";
 
 export function loader({ params }: Route.LoaderArgs) {
+  if (import.meta.env.MODE === "production") {
+    throw new Response("Not Found", { status: 404 });
+  }
+
   const encodedState = params.state;
 
   if (!encodedState) {

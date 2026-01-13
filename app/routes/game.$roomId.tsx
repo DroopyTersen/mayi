@@ -303,6 +303,19 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
   useEffect(() => {
     // Client-only: sessionStorage + websocket
+    let parsedAgentState: ReturnType<typeof decodeAndParseAgentTestState> | null =
+      null;
+    if (import.meta.env.MODE !== "production" && agentStateEncoded) {
+      parsedAgentState = decodeAndParseAgentTestState(agentStateEncoded);
+      if (parsedAgentState.success) {
+        const injectedHuman = parsedAgentState.data.players.find((p) => !p.isAI);
+        if (injectedHuman) {
+          sessionStorage.setItem(getPlayerIdKey(roomId), injectedHuman.id);
+          sessionStorage.setItem(getPlayerNameKey(roomId), injectedHuman.name);
+        }
+      }
+    }
+
     const playerId = getOrCreatePlayerId(roomId);
     setCurrentPlayerId(playerId);
 
@@ -323,20 +336,27 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       setConnectionStatus("connected");
 
       // Check for agent state injection
-      if (agentStateEncoded && !agentStateInjectedRef.current) {
-        const parseResult = decodeAndParseAgentTestState(agentStateEncoded);
-        if (parseResult.success) {
+      if (
+        import.meta.env.MODE !== "production" &&
+        agentStateEncoded &&
+        !agentStateInjectedRef.current
+      ) {
+        if (parsedAgentState?.success) {
           // Inject state - this will auto-join us as the first human player
           agentStateInjectedRef.current = true;
           socket.send(JSON.stringify({
             type: "INJECT_STATE",
-            state: parseResult.data,
+            state: parsedAgentState.data,
           }));
           setShowNamePrompt(false);
           setJoinStatus("joining");
           return;
         } else {
-          console.error("Failed to parse agent state:", parseResult.error);
+          const error =
+            parsedAgentState && !parsedAgentState.success
+              ? parsedAgentState.error
+              : "Unknown error";
+          console.error("Failed to parse agent state:", error);
         }
       }
 
@@ -382,6 +402,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         case "JOINED": {
           setJoinStatus("joined");
           setShowNamePrompt(false);
+
+          // Server is authoritative for playerId. This is critical for agentState
+          // injection, where the injected human playerId must persist across reloads.
+          setCurrentPlayerId(msg.playerId);
+          sessionStorage.setItem(getPlayerIdKey(roomId), msg.playerId);
 
           // Ensure we persist the final server-accepted name.
           storePlayerName(roomId, msg.playerName);
