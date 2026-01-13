@@ -29,6 +29,7 @@ import type {
   GameAction,
   ActivityLogEntry,
 } from "~/party/protocol.types";
+import { decodeAndParseAgentTestState } from "~/party/agent-state.validation";
 import type { Card } from "core/card/card.types";
 
 type RoomPhase = "lobby" | "playing";
@@ -63,16 +64,25 @@ export function meta({ params }: Route.MetaArgs) {
   return [{ title: params.roomId ? `Game: ${params.roomId}` : "Game" }];
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   if (!params.roomId) {
     throw new Response("Missing roomId", { status: 404 });
   }
-  return { roomId: params.roomId };
+
+  // Check for agent test state in query params
+  const url = new URL(request.url);
+  const agentStateParam = url.searchParams.get("agentState");
+
+  return {
+    roomId: params.roomId,
+    agentState: agentStateParam,
+  };
 }
 
 export default function Game({ loaderData }: Route.ComponentProps) {
-  const { roomId } = loaderData;
+  const { roomId, agentState: agentStateEncoded } = loaderData;
   const socketRef = useRef<PartySocket | null>(null);
+  const agentStateInjectedRef = useRef(false);
 
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting");
@@ -312,6 +322,24 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     socket.onopen = () => {
       setConnectionStatus("connected");
 
+      // Check for agent state injection
+      if (agentStateEncoded && !agentStateInjectedRef.current) {
+        const parseResult = decodeAndParseAgentTestState(agentStateEncoded);
+        if (parseResult.success) {
+          // Inject state - this will auto-join us as the first human player
+          agentStateInjectedRef.current = true;
+          socket.send(JSON.stringify({
+            type: "INJECT_STATE",
+            state: parseResult.data,
+          }));
+          setShowNamePrompt(false);
+          setJoinStatus("joining");
+          return;
+        } else {
+          console.error("Failed to parse agent state:", parseResult.error);
+        }
+      }
+
       if (storedName) {
         setShowNamePrompt(false);
         setJoinStatus("joining");
@@ -448,7 +476,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       socket.close();
       socketRef.current = null;
     };
-  }, [roomId, sendJoin]);
+  }, [roomId, sendJoin, agentStateEncoded]);
 
   // Determine if current player can also claim (May I instead)
   // This requires checking if they have May I count remaining

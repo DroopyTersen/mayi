@@ -28,7 +28,10 @@ import {
   type ClientMessage,
   type ServerMessage,
   type HumanPlayerInfo,
+  type InjectStateMessage,
 } from "./protocol.types";
+
+import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 
 import {
   PartyGameAdapter,
@@ -212,6 +215,10 @@ export class MayIRoom extends Server {
 
       case "GAME_ACTION":
         await this.handleGameAction(conn, msg);
+        break;
+
+      case "INJECT_STATE":
+        await this.handleInjectState(conn, msg);
         break;
 
       default:
@@ -448,6 +455,96 @@ export class MayIRoom extends Server {
 
     // Execute AI turns if the first player is an AI
     await this.executeAITurnsIfNeeded();
+  }
+
+  /**
+   * Handle INJECT_STATE message for agent testing
+   *
+   * This creates a game with a specific state for E2E testing.
+   * It bypasses normal game setup and directly injects the provided state.
+   */
+  private async handleInjectState(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: InjectStateMessage
+  ) {
+    // Check if already in a game
+    const roomPhase = await this.getRoomPhase();
+    if (roomPhase === "playing") {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "GAME_ALREADY_STARTED",
+          message: "Cannot inject state into a game already in progress",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Convert the simplified state to the full StoredGameState format
+    const storedState = convertAgentTestStateToStoredState(msg.state, this.name);
+
+    // Store the presence info for each player (so they appear connected)
+    const now = Date.now();
+    for (const player of msg.state.players) {
+      const key = `player:${player.id}`;
+      const stored: StoredPlayer = {
+        playerId: player.id,
+        name: player.name,
+        joinedAt: now,
+        lastSeenAt: now,
+        isConnected: !player.isAI, // Human is connected, AIs are not
+        currentConnectionId: player.isAI ? null : conn.id,
+        connectedAt: player.isAI ? null : now,
+        disconnectedAt: null,
+      };
+      await this.ctx.storage.put(key, stored);
+
+      // For the human player sending this message, associate the connection
+      if (!player.isAI) {
+        conn.setState({ playerId: player.id });
+      }
+    }
+
+    // Set up lobby state with AI players
+    const aiPlayers = msg.state.players
+      .filter((p) => p.isAI && p.aiModelId)
+      .map((p) => ({
+        playerId: p.id,
+        name: p.name,
+        modelId: p.aiModelId!,
+        modelDisplayName: p.name,
+      }));
+
+    const lobbyState: LobbyState = {
+      aiPlayers,
+      startingRound: msg.state.roundNumber,
+    };
+    await this.setLobbyState(lobbyState);
+
+    // Store game state
+    await this.setGameState(storedState);
+    await this.setRoomPhase("playing");
+
+    // Send JOINED to the caller
+    const humanPlayer = msg.state.players.find((p) => !p.isAI);
+    if (humanPlayer) {
+      conn.send(
+        JSON.stringify({
+          type: "JOINED",
+          playerId: humanPlayer.id,
+          playerName: humanPlayer.name,
+        } satisfies ServerMessage)
+      );
+    }
+
+    // Broadcast GAME_STARTED to the injecting player
+    const adapter = PartyGameAdapter.fromStoredState(storedState);
+    await this.broadcastPlayerViews(adapter);
+
+    // Execute AI turns if needed (e.g., if injected state has AI as current player)
+    await this.executeAITurnsIfNeeded();
+
+    this.log(`State injected for agent testing: round ${msg.state.roundNumber}`);
   }
 
   private async handleGameAction(

@@ -11,6 +11,8 @@ import type { Meld } from "../../core/meld/meld.types";
 import type { PlayerView, MeldSpec } from "../../core/engine/game-engine.types";
 import type { RoundNumber } from "../../core/engine/engine.types";
 import type { Contract } from "../../core/engine/contracts";
+import type { AgentTestState } from "./agent-state.types";
+import { agentTestStateSchema } from "./agent-state.validation";
 
 // Re-export types needed by clients
 export type { PlayerView } from "../../core/engine/game-engine.types";
@@ -124,6 +126,12 @@ export const startGameSchema = z.object({
   type: z.literal("START_GAME"),
 });
 
+// Agent testing message for state injection
+export const injectStateMessageSchema = z.object({
+  type: z.literal("INJECT_STATE"),
+  state: agentTestStateSchema,
+});
+
 // Game action schemas
 export const meldSpecSchema = z.object({
   type: z.enum(["set", "run"]),
@@ -162,6 +170,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   setStartingRoundSchema,
   startGameSchema,
   gameActionMessageSchema,
+  injectStateMessageSchema,
 ]);
 
 // TypeScript types derived from Zod schemas
@@ -170,6 +179,7 @@ export type AddAIPlayerMessage = z.infer<typeof addAIPlayerSchema>;
 export type RemoveAIPlayerMessage = z.infer<typeof removeAIPlayerSchema>;
 export type SetStartingRoundMessage = z.infer<typeof setStartingRoundSchema>;
 export type StartGameMessage = z.infer<typeof startGameSchema>;
+export type InjectStateMessage = z.infer<typeof injectStateMessageSchema>;
 export type GameActionMessage = z.infer<typeof gameActionMessageSchema>;
 export type GameAction = z.infer<typeof gameActionSchema>;
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -326,7 +336,8 @@ export function isLobbyPhaseMessage(msg: ClientMessage): boolean {
     msg.type === "ADD_AI_PLAYER" ||
     msg.type === "REMOVE_AI_PLAYER" ||
     msg.type === "SET_STARTING_ROUND" ||
-    msg.type === "START_GAME"
+    msg.type === "START_GAME" ||
+    msg.type === "INJECT_STATE"
   );
 }
 
