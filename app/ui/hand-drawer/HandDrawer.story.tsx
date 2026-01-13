@@ -53,6 +53,7 @@ const DRAW_PHASE_ACTIONS: AvailableActions = {
   canAllowMayI: false,
   canClaimMayI: false,
   canReorderHand: true,
+  hasPendingMayIRequest: false,
 };
 
 const PLAY_PHASE_ACTIONS: AvailableActions = {
@@ -66,6 +67,7 @@ const PLAY_PHASE_ACTIONS: AvailableActions = {
   canAllowMayI: false,
   canClaimMayI: false,
   canReorderHand: true,
+  hasPendingMayIRequest: false,
 };
 
 const WAITING_ACTIONS: AvailableActions = {
@@ -79,6 +81,7 @@ const WAITING_ACTIONS: AvailableActions = {
   canAllowMayI: false,
   canClaimMayI: false,
   canReorderHand: true, // Can still organize hand while waiting
+  hasPendingMayIRequest: false,
 };
 
 // Mock table content for context
