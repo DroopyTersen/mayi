@@ -15,8 +15,12 @@ export interface ConnectionState {
   connectedAt: number | null;
   /** Timestamp when disconnection occurred */
   disconnectedAt: number | null;
+  /** Timestamp of last PING sent */
+  lastPingAt: number | null;
   /** Timestamp of last successful PONG received */
   lastPongAt: number | null;
+  /** Timestamp when we started waiting for a PONG */
+  awaitingPongSince: number | null;
   /** Number of reconnection attempts since last successful connection */
   reconnectAttempts: number;
 }
@@ -34,7 +38,7 @@ export interface HeartbeatConfig {
 /** Default heartbeat configuration */
 export const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
   pingIntervalMs: 30000,    // 30 seconds between pings
-  pongTimeoutMs: 45000,     // 45 seconds to receive pong (1.5x ping interval)
+  pongTimeoutMs: 10000,     // 10 seconds to receive pong (SLA: detect within ~40s worst-case)
   reconnectDelayMs: 2000,   // 2 seconds before reconnect attempt
 };
 
@@ -52,6 +56,9 @@ export interface ConnectionStateMachine {
   /** Called when starting a reconnection attempt */
   onReconnecting(): void;
 
+  /** Called when PING message is sent */
+  onPing(): void;
+
   /** Called when PONG message is received */
   onPong(): void;
 
@@ -60,6 +67,9 @@ export interface ConnectionStateMachine {
 
   /** Set lastPongAt manually (for testing) */
   setLastPongAt(timestamp: number): void;
+
+  /** Set awaitingPongSince manually (for testing) */
+  setAwaitingPongSince(timestamp: number | null): void;
 }
 
 /** Create a new connection state machine */
@@ -68,7 +78,9 @@ export function createConnectionStateMachine(): ConnectionStateMachine {
     status: "connecting",
     connectedAt: null,
     disconnectedAt: null,
+    lastPingAt: null,
     lastPongAt: null,
+    awaitingPongSince: null,
     reconnectAttempts: 0,
   };
 
@@ -83,6 +95,9 @@ export function createConnectionStateMachine(): ConnectionStateMachine {
         status: "connected",
         connectedAt: Date.now(),
         disconnectedAt: null,
+        lastPingAt: null,
+        lastPongAt: null,
+        awaitingPongSince: null,
       };
     },
 
@@ -91,6 +106,7 @@ export function createConnectionStateMachine(): ConnectionStateMachine {
         ...state,
         status: "disconnected",
         disconnectedAt: Date.now(),
+        awaitingPongSince: null,
       };
     },
 
@@ -99,6 +115,16 @@ export function createConnectionStateMachine(): ConnectionStateMachine {
         ...state,
         status: "reconnecting",
         reconnectAttempts: state.reconnectAttempts + 1,
+        awaitingPongSince: null,
+      };
+    },
+
+    onPing() {
+      const now = Date.now();
+      state = {
+        ...state,
+        lastPingAt: now,
+        awaitingPongSince: state.awaitingPongSince ?? now,
       };
     },
 
@@ -106,18 +132,18 @@ export function createConnectionStateMachine(): ConnectionStateMachine {
       state = {
         ...state,
         lastPongAt: Date.now(),
+        awaitingPongSince: null,
         reconnectAttempts: 0, // Reset on successful heartbeat
       };
     },
 
     isHeartbeatTimedOut(timeoutMs: number) {
-      // If we've never received a PONG, don't consider it timed out
-      // (the connection may still be establishing)
-      if (state.lastPongAt === null) {
+      // Only consider it timed out if we sent a PING and are awaiting a PONG.
+      if (state.awaitingPongSince === null) {
         return false;
       }
 
-      const elapsed = Date.now() - state.lastPongAt;
+      const elapsed = Date.now() - state.awaitingPongSince;
       return elapsed > timeoutMs;
     },
 
@@ -125,6 +151,13 @@ export function createConnectionStateMachine(): ConnectionStateMachine {
       state = {
         ...state,
         lastPongAt: timestamp,
+      };
+    },
+
+    setAwaitingPongSince(timestamp: number | null) {
+      state = {
+        ...state,
+        awaitingPongSince: timestamp,
       };
     },
   };

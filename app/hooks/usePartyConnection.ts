@@ -54,8 +54,9 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const machineRef = useRef<ConnectionStateMachine>(createConnectionStateMachine());
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const heartbeatCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pongTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasConnectedRef = useRef(false);
+  const lastSocketRef = useRef<PartySocket | null>(null);
 
   // Update status and notify callback
   const updateStatus = useCallback((status: ConnectionStatus) => {
@@ -63,19 +64,52 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     onStatusChange?.(status);
   }, [onStatusChange]);
 
-  // Send PING message
-  const sendPing = useCallback(() => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({ type: "PING" } as ClientMessage));
-  }, [socket]);
+  const clearPongTimeout = useCallback(() => {
+    if (!pongTimeoutRef.current) return;
+    clearTimeout(pongTimeoutRef.current);
+    pongTimeoutRef.current = null;
+  }, []);
+
+  // Stop heartbeat (used on close/error/forced reconnect)
+  const stopHeartbeat = useCallback(() => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+    clearPongTimeout();
+  }, [clearPongTimeout]);
 
   // Force reconnect
   const forceReconnect = useCallback(() => {
     if (!socket) return;
+    stopHeartbeat();
     machineRef.current.onReconnecting();
     updateStatus("reconnecting");
     socket.reconnect();
-  }, [socket, updateStatus]);
+  }, [socket, stopHeartbeat, updateStatus]);
+
+  const armPongTimeout = useCallback(() => {
+    if (pongTimeoutRef.current) return;
+    pongTimeoutRef.current = setTimeout(() => {
+      pongTimeoutRef.current = null;
+      // If we're still open but not receiving PONGs, treat it as zombie.
+      if (socket?.readyState === WebSocket.OPEN) {
+        console.log("[usePartyConnection] PONG timeout - forcing reconnect");
+        forceReconnect();
+      }
+    }, config.pongTimeoutMs);
+  }, [config.pongTimeoutMs, forceReconnect, socket]);
+
+  // Send PING message (and arm PONG timeout)
+  const sendPing = useCallback(() => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    // If we're already waiting on a PONG, don't send additional pings; the
+    // outstanding timeout will force a reconnect if needed.
+    if (pongTimeoutRef.current) return;
+    socket.send(JSON.stringify({ type: "PING" } as ClientMessage));
+    machineRef.current.onPing();
+    armPongTimeout();
+  }, [armPongTimeout, socket]);
 
   // Start heartbeat
   const startHeartbeat = useCallback(() => {
@@ -83,35 +117,13 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     if (pingIntervalRef.current) {
       clearInterval(pingIntervalRef.current);
     }
-    if (heartbeatCheckRef.current) {
-      clearInterval(heartbeatCheckRef.current);
-    }
+    clearPongTimeout();
 
     // Send pings at regular intervals
     pingIntervalRef.current = setInterval(() => {
       sendPing();
     }, config.pingIntervalMs);
-
-    // Check for heartbeat timeout (zombie connection detection)
-    heartbeatCheckRef.current = setInterval(() => {
-      if (machineRef.current.isHeartbeatTimedOut(config.pongTimeoutMs)) {
-        console.log("[usePartyConnection] Heartbeat timeout - forcing reconnect");
-        forceReconnect();
-      }
-    }, config.pingIntervalMs / 2); // Check twice per ping interval
-  }, [config.pingIntervalMs, config.pongTimeoutMs, sendPing, forceReconnect]);
-
-  // Stop heartbeat
-  const stopHeartbeat = useCallback(() => {
-    if (pingIntervalRef.current) {
-      clearInterval(pingIntervalRef.current);
-      pingIntervalRef.current = null;
-    }
-    if (heartbeatCheckRef.current) {
-      clearInterval(heartbeatCheckRef.current);
-      heartbeatCheckRef.current = null;
-    }
-  }, []);
+  }, [clearPongTimeout, config.pingIntervalMs, sendPing]);
 
   // Handle incoming messages (looking for PONG)
   const handleMessage = useCallback((event: MessageEvent) => {
@@ -121,14 +133,24 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       const msg = JSON.parse(event.data) as ServerMessage;
       if (msg.type === "PONG") {
         machineRef.current.onPong();
+        clearPongTimeout();
       }
     } catch {
       // Ignore parse errors - not our message
     }
-  }, []);
+  }, [clearPongTimeout]);
 
   // Main effect: attach listeners to socket
   useEffect(() => {
+    // If the PartySocket instance changes (e.g. room changes), treat it as a
+    // fresh connection rather than a reconnect of the previous socket.
+    if (socket !== lastSocketRef.current) {
+      lastSocketRef.current = socket;
+      machineRef.current = createConnectionStateMachine();
+      wasConnectedRef.current = false;
+      stopHeartbeat();
+    }
+
     if (!socket) {
       // No socket yet, stay in connecting state
       updateStatus("connecting");
@@ -149,8 +171,8 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       // Start heartbeat on connection
       startHeartbeat();
 
-      // Send initial ping to get baseline
-      setTimeout(sendPing, 100);
+      // Send initial ping immediately to establish baseline and start PONG timer
+      sendPing();
     };
 
     const handleClose = () => {
@@ -197,6 +219,39 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       stopHeartbeat();
     };
   }, [socket, updateStatus, onReconnect, startHeartbeat, stopHeartbeat, sendPing, handleMessage, config.reconnectDelayMs]);
+
+  // Proactive liveness checks to reduce "stale but looks connected" windows,
+  // especially when returning from background or after network transitions.
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    const maybeProbe = () => {
+      if (!socket) return;
+      if (socket.readyState === WebSocket.OPEN) {
+        sendPing();
+        return;
+      }
+      if (connectionStatus === "disconnected") {
+        forceReconnect();
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        maybeProbe();
+      }
+    };
+
+    window.addEventListener("focus", maybeProbe);
+    window.addEventListener("online", maybeProbe);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", maybeProbe);
+      window.removeEventListener("online", maybeProbe);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [connectionStatus, forceReconnect, sendPing, socket]);
 
   return {
     connectionStatus,

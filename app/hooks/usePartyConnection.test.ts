@@ -27,6 +27,11 @@ describe("ConnectionStateMachine", () => {
       const machine = createConnectionStateMachine();
       expect(machine.getState().lastPongAt).toBeNull();
     });
+
+    it("should not be awaiting a pong initially", () => {
+      const machine = createConnectionStateMachine();
+      expect(machine.getState().awaitingPongSince).toBeNull();
+    });
   });
 
   describe("onOpen", () => {
@@ -114,21 +119,28 @@ describe("ConnectionStateMachine", () => {
 
       expect(machine.getState().reconnectAttempts).toBe(0);
     });
+
+    it("should clear awaitingPongSince on successful pong", () => {
+      const machine = createConnectionStateMachine();
+      machine.onOpen();
+      machine.onPing();
+      expect(machine.getState().awaitingPongSince).not.toBeNull();
+
+      machine.onPong();
+      expect(machine.getState().awaitingPongSince).toBeNull();
+    });
   });
 
   describe("heartbeat timeout detection", () => {
     it("should detect zombie connection when no pong received within timeout", () => {
       const machine = createConnectionStateMachine();
       machine.onOpen();
-      machine.onPong();
+      machine.onPing();
 
       // Simulate time passing beyond timeout
-      const state = machine.getState();
-      const timeoutMs = 45000; // 45 seconds
-      const oldPongTime = Date.now() - timeoutMs - 1000;
-
-      // Manually set lastPongAt to simulate old timestamp
-      machine.setLastPongAt(oldPongTime);
+      const timeoutMs = 10000; // 10 seconds
+      const oldAwaitTime = Date.now() - timeoutMs - 1000;
+      machine.setAwaitingPongSince(oldAwaitTime);
 
       expect(machine.isHeartbeatTimedOut(timeoutMs)).toBe(true);
     });
@@ -136,18 +148,19 @@ describe("ConnectionStateMachine", () => {
     it("should not detect timeout when recent pong received", () => {
       const machine = createConnectionStateMachine();
       machine.onOpen();
+      machine.onPing();
       machine.onPong();
 
-      const timeoutMs = 45000;
+      const timeoutMs = 10000;
       expect(machine.isHeartbeatTimedOut(timeoutMs)).toBe(false);
     });
 
-    it("should not check timeout before first pong", () => {
+    it("should not check timeout before first ping", () => {
       const machine = createConnectionStateMachine();
       machine.onOpen();
 
-      const timeoutMs = 45000;
-      // Before any PONG is received, we shouldn't consider it timed out
+      const timeoutMs = 10000;
+      // Before any PING is sent, we shouldn't consider it timed out
       expect(machine.isHeartbeatTimedOut(timeoutMs)).toBe(false);
     });
   });
@@ -157,11 +170,11 @@ describe("HeartbeatConfig", () => {
   it("should have sensible default values", () => {
     const defaultConfig: HeartbeatConfig = {
       pingIntervalMs: 30000,    // 30 seconds between pings
-      pongTimeoutMs: 45000,     // 45 seconds to receive pong
+      pongTimeoutMs: 10000,     // 10 seconds to receive pong
       reconnectDelayMs: 2000,   // 2 seconds before reconnect attempt
     };
 
-    expect(defaultConfig.pingIntervalMs).toBeLessThan(defaultConfig.pongTimeoutMs);
+    expect(defaultConfig.pongTimeoutMs).toBeLessThan(defaultConfig.pingIntervalMs);
     expect(defaultConfig.reconnectDelayMs).toBeGreaterThan(0);
   });
 });
