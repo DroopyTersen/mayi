@@ -5,3 +5,7 @@ iterations/
 
 # Session memory (delete after sprint)
 progress.txt
+
+# Codex review output (temporary)
+codex-review.txt
+codex-review-*.txt
