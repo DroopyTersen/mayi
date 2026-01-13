@@ -10,6 +10,18 @@ import type { PartyGameAdapter } from "./party-game-adapter";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import { renderCard } from "../../cli/shared/cli.renderer";
 
+const ACTIONS_THAT_DONT_REQUIRE_TURN: ReadonlySet<GameAction["type"]> = new Set([
+  "CALL_MAY_I",
+  "ALLOW_MAY_I",
+  "CLAIM_MAY_I",
+  "REORDER_HAND",
+]);
+
+// These actions are processed by the round machine and don't touch `lastError`,
+// so checking `lastError` would incorrectly surface stale errors from previous
+// failed turn actions.
+const ACTIONS_THAT_IGNORE_LAST_ERROR = ACTIONS_THAT_DONT_REQUIRE_TURN;
+
 export interface ActionResult {
   success: boolean;
   snapshot: GameSnapshot | null;
@@ -34,12 +46,7 @@ export function executeGameAction(
   const snapshot = snapshotBefore;
 
   // Most actions require it to be the player's turn
-  const requiresPlayerTurn = ![
-    "CALL_MAY_I",
-    "ALLOW_MAY_I",
-    "CLAIM_MAY_I",
-    "REORDER_HAND",
-  ].includes(action.type);
+  const requiresPlayerTurn = !ACTIONS_THAT_DONT_REQUIRE_TURN.has(action.type);
 
   if (requiresPlayerTurn && awaitingId !== lobbyPlayerId) {
     return {
@@ -253,8 +260,8 @@ export function executeGameAction(
     };
   }
 
-  // Check if the engine recorded an error
-  if (result.lastError) {
+  // Check if the engine recorded an error (skip for actions that ignore `lastError`)
+  if (!ACTIONS_THAT_IGNORE_LAST_ERROR.has(action.type) && result.lastError) {
     return {
       success: false,
       snapshot: result,
