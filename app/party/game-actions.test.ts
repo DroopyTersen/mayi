@@ -281,6 +281,49 @@ describe("executeGameAction", () => {
     });
   });
 
+  describe("CALL_MAY_I does not return stale errors", () => {
+    it("succeeds even when lastError is set from a previous failed action", () => {
+      const adapter = createTestAdapter();
+      const currentPlayerId = adapter.getAwaitingLobbyPlayerId()!;
+      const allPlayers = adapter.getAllPlayerMappings();
+      const otherPlayer = allPlayers.find(
+        (m) => m.lobbyId !== currentPlayerId && !m.isAI
+      );
+      if (!otherPlayer) throw new Error("Need at least 2 human players for this test");
+
+      // 1. Current player draws from stock to get into AWAITING_ACTION phase
+      executeGameAction(adapter, currentPlayerId, { type: "DRAW_FROM_STOCK" });
+      expect(adapter.getSnapshot().turnPhase).toBe("AWAITING_ACTION");
+
+      // 2. Current player attempts an invalid LAY_DOWN
+      // Round 1 contract requires 2 sets. Let's try to lay down with invalid card IDs.
+      const invalidLayDownResult = executeGameAction(adapter, currentPlayerId, {
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: ["invalid-card-1", "invalid-card-2", "invalid-card-3"] },
+          { type: "set", cardIds: ["invalid-card-4", "invalid-card-5", "invalid-card-6"] },
+        ],
+      });
+      // The engine should reject this because cards don't exist in hand
+      expect(invalidLayDownResult.success).toBe(false);
+
+      // Verify the state has a lastError set (this is the sticky error)
+      const snapshotWithError = adapter.getSnapshot();
+      expect(snapshotWithError.lastError).toBeTruthy();
+
+      // 3. Other player calls May-I - this should SUCCEED despite the stale lastError
+      // because May-I doesn't produce errors, it just triggers the resolution phase
+      const mayIResult = executeGameAction(adapter, otherPlayer.lobbyId, {
+        type: "CALL_MAY_I",
+      });
+
+      // THIS IS THE BUG: May-I fails with the stale error from the failed lay-down
+      // After fix: May-I should succeed
+      expect(mayIResult.success).toBe(true);
+      expect(mayIResult.error).toBeUndefined();
+    });
+  });
+
   describe("May-I resolution with down players", () => {
     it("down players are skipped in May-I resolution", () => {
       // Create adapter with 4 players for better testing

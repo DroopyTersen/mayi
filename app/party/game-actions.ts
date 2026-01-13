@@ -253,8 +253,18 @@ export function executeGameAction(
     };
   }
 
-  // Check if the engine recorded an error
-  if (result.lastError) {
+  // Actions that don't set their own errors - they go through the round machine
+  // and don't touch lastError. We should NOT check lastError for these actions
+  // because it would pick up stale errors from previous failed turn actions.
+  const actionsWithoutErrors: GameAction["type"][] = [
+    "CALL_MAY_I",
+    "ALLOW_MAY_I",
+    "CLAIM_MAY_I",
+    "REORDER_HAND",
+  ];
+
+  // Check if the engine recorded an error (skip for actions that don't set errors)
+  if (!actionsWithoutErrors.includes(action.type) && result.lastError) {
     return {
       success: false,
       snapshot: result,
