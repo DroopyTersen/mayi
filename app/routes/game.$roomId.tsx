@@ -98,6 +98,9 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     playerNames: Record<string, string>;
   } | null>(null);
 
+  // Ref to track the round end auto-dismiss timeout
+  const roundEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Game action error state
   const [gameError, setGameError] = useState<string | null>(null);
 
@@ -402,11 +405,20 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         }
         // Phase 3.8: Round/game end messages
         case "ROUND_ENDED": {
+          // Clear any existing timeout to prevent overlapping timers
+          if (roundEndTimeoutRef.current) {
+            clearTimeout(roundEndTimeoutRef.current);
+          }
           setRoundEndData({
             roundNumber: msg.roundNumber,
             scores: msg.scores,
             playerNames: msg.playerNames,
           });
+          // Auto-clear after countdown (4 seconds + 500ms buffer)
+          roundEndTimeoutRef.current = setTimeout(() => {
+            setRoundEndData(null);
+            roundEndTimeoutRef.current = null;
+          }, 4500);
           return;
         }
         case "GAME_ENDED": {
@@ -425,6 +437,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     return () => {
       socket.close();
       socketRef.current = null;
+      // Clear any pending round end timeout
+      if (roundEndTimeoutRef.current) {
+        clearTimeout(roundEndTimeoutRef.current);
+        roundEndTimeoutRef.current = null;
+      }
     };
   }, [roomId, sendJoin]);
 
@@ -489,7 +506,6 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             scores={roundEndData.scores}
             playerNames={roundEndData.playerNames}
             currentPlayerId={currentPlayerId ?? ""}
-            onDismiss={() => setRoundEndData(null)}
           />
         )}
         {/* Phase 3.8: Game End Screen */}
