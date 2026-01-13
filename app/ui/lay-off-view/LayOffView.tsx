@@ -1,8 +1,7 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
 import type { Meld } from "core/meld/meld.types";
-import { needsPositionChoice, getRunInsertPosition } from "core/engine/layoff";
-import { isWild } from "core/card/card.utils";
+import { useStagedLayOffs, type StagedLayOff } from "./useStagedLayOffs";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
@@ -13,12 +12,8 @@ interface Player {
   name: string;
 }
 
-/** A staged lay-off waiting to be committed */
-export interface StagedLayOff {
-  cardId: string;
-  meldId: string;
-  position?: "start" | "end";
-}
+// Re-export for external use
+export type { StagedLayOff };
 
 interface LayOffViewProps {
   hand: Card[];
@@ -49,7 +44,16 @@ export function LayOffView({
 }: LayOffViewProps) {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [positionPrompt, setPositionPrompt] = useState<PositionPrompt | null>(null);
-  const [stagedLayOffs, setStagedLayOffs] = useState<StagedLayOff[]>([]);
+
+  // Use the hook for staged lay-offs management
+  const {
+    stagedLayOffs,
+    stageCard,
+    unstageCard,
+    getStagedForMeld,
+    clearAll,
+    commitAll,
+  } = useStagedLayOffs();
 
   // Cards not yet staged (available to select)
   const stagedCardIds = new Set(stagedLayOffs.map((s) => s.cardId));
@@ -63,32 +67,22 @@ export function LayOffView({
   const handleMeldClick = (meldId: string) => {
     if (!selectedCardId) return;
 
-    const selectedCard = availableCards.find((c) => c.id === selectedCardId);
-    const targetMeld = tableMelds.find((m) => m.id === meldId);
+    // Use the hook's stageCard which computes effective meld for position detection
+    const result = stageCard(selectedCardId, meldId, tableMelds, hand);
 
-    if (selectedCard && targetMeld && needsPositionChoice(selectedCard, targetMeld)) {
+    if (result.needsPositionPrompt) {
       // Show position selection dialog
       setPositionPrompt({ cardId: selectedCardId, meldId });
-    } else {
-      // No position choice needed, stage immediately
-      // For wild cards on runs, auto-determine the valid position
-      let position: "start" | "end" | undefined;
-      if (selectedCard && targetMeld?.type === "run" && isWild(selectedCard)) {
-        const insertPos = getRunInsertPosition(selectedCard, targetMeld);
-        position = insertPos === "low" ? "start" : insertPos === "high" ? "end" : undefined;
-      }
-      setStagedLayOffs((prev) => [...prev, { cardId: selectedCardId, meldId, position }]);
+    } else if (result.staged) {
+      // Card was staged successfully
       setSelectedCardId(null);
     }
   };
 
   const handlePositionSelect = (position: "start" | "end") => {
     if (positionPrompt) {
-      // Stage with the selected position
-      setStagedLayOffs((prev) => [
-        ...prev,
-        { cardId: positionPrompt.cardId, meldId: positionPrompt.meldId, position },
-      ]);
+      // Stage with the selected position using the hook
+      stageCard(positionPrompt.cardId, positionPrompt.meldId, tableMelds, hand, position);
       setPositionPrompt(null);
       setSelectedCardId(null);
     }
@@ -99,20 +93,18 @@ export function LayOffView({
   };
 
   const handleRetract = (cardId: string) => {
-    setStagedLayOffs((prev) => prev.filter((s) => s.cardId !== cardId));
+    unstageCard(cardId);
   };
 
   const handleDone = () => {
     // Commit all staged lay-offs
-    for (const staged of stagedLayOffs) {
-      onLayOff(staged.cardId, staged.meldId, staged.position);
-    }
+    commitAll(onLayOff);
     onDone();
   };
 
   const handleCancel = () => {
     // Discard staged and close
-    setStagedLayOffs([]);
+    clearAll();
     onCancel();
   };
 
@@ -131,17 +123,6 @@ export function LayOffView({
 
   const getPlayerDisplayName = (player: Player) => {
     return player.id === viewingPlayerId ? `${player.name} (You)` : player.name;
-  };
-
-  // Get staged cards for a specific meld
-  const getStagedForMeld = (meldId: string) => {
-    return stagedLayOffs
-      .filter((s) => s.meldId === meldId)
-      .map((s) => ({
-        ...s,
-        card: hand.find((c) => c.id === s.cardId)!,
-      }))
-      .filter((s) => s.card); // Filter out any with missing cards
   };
 
   // Overlap for meld cards (matching MeldDisplay)
@@ -215,7 +196,7 @@ export function LayOffView({
                 {/* Melds displayed horizontally */}
                 <div className="flex flex-wrap gap-2">
                   {meldsByPlayer.get(player.id)!.map((meld) => {
-                    const stagedForThisMeld = getStagedForMeld(meld.id);
+                    const stagedForThisMeld = getStagedForMeld(meld.id, hand);
                     const startStaged = stagedForThisMeld.filter((s) => s.position === "start");
                     const endStaged = stagedForThisMeld.filter((s) => s.position !== "start");
 
