@@ -11,6 +11,8 @@ import {
   getStoredPlayerName,
   storePlayerName,
   getOrCreatePlayerId,
+  getPlayerIdKey,
+  getPlayerNameKey,
 } from "./player-storage";
 
 import { LobbyView } from "~/ui/lobby/LobbyView";
@@ -298,7 +300,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     // Client-only: sessionStorage + websocket
     if (agentHarness.enabled) {
       if (agentHarness.mode === "quickStart") {
-        storePlayerName(roomId, "Agent");
+        storePlayerName("Agent");
         getOrCreatePlayerId(roomId);
       } else if (
         agentHarness.desiredIdentity &&
