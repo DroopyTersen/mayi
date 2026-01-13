@@ -18,7 +18,8 @@ export function ActivityLog({
   className,
 }: ActivityLogProps) {
   // Get most recent entries and reverse for display (newest at top)
-  const displayEntries = entries.slice(-maxEntries).toReversed();
+  // Using slice().reverse() instead of toReversed() for broader browser compatibility
+  const displayEntries = entries.slice(-maxEntries).slice().reverse();
 
   if (displayEntries.length === 0) {
     return (
