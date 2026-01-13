@@ -34,6 +34,7 @@ import type {
   ActivityLogEntry,
 } from "~/party/protocol.types";
 import type { Card } from "core/card/card.types";
+import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
 
 type RoomPhase = "lobby" | "playing";
 
@@ -41,16 +42,37 @@ export function meta({ params }: Route.MetaArgs) {
   return [{ title: params.roomId ? `Game: ${params.roomId}` : "Game" }];
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   if (!params.roomId) {
     throw new Response("Missing roomId", { status: 404 });
   }
-  return { roomId: params.roomId };
+
+  // Check for agent test state in query params
+  const url = new URL(request.url);
+  const agentStateParam = url.searchParams.get("agentState");
+  const agentQuickStartParam = url.searchParams.get("agent");
+
+  return {
+    roomId: params.roomId,
+    agentState: agentStateParam,
+    agentQuickStart: agentQuickStartParam === "true" || agentQuickStartParam === "",
+  };
 }
 
 export default function Game({ loaderData }: Route.ComponentProps) {
-  const { roomId } = loaderData;
+  const {
+    roomId,
+    agentState: agentStateEncoded,
+    agentQuickStart,
+  } = loaderData;
   const socketRef = useRef<PartySocket | null>(null);
+  const agentSetupSentRef = useRef(false);
+
+  const agentHarness = useAgentHarnessSetup({
+    roomId,
+    agentQuickStart,
+    agentStateEncoded,
+  });
 
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("connecting");
@@ -274,6 +296,21 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
   useEffect(() => {
     // Client-only: sessionStorage + websocket
+    if (agentHarness.enabled) {
+      if (agentHarness.mode === "quickStart") {
+        storePlayerName(roomId, "Agent");
+        getOrCreatePlayerId(roomId);
+      } else if (
+        agentHarness.desiredIdentity &&
+        agentHarness.desiredIdentity.playerId
+      ) {
+        sessionStorage.setItem(getPlayerIdKey(roomId), agentHarness.desiredIdentity.playerId);
+        sessionStorage.setItem(getPlayerNameKey(roomId), agentHarness.desiredIdentity.name);
+      } else if (agentHarness.mode === "error") {
+        console.error("[agent harness] invalid payload:", agentHarness.error);
+      }
+    }
+
     const playerId = getOrCreatePlayerId(roomId);
     setCurrentPlayerId(playerId);
 
@@ -292,6 +329,23 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
     socket.onopen = () => {
       setConnectionStatus("connected");
+
+      // Agent harness setup (server-side orchestration).
+      if (
+        agentHarness.enabled &&
+        agentHarness.mode !== "none" &&
+        agentHarness.mode !== "error" &&
+        !agentSetupSentRef.current
+      ) {
+        const setupMsg = agentHarness.getSetupMessage(playerId);
+        if (setupMsg) {
+          agentSetupSentRef.current = true;
+          setShowNamePrompt(false);
+          setJoinStatus("joining");
+          socket.send(JSON.stringify(setupMsg));
+          return;
+        }
+      }
 
       if (storedName) {
         setShowNamePrompt(false);
@@ -336,6 +390,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setJoinStatus("joined");
           setShowNamePrompt(false);
 
+          // Server is authoritative for playerId. This is critical for agentState
+          // injection, where the injected human playerId must persist across reloads.
+          setCurrentPlayerId(msg.playerId);
+          sessionStorage.setItem(getPlayerIdKey(roomId), msg.playerId);
+
           // Ensure we persist the final server-accepted name.
           storePlayerName(msg.playerName);
           return;
@@ -367,12 +426,19 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           });
           return;
         }
+        case "AGENT_SETUP_RESULT": {
+          // No-op for UI; useful for debugging.
+          console.log("[agent harness]", msg.status, msg.message ?? "");
+          return;
+        }
         // Phase 3: Game started
         case "GAME_STARTED": {
           setIsStartingGame(false);
           setRoomPhase("playing");
           setGameState(msg.state);
           setActivityLog(msg.activityLog ?? []);
+
+          agentHarness.stripAgentParams();
           return;
         }
         // Phase 3.4: Game state updates
@@ -443,7 +509,18 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         roundEndTimeoutRef.current = null;
       }
     };
-  }, [roomId, sendJoin]);
+  }, [
+    roomId,
+    sendJoin,
+    sendMessage,
+    agentHarness.enabled,
+    agentHarness.mode,
+    agentHarness.error,
+    agentHarness.desiredIdentity?.playerId,
+    agentHarness.desiredIdentity?.name,
+    agentHarness.getSetupMessage,
+    agentHarness.stripAgentParams,
+  ]);
 
   // Determine if current player can also claim (May I instead)
   // This requires checking if they have May I count remaining
