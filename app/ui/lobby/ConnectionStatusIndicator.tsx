@@ -22,6 +22,11 @@ const STATUS_CONFIG = {
     dotClass: "bg-red-500",
     textClass: "text-red-600",
   },
+  reconnecting: {
+    label: "Reconnecting...",
+    dotClass: "bg-yellow-500 animate-pulse",
+    textClass: "text-yellow-600",
+  },
 } as const;
 
 export function ConnectionStatusIndicator({

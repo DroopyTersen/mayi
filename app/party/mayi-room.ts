@@ -214,6 +214,11 @@ export class MayIRoom extends Server {
         await this.handleGameAction(conn, msg);
         break;
 
+      case "PING":
+        // Respond immediately with PONG for heartbeat
+        conn.send(JSON.stringify({ type: "PONG" } satisfies ServerMessage));
+        break;
+
       default:
         conn.send(
           JSON.stringify({

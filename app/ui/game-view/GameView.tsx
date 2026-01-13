@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { PlayerView } from "~/party/protocol.types";
+import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
 import { GameHeader } from "~/ui/game-status/GameHeader";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { ActionBar } from "~/ui/action-bar/ActionBar";
@@ -9,6 +10,7 @@ import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
 import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
 import { AIThinkingIndicator } from "./AIThinkingIndicator";
+import { ConnectionBanner } from "~/ui/connection-status/ConnectionBanner";
 import { ResponsiveDrawer } from "~/ui/responsive-drawer/ResponsiveDrawer";
 import { LayDownDrawer } from "~/ui/lay-down-view/LayDownDrawer";
 import { LayOffView } from "~/ui/lay-off-view/LayOffView";
@@ -43,6 +45,8 @@ interface GameViewProps {
   onAction?: (action: string, payload?: unknown) => void;
   /** Error message to display (e.g., from failed game action) */
   errorMessage?: string | null;
+  /** WebSocket connection status */
+  connectionStatus?: ConnectionStatus;
   className?: string;
 }
 
@@ -54,6 +58,7 @@ export function GameView({
   activityLog = [],
   onAction,
   errorMessage,
+  connectionStatus = "connected",
   className,
 }: GameViewProps) {
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
@@ -247,6 +252,9 @@ export function GameView({
 
   return (
     <div className={cn("flex flex-col min-h-screen", className)}>
+      {/* Connection Status Banner - shown when disconnected/reconnecting */}
+      <ConnectionBanner status={connectionStatus} />
+
       {/* Header - includes turn status on mobile */}
       <GameHeader
         round={gameState.currentRound}
