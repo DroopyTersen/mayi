@@ -153,6 +153,11 @@ export const gameActionMessageSchema = z.object({
 });
 
 // Combined client message schema
+// Heartbeat messages for connection health monitoring
+export const pingMessageSchema = z.object({
+  type: z.literal("PING"),
+});
+
 export const clientMessageSchema = z.discriminatedUnion("type", [
   joinMessageSchema,
   addAIPlayerSchema,
@@ -160,6 +165,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   setStartingRoundSchema,
   startGameSchema,
   gameActionMessageSchema,
+  pingMessageSchema,
   injectStateMessageSchema,
   agentSetupSchema,
 ]);
@@ -174,6 +180,7 @@ export type InjectStateMessage = z.infer<typeof injectStateMessageSchema>;
 export type AgentSetupMessage = z.infer<typeof agentSetupSchema>;
 export type GameActionMessage = z.infer<typeof gameActionMessageSchema>;
 export type GameAction = z.infer<typeof gameActionSchema>;
+export type PingMessage = z.infer<typeof pingMessageSchema>;
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -201,6 +208,11 @@ export interface ErrorMessage {
   type: "ERROR";
   error: string;
   message: string;
+}
+
+/** Server response to PING - confirms connection is alive */
+export interface PongMessage {
+  type: "PONG";
 }
 
 // Phase 3 lobby additions
@@ -292,6 +304,7 @@ export type ServerMessage =
   | JoinedMessage
   | PlayersMessage
   | ErrorMessage
+  | PongMessage
   | LobbyStateMessage
   | AIPlayerAddedMessage
   | AIPlayerRemovedMessage

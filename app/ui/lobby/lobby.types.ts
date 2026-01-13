@@ -7,7 +7,7 @@ import type { RoundNumber } from "../../../core/engine/engine.types";
 import type { AIPlayerInfo, AIModelId } from "~/party/protocol.types";
 
 /** Connection status for the WebSocket */
-export type ConnectionStatus = "connecting" | "connected" | "disconnected";
+export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "reconnecting";
 
 /** Join status for the player */
 export type JoinStatus = "unjoined" | "joining" | "joined";

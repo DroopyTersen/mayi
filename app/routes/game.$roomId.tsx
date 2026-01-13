@@ -20,6 +20,7 @@ import { GameView } from "~/ui/game-view/GameView";
 import { MayIPromptDialog } from "~/ui/may-i-request/MayIPromptDialog";
 import { RoundEndOverlay } from "~/ui/game-transitions/RoundEndOverlay";
 import { GameEndScreen } from "~/ui/game-transitions/GameEndScreen";
+import { usePartyConnection } from "~/hooks/usePartyConnection";
 import type {
   ConnectionStatus,
   JoinStatus,
@@ -68,6 +69,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     agentQuickStart,
   } = loaderData;
   const socketRef = useRef<PartySocket | null>(null);
+  const [socket, setSocket] = useState<PartySocket | null>(null);
   const agentSetupSentRef = useRef(false);
 
   const agentHarness = useAgentHarnessSetup({
@@ -76,8 +78,6 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     agentStateEncoded,
   });
 
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>("connecting");
   const [joinStatus, setJoinStatus] = useState<JoinStatus>("unjoined");
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
@@ -141,6 +141,26 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     console.log("[gameError state changed]", gameError);
   }, [gameError]);
 
+  // Handle reconnection - resync state by re-sending JOIN
+  const handleReconnect = useCallback(() => {
+    const playerId = currentPlayerId;
+    const storedName = getStoredPlayerName();
+    if (playerId && storedName && socketRef.current) {
+      console.log("[handleReconnect] Resyncing state with JOIN");
+      socketRef.current.send(JSON.stringify({
+        type: "JOIN",
+        playerId,
+        playerName: storedName,
+      } as ClientMessage));
+    }
+  }, [currentPlayerId]);
+
+  // Use the connection hook for heartbeat and status management
+  const { connectionStatus } = usePartyConnection({
+    socket,
+    onReconnect: handleReconnect,
+  });
+
   // Check if current player is the host (first player to join)
   const isHost = useMemo(() => {
     if (!currentPlayerId || players.length === 0) return false;
@@ -149,9 +169,9 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   }, [currentPlayerId, players]);
 
   const sendMessage = useCallback((msg: ClientMessage) => {
-    const socket = socketRef.current;
-    if (!socket) return;
-    socket.send(JSON.stringify(msg));
+    const s = socketRef.current;
+    if (!s) return;
+    s.send(JSON.stringify(msg));
   }, []);
 
   const sendJoin = useCallback(
@@ -319,18 +339,17 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     const storedName = getStoredPlayerName();
     setShareUrl(new URL(`/game/${roomId}`, window.location.origin).toString());
 
-    setConnectionStatus("connecting");
-
-    const socket = new PartySocket({
+    const newSocket = new PartySocket({
       host: window.location.host,
       room: roomId,
       party: "may-i-room",
       startClosed: true,
     });
-    socketRef.current = socket;
+    socketRef.current = newSocket;
+    setSocket(newSocket);
 
-    socket.onopen = () => {
-      setConnectionStatus("connected");
+    newSocket.onopen = () => {
+      // Connection status is managed by usePartyConnection hook
 
       // Agent harness setup (server-side orchestration).
       if (
@@ -344,7 +363,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           agentSetupSentRef.current = true;
           setShowNamePrompt(false);
           setJoinStatus("joining");
-          socket.send(JSON.stringify(setupMsg));
+          newSocket.send(JSON.stringify(setupMsg));
           return;
         }
       }
@@ -359,17 +378,9 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       }
     };
 
-    socket.onclose = () => {
-      setConnectionStatus("disconnected");
-      // Keep joinStatus as-is (more forgiving UX); we auto-join on reconnect anyway.
-    };
+    // Connection close/error is handled by usePartyConnection hook
 
-    socket.onerror = () => {
-      // Treat errors like a disconnect from a UI perspective.
-      setConnectionStatus("disconnected");
-    };
-
-    socket.onmessage = (event) => {
+    newSocket.onmessage = (event) => {
       if (typeof event.data !== "string") return;
 
       let msg: ServerMessage;
@@ -500,11 +511,12 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       }
     };
 
-    socket.reconnect();
+    newSocket.reconnect();
 
     return () => {
-      socket.close();
+      newSocket.close();
       socketRef.current = null;
+      setSocket(null);
       // Clear any pending round end timeout
       if (roundEndTimeoutRef.current) {
         clearTimeout(roundEndTimeoutRef.current);
@@ -563,6 +575,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           activityLog={formattedActivityLog}
           onAction={onGameAction}
           errorMessage={gameError}
+          connectionStatus={connectionStatus}
         />
         {/* Phase 3.6: May I Prompt Dialog */}
         {mayIPrompt && (
