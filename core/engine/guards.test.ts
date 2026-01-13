@@ -392,4 +392,169 @@ describe("buildMeldsFromProposals", () => {
     const result = buildMeldsFromProposals(proposals, hand, "player-1");
     expect(result).toBeNull();
   });
+
+  describe("run auto-sorting", () => {
+    it("auto-sorts run cards given in descending order", () => {
+      // Cards selected in descending order: K, Q, J, 10
+      const tenH = card("10", "hearts");
+      const jackH = card("J", "hearts");
+      const queenH = card("Q", "hearts");
+      const kingH = card("K", "hearts");
+
+      const hand = [kingH, queenH, jackH, tenH];
+      const proposals = [
+        { type: "run" as const, cardIds: [kingH.id, queenH.id, jackH.id, tenH.id] },
+      ];
+
+      const result = buildMeldsFromProposals(proposals, hand, "player-1");
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+
+      // Cards should be normalized to ascending order: 10, J, Q, K
+      const ranks = result![0]!.cards.map((c) => c.rank);
+      expect(ranks).toEqual(["10", "J", "Q", "K"]);
+    });
+
+    it("auto-sorts run cards given in random order", () => {
+      // Cards selected in random order: Q, 10, K, J
+      const tenH = card("10", "hearts");
+      const jackH = card("J", "hearts");
+      const queenH = card("Q", "hearts");
+      const kingH = card("K", "hearts");
+
+      const hand = [queenH, tenH, kingH, jackH];
+      const proposals = [
+        { type: "run" as const, cardIds: [queenH.id, tenH.id, kingH.id, jackH.id] },
+      ];
+
+      const result = buildMeldsFromProposals(proposals, hand, "player-1");
+      expect(result).not.toBeNull();
+
+      const ranks = result![0]!.cards.map((c) => c.rank);
+      expect(ranks).toEqual(["10", "J", "Q", "K"]);
+    });
+
+    it("auto-sorts run cards with wilds filling gaps", () => {
+      // 5, Joker, 7, 8 - Joker fills the 6 position
+      const fiveS = card("5", "spades");
+      const wildJoker = joker();
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+
+      const hand = [eightS, wildJoker, fiveS, sevenS];
+      const proposals = [
+        { type: "run" as const, cardIds: [eightS.id, wildJoker.id, fiveS.id, sevenS.id] },
+      ];
+
+      const result = buildMeldsFromProposals(proposals, hand, "player-1");
+      expect(result).not.toBeNull();
+
+      // Should be normalized to: 5, Joker, 7, 8
+      const resultCards = result![0]!.cards;
+      expect(resultCards[0]!.rank).toBe("5");
+      expect(resultCards[1]!.rank).toBe("Joker");
+      expect(resultCards[2]!.rank).toBe("7");
+      expect(resultCards[3]!.rank).toBe("8");
+    });
+
+    it("does not modify set proposals", () => {
+      // Sets should not be auto-sorted
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineH = card("9", "hearts");
+
+      const hand = [nineH, nineC, nineD];
+      const proposals = [
+        { type: "set" as const, cardIds: [nineH.id, nineC.id, nineD.id] },
+      ];
+
+      const result = buildMeldsFromProposals(proposals, hand, "player-1");
+      expect(result).not.toBeNull();
+
+      // Set order should be preserved as given
+      expect(result![0]!.cards[0]).toBe(nineH);
+      expect(result![0]!.cards[1]).toBe(nineC);
+      expect(result![0]!.cards[2]).toBe(nineD);
+    });
+
+    it("preserves original order for invalid runs (lets validation catch it)", () => {
+      // Mixed suits can't form a valid run - normalizer should fail, original order preserved
+      const fiveS = card("5", "spades");
+      const sixH = card("6", "hearts"); // Different suit!
+      const sevenS = card("7", "spades");
+      const eightS = card("8", "spades");
+
+      const hand = [fiveS, sixH, sevenS, eightS];
+      const proposals = [
+        { type: "run" as const, cardIds: [fiveS.id, sixH.id, sevenS.id, eightS.id] },
+      ];
+
+      const result = buildMeldsFromProposals(proposals, hand, "player-1");
+      expect(result).not.toBeNull();
+
+      // Original order preserved since normalization fails on mixed suits
+      expect(result![0]!.cards[0]).toBe(fiveS);
+      expect(result![0]!.cards[1]).toBe(sixH);
+      expect(result![0]!.cards[2]).toBe(sevenS);
+      expect(result![0]!.cards[3]).toBe(eightS);
+    });
+  });
+});
+
+describe("canLayDown with auto-sorted runs", () => {
+  it("accepts a run proposal with cards in descending order (round 2)", () => {
+    // Round 2 requires 1 set + 1 run
+    const nineC = card("9", "clubs");
+    const nineD = card("9", "diamonds");
+    const nineH = card("9", "hearts");
+    // Run cards in descending order
+    const tenH = card("10", "hearts");
+    const jackH = card("J", "hearts");
+    const queenH = card("Q", "hearts");
+    const kingH = card("K", "hearts");
+    const extra = card("5", "spades");
+
+    const context = {
+      isDown: false,
+      hand: [nineC, nineD, nineH, kingH, queenH, jackH, tenH, extra],
+      roundNumber: 2 as RoundNumber,
+      playerId: "player-1",
+    };
+
+    const proposals = [
+      { type: "set" as const, cardIds: [nineC.id, nineD.id, nineH.id] },
+      // Run specified in descending order - should still be accepted due to auto-sort
+      { type: "run" as const, cardIds: [kingH.id, queenH.id, jackH.id, tenH.id] },
+    ];
+
+    expect(canLayDown(context, proposals)).toBe(true);
+  });
+
+  it("accepts a run proposal with cards in random order (round 3)", () => {
+    // Round 3 requires 2 runs
+    const threeH = card("3", "hearts");
+    const fourH = card("4", "hearts");
+    const fiveH = card("5", "hearts");
+    const sixH = card("6", "hearts");
+    const sevenC = card("7", "clubs");
+    const eightC = card("8", "clubs");
+    const nineC = card("9", "clubs");
+    const tenC = card("10", "clubs");
+    const extra = card("K", "spades");
+
+    const context = {
+      isDown: false,
+      hand: [sixH, threeH, fiveH, fourH, tenC, sevenC, nineC, eightC, extra],
+      roundNumber: 3 as RoundNumber,
+      playerId: "player-1",
+    };
+
+    const proposals = [
+      // Both runs in random order
+      { type: "run" as const, cardIds: [sixH.id, threeH.id, fiveH.id, fourH.id] },
+      { type: "run" as const, cardIds: [tenC.id, sevenC.id, nineC.id, eightC.id] },
+    ];
+
+    expect(canLayDown(context, proposals)).toBe(true);
+  });
 });

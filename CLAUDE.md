@@ -294,3 +294,43 @@ const socket = new PartySocket({
   party: "mayi-room",
 });
 ```
+
+### Agent Web Testing Harness
+
+For testing AI agents through the web UI, use the agent harness routes (dev mode only).
+
+```bash
+# Start the dev server
+bun run dev
+
+# Quick start: auto-creates a 3-player game (1 human + 2 Grok AI)
+# Open in browser: http://localhost:5173/game/agent/new
+
+# Custom state: inject a specific game situation for testing
+# 1. Create your AgentTestState JSON
+# 2. Base64url encode it
+# 3. Navigate to: http://localhost:5173/game/agent/state/<encoded-state>
+```
+
+**Key routes:**
+- `/game/agent/new` — Quick start with default 3-player game
+- `/game/agent/state/:state` — Inject custom game state (base64url-encoded JSON)
+
+**Custom state example (agent about to lay down):**
+```javascript
+const state = {
+  players: [
+    { id: "agent", name: "Agent", isAI: false, hand: [...], isDown: false },
+    { id: "ai-1", name: "Grok-1", isAI: true, aiModelId: "default:grok", hand: [...], isDown: false },
+    { id: "ai-2", name: "Grok-2", isAI: true, aiModelId: "default:grok", hand: [...], isDown: false },
+  ],
+  roundNumber: 1,
+  stock: [...],
+  discard: [...],
+  table: [],
+  turn: { currentPlayerIndex: 0, hasDrawn: true, phase: "awaitingAction" }
+};
+// Encode: btoa(JSON.stringify(state)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+```
+
+See [docs/agent-web-testing.md](docs/agent-web-testing.md) for complete format documentation, validation rules, and the WebSocket protocol.

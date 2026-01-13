@@ -28,7 +28,13 @@ import {
   type ClientMessage,
   type ServerMessage,
   type HumanPlayerInfo,
+  type InjectStateMessage,
+  type AgentSetupMessage,
 } from "./protocol.types";
+
+import { convertAgentTestStateToStoredState } from "./agent-state.converter";
+import type { AgentStoredStateV1 } from "./agent-harness.types";
+import { AI_MODEL_DISPLAY_NAMES } from "./ai-models";
 
 import {
   PartyGameAdapter,
@@ -57,6 +63,8 @@ const ROOM_PHASE_KEY = "room:phase";
 type RoomPhase = "lobby" | "playing";
 
 type MayIRoomConnectionState = { playerId: string };
+
+const AGENT_TESTING_ENABLED = import.meta.env.MODE !== "production";
 
 function safeJsonParse(value: string): unknown {
   return JSON.parse(value) as unknown;
@@ -217,6 +225,14 @@ export class MayIRoom extends Server {
       case "PING":
         // Respond immediately with PONG for heartbeat
         conn.send(JSON.stringify({ type: "PONG" } satisfies ServerMessage));
+        break;
+
+      case "AGENT_SETUP":
+        await this.handleAgentSetup(conn, msg);
+        break;
+
+      case "INJECT_STATE":
+        await this.handleInjectState(conn, msg);
         break;
 
       default:
@@ -453,6 +469,246 @@ export class MayIRoom extends Server {
 
     // Execute AI turns if the first player is an AI
     await this.executeAITurnsIfNeeded();
+  }
+
+  /**
+   * Handle INJECT_STATE message for agent testing
+   *
+   * This creates a game with a specific state for E2E testing.
+   * It bypasses normal game setup and directly injects the provided state.
+   */
+  private async handleInjectState(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: InjectStateMessage
+  ) {
+    // Back-compat: route legacy INJECT_STATE through AGENT_SETUP (injectAgentTestState).
+    const human = msg.state.players.find((p) => !p.isAI);
+    if (!human) {
+      conn.send(
+        JSON.stringify({
+          type: "ERROR",
+          error: "INVALID_STATE",
+          message: "Injected state must include exactly one human player",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    await this.handleAgentSetup(conn, {
+      type: "AGENT_SETUP",
+      requestId: "legacy",
+      mode: "injectAgentTestState",
+      human: { playerId: human.id, name: human.name },
+      agentTestState: msg.state,
+    });
+  }
+
+  private async handleAgentSetup(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: AgentSetupMessage
+  ) {
+    if (!AGENT_TESTING_ENABLED) {
+      conn.send(
+        JSON.stringify({
+          type: "AGENT_SETUP_RESULT",
+          requestId: msg.requestId,
+          status: "error",
+          message: "Agent harness is disabled in production",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    // Ensure the caller is joined with the requested identity.
+    await this.handleJoin(conn, {
+      type: "JOIN",
+      playerId: msg.human.playerId,
+      playerName: msg.human.name,
+    });
+
+    const roomPhase = await this.getRoomPhase();
+    if (roomPhase === "playing") {
+      conn.send(
+        JSON.stringify({
+          type: "AGENT_SETUP_RESULT",
+          requestId: msg.requestId,
+          status: "already_setup",
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    try {
+      switch (msg.mode) {
+        case "quickStart":
+          await this.handleAgentQuickStart(conn, msg);
+          break;
+        case "injectStoredState":
+          await this.handleAgentInjectStoredState(conn, msg.storedState);
+          break;
+        case "injectAgentTestState":
+          await this.handleAgentInjectAgentTestState(conn, msg);
+          break;
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      conn.send(
+        JSON.stringify({
+          type: "AGENT_SETUP_RESULT",
+          requestId: msg.requestId,
+          status: "error",
+          message,
+        } satisfies ServerMessage)
+      );
+      return;
+    }
+
+    conn.send(
+      JSON.stringify({
+        type: "AGENT_SETUP_RESULT",
+        requestId: msg.requestId,
+        status: "ok",
+      } satisfies ServerMessage)
+    );
+  }
+
+  private async handleAgentQuickStart(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: Extract<AgentSetupMessage, { mode: "quickStart" }>
+  ) {
+    const lobbyState = await this.getLobbyState();
+    const storedPlayers = await this.getStoredPlayers();
+    const humanCount = storedPlayers.length;
+
+    // Starting round (defaults to 1)
+    const startingRound = (msg.startingRound ?? 1) as 1 | 2 | 3 | 4 | 5 | 6;
+    const updatedRoundState = setStartingRound(lobbyState, startingRound);
+    if (!updatedRoundState) {
+      throw new Error("Invalid starting round");
+    }
+
+    // Ensure 2 Grok AI players exist.
+    let nextLobbyState: LobbyState = updatedRoundState;
+    const existingGrok = nextLobbyState.aiPlayers.filter(
+      (p) => p.modelId === "default:grok"
+    ).length;
+    const desired = msg.ai.count;
+    const toAdd = Math.max(0, desired - existingGrok);
+
+    for (let i = 0; i < toAdd; i++) {
+      const index = existingGrok + i + 1;
+      const name = `${msg.ai.namePrefix ?? "Grok"}-${index}`;
+      const newState = addAIPlayer(nextLobbyState, humanCount, name, "default:grok");
+      if (!newState) {
+        throw new Error("Unable to add AI players (max players exceeded)");
+      }
+      nextLobbyState = newState;
+    }
+
+    await this.setLobbyState(nextLobbyState);
+    await this.broadcastLobbyState();
+
+    await this.handleStartGame(conn);
+  }
+
+  private async handleAgentInjectStoredState(
+    conn: Connection<MayIRoomConnectionState>,
+    stored: AgentStoredStateV1
+  ) {
+    // Basic consistency checks
+    const humanMappings = stored.playerMappings.filter((m) => !m.isAI);
+    if (humanMappings.length !== 1) {
+      throw new Error(`Stored state must include exactly one human mapping; found ${humanMappings.length}`);
+    }
+    const aiMappings = stored.playerMappings.filter((m) => m.isAI);
+    for (const mapping of aiMappings) {
+      if (!mapping.aiModelId) {
+        throw new Error(`AI mapping "${mapping.name}" must include aiModelId`);
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    const storedState: StoredGameState = {
+      engineSnapshot: stored.engineSnapshot,
+      playerMappings: stored.playerMappings,
+      roomId: this.name,
+      createdAt: now,
+      updatedAt: now,
+      activityLog: [
+        {
+          id: "log-1",
+          timestamp: now,
+          roundNumber: 1,
+          turnNumber: 1,
+          playerId: "system",
+          playerName: "System",
+          action: "State injected for agent testing",
+        },
+      ],
+    };
+
+    // Validate snapshot can be hydrated
+    const adapter = PartyGameAdapter.fromStoredState(storedState);
+    const snapshot = adapter.getSnapshot();
+
+    const aiPlayers = stored.playerMappings
+      .filter((m) => m.isAI && m.aiModelId)
+      .map((m) => ({
+        playerId: m.lobbyId,
+        name: m.name,
+        modelId: m.aiModelId!,
+        modelDisplayName: AI_MODEL_DISPLAY_NAMES[m.aiModelId!] ?? m.name,
+      }));
+
+    const lobbyState: LobbyState = {
+      aiPlayers,
+      startingRound: snapshot.currentRound,
+    };
+
+    await this.setLobbyState(lobbyState);
+    await this.setGameState(storedState);
+    await this.setRoomPhase("playing");
+
+    await this.broadcastPlayerViews(adapter);
+    await this.executeAITurnsIfNeeded();
+  }
+
+  private async handleAgentInjectAgentTestState(
+    conn: Connection<MayIRoomConnectionState>,
+    msg: Extract<AgentSetupMessage, { mode: "injectAgentTestState" }>
+  ) {
+    const state = msg.agentTestState;
+    const stateHuman = state.players.find((p) => !p.isAI);
+    if (!stateHuman || stateHuman.id !== msg.human.playerId) {
+      throw new Error("AGENT_SETUP.human.playerId must match the injected state's human player id");
+    }
+
+    const storedState = convertAgentTestStateToStoredState(state, this.name);
+
+    const aiPlayers = state.players
+      .filter((p) => p.isAI && p.aiModelId)
+      .map((p) => ({
+        playerId: p.id,
+        name: p.name,
+        modelId: p.aiModelId!,
+        modelDisplayName: AI_MODEL_DISPLAY_NAMES[p.aiModelId!] ?? p.name,
+      }));
+
+    const lobbyState: LobbyState = {
+      aiPlayers,
+      startingRound: state.roundNumber,
+    };
+
+    await this.setLobbyState(lobbyState);
+    await this.setGameState(storedState);
+    await this.setRoomPhase("playing");
+
+    const adapter = PartyGameAdapter.fromStoredState(storedState);
+    await this.broadcastPlayerViews(adapter);
+    await this.executeAITurnsIfNeeded();
+
+    this.log(`State injected for agent testing: round ${state.roundNumber}`);
   }
 
   private async handleGameAction(

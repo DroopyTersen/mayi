@@ -4,8 +4,13 @@ import { nanoid } from "nanoid";
 const PLAYER_NAME_KEY = "mayi:playerName";
 
 // Room-specific key for player ID - each room has its own identity
-function getPlayerIdKey(roomId: string): string {
+export function getPlayerIdKey(roomId: string): string {
   return `mayi:room:${roomId}:playerId`;
+}
+
+// Room-specific key for player name override (used by agent harness)
+export function getPlayerNameKey(roomId: string): string {
+  return `mayi:room:${roomId}:playerName`;
 }
 
 /**
