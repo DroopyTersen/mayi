@@ -20,11 +20,29 @@ const OVERLAP = {
   lg: "-ml-10",
 } as const;
 
-// Looser overlap for mobile (when using auto size) - show more of each card
-const OVERLAP_MOBILE = {
-  sm: "-ml-5", // 20px overlap → 28px visible per card (was -ml-8 = 16px visible)
-  md: "-ml-7",
-  lg: "-ml-9",
+// Hand size tiers based on card count
+type HandSizeTier = "normal" | "large" | "huge";
+
+export function getHandSizeTier(cardCount: number): HandSizeTier {
+  if (cardCount > 20) return "huge";
+  if (cardCount > 14) return "large";
+  return "normal";
+}
+
+// Overlap classes per tier, using container queries
+// Each tier has progressively tighter overlap at larger container sizes
+// to fit more cards without overflow
+//
+// Overlap Matrix:
+// | Container Width | Normal (1-14) | Large (15-20) | Huge (21+) |
+// |-----------------|---------------|---------------|------------|
+// | < 400px (sm)    | -ml-5 (20px)  | -ml-6 (24px)  | -ml-7 (28px) |
+// | 400-550px (md)  | -ml-8 (32px)  | -ml-8 (32px)  | -ml-10 (40px) |
+// | >= 550px (lg)   | -ml-10 (40px) | -ml-14 (56px) | -ml-[72px] |
+const OVERLAP_TIERS = {
+  normal: "-ml-5 @[400px]:ml-0 @[400px]:-ml-8 @[550px]:ml-0 @[550px]:-ml-10",
+  large: "-ml-6 @[400px]:ml-0 @[400px]:-ml-8 @[550px]:ml-0 @[550px]:-ml-14",
+  huge: "-ml-7 @[400px]:ml-0 @[400px]:-ml-10 @[550px]:ml-0 @[550px]:-ml-[72px]",
 } as const;
 
 // Hover lift amounts proportional to card size
@@ -115,6 +133,14 @@ export function HandDisplay({
   // - < 400px: small cards with tight overlap
   // - 400-550px: medium cards
   // - > 550px: large cards (lowered from 700px for bigger cards on desktop)
+  //
+  // Hand size tiers adjust overlap based on card count:
+  // - normal (1-14): standard overlap
+  // - large (15-20): tighter overlap at large container size
+  // - huge (21+): maximum overlap at all sizes
+  const handTier = getHandSizeTier(cards.length);
+  const overlapClass = OVERLAP_TIERS[handTier];
+
   return (
     <div
       className={cn("@container")}
@@ -132,12 +158,8 @@ export function HandDisplay({
                 "hover:-translate-y-1.5 @[400px]:hover:-translate-y-2 @[550px]:hover:-translate-y-3",
                 // Selected cards stay slightly lifted
                 isSelected && "-translate-y-1",
-                // Mobile-friendly overlap at smallest size, standard as we get bigger
-                index > 0 && [
-                  OVERLAP_MOBILE.sm, // default: mobile-friendly small overlap (shows more card)
-                  "@[400px]:ml-0 @[400px]:-ml-8", // medium: reset then apply -ml-8
-                  "@[550px]:ml-0 @[550px]:-ml-10", // large: reset then apply -ml-10
-                ]
+                // Tier-based overlap that adjusts for both container size and card count
+                index > 0 && overlapClass
               )}
               style={{ zIndex: index }}
             >
