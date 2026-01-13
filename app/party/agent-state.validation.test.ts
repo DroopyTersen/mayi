@@ -303,6 +303,17 @@ describe("agent-state.validation", () => {
         expect(result.data.roundNumber).toBe(1);
       }
     });
+
+    it("round-trips Unicode player names", () => {
+      const state = createValidState();
+      state.players[0]!.name = "Agént 漢字";
+      const encoded = encodeAgentTestState(state);
+      const result = decodeAndParseAgentTestState(encoded);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.players[0]!.name).toBe("Agént 漢字");
+      }
+    });
   });
 
   describe("decodeAndParseAgentTestState", () => {

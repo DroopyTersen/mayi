@@ -11,6 +11,8 @@
 
 import { z } from "zod";
 import type { AgentTestState } from "./agent-state.types";
+import { AI_MODEL_IDS } from "./ai-models";
+import { decodeBase64UrlToUtf8, encodeUtf8ToBase64Url } from "../../core/utils/base64url";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Card Schema
@@ -56,12 +58,7 @@ const meldSchema = z.object({
 // Player Schema
 // ═══════════════════════════════════════════════════════════════════════════
 
-const aiModelIdSchema = z.enum([
-  "default:grok",
-  "default:claude",
-  "default:openai",
-  "default:gemini",
-]);
+const aiModelIdSchema = z.enum(AI_MODEL_IDS);
 
 const playerSchema = z.object({
   id: z.string().min(1),
@@ -86,6 +83,7 @@ const turnPhaseSchema = z.enum([
 const turnStateSchema = z.object({
   currentPlayerIndex: z.number().int().min(0),
   hasDrawn: z.boolean(),
+  drawSource: z.enum(["stock", "discard"]).optional(),
   phase: turnPhaseSchema,
 });
 
@@ -122,6 +120,29 @@ export const agentTestStateSchema = z
         code: z.ZodIssueCode.custom,
         message: `currentPlayerIndex (${data.turn.currentPlayerIndex}) is out of bounds for ${data.players.length} players`,
         path: ["turn", "currentPlayerIndex"],
+      });
+    }
+
+    // Validate hasDrawn is consistent with phase.
+    if (data.turn.phase === "awaitingDraw" && data.turn.hasDrawn) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `hasDrawn must be false when phase is awaitingDraw`,
+        path: ["turn", "hasDrawn"],
+      });
+    }
+    if (data.turn.phase !== "awaitingDraw" && !data.turn.hasDrawn) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `hasDrawn must be true when phase is ${data.turn.phase}`,
+        path: ["turn", "hasDrawn"],
+      });
+    }
+    if (!data.turn.hasDrawn && data.turn.drawSource) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `drawSource must be omitted when hasDrawn is false`,
+        path: ["turn", "drawSource"],
       });
     }
 
@@ -257,9 +278,7 @@ export function decodeAndParseAgentTestState(
   encoded: string
 ): AgentTestStateParseResult {
   try {
-    // Decode base64url (handle URL-safe characters)
-    const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
-    const json = atob(base64);
+    const json = decodeBase64UrlToUtf8(encoded);
     const parsed = JSON.parse(json);
     return parseAgentTestState(parsed);
   } catch (e) {
@@ -272,8 +291,5 @@ export function decodeAndParseAgentTestState(
  * Encode an AgentTestState as a base64url string
  */
 export function encodeAgentTestState(state: AgentTestState): string {
-  const json = JSON.stringify(state);
-  const base64 = btoa(json);
-  // Convert to base64url
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return encodeUtf8ToBase64Url(JSON.stringify(state));
 }

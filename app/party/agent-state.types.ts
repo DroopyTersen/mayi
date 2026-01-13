@@ -45,6 +45,11 @@ export interface AgentTestTurnState {
   currentPlayerIndex: number;
   /** Whether the current player has drawn */
   hasDrawn: boolean;
+  /**
+   * Where the current player drew from (only meaningful when hasDrawn is true).
+   * If omitted, conversion assumes a stock draw.
+   */
+  drawSource?: "stock" | "discard";
   /** Current turn phase */
   phase: AgentTestTurnPhase;
 }
@@ -74,7 +79,7 @@ export interface AgentTestState {
   stock: Card[];
 
   /**
-   * Cards in the discard pile (top card is last in array)
+   * Cards in the discard pile (top card is first in array)
    */
   discard: Card[];
 

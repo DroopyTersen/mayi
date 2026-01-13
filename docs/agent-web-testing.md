@@ -10,10 +10,10 @@ The fastest way to start testing is:
 # Start the dev server
 bun run dev
 
-# Navigate to quick start (creates a 3-player game with default state)
+# Navigate to quick start (auto-starts a 3-player game)
 # In a browser or via curl:
 curl -L http://localhost:5173/game/agent/new
-# Redirects to /game/:roomId?agentState=...
+# Redirects to /game/:roomId?agent=true
 ```
 
 ## Testing Routes
@@ -22,15 +22,12 @@ curl -L http://localhost:5173/game/agent/new
 
 This route is only enabled in development mode. In production, it returns `404`.
 
-Creates a new room with a default 3-player test state:
+Creates a new room and auto-starts a game with:
 
-- Player 0: Human "Agent" (the AI agent being tested)
-- Player 1: AI "Grok-1"
-- Player 2: AI "Grok-2"
+- 1 human: "Agent" (the UI automation agent)
+- 2 AI players: Grok
 
-The game starts at Round 1 with the human player's turn to draw.
-
-**Response:** Redirects to `/game/:roomId?agentState=<base64url>`
+**Response:** Redirects to `/game/:roomId?agent=true` (the param is removed after setup succeeds)
 
 ### `/game/agent/state/:state` — Custom State Injection
 
@@ -39,9 +36,12 @@ This route is only enabled in development mode. In production, it returns `404`.
 Creates a new room with a custom game state.
 
 **Parameters:**
-- `:state` — Base64url-encoded JSON of an `AgentTestState` object
+- `:state` — Base64url-encoded JSON of either:
+  - an `AgentTestState` object (simple format)
+  - an `AgentStoredStateV1` object (engine snapshot + mappings; best parity with CLI harness)
 
 **Response:** Redirects to `/game/:roomId?agentState=<base64url>`
+The `agentState` query param is removed after setup succeeds so refreshes don't re-inject.
 
 **Example:**
 ```bash
@@ -70,7 +70,7 @@ interface AgentTestState {
   // Cards in stock (draw) pile
   stock: Card[];
 
-  // Cards in discard pile (top card is last)
+  // Cards in discard pile (top card is first)
   discard: Card[];
 
   // Melds on the table
@@ -80,6 +80,7 @@ interface AgentTestState {
   turn: {
     currentPlayerIndex: number;
     hasDrawn: boolean;
+    drawSource?: "stock" | "discard";
     phase: "awaitingDraw" | "awaitingAction" | "awaitingDiscard";
   };
 }
@@ -104,7 +105,27 @@ interface Meld {
   id: string;           // Unique meld ID (e.g., "meld-1")
   type: "set" | "run";  // Meld type
   cards: Card[];        // Cards in the meld (min 3)
-  ownerId: string;      // Player ID who owns this meld
+  ownerId: string;      // Must match one of players[].id (owner of the meld)
+}
+```
+
+## AgentStoredStateV1 Format (CLI-Parity)
+
+For best parity with the CLI harness, you can inject the engine’s persisted snapshot directly.
+
+```typescript
+interface AgentStoredStateV1 {
+  version: 1;
+  // The exact JSON string returned by GameEngine.toJSON()
+  engineSnapshot: string;
+  // Lobby IDs (socket identities) ↔ engine IDs ("player-0", ...)
+  playerMappings: Array<{
+    lobbyId: string;
+    engineId: `player-${number}`;
+    name: string;
+    isAI: boolean;
+    aiModelId?: "default:grok" | "default:claude" | "default:openai" | "default:gemini";
+  }>;
 }
 ```
 
@@ -180,6 +201,7 @@ const state = {
   turn: {
     currentPlayerIndex: 0,  // Agent's turn
     hasDrawn: true,         // Already drew
+    drawSource: "stock",    // "stock" or "discard" (defaults to "stock" if omitted)
     phase: "awaitingAction", // Can lay down or skip
   },
 };
@@ -187,13 +209,34 @@ const state = {
 
 ## WebSocket Protocol
 
-When the game loads with `?agentState=...`, it automatically sends an `INJECT_STATE` message:
+When the game loads with `?agent=true` or `?agentState=...`, it sends a single `AGENT_SETUP` message and the server handles join + setup.
 
 ```typescript
-// Client → Server
+// Client → Server (quick start)
 {
-  type: "INJECT_STATE",
-  state: AgentTestState
+  type: "AGENT_SETUP",
+  requestId: "agent-<roomId>",
+  mode: "quickStart",
+  human: { playerId: "<session-id>", name: "Agent" },
+  ai: { modelId: "default:grok", count: 2, namePrefix: "Grok" }
+}
+
+// Client → Server (state injection)
+{
+  type: "AGENT_SETUP",
+  requestId: "agent-<roomId>",
+  mode: "injectAgentTestState",
+  human: { playerId: "agent-player", name: "Agent" },
+  agentTestState: AgentTestState
+}
+
+// Client → Server (state injection, CLI-parity)
+{
+  type: "AGENT_SETUP",
+  requestId: "agent-<roomId>",
+  mode: "injectStoredState",
+  human: { playerId: "agent-player", name: "Agent" },
+  storedState: AgentStoredStateV1
 }
 ```
 
@@ -208,7 +251,7 @@ The server responds with:
 3. **Non-Joker cards must have a valid suit**
 4. **AI players must have `aiModelId` specified**
 5. **Exactly one human player (`isAI: false`) is required**
-6. **`INJECT_STATE` is rejected in production**
+6. **Agent harness routes are disabled in production**
 
 ## Validation
 

@@ -7,7 +7,7 @@
 
 import type { AgentTestState } from "./agent-state.types";
 import type { StoredGameState, PlayerMapping } from "./party-game-adapter";
-import { CONTRACTS } from "../../core/engine/contracts";
+import { GameEngine } from "../../core/engine/game-engine";
 
 /**
  * Convert AgentTestState to StoredGameState
@@ -21,7 +21,18 @@ export function convertAgentTestStateToStoredState(
 ): StoredGameState {
   const now = new Date().toISOString();
 
-  // Build player mappings (first player is the human agent)
+  const playerNames = state.players.map((p) => p.name);
+
+  // Create a real engine snapshot as a base, then patch in the injected round state.
+  // This avoids hand-constructing the entire XState persisted snapshot shape.
+  const baseEngine = GameEngine.createGame({
+    playerNames,
+    startingRound: state.roundNumber,
+    gameId: roomId,
+  });
+  const persistedSnapshot = JSON.parse(baseEngine.toJSON()) as any;
+
+  // Build player mappings (lobby IDs ↔ engine IDs)
   const playerMappings: PlayerMapping[] = state.players.map((player, index) => ({
     lobbyId: player.id,
     engineId: `player-${index}`,
@@ -34,7 +45,6 @@ export function convertAgentTestStateToStoredState(
     playerMappings.map((m) => [m.lobbyId, m.engineId] as const)
   );
 
-  // Map players to engine format
   const enginePlayers = state.players.map((player, index) => ({
     id: `player-${index}`,
     name: player.name,
@@ -49,114 +59,25 @@ export function convertAgentTestStateToStoredState(
     ownerId: lobbyIdToEngineId.get(meld.ownerId) ?? meld.ownerId,
   }));
 
-  // Get contract for the round
-  const contract = CONTRACTS[state.roundNumber];
-
-  // Determine the dealer (we'll use the last player as default)
-  const dealerIndex = state.players.length - 1;
-
-  // Build player order for turn context
-  const playerOrder = enginePlayers.map((p) => p.id);
-
-  // Build player down status map
-  const playerDownStatus: Record<string, boolean> = {};
-  enginePlayers.forEach((p) => {
-    playerDownStatus[p.id] = p.isDown;
-  });
-
-  // Current player info
-  const currentPlayer = enginePlayers[state.turn.currentPlayerIndex]!;
-
-  // Map AgentTestState phase to XState turn machine state value
-  // awaitingDraw → awaitingDraw
-  // awaitingAction → drawn (XState uses "drawn" for post-draw state)
-  // awaitingDiscard → awaitingDiscard
-  const xstateTurnValue =
-    state.turn.phase === "awaitingAction" ? "drawn" : state.turn.phase;
-
-  // Build the XState v5 persisted snapshot structure
-  const engineSnapshot = {
-    status: "active",
-    value: "playing",
-    historyValue: {},
-    context: {
-      gameId: roomId,
-      players: enginePlayers.map((p) => ({ ...p, hand: [] })), // Parent context has empty hands
-      currentRound: state.roundNumber,
-      dealerIndex,
-      roundHistory: [],
-      winners: [],
-      lastError: null,
-    },
-    children: {
-      round: {
-        snapshot: {
-          status: "active",
-          value: { active: "playing" },
-          historyValue: {},
-          context: {
-            roundNumber: state.roundNumber,
-            contract: {
-              roundNumber: state.roundNumber,
-              sets: contract.sets,
-              runs: contract.runs,
-            },
-            players: enginePlayers,
-            currentPlayerIndex: state.turn.currentPlayerIndex,
-            dealerIndex,
-            stock: state.stock,
-            discard: state.discard,
-            table: translatedTable,
-            winnerPlayerId: null,
-            turnNumber: 1, // We start at turn 1 for injected state
-            lastDiscardedByPlayerId:
-              state.discard.length > 0
-                ? enginePlayers[(state.turn.currentPlayerIndex + enginePlayers.length - 1) % enginePlayers.length]!.id
-                : null,
-            predefinedState: null,
-            mayIResolution: null,
-            discardClaimed: false,
-            currentPlayerHasDrawnFromStock: state.turn.phase !== "awaitingDraw" && state.turn.hasDrawn,
-          },
-          children: {
-            turn: {
-              snapshot: {
-                status: "active",
-                value: xstateTurnValue,
-                historyValue: {},
-                context: {
-                  playerId: currentPlayer.id,
-                  hand: currentPlayer.hand,
-                  stock: state.stock,
-                  discard: state.discard,
-                  hasDrawn: state.turn.hasDrawn,
-                  roundNumber: state.roundNumber,
-                  isDown: currentPlayer.isDown,
-                  laidDownThisTurn: false,
-                  table: translatedTable,
-                  lastError: null,
-                  playerOrder,
-                  playerDownStatus,
-                  lastDiscardedByPlayerId:
-                    state.discard.length > 0
-                      ? enginePlayers[(state.turn.currentPlayerIndex + enginePlayers.length - 1) % enginePlayers.length]!.id
-                      : null,
-                },
-                children: {},
-              },
-              src: "turnMachine",
-              syncSnapshot: false,
-            },
-          },
-        },
-        src: "roundMachine",
-        syncSnapshot: false,
-      },
-    },
-  };
+  const roundSnapshot = persistedSnapshot?.children?.round?.snapshot;
+  const roundContext = roundSnapshot?.context;
+  const turnSnapshot = roundSnapshot?.children?.turn?.snapshot;
+  const turnContext = turnSnapshot?.context;
+  const rootContext = persistedSnapshot?.context;
 
   return {
-    engineSnapshot: JSON.stringify(engineSnapshot),
+    engineSnapshot: JSON.stringify(
+      patchPersistedSnapshotForAgentTestState({
+        persistedSnapshot,
+        rootContext,
+        roundContext,
+        turnSnapshot,
+        turnContext,
+        state,
+        enginePlayers,
+        translatedTable,
+      })
+    ),
     playerMappings,
     roomId,
     createdAt: now,
@@ -173,4 +94,97 @@ export function convertAgentTestStateToStoredState(
       },
     ],
   };
+}
+
+function patchPersistedSnapshotForAgentTestState(options: {
+  persistedSnapshot: any;
+  rootContext: any;
+  roundContext: any;
+  turnSnapshot: any;
+  turnContext: any;
+  state: AgentTestState;
+  enginePlayers: Array<{
+    id: string;
+    name: string;
+    hand: unknown[];
+    isDown: boolean;
+    totalScore: number;
+  }>;
+  translatedTable: unknown[];
+}): any {
+  const {
+    persistedSnapshot,
+    rootContext,
+    roundContext,
+    turnSnapshot,
+    turnContext,
+    state,
+    enginePlayers,
+    translatedTable,
+  } = options;
+
+  if (!persistedSnapshot || !rootContext || !roundContext || !turnSnapshot || !turnContext) {
+    throw new Error("Unexpected engine snapshot shape (cannot apply agent test state)");
+  }
+
+  const playerCount = enginePlayers.length;
+  const currentPlayerIndex = state.turn.currentPlayerIndex;
+  const currentPlayer = enginePlayers[currentPlayerIndex];
+  if (!currentPlayer) {
+    throw new Error(`Invalid currentPlayerIndex ${currentPlayerIndex}`);
+  }
+
+  const dealerIndex = (currentPlayerIndex + playerCount - 1) % playerCount;
+  const lastDiscardedByPlayerId =
+    state.discard.length > 0 ? enginePlayers[dealerIndex]!.id : null;
+
+  const xstateTurnValue =
+    state.turn.phase === "awaitingAction" ? "drawn" : state.turn.phase;
+
+  const drawSource =
+    state.turn.hasDrawn ? (state.turn.drawSource ?? "stock") : null;
+
+  const playerOrder = enginePlayers.map((p) => p.id);
+  const playerDownStatus = Object.fromEntries(
+    enginePlayers.map((p) => [p.id, p.isDown])
+  );
+
+  rootContext.players = enginePlayers.map((p) => ({ ...p, hand: [] }));
+  rootContext.currentRound = state.roundNumber;
+  rootContext.dealerIndex = dealerIndex;
+
+  roundContext.roundNumber = state.roundNumber;
+  roundContext.players = enginePlayers;
+  roundContext.currentPlayerIndex = currentPlayerIndex;
+  roundContext.dealerIndex = dealerIndex;
+  roundContext.stock = state.stock;
+  roundContext.discard = state.discard;
+  roundContext.table = translatedTable;
+  roundContext.winnerPlayerId = null;
+  roundContext.turnNumber = 1;
+  roundContext.predefinedState = null;
+  roundContext.mayIResolution = null;
+  roundContext.lastDiscardedByPlayerId = lastDiscardedByPlayerId;
+
+  // Best-effort for May-I related flags. If you need more precise control,
+  // inject a full persisted snapshot instead of AgentTestState.
+  roundContext.discardClaimed = drawSource === "discard";
+  roundContext.currentPlayerHasDrawnFromStock = drawSource === "stock";
+
+  turnSnapshot.value = xstateTurnValue;
+  turnContext.playerId = currentPlayer.id;
+  turnContext.hand = currentPlayer.hand;
+  turnContext.stock = state.stock;
+  turnContext.discard = state.discard;
+  turnContext.hasDrawn = state.turn.hasDrawn;
+  turnContext.roundNumber = state.roundNumber;
+  turnContext.isDown = currentPlayer.isDown;
+  turnContext.laidDownThisTurn = false;
+  turnContext.table = translatedTable;
+  turnContext.lastError = null;
+  turnContext.playerOrder = playerOrder;
+  turnContext.playerDownStatus = playerDownStatus;
+  turnContext.lastDiscardedByPlayerId = lastDiscardedByPlayerId ?? undefined;
+
+  return persistedSnapshot;
 }

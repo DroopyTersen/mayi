@@ -13,6 +13,8 @@ import type { RoundNumber } from "../../core/engine/engine.types";
 import type { Contract } from "../../core/engine/contracts";
 import type { AgentTestState } from "./agent-state.types";
 import { agentTestStateSchema } from "./agent-state.validation";
+import { AI_MODEL_DISPLAY_NAMES, AI_MODEL_IDS, type AIModelId } from "./ai-models";
+import { agentSetupMessageSchema } from "./agent-harness.types";
 
 // Re-export types needed by clients
 export type { PlayerView } from "../../core/engine/game-engine.types";
@@ -49,23 +51,8 @@ export interface ActivityLogEntry {
 // AI Player Types
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Available AI model IDs - use default: prefix for stable references */
-export const AI_MODEL_IDS = [
-  "default:grok",
-  "default:claude",
-  "default:openai",
-  "default:gemini",
-] as const;
-
-export type AIModelId = (typeof AI_MODEL_IDS)[number];
-
-/** Display names for AI models */
-export const AI_MODEL_DISPLAY_NAMES: Record<AIModelId, string> = {
-  "default:grok": "Grok",
-  "default:claude": "Claude",
-  "default:openai": "GPT",
-  "default:gemini": "Gemini",
-};
+export { AI_MODEL_IDS, AI_MODEL_DISPLAY_NAMES };
+export type { AIModelId };
 
 /** AI player information */
 export interface AIPlayerInfo {
@@ -132,6 +119,9 @@ export const injectStateMessageSchema = z.object({
   state: agentTestStateSchema,
 });
 
+// Agent harness setup (quick start / injection)
+export const agentSetupSchema = agentSetupMessageSchema;
+
 // Game action schemas
 export const meldSpecSchema = z.object({
   type: z.enum(["set", "run"]),
@@ -171,6 +161,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
   startGameSchema,
   gameActionMessageSchema,
   injectStateMessageSchema,
+  agentSetupSchema,
 ]);
 
 // TypeScript types derived from Zod schemas
@@ -180,6 +171,7 @@ export type RemoveAIPlayerMessage = z.infer<typeof removeAIPlayerSchema>;
 export type SetStartingRoundMessage = z.infer<typeof setStartingRoundSchema>;
 export type StartGameMessage = z.infer<typeof startGameSchema>;
 export type InjectStateMessage = z.infer<typeof injectStateMessageSchema>;
+export type AgentSetupMessage = z.infer<typeof agentSetupSchema>;
 export type GameActionMessage = z.infer<typeof gameActionMessageSchema>;
 export type GameAction = z.infer<typeof gameActionSchema>;
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -287,6 +279,13 @@ export interface GameEndedMessage {
   playerNames: Record<string, string>;
 }
 
+export interface AgentSetupResultMessage {
+  type: "AGENT_SETUP_RESULT";
+  requestId: string;
+  status: "ok" | "already_setup" | "error";
+  message?: string;
+}
+
 // Union of all server messages
 export type ServerMessage =
   | ConnectedMessage
@@ -304,7 +303,8 @@ export type ServerMessage =
   | MayIPromptMessage
   | MayIResolvedMessage
   | RoundEndedMessage
-  | GameEndedMessage;
+  | GameEndedMessage
+  | AgentSetupResultMessage;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Validation Helpers
@@ -337,7 +337,8 @@ export function isLobbyPhaseMessage(msg: ClientMessage): boolean {
     msg.type === "REMOVE_AI_PLAYER" ||
     msg.type === "SET_STARTING_ROUND" ||
     msg.type === "START_GAME" ||
-    msg.type === "INJECT_STATE"
+    msg.type === "INJECT_STATE" ||
+    msg.type === "AGENT_SETUP"
   );
 }
 
