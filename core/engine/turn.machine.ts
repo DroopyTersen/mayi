@@ -14,6 +14,7 @@ import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
 import { CONTRACTS, validateContractMelds } from "./contracts";
 import { isValidSet, isValidRun } from "../meld/meld.validation";
+import { normalizeRunCards } from "../meld/run.normalizer";
 import { shuffle } from "../card/card.deck";
 import {
   canLayOffCard,
@@ -194,10 +195,21 @@ export const turnMachine = setup({
           if (!card) return false; // Card not in hand
           cards.push(card);
         }
+
+        // For runs, normalize card order (allows selection in any order)
+        let finalCards = cards;
+        if (proposal.type === "run") {
+          const normalized = normalizeRunCards(cards);
+          if (normalized.success) {
+            finalCards = normalized.cards;
+          }
+          // If normalization fails, use original order and let validation catch it
+        }
+
         melds.push({
           id: `validation-meld-${i}`, // Deterministic ID for validation
           type: proposal.type,
-          cards,
+          cards: finalCards,
           ownerId: context.playerId,
         });
       }
@@ -240,10 +252,21 @@ export const turnMachine = setup({
           if (!card) return false; // Card not in hand
           cards.push(card);
         }
+
+        // For runs, normalize card order (allows selection in any order)
+        let finalCards = cards;
+        if (proposal.type === "run") {
+          const normalized = normalizeRunCards(cards);
+          if (normalized.success) {
+            finalCards = normalized.cards;
+          }
+          // If normalization fails, use original order and let validation catch it
+        }
+
         melds.push({
           id: `validation-meld-${i}`, // Deterministic ID for validation
           type: proposal.type,
-          cards,
+          cards: finalCards,
           ownerId: context.playerId,
         });
       }
