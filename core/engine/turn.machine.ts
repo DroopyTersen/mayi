@@ -12,10 +12,15 @@ import { setup, assign } from "xstate";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
-import { CONTRACTS, validateContractMelds } from "./contracts";
+import { CONTRACTS } from "./contracts";
 import { isValidSet, isValidRun } from "../meld/meld.validation";
-import { normalizeRunCards } from "../meld/run.normalizer";
 import { shuffle } from "../card/card.deck";
+import {
+  buildMeldsFromProposals,
+  meetsContract,
+  validMelds,
+  type MeldProposal as GuardMeldProposal,
+} from "./guards";
 import {
   canLayOffCard,
   canLayOffToSet,
@@ -31,10 +36,7 @@ import { canSwapJokerWithCard } from "../meld/meld.joker";
 /**
  * Meld proposal for LAY_DOWN event
  */
-export interface MeldProposal {
-  type: "set" | "run";
-  cardIds: string[];
-}
+export type MeldProposal = GuardMeldProposal;
 
 /**
  * Context for the TurnMachine
@@ -185,49 +187,10 @@ export const turnMachine = setup({
       // Cannot lay down if already down this round
       if (context.isDown) return false;
 
-      // Build melds from card IDs
-      const melds: Meld[] = [];
-      for (let i = 0; i < event.melds.length; i++) {
-        const proposal = event.melds[i]!;
-        const cards: Card[] = [];
-        for (const cardId of proposal.cardIds) {
-          const card = context.hand.find((c) => c.id === cardId);
-          if (!card) return false; // Card not in hand
-          cards.push(card);
-        }
-
-        // For runs, normalize card order (allows selection in any order)
-        let finalCards = cards;
-        if (proposal.type === "run") {
-          const normalized = normalizeRunCards(cards);
-          if (normalized.success) {
-            finalCards = normalized.cards;
-          }
-          // If normalization fails, use original order and let validation catch it
-        }
-
-        melds.push({
-          id: `validation-meld-${i}`, // Deterministic ID for validation
-          type: proposal.type,
-          cards: finalCards,
-          ownerId: context.playerId,
-        });
-      }
-
-      // Validate each meld individually
-      for (const meld of melds) {
-        if (meld.type === "set" && !isValidSet(meld.cards)) {
-          return false;
-        }
-        if (meld.type === "run" && !isValidRun(meld.cards)) {
-          return false;
-        }
-      }
-
-      // Validate contract requirements
-      const contract = CONTRACTS[context.roundNumber];
-      const result = validateContractMelds(contract, melds);
-      return result.valid;
+      const melds = buildMeldsFromProposals(event.melds, context.hand, context.playerId);
+      if (!melds) return false; // Some card not in hand
+      if (!validMelds(melds)) return false;
+      return meetsContract(context.roundNumber, melds);
     },
     // canLayDown AND laying down uses all cards in hand
     canLayDownAndGoOut: ({ context, event }) => {
@@ -242,49 +205,10 @@ export const turnMachine = setup({
       const usedCardIds = new Set(event.melds.flatMap((m) => m.cardIds));
       if (usedCardIds.size !== context.hand.length) return false;
 
-      // Build melds from card IDs
-      const melds: Meld[] = [];
-      for (let i = 0; i < event.melds.length; i++) {
-        const proposal = event.melds[i]!;
-        const cards: Card[] = [];
-        for (const cardId of proposal.cardIds) {
-          const card = context.hand.find((c) => c.id === cardId);
-          if (!card) return false; // Card not in hand
-          cards.push(card);
-        }
-
-        // For runs, normalize card order (allows selection in any order)
-        let finalCards = cards;
-        if (proposal.type === "run") {
-          const normalized = normalizeRunCards(cards);
-          if (normalized.success) {
-            finalCards = normalized.cards;
-          }
-          // If normalization fails, use original order and let validation catch it
-        }
-
-        melds.push({
-          id: `validation-meld-${i}`, // Deterministic ID for validation
-          type: proposal.type,
-          cards: finalCards,
-          ownerId: context.playerId,
-        });
-      }
-
-      // Validate each meld individually
-      for (const meld of melds) {
-        if (meld.type === "set" && !isValidSet(meld.cards)) {
-          return false;
-        }
-        if (meld.type === "run" && !isValidRun(meld.cards)) {
-          return false;
-        }
-      }
-
-      // Validate contract requirements
-      const contract = CONTRACTS[context.roundNumber];
-      const result = validateContractMelds(contract, melds);
-      return result.valid;
+      const melds = buildMeldsFromProposals(event.melds, context.hand, context.playerId);
+      if (!melds) return false; // Some card not in hand
+      if (!validMelds(melds)) return false;
+      return meetsContract(context.roundNumber, melds);
     },
     canLayOff: ({ context, event }) => {
       if (event.type !== "LAY_OFF") return false;

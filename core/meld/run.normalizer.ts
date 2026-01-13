@@ -129,8 +129,6 @@ export function normalizeRunCards(cards: Card[]): RunNormalizationResult {
   // First fill gaps between naturals
   // Then place remaining wilds at ends (preferring end over start if valid)
 
-  // Calculate how many slots we need vs have
-  const slotsNeeded = totalCards;
   const wildsAvailable = wilds.length;
 
   // Internal gaps between naturals
@@ -164,7 +162,6 @@ export function normalizeRunCards(cards: Card[]): RunNormalizationResult {
     wilds,
     lowestNatural,
     highestNatural,
-    internalGaps,
     wildsForEnds
   );
 
@@ -190,7 +187,6 @@ function findValidPlacement(
   wilds: Card[],
   lowestNatural: number,
   highestNatural: number,
-  internalGaps: number,
   wildsForEnds: number
 ): Card[] | null {
   const totalCards = naturals.length + wilds.length;
