@@ -33,6 +33,9 @@ export function PlayersTableDisplayStory() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Default (4 players)</h2>
         <PlayersTableDisplay players={SAMPLE_PLAYERS} />
+        <p className="text-xs text-muted-foreground mt-2">
+          Clean single border around table with dividers between rows (no nested/double borders).
+        </p>
       </section>
 
       {/* With Active Player (whose turn) */}

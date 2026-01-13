@@ -1,6 +1,5 @@
 import type { Route } from "./+types/game.$roomId";
 import PartySocket from "partysocket";
-import { nanoid } from "nanoid";
 import {
   useCallback,
   useEffect,
@@ -8,6 +7,11 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  getStoredPlayerName,
+  storePlayerName,
+  getOrCreatePlayerId,
+} from "./player-storage";
 
 import { LobbyView } from "~/ui/lobby/LobbyView";
 import { GameView } from "~/ui/game-view/GameView";
@@ -32,32 +36,6 @@ import type {
 import type { Card } from "core/card/card.types";
 
 type RoomPhase = "lobby" | "playing";
-
-function getPlayerIdKey(roomId: string) {
-  return `mayi:room:${roomId}:playerId`;
-}
-
-function getPlayerNameKey(roomId: string) {
-  return `mayi:room:${roomId}:playerName`;
-}
-
-function getOrCreatePlayerId(roomId: string): string {
-  const key = getPlayerIdKey(roomId);
-  const existing = sessionStorage.getItem(key);
-  if (existing) return existing;
-
-  const playerId = nanoid(12);
-  sessionStorage.setItem(key, playerId);
-  return playerId;
-}
-
-function getStoredPlayerName(roomId: string): string | null {
-  return sessionStorage.getItem(getPlayerNameKey(roomId));
-}
-
-function storePlayerName(roomId: string, name: string) {
-  sessionStorage.setItem(getPlayerNameKey(roomId), name);
-}
 
 export function meta({ params }: Route.MetaArgs) {
   return [{ title: params.roomId ? `Game: ${params.roomId}` : "Game" }];
@@ -162,7 +140,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       if (playerId !== currentPlayerId) {
         setCurrentPlayerId(playerId);
       }
-      storePlayerName(roomId, name);
+      storePlayerName(name);
 
       setShowNamePrompt(false);
       setJoinStatus("joining");
@@ -296,7 +274,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     const playerId = getOrCreatePlayerId(roomId);
     setCurrentPlayerId(playerId);
 
-    const storedName = getStoredPlayerName(roomId);
+    const storedName = getStoredPlayerName();
     setShareUrl(new URL(`/game/${roomId}`, window.location.origin).toString());
 
     setConnectionStatus("connecting");
@@ -356,7 +334,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setShowNamePrompt(false);
 
           // Ensure we persist the final server-accepted name.
-          storePlayerName(roomId, msg.playerName);
+          storePlayerName(msg.playerName);
           return;
         }
         case "ERROR": {

@@ -77,34 +77,36 @@ export function DiscardPileDisplay({
             />
           </div>
 
-          {/* Interactive overlay and label (for pickup/may-i) */}
+          {/* Interactive ring indicator (for pickup/may-i) */}
           {hasInteractiveLabel && interactiveLabel && (
             <div
-              className="absolute flex items-center justify-center pointer-events-none"
+              className="absolute pointer-events-none"
               style={{ top: 4, left: 4, width, height }}
             >
-              {/* Semi-transparent overlay */}
+              {/* Colored ring around card */}
               <div
                 className={cn(
-                  "absolute inset-0 rounded-lg",
-                  interactiveLabel === "may-i" ? "bg-amber-500/20" : "bg-blue-500/20"
+                  "absolute inset-0 rounded-lg ring-2",
+                  interactiveLabel === "may-i" ? "ring-amber-500" : "ring-blue-500"
                 )}
               />
-
-              {/* Label button on top */}
-              <span
-                className={cn(
-                  "relative z-10 px-2 py-0.5 text-xs font-bold rounded shadow-sm",
-                  interactiveLabel === "may-i"
-                    ? "bg-amber-500 text-white"
-                    : "bg-blue-500 text-white"
-                )}
-              >
-                {LABEL_TEXT[interactiveLabel]}
-              </span>
             </div>
           )}
         </div>
+      )}
+
+      {/* Interactive label below the card (not covering it) */}
+      {hasInteractiveLabel && interactiveLabel && (
+        <span
+          className={cn(
+            "px-2 py-0.5 text-xs font-bold rounded shadow-sm",
+            interactiveLabel === "may-i"
+              ? "bg-amber-500 text-white"
+              : "bg-blue-500 text-white"
+          )}
+        >
+          {LABEL_TEXT[interactiveLabel]}
+        </span>
       )}
     </div>
   );

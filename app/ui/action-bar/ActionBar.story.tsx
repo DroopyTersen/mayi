@@ -15,6 +15,7 @@ function createAvailableActions(overrides: Partial<AvailableActions> = {}): Avai
     canAllowMayI: false,
     canClaimMayI: false,
     canReorderHand: false,
+    hasPendingMayIRequest: false,
     ...overrides,
   };
 }
@@ -105,6 +106,20 @@ export function ActionBarStory() {
         <ActionBar
           availableActions={createAvailableActions({
             canReorderHand: true,
+          })}
+          onAction={handleAction}
+        />
+      </section>
+
+      {/* May I Pending - Waiting for resolution */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">May I Pending</h2>
+        <p className="text-sm text-muted-foreground mb-2">
+          You called May I and are waiting for other players to respond.
+        </p>
+        <ActionBar
+          availableActions={createAvailableActions({
+            hasPendingMayIRequest: true,
           })}
           onAction={handleAction}
         />
