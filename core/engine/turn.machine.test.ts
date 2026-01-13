@@ -785,3 +785,128 @@ describe("TurnMachine - turn output", () => {
     actor.stop();
   });
 });
+
+describe("TurnMachine - LAY_DOWN with auto-sorted runs", () => {
+  it("accepts run cards selected in descending order (round 2)", () => {
+    // Round 2 requires 1 set + 1 run
+    const nineC = card("9", "clubs");
+    const nineD = card("9", "diamonds");
+    const nineH = card("9", "hearts");
+    // Run cards in descending order: K, Q, J, 10
+    const tenH = card("10", "hearts");
+    const jackH = card("J", "hearts");
+    const queenH = card("Q", "hearts");
+    const kingH = card("K", "hearts");
+    const extra = card("5", "spades");
+
+    const hand = [nineC, nineD, nineH, kingH, queenH, jackH, tenH, extra];
+    const actor = createTurnActor({
+      hand,
+      roundNumber: 2,
+      stock: [card("A"), card("2")],
+    });
+
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+
+    // Try to lay down with run in descending order
+    actor.send({
+      type: "LAY_DOWN",
+      melds: [
+        { type: "set", cardIds: [nineC.id, nineD.id, nineH.id] },
+        // Run specified in descending order - should be auto-sorted
+        { type: "run", cardIds: [kingH.id, queenH.id, jackH.id, tenH.id] },
+      ],
+    });
+
+    // Should succeed and transition to awaitingDiscard
+    expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+    // Player should now be "down"
+    expect(actor.getSnapshot().context.isDown).toBe(true);
+    // Run and set should be on the table
+    expect(actor.getSnapshot().context.table.length).toBe(2);
+
+    actor.stop();
+  });
+
+  it("accepts run cards selected in random order (round 3)", () => {
+    // Round 3 requires 2 runs
+    const threeH = card("3", "hearts");
+    const fourH = card("4", "hearts");
+    const fiveH = card("5", "hearts");
+    const sixH = card("6", "hearts");
+    const sevenC = card("7", "clubs");
+    const eightC = card("8", "clubs");
+    const nineC = card("9", "clubs");
+    const tenC = card("10", "clubs");
+    const extra = card("K", "spades");
+
+    // Random order in hand
+    const hand = [sixH, threeH, fiveH, fourH, tenC, sevenC, nineC, eightC, extra];
+    const actor = createTurnActor({
+      hand,
+      roundNumber: 3,
+      stock: [card("A"), card("2")],
+    });
+
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+
+    // Try to lay down with runs in random order
+    actor.send({
+      type: "LAY_DOWN",
+      melds: [
+        // Run 1: random order 6, 3, 5, 4 (should become 3, 4, 5, 6)
+        { type: "run", cardIds: [sixH.id, threeH.id, fiveH.id, fourH.id] },
+        // Run 2: random order 10, 7, 9, 8 (should become 7, 8, 9, 10)
+        { type: "run", cardIds: [tenC.id, sevenC.id, nineC.id, eightC.id] },
+      ],
+    });
+
+    // Should succeed and transition to awaitingDiscard
+    expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+    expect(actor.getSnapshot().context.isDown).toBe(true);
+    expect(actor.getSnapshot().context.table.length).toBe(2);
+
+    actor.stop();
+  });
+
+  it("accepts run with wilds selected out of order", () => {
+    // Round 2 requires 1 set + 1 run
+    const nineC = card("9", "clubs");
+    const nineD = card("9", "diamonds");
+    const nineH = card("9", "hearts");
+    // Run: 5♥, wild, 7♥, 8♥ - but selected in wrong order
+    const fiveH = card("5", "hearts");
+    const wild2 = card("2", "hearts"); // 2 is wild
+    const sevenH = card("7", "hearts");
+    const eightH = card("8", "hearts");
+    const extra = card("K", "spades");
+
+    const hand = [nineC, nineD, nineH, eightH, wild2, fiveH, sevenH, extra];
+    const actor = createTurnActor({
+      hand,
+      roundNumber: 2,
+      stock: [card("A"), card("3")],
+    });
+
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+
+    // Try to lay down with run in random order including wild
+    actor.send({
+      type: "LAY_DOWN",
+      melds: [
+        { type: "set", cardIds: [nineC.id, nineD.id, nineH.id] },
+        // Run with wild in random order: 8, wild, 5, 7
+        { type: "run", cardIds: [eightH.id, wild2.id, fiveH.id, sevenH.id] },
+      ],
+    });
+
+    // Should succeed
+    expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+    expect(actor.getSnapshot().context.isDown).toBe(true);
+
+    actor.stop();
+  });
+});

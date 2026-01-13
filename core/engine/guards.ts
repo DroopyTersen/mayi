@@ -9,6 +9,7 @@ import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
 import { CONTRACTS, validateContractMelds } from "./contracts";
 import { isValidSet, isValidRun, countWildsAndNaturals } from "../meld/meld.validation";
+import { normalizeRunCards } from "../meld/run.normalizer";
 
 /**
  * Context needed for guard evaluation
@@ -76,8 +77,9 @@ export function wildsNotOutnumbered(melds: Meld[]): boolean {
 }
 
 /**
- * Builds Meld objects from MeldProposals and hand cards
- * Returns null if any card is not found in hand
+ * Builds Meld objects from MeldProposals and hand cards.
+ * For runs, auto-sorts cards into valid order using the run normalizer.
+ * Returns null if any card is not found in hand.
  */
 export function buildMeldsFromProposals(
   proposals: MeldProposal[],
@@ -94,10 +96,21 @@ export function buildMeldsFromProposals(
       if (!card) return null; // Card not in hand
       cards.push(card);
     }
+
+    // For runs, normalize card order (allows selection in any order)
+    let finalCards = cards;
+    if (proposal.type === "run") {
+      const normalized = normalizeRunCards(cards);
+      if (normalized.success) {
+        finalCards = normalized.cards;
+      }
+      // If normalization fails, use original order and let validation catch it
+    }
+
     melds.push({
       id: `validation-meld-${i}`, // Deterministic ID for validation
       type: proposal.type,
-      cards,
+      cards: finalCards,
       ownerId: playerId,
     });
   }
