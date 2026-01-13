@@ -3203,3 +3203,35 @@ describe("TurnMachine - turn completion after lay down", () => {
     });
   });
 });
+
+    // Bug #34: Test 2 as wild at START of run (filling 4 position)
+    it("accepts run with wild at start: (2D 5C 6C 7C) where 2D fills 4C position", () => {
+      const twoD = card("2", "diamonds"); // Wild at start, filling 4C position
+      const fiveC = card("5", "clubs");
+      const sixC = card("6", "clubs");
+      const sevenC = card("7", "clubs");
+      const kingS = card("K", "spades");
+      const kingD1 = card("K", "diamonds");
+      const kingD2: Card = { id: `K-diamonds-2-${Math.random()}`, rank: "K", suit: "diamonds" };
+      const extra = card("10", "hearts");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 2 as const, // 1 set + 1 run
+        hand: [twoD, fiveC, sixC, sevenC, kingS, kingD1, kingD2, extra],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [kingS.id, kingD1.id, kingD2.id] },
+          { type: "run" as const, cardIds: [twoD.id, fiveC.id, sixC.id, sevenC.id] }, // 2D fills 4C position
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
+      expect(actor.getSnapshot().context.isDown).toBe(true);
+    });
