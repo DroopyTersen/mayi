@@ -9,6 +9,23 @@ The external loop will restart you for the next card.
 
 ---
 
+## Step 0: Ensure Main is Up-to-Date
+
+Before anything else, ensure you're on `main` with the latest changes:
+
+```bash
+git checkout main
+git pull --rebase origin main
+```
+
+This ensures you start each iteration with the latest code, including any PRs that were squash-merged since the last iteration. Using `--rebase` avoids merge commits that can pollute feature branches later.
+
+If the rebase fails (e.g., local uncommitted changes from a crashed iteration):
+1. Stash or discard the changes: `git stash` or `git checkout -- .`
+2. Retry the pull: `git pull --rebase origin main`
+
+---
+
 ## Step 1: Load Context
 
 Read these files:
@@ -193,7 +210,7 @@ Implemented run.normalizer.ts (28 tests), code review 92/100, pushed.
 2. **Switch back to main:**
    ```bash
    git checkout main
-   git pull origin main
+   git pull --rebase origin main
    ```
 
 3. **Summarize what was done:**
@@ -230,6 +247,7 @@ Implemented run.normalizer.ts (28 tests), code review 92/100, pushed.
 - **Update progress.txt** — Always append completion entry before exiting
 - **Commit and push** — Always `git push` after committing; unpushed commits are invisible to other iterations
 - **Return to main** — Before exiting, push and switch back to main so next iteration starts clean
+- **Always use rebase** — Use `git pull --rebase` and `git rebase origin/main`, never merge. This avoids polluting branches with duplicate commits from squash-merged PRs
 - **Output completion signal and STOP** — After completing work, output `AGENTFLOW_ITERATION_COMPLETE` and stop generating. Do NOT process another card. Only output `AGENTFLOW_NO_WORKABLE_CARDS` when there are truly ZERO cards in workable columns.
 - **Use the agents** — Call code-explorer, code-architect, code-reviewer as specified
 - **Skip tagged cards** — Never pick up cards with `needs-feedback` or `blocked` tags

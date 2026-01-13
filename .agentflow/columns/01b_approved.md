@@ -109,7 +109,7 @@ Parse "Blocked by:" line for predecessor IDs
 ```bash
 # Ensure we're on main and up to date
 git checkout main
-git pull origin main
+git pull --rebase origin main
 
 # Create and switch to new branch
 git checkout -b "$BRANCH"
@@ -123,7 +123,7 @@ PREDECESSOR_BRANCH={from predecessor's ## Branch section}
 # Fetch and checkout predecessor's branch
 git fetch origin
 git checkout "$PREDECESSOR_BRANCH"
-git pull origin "$PREDECESSOR_BRANCH"
+git pull --rebase origin "$PREDECESSOR_BRANCH"
 
 # Create new branch from predecessor
 git checkout -b "$BRANCH"
