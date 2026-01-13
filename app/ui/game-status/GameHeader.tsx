@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { cn } from "~/shadcn/lib/utils";
 
 interface Contract {
@@ -45,7 +46,12 @@ export function GameHeader({
     >
       {/* Main header row */}
       <div className="flex items-center justify-center gap-3">
-        <span className="font-bold text-lg tracking-wide">MAY I?</span>
+        <Link
+          to="/"
+          className="font-bold text-lg tracking-wide hover:text-primary transition-colors"
+        >
+          MAY I?
+        </Link>
         <span className="text-muted-foreground">—</span>
         <span className="text-sm">
           Round {round} of {totalRounds}
