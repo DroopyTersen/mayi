@@ -24,6 +24,28 @@ const SMALL_HAND: Card[] = [
   { id: "3", rank: "Q", suit: "diamonds" },
 ];
 
+// Generate large hands for overflow testing
+function generateHand(count: number): Card[] {
+  const suits = ["hearts", "diamonds", "clubs", "spades"] as const;
+  const ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"] as const;
+
+  const cards: Card[] = [];
+  for (let i = 0; i < count; i++) {
+    const rank = ranks[i % ranks.length]!;
+    const suit = suits[Math.floor(i / ranks.length) % suits.length]!;
+    cards.push({
+      id: `card-${i}`,
+      rank,
+      suit,
+    });
+  }
+  return cards;
+}
+
+const HAND_15: Card[] = generateHand(15);
+const HAND_20: Card[] = generateHand(20);
+const HAND_25: Card[] = generateHand(25);
+
 function InteractiveHand() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -134,6 +156,46 @@ export function HandDisplayStory() {
         <ViewportComparison>
           <div className="p-4">
             <HandDisplay cards={SAMPLE_HAND} />
+          </div>
+        </ViewportComparison>
+      </section>
+
+      {/* Large Hand (15 cards) - Tests "large" tier */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Large Hand (15 cards)</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Tests the "large" tier (15-20 cards). Should increase overlap to fit all cards.
+        </p>
+        <ViewportComparison>
+          <div className="p-4">
+            <HandDisplay cards={HAND_15} />
+          </div>
+        </ViewportComparison>
+      </section>
+
+      {/* Very Large Hand (20 cards) - Tests "large" tier boundary */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Very Large Hand (20 cards)</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Tests the upper boundary of "large" tier (15-20 cards). All cards should remain visible.
+        </p>
+        <ViewportComparison>
+          <div className="p-4">
+            <HandDisplay cards={HAND_20} />
+          </div>
+        </ViewportComparison>
+      </section>
+
+      {/* Huge Hand (25 cards) - Tests "huge" tier */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Huge Hand (25 cards)</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Tests the "huge" tier (21+ cards). Maximum overlap to fit all cards while maintaining
+          minimum touch target size (20-24px visible per card).
+        </p>
+        <ViewportComparison>
+          <div className="p-4">
+            <HandDisplay cards={HAND_25} />
           </div>
         </ViewportComparison>
       </section>
