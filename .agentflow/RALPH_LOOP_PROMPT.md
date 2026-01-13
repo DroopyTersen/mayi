@@ -120,7 +120,7 @@ Read the column-specific instructions for detailed execution steps:
 | `approved` | - | Move to refinement, continue |
 | `refinement` | `code-explorer` | Requirements documented OR `needs-feedback` tag |
 | `tech-design` | `code-architect` | Design + spec commit OR `needs-feedback` tag |
-| `implementation` | `code-reviewer` | Code + impl commit → final-review |
+| `implementation` | `code-reviewer` + Codex | Dual review → fix issues → impl + fix commits → final-review |
 
 **After completing the phase work, proceed immediately to Steps 7-9. Do NOT start another card.**
 
