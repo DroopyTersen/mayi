@@ -111,6 +111,7 @@ export interface AITurnEventCallbacks {
  */
 export class AITurnCoordinator {
   private abortController: AbortController | null = null;
+  private running = false;
 
   constructor(private deps: AITurnCoordinatorDeps) {}
 
@@ -121,147 +122,158 @@ export class AITurnCoordinator {
    * Supports mid-turn abort via abortCurrentTurn().
    */
   async executeAITurnsIfNeeded(callbacks?: AITurnEventCallbacks): Promise<void> {
-    // Use injected or default implementations
-    const createAdapter = this.deps.createAdapter ?? PartyGameAdapter.fromStoredState;
-    const isAIPlayerTurn = this.deps.isAIPlayerTurn ?? realIsAIPlayerTurn;
-    const thinkingDelayMs = this.deps.thinkingDelayMs ?? DEFAULT_AI_THINKING_DELAY_MS;
-    const interTurnDelayMs = this.deps.interTurnDelayMs ?? DEFAULT_INTER_TURN_DELAY_MS;
-    const toolDelayMs = this.deps.toolDelayMs ?? DEFAULT_TOOL_DELAY_MS;
-    const debug = this.deps.debug ?? false;
+    // Single-flight: multiple callers can trigger AI execution (e.g. a player
+    // reorders during an AI turn). Without this guard we can run overlapping AI
+    // loops that fight over persisted state and cause UI "blips".
+    if (this.running) return;
+    this.running = true;
 
-    let turnsExecuted = 0;
+    try {
+      // Use injected or default implementations
+      const createAdapter = this.deps.createAdapter ?? PartyGameAdapter.fromStoredState;
+      const isAIPlayerTurn = this.deps.isAIPlayerTurn ?? realIsAIPlayerTurn;
+      const thinkingDelayMs = this.deps.thinkingDelayMs ?? DEFAULT_AI_THINKING_DELAY_MS;
+      const interTurnDelayMs = this.deps.interTurnDelayMs ?? DEFAULT_INTER_TURN_DELAY_MS;
+      const toolDelayMs = this.deps.toolDelayMs ?? DEFAULT_TOOL_DELAY_MS;
+      const debug = this.deps.debug ?? false;
 
-    while (turnsExecuted < MAX_CHAINED_TURNS) {
-      const gameState = await this.deps.getState();
-      if (!gameState) return;
+      let turnsExecuted = 0;
 
-      const adapter = createAdapter(gameState);
+      while (turnsExecuted < MAX_CHAINED_TURNS) {
+        const gameState = await this.deps.getState();
+        if (!gameState) return;
 
-      // Check if it's an AI player's turn
-      const aiPlayer = isAIPlayerTurn(adapter);
-      if (!aiPlayer) return;
+        const adapter = createAdapter(gameState);
 
-      // Track state before AI turn for transition detection
-      const snapshotBefore = adapter.getSnapshot();
-      const phaseBefore = snapshotBefore.phase;
-      const roundBefore = snapshotBefore.currentRound;
+        // Check if it's an AI player's turn
+        const aiPlayer = isAIPlayerTurn(adapter);
+        if (!aiPlayer) return;
 
-      // Notify that AI is thinking
-      callbacks?.onAIThinking?.(aiPlayer.lobbyId, aiPlayer.name);
+        // Track state before AI turn for transition detection
+        const snapshotBefore = adapter.getSnapshot();
+        const phaseBefore = snapshotBefore.phase;
+        const roundBefore = snapshotBefore.currentRound;
 
-      // Small delay to let clients see the thinking indicator
-      if (thinkingDelayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs));
-      }
+        // Notify that AI is thinking
+        callbacks?.onAIThinking?.(aiPlayer.lobbyId, aiPlayer.name);
 
-      // Create abort controller for this AI turn
-      this.abortController = new AbortController();
-
-      const modelToUse = aiPlayer.aiModelId ?? "default:grok";
-
-      try {
-        if (debug) {
-          console.log(`[AI] Starting turn for ${aiPlayer.name} (${aiPlayer.lobbyId}) with model ${modelToUse}`);
+        // Small delay to let clients see the thinking indicator
+        if (thinkingDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs));
         }
 
-        const result = await this.deps.executeAITurn({
-          adapter,
-          aiPlayerId: aiPlayer.lobbyId,
-          modelId: modelToUse,
-          env: this.deps.env,
-          playerName: aiPlayer.name,
-          maxSteps: 10,
-          debug,
-          useFallbackOnError: true,
-          abortSignal: this.abortController.signal,
-          onPersist: async () => {
-            // Persist after each tool call
-            // Use merge to preserve other players' hands (fixes race condition with reorders)
-            const freshState = await this.deps.getState();
-            const mergedState = mergeAIStatePreservingOtherPlayerHands(
-              freshState,
-              adapter.getStoredState(),
-              aiPlayer.engineId
-            );
-            await this.deps.setState(mergedState);
-            await this.deps.broadcast();
+        // Create abort controller for this AI turn
+        this.abortController = new AbortController();
 
-            // Add delay after tool execution to give time for May-I clicks
-            // This is critical for testing - LLM calls already take seconds,
-            // but fallback is instant, so this delay helps either way
-            if (toolDelayMs > 0) {
-              if (debug) {
-                console.log(`[AI] Tool executed, waiting ${toolDelayMs}ms for May-I window...`);
+        const modelToUse = aiPlayer.aiModelId ?? "default:grok";
+
+        try {
+          if (debug) {
+            console.log(`[AI] Starting turn for ${aiPlayer.name} (${aiPlayer.lobbyId}) with model ${modelToUse}`);
+          }
+
+          const result = await this.deps.executeAITurn({
+            adapter,
+            aiPlayerId: aiPlayer.lobbyId,
+            modelId: modelToUse,
+            env: this.deps.env,
+            playerName: aiPlayer.name,
+            maxSteps: 10,
+            debug,
+            useFallbackOnError: true,
+            abortSignal: this.abortController.signal,
+            onPersist: async () => {
+              // Persist after each tool call
+              // Use merge to preserve other players' hands (fixes race condition with reorders)
+              const freshState = await this.deps.getState();
+              const mergedState = mergeAIStatePreservingOtherPlayerHands(
+                freshState,
+                adapter.getStoredState(),
+                aiPlayer.engineId
+              );
+              await this.deps.setState(mergedState);
+              await this.deps.broadcast();
+
+              // Add delay after tool execution to give time for May-I clicks
+              // This is critical for testing - LLM calls already take seconds,
+              // but fallback is instant, so this delay helps either way
+              if (toolDelayMs > 0) {
+                if (debug) {
+                  console.log(`[AI] Tool executed, waiting ${toolDelayMs}ms for May-I window...`);
+                }
+                await new Promise((resolve) => setTimeout(resolve, toolDelayMs));
               }
-              await new Promise((resolve) => setTimeout(resolve, toolDelayMs));
-            }
-          },
-        });
+            },
+          });
 
-        if (debug) {
-          console.log(`[AI] Turn result for ${aiPlayer.name}: success=${result.success}, usedFallback=${result.usedFallback}, actions=${result.actions.join(", ")}`);
-        }
+          if (debug) {
+            console.log(`[AI] Turn result for ${aiPlayer.name}: success=${result.success}, usedFallback=${result.usedFallback}, actions=${result.actions.join(", ")}`);
+          }
 
-        // Notify that AI is done thinking
-        callbacks?.onAIDone?.(aiPlayer.lobbyId);
-
-        // Normal completion - save final state
-        // Use merge to preserve other players' hands (fixes race condition with reorders)
-        const freshStateAtEnd = await this.deps.getState();
-        const mergedStateAtEnd = mergeAIStatePreservingOtherPlayerHands(
-          freshStateAtEnd,
-          adapter.getStoredState(),
-          aiPlayer.engineId
-        );
-        await this.deps.setState(mergedStateAtEnd);
-
-        // Check for round/game end transitions
-        if (callbacks?.onTransitionCheck) {
-          await callbacks.onTransitionCheck(adapter, phaseBefore, roundBefore);
-        }
-
-        // Broadcast updated game state
-        await this.deps.broadcast();
-
-        turnsExecuted++;
-
-        if (!result.success) {
-          console.error(`[AI] Turn failed for ${aiPlayer.name}: ${result.error}`);
-          // Continue to next iteration to check if it's still an AI's turn
-          // (fallback should have completed the turn)
-        }
-
-        // Exit if game ended
-        const phaseAfter = adapter.getSnapshot().phase;
-        if (phaseAfter === "GAME_END") {
-          return;
-        }
-
-        // Small delay between AI turns for better UX
-        if (interTurnDelayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, interTurnDelayMs));
-        }
-      } catch (err) {
-        // Clean up
-        this.abortController = null;
-
-        // Handle abort gracefully
-        if (err instanceof Error && err.name === "AbortError") {
-          // May-I was called - state already persisted via onPersist
-          // Exit loop and let May-I resolution take over
+          // Notify that AI is done thinking
           callbacks?.onAIDone?.(aiPlayer.lobbyId);
-          return;
+
+          // Normal completion - save final state
+          // Use merge to preserve other players' hands (fixes race condition with reorders)
+          const freshStateAtEnd = await this.deps.getState();
+          const mergedStateAtEnd = mergeAIStatePreservingOtherPlayerHands(
+            freshStateAtEnd,
+            adapter.getStoredState(),
+            aiPlayer.engineId
+          );
+          await this.deps.setState(mergedStateAtEnd);
+
+          // Check for round/game end transitions
+          if (callbacks?.onTransitionCheck) {
+            await callbacks.onTransitionCheck(adapter, phaseBefore, roundBefore);
+          }
+
+          // Broadcast updated game state
+          await this.deps.broadcast();
+
+          turnsExecuted++;
+
+          if (!result.success) {
+            console.error(`[AI] Turn failed for ${aiPlayer.name}: ${result.error}`);
+            // Continue to next iteration to check if it's still an AI's turn
+            // (fallback should have completed the turn)
+          }
+
+          // Exit if game ended
+          const phaseAfter = adapter.getSnapshot().phase;
+          if (phaseAfter === "GAME_END") {
+            return;
+          }
+
+          // Small delay between AI turns for better UX
+          if (interTurnDelayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, interTurnDelayMs));
+          }
+        } catch (err) {
+          // Clean up
+          this.abortController = null;
+
+          // Handle abort gracefully
+          if (err instanceof Error && err.name === "AbortError") {
+            // May-I was called - state already persisted via onPersist
+            // Exit loop and let May-I resolution take over
+            callbacks?.onAIDone?.(aiPlayer.lobbyId);
+            return;
+          }
+
+          // Re-throw unexpected errors
+          throw err;
+        } finally {
+          this.abortController = null;
         }
-
-        // Re-throw unexpected errors
-        throw err;
-      } finally {
-        this.abortController = null;
       }
-    }
 
-    if (turnsExecuted >= MAX_CHAINED_TURNS) {
-      console.warn("[AI] Hit max chained turns limit");
+      if (turnsExecuted >= MAX_CHAINED_TURNS) {
+        console.warn("[AI] Hit max chained turns limit");
+      }
+    } finally {
+      this.abortController = null;
+      this.running = false;
     }
   }
 
@@ -279,6 +291,6 @@ export class AITurnCoordinator {
    * Check if an AI turn is currently running
    */
   isRunning(): boolean {
-    return this.abortController !== null;
+    return this.running;
   }
 }

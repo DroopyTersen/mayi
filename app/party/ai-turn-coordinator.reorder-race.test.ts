@@ -95,6 +95,7 @@ describe("AI Turn Coordinator - Reorder Race Condition", () => {
     let aiFinishedTurn = false;
 
     // Create deps for AI coordinator that simulates the race
+    let aiTurnChecks = 0;
     const deps: AITurnCoordinatorDeps = {
       getState: async () => {
         aiLoadedState = true;
@@ -162,6 +163,9 @@ describe("AI Turn Coordinator - Reorder Race Condition", () => {
         } as AITurnResult;
       },
       isAIPlayerTurn: (adapter) => {
+        // This test only needs to exercise a single AI turn.
+        // Prevent long chained AI loops from hitting MAX_CHAINED_TURNS.
+        if (aiTurnChecks++ > 0) return null;
         const snap = adapter.getSnapshot();
         const awaiting = snap.awaitingPlayerId;
         const mapping = adapter.getAllPlayerMappings().find(m => m.engineId === awaiting);
@@ -197,5 +201,60 @@ describe("AI Turn Coordinator - Reorder Race Condition", () => {
 
     // Verify that the merge preserved the human's reorder
     expect(finalHandOrder).toEqual(reversedHandOrder);
+  });
+
+  it("does not run overlapping AI loops when called concurrently", async () => {
+    const initialState = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+    let storedState: StoredGameState | null = initialState;
+
+    // Use the real adapter so merge + serialization paths stay realistic.
+    const adapter = PartyGameAdapter.fromStoredState(storedState);
+    const aiMapping = adapter.getAllPlayerMappings().find((m) => m.isAI)!;
+
+    let executeCalls = 0;
+    let releaseAITurn: (() => void) | null = null;
+    const waitForRelease = new Promise<void>((resolve) => {
+      releaseAITurn = resolve;
+    });
+
+    const deps: AITurnCoordinatorDeps = {
+      getState: async () => storedState,
+      setState: async (state) => {
+        storedState = state;
+      },
+      broadcast: async () => {},
+      // Block the "AI turn" so we can call executeAITurnsIfNeeded again while it's running.
+      executeAITurn: async () => {
+        executeCalls++;
+        await waitForRelease;
+        return {
+          success: true,
+          actions: [],
+          usedFallback: true,
+        };
+      },
+      // Return an AI player exactly once so the coordinator exits after one "turn".
+      isAIPlayerTurn: () => (executeCalls === 0 ? aiMapping : null),
+      createAdapter: PartyGameAdapter.fromStoredState,
+      env: {},
+      thinkingDelayMs: 0,
+      interTurnDelayMs: 0,
+      toolDelayMs: 0,
+      debug: false,
+    };
+
+    const coordinator = new AITurnCoordinator(deps);
+
+    const first = coordinator.executeAITurnsIfNeeded();
+    // Ensure the first call has started and is blocked inside executeAITurn.
+    await Promise.resolve();
+    const second = coordinator.executeAITurnsIfNeeded();
+
+    // Unblock the AI "turn" and wait for both calls to settle.
+    releaseAITurn?.();
+    await Promise.all([first, second]);
+
+    expect(executeCalls).toBe(1);
   });
 });
