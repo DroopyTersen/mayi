@@ -66,7 +66,7 @@ The engine correctly handles this exact scenario:
 ```typescript
 // LayDownDrawer.tsx
 <LayDownView
-  key={open ? `open-${Date.now()}` : 'closed'}
+  key={open ? "open" : "closed"}
   hand={hand}
   contract={contract}
   ...
@@ -96,6 +96,11 @@ useEffect(() => {
 2. Test on actual mobile device
 3. Get exact reproduction steps from Jane for the 8x duplication
 4. Consider e2e tests for lay down flow
+
+## Current Fix Attempt (In Progress)
+
+- `app/ui/lay-down-view/LayDownDrawer.tsx` now forces `LayDownView` to remount on `open` transitions (and contract changes), which resets staged UI state even when Vaul keeps the drawer mounted.
+- `app/ui/lay-down-view/LayDownView.tsx` adds a defensive “already staged” guard to prevent the same `card.id` from being staged multiple times under rapid taps/double-fired events.
 
 ## Related
 
@@ -141,6 +146,7 @@ These are “recipes” to try reproducing both the missing-cards behavior and t
 Goal: create a laydown that passes the UI’s *length-only* checks but should be rejected by the engine, then reopen the drawer.
 
 1. In a real game where Lay Down is availablectionBar-available, open Lay Down (mobile drawer).
+1. In a real game where Lay Down is available, open Lay Down (mobile drawer).
 2. Stage melds that satisfy the UI checks but are engine-invalid:
    - For a Set: choose 3 cards that are not all the same rank.
    - For a Run: choose 4 cards that aren’t a valid run (no valid wild substitution).
@@ -180,3 +186,8 @@ Goal: see stale staged state carry across contract changes.
    - staged cards carrying over,
    - incorrect number/type of staging slots,
    - “missing” hand cards due to stale `stagedCardIds`.
+
+### Storybook Harness
+
+- `app/ui/lay-down-view/LayDownBug34Repro.story.tsx` provides a Vaul-based repro harness (no media query dependency).
+- Story route: `/storybook/bug-34-lay-down`

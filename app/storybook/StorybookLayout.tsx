@@ -12,6 +12,7 @@ import { ActivityLogStory } from "~/ui/game-status/ActivityLog.story";
 import { ActionBarStory } from "~/ui/action-bar/ActionBar.story";
 import { ResponsiveDrawerStory } from "~/ui/responsive-drawer/ResponsiveDrawer.story";
 import { LayDownViewStory } from "~/ui/lay-down-view/LayDownView.story";
+import { LayDownBug34ReproStory } from "~/ui/lay-down-view/LayDownBug34Repro.story";
 import { LayOffViewStory } from "~/ui/lay-off-view/LayOffView.story";
 import { DiscardViewStory } from "~/ui/discard-view/DiscardView.story";
 import { OrganizeHandViewStory } from "~/ui/organize-hand/OrganizeHandView.story";
@@ -38,6 +39,7 @@ const STORIES: Array<{ path: string; label: string; component: React.ComponentTy
   { path: "action-bar", label: "ActionBar", component: ActionBarStory },
   { path: "responsive-drawer", label: "ResponsiveDrawer", component: ResponsiveDrawerStory },
   { path: "lay-down-view", label: "LayDownView", component: LayDownViewStory },
+  { path: "bug-34-lay-down", label: "Bug #34 Lay Down Repro", component: LayDownBug34ReproStory },
   { path: "lay-off-view", label: "LayOffView", component: LayOffViewStory },
   { path: "discard-view", label: "DiscardView", component: DiscardViewStory },
   { path: "organize-hand-view", label: "OrganizeHandView", component: OrganizeHandViewStory },

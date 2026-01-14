@@ -41,6 +41,9 @@ export function LayDownDrawer({
       className="sm:max-w-lg"
     >
       <LayDownView
+        // Bug #34: Vaul drawer keeps content mounted on close.
+        // Force remount on open/close transitions so staged state resets.
+        key={`${open}-${contract.sets}-${contract.runs}`}
         hand={hand}
         contract={contract}
         initialStagedMelds={initialStagedMelds}
