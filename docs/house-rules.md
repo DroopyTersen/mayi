@@ -51,6 +51,16 @@ Jokers are powerful but brutal if they are stuck in your hand at the end of a ha
 - **Set (group):** 3 or more cards of the same rank, any suits. Duplicate suits are allowed since this is a multi-deck game (e.g., 7♠ 7♠ 7♦ is a valid set).
 - **Run (sequence):** 4 or more cards of the same suit in consecutive order
 
+### Same-suit run gap rule
+
+When a contract requires 2 runs and both runs are of the same suit, there must be a gap of at least 2 cards between them.
+
+- **Valid:** 3♠ 4♠ 5♠ 6♠ and 9♠ 10♠ J♠ Q♠ (gap of 7♠ 8♠ — 2 cards)
+- **Invalid:** 3♠ 4♠ 5♠ 6♠ and 8♠ 9♠ 10♠ J♠ (gap of only 7♠ — 1 card)
+- **Invalid:** 3♠ 4♠ 5♠ 6♠ and 7♠ 8♠ 9♠ 10♠ (no gap — these could be combined into one run)
+
+This rule prevents splitting what could be a single longer run into two separate runs to satisfy the contract.
+
 ### 6 hand sequence
 
 1. Hand 1: 2 sets
