@@ -221,6 +221,12 @@ export interface PlayerView {
   /** Who this view is for */
   viewingPlayerId: string;
 
+  /** Your display name */
+  yourName: string;
+
+  /** Your character avatar ID */
+  yourAvatarId?: string;
+
   // ─────────────────────────────────────────────────────────────────────────
   // Your Data (Full Visibility)
   // ─────────────────────────────────────────────────────────────────────────

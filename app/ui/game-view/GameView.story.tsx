@@ -126,6 +126,8 @@ const MOCK_HAND: Card[] = [
 const MOCK_GAME_STATE: PlayerView = {
   gameId: "story-game",
   viewingPlayerId: "p1",
+  yourName: "Drew",
+  yourAvatarId: "andrew",
   yourHand: MOCK_HAND,
   isYourTurn: false,
   youAreDown: true,

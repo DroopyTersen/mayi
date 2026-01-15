@@ -20,7 +20,10 @@ import { OrganizeHandView } from "~/ui/organize-hand/OrganizeHandView";
 import { HandDrawer } from "~/ui/hand-drawer/HandDrawer";
 import { useMediaQuery } from "~/shadcn/hooks/useMediaQuery";
 import { MOBILE_MEDIA_QUERY } from "~/ui/playing-card/playing-card.constants";
-import { getDiscardInteractiveLabel, getTurnPhaseText } from "./game-view.utils";
+import {
+  getDiscardInteractiveLabel,
+  getTurnPhaseText,
+} from "./game-view.utils";
 import { cn } from "~/shadcn/lib/utils";
 import { Layers } from "lucide-react";
 import { identifyJokerPositions } from "core/meld/meld.joker";
@@ -50,7 +53,13 @@ interface GameViewProps {
   className?: string;
 }
 
-type ActiveDrawer = "layDown" | "layOff" | "discard" | "swapJoker" | "organize" | null;
+type ActiveDrawer =
+  | "layDown"
+  | "layOff"
+  | "discard"
+  | "swapJoker"
+  | "organize"
+  | null;
 
 export function GameView({
   gameState,
@@ -127,8 +136,13 @@ export function GameView({
   const handleAction = useCallback(
     (action: string) => {
       // Open drawer for view-based actions
-      if (action === "layDown" || action === "layOff" || action === "discard" ||
-          action === "swapJoker" || action === "organize") {
+      if (
+        action === "layDown" ||
+        action === "layOff" ||
+        action === "discard" ||
+        action === "swapJoker" ||
+        action === "organize"
+      ) {
         setActiveDrawer(action);
         return;
       }
@@ -146,7 +160,12 @@ export function GameView({
   // Handle lay down action
   const handleLayDown = useCallback(
     (melds: Array<{ type: "set" | "run"; cards: Array<{ id: string }> }>) => {
-      onAction?.("layDown", { melds: melds.map(m => ({ type: m.type, cardIds: m.cards.map(c => c.id) })) });
+      onAction?.("layDown", {
+        melds: melds.map((m) => ({
+          type: m.type,
+          cardIds: m.cards.map((c) => c.id),
+        })),
+      });
       setActiveDrawer(null);
     },
     [onAction]
@@ -182,19 +201,19 @@ export function GameView({
   // Handle organize hand (reorder)
   const handleOrganize = useCallback(
     (newOrder: Array<{ id: string }>) => {
-      onAction?.("reorderHand", { cardIds: newOrder.map(c => c.id) });
+      onAction?.("reorderHand", { cardIds: newOrder.map((c) => c.id) });
       setActiveDrawer(null);
     },
     [onAction]
   );
-
 
   // Build players list for TableDisplay and PlayersTableDisplay
   // Players are ordered by turnOrder from the game state
   const allPlayers = useMemo(() => {
     const self = {
       id: gameState.viewingPlayerId,
-      name: "You",
+      name: gameState.yourName,
+      avatarId: gameState.yourAvatarId,
       cardCount: gameState.yourHand.length,
       isDown: gameState.youAreDown,
       score: gameState.yourTotalScore,
@@ -205,6 +224,7 @@ export function GameView({
         {
           id: opp.id,
           name: opp.name,
+          avatarId: opp.avatarId,
           cardCount: opp.handCount,
           isDown: opp.isDown,
           score: opp.totalScore,
@@ -215,9 +235,7 @@ export function GameView({
     // Order players by turnOrder (if available), otherwise fall back to self-first
     if (gameState.turnOrder && gameState.turnOrder.length > 0) {
       return gameState.turnOrder.map((playerId) =>
-        playerId === gameState.viewingPlayerId
-          ? self
-          : othersMap.get(playerId)!
+        playerId === gameState.viewingPlayerId ? self : othersMap.get(playerId)!
       );
     }
 
@@ -225,9 +243,13 @@ export function GameView({
     return [self, ...Array.from(othersMap.values())];
   }, [gameState]);
 
-  // Build simple players list for TableDisplay (just id and name)
+  // Build simple players list for TableDisplay (id, name, avatarId)
   const tablePlayers = useMemo(() => {
-    return allPlayers.map((p) => ({ id: p.id, name: p.name }));
+    return allPlayers.map((p) => ({
+      id: p.id,
+      name: p.name,
+      avatarId: p.avatarId,
+    }));
   }, [allPlayers]);
 
   // Current player (the one whose turn it is)
@@ -240,14 +262,30 @@ export function GameView({
   );
 
   // Turn phase text for display
-  const awaitingPlayerName = useMemo(() => {
+  const awaitingPlayer = useMemo(() => {
+    if (gameState.isYourTurn) {
+      return { name: gameState.yourName, avatarId: gameState.yourAvatarId };
+    }
     const opponent = gameState.opponents.find((o) => o.id === currentPlayerId);
-    return opponent?.name;
-  }, [gameState.opponents, currentPlayerId]);
+    return opponent
+      ? { name: opponent.name, avatarId: opponent.avatarId }
+      : undefined;
+  }, [
+    gameState.opponents,
+    gameState.isYourTurn,
+    gameState.yourName,
+    gameState.yourAvatarId,
+    currentPlayerId,
+  ]);
 
   const turnPhaseText = useMemo(
-    () => getTurnPhaseText(gameState.isYourTurn, gameState.turnPhase, awaitingPlayerName),
-    [gameState.isYourTurn, gameState.turnPhase, awaitingPlayerName]
+    () =>
+      getTurnPhaseText(
+        gameState.isYourTurn,
+        gameState.turnPhase,
+        awaitingPlayer?.name
+      ),
+    [gameState.isYourTurn, gameState.turnPhase, awaitingPlayer?.name]
   );
 
   return (
@@ -281,21 +319,18 @@ export function GameView({
       )}
 
       {/* Main Content - Responsive Layout */}
-      <div className={cn(
-        "flex-1 p-4 min-h-0 overflow-y-auto",
-        isMobile && `pb-[${MOBILE_DRAWER_PADDING}px]`
-      )}>
+      <div
+        className={cn(
+          "flex-1 p-4 min-h-0 overflow-y-auto",
+          isMobile && `pb-[${MOBILE_DRAWER_PADDING}px]`
+        )}
+      >
         {/* Desktop: 2-column layout, Mobile: stacked */}
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Left Column: Game Table Area - scroll container on desktop */}
           <div className="lg:col-span-2 flex flex-col min-h-0">
             {/* Table - Melds only (piles moved to bottom section) */}
-            <div className="rounded-lg border bg-card p-4 flex flex-col min-h-0 flex-1">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-4 shrink-0">
-                <Layers className="w-4 h-4" />
-                <span>Table</span>
-              </div>
-
+            <div className="rounded-lg bg-card p-4 flex flex-col min-h-0 flex-1">
               {/* Melds on table - scrollable */}
               <div className="overflow-y-auto flex-1 min-h-0">
                 <TableDisplay
@@ -308,22 +343,17 @@ export function GameView({
             </div>
           </div>
 
-          {/* Right Column: Players & Activity */}
-          <div className="space-y-4">
-            {/* Players Table */}
-            <div className="rounded-lg border bg-card p-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                Players
-              </h3>
-              <PlayersTableDisplay
-                players={allPlayers}
-                viewingPlayerId={gameState.viewingPlayerId}
-                activePlayerId={gameState.awaitingPlayerId}
-              />
-            </div>
+          {/* Right Column: Players & Activity in single container */}
+          <div className="rounded-lg border bg-card overflow-hidden">
+            {/* Players Table - full width, no padding */}
+            <PlayersTableDisplay
+              players={allPlayers}
+              viewingPlayerId={gameState.viewingPlayerId}
+              activePlayerId={gameState.awaitingPlayerId}
+            />
 
             {/* Activity Log */}
-            <div className="rounded-lg border bg-card p-4">
+            <div className="p-4 border-t">
               <h3 className="text-sm font-medium text-muted-foreground mb-3">
                 Activity
               </h3>
@@ -347,22 +377,24 @@ export function GameView({
 
       {/* Desktop: Fixed bottom section with piles + hand + action bar */}
       {!isMobile && (
-        <div className="sticky bottom-0 z-10 bg-background border-t">
+        <div className="sticky bottom-0 z-10 bg-background">
           <div className="max-w-6xl mx-auto p-4 space-y-3">
             {/* Turn status indicator */}
-            <div className="flex items-center justify-between text-sm">
+            <div className="text-sm text-center">
               <span
                 className={cn(
                   "font-medium",
-                  gameState.isYourTurn ? "text-primary" : "text-muted-foreground"
+                  gameState.isYourTurn
+                    ? "text-primary"
+                    : "text-muted-foreground"
                 )}
               >
                 {turnPhaseText}
               </span>
               {selectedCardIds.size > 0 && (
-                <span className="text-muted-foreground">
-                  {selectedCardIds.size} card{selectedCardIds.size !== 1 && "s"}{" "}
-                  selected
+                <span className="text-muted-foreground ml-3">
+                  · {selectedCardIds.size} card
+                  {selectedCardIds.size !== 1 && "s"} selected
                 </span>
               )}
             </div>
@@ -378,7 +410,12 @@ export function GameView({
                   interactiveLabel={discardInteractiveLabel}
                   onClick={
                     discardInteractiveLabel
-                      ? () => handleAction(discardInteractiveLabel === "pickup" ? "pickUpDiscard" : "mayI")
+                      ? () =>
+                          handleAction(
+                            discardInteractiveLabel === "pickup"
+                              ? "pickUpDiscard"
+                              : "mayI"
+                          )
                       : undefined
                   }
                 />
@@ -466,7 +503,9 @@ export function GameView({
       >
         <SwapJokerView
           hand={gameState.yourHand}
-          meldsWithJokers={gameState.table.filter(m => m.cards.some(c => c.rank === "Joker"))}
+          meldsWithJokers={gameState.table.filter((m) =>
+            m.cards.some((c) => c.rank === "Joker")
+          )}
           swappableJokers={swappableJokers}
           onSwap={handleSwapJoker}
           onCancel={closeDrawer}

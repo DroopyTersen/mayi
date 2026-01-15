@@ -31,19 +31,30 @@ export function ActivityLog({
 
   return (
     <div className={cn("space-y-1", className)}>
-      {displayEntries.map((entry) => (
-        <div
-          key={entry.id}
-          className="flex items-baseline gap-2 text-sm"
-        >
-          {entry.timestamp && (
-            <span className="text-xs text-muted-foreground shrink-0 tabular-nums w-14 text-right">
-              {entry.timestamp}
+      {displayEntries.map((entry, index) => {
+        const isLatest = index === 0;
+        return (
+          <div
+            key={entry.id}
+            className="flex items-baseline gap-2 text-sm"
+          >
+            {entry.timestamp && (
+              <span className="text-xs text-muted-foreground shrink-0 tabular-nums w-14 text-right">
+                {entry.timestamp}
+              </span>
+            )}
+            <span
+              className={cn(
+                isLatest
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground"
+              )}
+            >
+              {entry.message}
             </span>
-          )}
-          <span className="text-foreground">{entry.message}</span>
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

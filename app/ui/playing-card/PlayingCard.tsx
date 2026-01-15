@@ -152,8 +152,8 @@ export function PlayingCard({
         selected
           ? "border-primary ring-2 ring-primary ring-offset-1"
           : "border-gray-300",
-        // Wild card indicator - more visible amber background
-        isWild && !selected && "bg-amber-100 border-amber-300",
+        // Wild card indicator - light purple to match Joker icon
+        isWild && !selected && "bg-purple-50 border-purple-200",
         // Interactive states
         onClick && "cursor-pointer hover:border-gray-400 hover:shadow-md",
         // When not interactive, allow clicks to pass through to parent (FT-1002)

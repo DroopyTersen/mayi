@@ -221,6 +221,8 @@ export class GameEngine {
     return {
       gameId: snapshot.gameId,
       viewingPlayerId: playerId,
+      yourName: player.name,
+      yourAvatarId: player.avatarId,
       yourHand: [...player.hand],
       isYourTurn: snapshot.awaitingPlayerId === playerId,
       youAreDown: player.isDown,

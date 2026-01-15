@@ -5,6 +5,7 @@ import { cn } from "~/shadcn/lib/utils";
 interface Player {
   id: string;
   name: string;
+  avatarId?: string;
 }
 
 interface TableDisplayProps {
@@ -32,31 +33,14 @@ export function TableDisplay({
     meldsByPlayer.set(meld.ownerId, existing);
   }
 
-  // Get players who have melds (in order of players array)
-  const playersWithMelds = players.filter(
-    (p) => meldsByPlayer.has(p.id) && meldsByPlayer.get(p.id)!.length > 0
-  );
-
-  if (playersWithMelds.length === 0) {
-    return (
-      <div
-        className={cn(
-          "text-center text-muted-foreground py-8 border border-dashed rounded-lg",
-          className
-        )}
-      >
-        <p className="text-sm">No melds on the table yet</p>
-        <p className="text-xs mt-1">Be the first to lay down!</p>
-      </div>
-    );
-  }
-
+  // Show all players, regardless of whether they have melds
   return (
     <div className={cn("space-y-3", className)}>
-      {playersWithMelds.map((player) => (
+      {players.map((player) => (
         <PlayerMeldsDisplay
           key={player.id}
           playerName={player.name}
+          playerAvatarId={player.avatarId}
           melds={meldsByPlayer.get(player.id) ?? []}
           isActiveTurn={player.id === currentPlayerId}
           isViewingPlayer={player.id === viewingPlayerId}

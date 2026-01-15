@@ -422,6 +422,9 @@ export class PartyGameAdapter {
     try {
       const view = this.engine.getPlayerView(engineId);
 
+      // Find the viewing player's mapping for avatarId
+      const selfMapping = this.playerMappings.find((m) => m.engineId === engineId);
+
       // Enrich opponents with avatarIds from mappings
       const enrichedOpponents = view.opponents.map((opponent) => {
         const mapping = this.playerMappings.find((m) => m.engineId === opponent.id);
@@ -433,6 +436,7 @@ export class PartyGameAdapter {
 
       return {
         ...view,
+        yourAvatarId: selfMapping?.avatarId,
         opponents: enrichedOpponents,
       };
     } catch {

@@ -3,10 +3,10 @@ import type { Meld } from "core/meld/meld.types";
 import { ViewportComparison } from "~/storybook/ViewportSimulator";
 
 const PLAYERS = [
-  { id: "p1", name: "Alice" },
-  { id: "p2", name: "Bob" },
-  { id: "p3", name: "Charlie" },
-  { id: "p4", name: "Diana" },
+  { id: "p1", name: "Alice", avatarId: "alice" },
+  { id: "p2", name: "Bob", avatarId: "bob" },
+  { id: "p3", name: "Charlie", avatarId: "charlie" },
+  { id: "p4", name: "Diana", avatarId: "diana" },
 ];
 
 const MELDS_ON_TABLE: Meld[] = [
@@ -72,7 +72,7 @@ export function TableDisplayStory() {
         <h2 className="text-lg font-semibold mb-3">Default</h2>
         <TableDisplay melds={MELDS_ON_TABLE} players={PLAYERS} />
         <p className="text-xs text-muted-foreground mt-2">
-          Only players with melds are shown. Charlie has no melds.
+          All players are shown. Charlie hasn't laid down yet and shows a placeholder.
         </p>
       </section>
 
@@ -89,20 +89,26 @@ export function TableDisplayStory() {
         </p>
       </section>
 
-      {/* Empty Table */}
+      {/* No One Laid Down Yet */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Empty Table</h2>
+        <h2 className="text-lg font-semibold mb-3">No One Laid Down Yet</h2>
         <TableDisplay melds={[]} players={PLAYERS} />
+        <p className="text-xs text-muted-foreground mt-2">
+          All players visible with placeholder text until they lay down.
+        </p>
       </section>
 
-      {/* Single Player with Melds */}
+      {/* One Player Has Laid Down */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Single Player</h2>
+        <h2 className="text-lg font-semibold mb-3">One Player Has Laid Down</h2>
         <TableDisplay
           melds={MELDS_ON_TABLE.filter((m) => m.ownerId === "p2")}
           players={PLAYERS}
           currentPlayerId="p2"
         />
+        <p className="text-xs text-muted-foreground mt-2">
+          Only Bob has laid down. Others show placeholder text.
+        </p>
       </section>
 
       {/* Responsive */}

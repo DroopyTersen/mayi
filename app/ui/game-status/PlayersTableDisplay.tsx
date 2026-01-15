@@ -4,6 +4,7 @@ import { Check, Minus } from "lucide-react";
 interface PlayerStatus {
   id: string;
   name: string;
+  avatarId?: string;
   cardCount: number;
   isDown: boolean;
   score: number;
@@ -15,6 +16,8 @@ interface PlayersTableDisplayProps {
   viewingPlayerId?: string;
   /** The player whose turn it is (highlighted row) */
   activePlayerId?: string;
+  /** Hide the outer border (useful when embedded in a container) */
+  borderless?: boolean;
   className?: string;
 }
 
@@ -22,10 +25,11 @@ export function PlayersTableDisplay({
   players,
   viewingPlayerId,
   activePlayerId,
+  borderless = false,
   className,
 }: PlayersTableDisplayProps) {
   return (
-    <div className={cn("rounded-lg border overflow-hidden", className)}>
+    <div className={cn(!borderless && "rounded-lg border", "overflow-hidden", className)}>
       <table className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
@@ -42,22 +46,26 @@ export function PlayersTableDisplay({
             return (
               <tr
                 key={player.id}
-                className={cn(isActivePlayer && "bg-primary/10")}
+                className={cn(
+                  isActivePlayer && isViewingPlayer && "bg-blue-50",
+                  isActivePlayer && !isViewingPlayer && "bg-orange-50"
+                )}
               >
                 <td className="py-2 px-3">
-                  <span
-                    className={cn(
-                      "font-medium",
-                      isActivePlayer && "text-primary"
-                    )}
-                  >
-                    {player.name}
-                  </span>
-                  {isViewingPlayer && (
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      (You)
+                  <div className="flex items-center gap-2">
+                    <PlayerAvatar
+                      name={player.name}
+                      avatarId={player.avatarId}
+                    />
+                    <span className="font-medium">
+                      {player.name}
                     </span>
-                  )}
+                    {isViewingPlayer && (
+                      <span className="text-xs text-muted-foreground">
+                        (you)
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="text-center py-2 px-3 tabular-nums">
                   {player.cardCount}
@@ -77,6 +85,26 @@ export function PlayersTableDisplay({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function PlayerAvatar({ name, avatarId }: { name: string; avatarId?: string }) {
+  if (avatarId) {
+    return (
+      <img
+        src={`/avatars/${avatarId}.svg`}
+        alt={name}
+        className="w-6 h-6 rounded-full shrink-0"
+      />
+    );
+  }
+
+  return (
+    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+      <span className="text-xs font-medium text-muted-foreground">
+        {name.charAt(0).toUpperCase()}
+      </span>
     </div>
   );
 }
