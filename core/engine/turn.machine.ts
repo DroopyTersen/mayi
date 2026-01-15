@@ -50,6 +50,8 @@ export interface TurnContext {
   roundNumber: RoundNumber;
   isDown: boolean;
   laidDownThisTurn: boolean;
+  /** True if player took a meaningful action this turn (lay down, lay off, swap joker) */
+  tookActionThisTurn: boolean;
   table: Meld[];
   /** Error message from last failed operation */
   lastError: string | null;
@@ -472,6 +474,7 @@ export const turnMachine = setup({
       },
       isDown: () => true,
       laidDownThisTurn: () => true,
+      tookActionThisTurn: () => true,
     }),
     layOff: assign({
       hand: ({ context, event }) => {
@@ -502,6 +505,7 @@ export const turnMachine = setup({
           }
         });
       },
+      tookActionThisTurn: () => true,
     }),
     // SWAP_JOKER action - swap a Joker from a run with a card from hand
     swapJoker: assign({
@@ -541,6 +545,7 @@ export const turnMachine = setup({
           return { ...meld, cards: newCards };
         });
       },
+      tookActionThisTurn: () => true,
     }),
     // REORDER_HAND action - reorder cards in hand (free action)
     reorderHand: assign({
@@ -600,6 +605,7 @@ export const turnMachine = setup({
     roundNumber: input.roundNumber,
     isDown: input.isDown,
     laidDownThisTurn: input.laidDownThisTurn ?? false,
+    tookActionThisTurn: false,
     table: input.table,
     lastError: null,
     playerOrder: input.playerOrder ?? [],

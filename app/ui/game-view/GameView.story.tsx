@@ -161,6 +161,7 @@ const MOCK_GAME_STATE: PlayerView = {
     canClaimMayI: false,
     canReorderHand: true, // Can organize hand even when not your turn
     hasPendingMayIRequest: false,
+    shouldNudgeDiscard: false,
   },
   turnOrder: ["p1", "p2", "p3", "p4"],
 };

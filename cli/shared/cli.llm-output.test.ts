@@ -51,6 +51,7 @@ function createMockSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot
     table: [],
     hasDrawn: false,
     laidDownThisTurn: false,
+    tookActionThisTurn: false,
     mayIContext: null,
     roundHistory: [],
     createdAt: new Date().toISOString(),

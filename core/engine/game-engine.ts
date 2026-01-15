@@ -62,6 +62,7 @@ interface TurnContext {
   isDown: boolean;
   hasDrawn: boolean;
   laidDownThisTurn: boolean;
+  tookActionThisTurn: boolean;
   table: Meld[];
   lastError: string | null;
 }
@@ -473,6 +474,7 @@ export class GameEngine {
       table: turnContext?.table ?? roundContext?.table ?? [],
       hasDrawn: turnContext?.hasDrawn ?? false,
       laidDownThisTurn: turnContext?.laidDownThisTurn ?? false,
+      tookActionThisTurn: turnContext?.tookActionThisTurn ?? false,
       mayIContext: mayIContextResult,
       roundHistory: context.roundHistory ?? [],
       createdAt: this.createdAt,
