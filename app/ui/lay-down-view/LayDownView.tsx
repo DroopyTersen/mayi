@@ -51,6 +51,11 @@ export function LayDownView({
     if (!card) return;
 
     setStagedMelds((prev) => {
+      // Defensive: prevent the same card id from being staged multiple times
+      // (e.g. rapid taps / double-fired events before re-render).
+      const alreadyStaged = prev.some((m) => m.cards.some((c) => c.id === card.id));
+      if (alreadyStaged) return prev;
+
       const activeMeld = prev[activeMeldIndex];
       if (!activeMeld) return prev;
 

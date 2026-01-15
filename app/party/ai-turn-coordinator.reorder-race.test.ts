@@ -213,9 +213,9 @@ describe("AI Turn Coordinator - Reorder Race Condition", () => {
     const aiMapping = adapter.getAllPlayerMappings().find((m) => m.isAI)!;
 
     let executeCalls = 0;
-    let releaseAITurn: (() => void) | null = null;
+    let releaseAITurn!: () => void;
     const waitForRelease = new Promise<void>((resolve) => {
-      releaseAITurn = resolve;
+      releaseAITurn = () => resolve();
     });
 
     const deps: AITurnCoordinatorDeps = {
@@ -252,7 +252,7 @@ describe("AI Turn Coordinator - Reorder Race Condition", () => {
     const second = coordinator.executeAITurnsIfNeeded();
 
     // Unblock the AI "turn" and wait for both calls to settle.
-    releaseAITurn?.();
+    releaseAITurn();
     await Promise.all([first, second]);
 
     expect(executeCalls).toBe(1);

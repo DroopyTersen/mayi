@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
+import { useMediaQueryOverrides } from "./mediaQueryOverrides";
 
 export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
+  const overrides = useMediaQueryOverrides();
+  const overridden = overrides[query];
 
   useEffect(() => {
+    if (overridden !== undefined) return;
     const media = window.matchMedia(query);
 
     // Set initial value
@@ -21,7 +25,7 @@ export function useMediaQuery(query: string): boolean {
     return () => {
       media.removeEventListener("change", listener);
     };
-  }, [query]);
+  }, [query, overridden]);
 
-  return matches;
+  return overridden ?? matches;
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cn } from "~/shadcn/lib/utils";
+import { MediaQueryOverrideProvider } from "~/shadcn/hooks/mediaQueryOverrides";
 
 type Viewport = "phone" | "tablet" | "desktop" | "full";
 
@@ -7,6 +8,7 @@ interface ViewportConfig {
   label: string;
   width: string;
   description: string;
+  widthPx?: number;
 }
 
 const VIEWPORTS: Record<Viewport, ViewportConfig> = {
@@ -14,16 +16,19 @@ const VIEWPORTS: Record<Viewport, ViewportConfig> = {
     label: "Phone",
     width: "375px",
     description: "iPhone SE/Mini size",
+    widthPx: 375,
   },
   tablet: {
     label: "Tablet",
     width: "768px",
     description: "iPad Mini/Small tablet",
+    widthPx: 768,
   },
   desktop: {
     label: "Desktop",
     width: "1024px",
     description: "Small laptop",
+    widthPx: 1024,
   },
   full: {
     label: "Full",
@@ -51,47 +56,50 @@ export function ViewportSimulator({
 }: ViewportSimulatorProps) {
   const [viewport, setViewport] = useState<Viewport>(defaultViewport);
   const config = VIEWPORTS[viewport];
+  const isDesktop = (config.widthPx ?? Number.POSITIVE_INFINITY) >= 768;
 
   return (
-    <div className={cn("space-y-4", className)}>
-      {showControls && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">Viewport:</span>
-          {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setViewport(v)}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-full transition-colors",
-                viewport === v
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted hover:bg-muted/80"
-              )}
-            >
-              {VIEWPORTS[v].label}
-            </button>
-          ))}
-          <span className="text-xs text-muted-foreground ml-2">
-            ({config.width} - {config.description})
-          </span>
-        </div>
-      )}
-
-      {/* Container with @container query support */}
-      <div
-        className={cn(
-          "border border-dashed border-muted-foreground/30 rounded-lg overflow-hidden transition-all duration-300",
-          viewport !== "full" && "mx-auto"
+    <MediaQueryOverrideProvider overrides={{ "(min-width: 768px)": isDesktop }}>
+      <div className={cn("space-y-4", className)}>
+        {showControls && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">Viewport:</span>
+            {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setViewport(v)}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                  viewport === v
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted hover:bg-muted/80"
+                )}
+              >
+                {VIEWPORTS[v].label}
+              </button>
+            ))}
+            <span className="text-xs text-muted-foreground ml-2">
+              ({config.width} - {config.description})
+            </span>
+          </div>
         )}
-        style={{
-          maxWidth: config.width,
-          containerType: "inline-size",
-        }}
-      >
-        <div className="bg-background">{children}</div>
+
+        {/* Container with @container query support */}
+        <div
+          className={cn(
+            "border border-dashed border-muted-foreground/30 rounded-lg overflow-hidden transition-all duration-300",
+            viewport !== "full" && "mx-auto"
+          )}
+          style={{
+            maxWidth: config.width,
+            containerType: "inline-size",
+          }}
+        >
+          <div className="bg-background">{children}</div>
+        </div>
       </div>
-    </div>
+    </MediaQueryOverrideProvider>
   );
 }
 
@@ -113,6 +121,7 @@ export function ViewportComparison({
     <div className={cn("space-y-6", className)}>
       {viewports.map((viewport) => {
         const config = VIEWPORTS[viewport];
+        const isDesktop = (config.widthPx ?? Number.POSITIVE_INFINITY) >= 768;
         return (
           <div key={viewport} className="space-y-2">
             <div className="flex items-center gap-2">
@@ -121,15 +130,17 @@ export function ViewportComparison({
                 ({config.width})
               </span>
             </div>
-            <div
-              className="border border-dashed border-muted-foreground/30 rounded-lg overflow-hidden"
-              style={{
-                maxWidth: config.width,
-                containerType: "inline-size",
-              }}
-            >
-              <div className="bg-background">{children}</div>
-            </div>
+            <MediaQueryOverrideProvider overrides={{ "(min-width: 768px)": isDesktop }}>
+              <div
+                className="border border-dashed border-muted-foreground/30 rounded-lg overflow-hidden"
+                style={{
+                  maxWidth: config.width,
+                  containerType: "inline-size",
+                }}
+              >
+                <div className="bg-background">{children}</div>
+              </div>
+            </MediaQueryOverrideProvider>
           </div>
         );
       })}
