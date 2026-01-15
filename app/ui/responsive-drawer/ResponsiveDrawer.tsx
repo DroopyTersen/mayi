@@ -62,7 +62,7 @@ export function ResponsiveDrawer({
               <DialogDescription>{description}</DialogDescription>
             )}
           </DialogHeader>
-          <div className="py-4 flex-1 min-h-0 overflow-hidden">{children}</div>
+          <div className="py-4 flex-1 min-h-0 overflow-y-auto">{children}</div>
           {footer && <DialogFooter className="flex-shrink-0">{footer}</DialogFooter>}
         </DialogContent>
       </Dialog>
@@ -79,7 +79,7 @@ export function ResponsiveDrawer({
             <DrawerDescription>{description}</DrawerDescription>
           )}
         </DrawerHeader>
-        <div className="px-4 pb-4 flex-1 min-h-0 overflow-hidden">{children}</div>
+        <div className="px-4 pb-4 flex-1 min-h-0 overflow-y-auto">{children}</div>
         {footer && <DrawerFooter className="pt-2 flex-shrink-0">{footer}</DrawerFooter>}
       </DrawerContent>
     </Drawer>
