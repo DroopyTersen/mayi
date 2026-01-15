@@ -45,4 +45,4 @@ cli/game-log.jsonl
 .react-router/
 .wrangler/
 build/
-.agentflow/
+.agentflow/loop_status.txt
