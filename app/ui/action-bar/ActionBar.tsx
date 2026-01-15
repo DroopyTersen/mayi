@@ -40,6 +40,7 @@ export function ActionBar({
     canClaimMayI,
     canReorderHand,
     hasPendingMayIRequest,
+    shouldNudgeDiscard,
   } = availableActions;
 
   // Check if any main action is available (for showing waiting message)
@@ -117,12 +118,13 @@ export function ActionBar({
         </Button>
       )}
 
-      {/* Discard */}
+      {/* Discard - with nudge animation when player took an action and needs to discard */}
       {canDiscard && (
         <Button
           onClick={() => onAction("discard")}
           variant="outline"
           size={buttonSize}
+          className={cn(shouldNudgeDiscard && "animate-pulse")}
         >
           Discard
         </Button>

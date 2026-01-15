@@ -16,6 +16,7 @@ function createAvailableActions(overrides: Partial<AvailableActions> = {}): Avai
     canClaimMayI: false,
     canReorderHand: false,
     hasPendingMayIRequest: false,
+    shouldNudgeDiscard: false,
     ...overrides,
   };
 }

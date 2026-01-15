@@ -37,6 +37,8 @@ export interface AvailableActions {
   canReorderHand: boolean;
   /** True when this player has called May I and is waiting for resolution */
   hasPendingMayIRequest: boolean;
+  /** True when player should be nudged to discard (took meaningful action this turn) */
+  shouldNudgeDiscard: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
     canClaimMayI: false,
     canReorderHand: false,
     hasPendingMayIRequest,
+    shouldNudgeDiscard: false,
   };
 
   // Handle RESOLVING_MAY_I phase - only allow/claim available for prompted player
@@ -155,6 +158,15 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
       actions.canDiscard = true;
       break;
   }
+
+  // Nudge to discard when:
+  // - It's your turn
+  // - You can discard
+  // - You took a meaningful action this turn (lay down, lay off, swap joker)
+  actions.shouldNudgeDiscard =
+    isYourTurn &&
+    actions.canDiscard &&
+    snapshot.tookActionThisTurn;
 
   return actions;
 }

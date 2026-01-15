@@ -150,6 +150,9 @@ export interface GameSnapshot {
   /** Did the current player lay down this turn? (prevents lay-off same turn) */
   laidDownThisTurn: boolean;
 
+  /** Did the current player take a meaningful action this turn? (lay down, lay off, swap joker) */
+  tookActionThisTurn: boolean;
+
   // ─────────────────────────────────────────────────────────────────────────
   // May I Resolution
   // ─────────────────────────────────────────────────────────────────────────

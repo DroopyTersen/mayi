@@ -78,6 +78,7 @@ function makeSnapshot(overrides: {
     turnNumber: 1,
     hasDrawn: false,
     laidDownThisTurn: false,
+    tookActionThisTurn: false,
     mayIContext: null,
     roundHistory: [],
     createdAt: new Date().toISOString(),
