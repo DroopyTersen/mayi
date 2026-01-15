@@ -17,7 +17,10 @@ import { LayOffView } from "~/ui/lay-off-view/LayOffView";
 import { DiscardView } from "~/ui/discard-view/DiscardView";
 import { SwapJokerView } from "~/ui/swap-joker-view/SwapJokerView";
 import { OrganizeHandView } from "~/ui/organize-hand/OrganizeHandView";
-import { HandDrawer, MOBILE_HAND_PEEK_HEIGHT_PX } from "~/ui/hand-drawer/HandDrawer";
+import {
+  HandDrawer,
+  MOBILE_HAND_PEEK_HEIGHT_PX,
+} from "~/ui/hand-drawer/HandDrawer";
 import { useMediaQuery } from "~/shadcn/hooks/useMediaQuery";
 import { MOBILE_MEDIA_QUERY } from "~/ui/playing-card/playing-card.constants";
 import {
@@ -316,9 +319,7 @@ export function GameView({
 
       {/* Main Content - Responsive Layout */}
       <div
-        className={cn(
-          "flex-1 p-4 min-h-0 overflow-y-auto"
-        )}
+        className={cn("flex-1 p-4 min-h-0 overflow-y-auto")}
         style={
           isMobile
             ? {
@@ -332,7 +333,7 @@ export function GameView({
           {/* Left Column: Game Table Area - scroll container on desktop */}
           <div className="lg:col-span-2 flex flex-col min-h-0">
             {/* Table - Melds only (piles moved to bottom section) */}
-            <div className="rounded-lg bg-card p-4 flex flex-col min-h-0 flex-1">
+            <div className="rounded-lg flex flex-col min-h-0 flex-1">
               {/* Melds on table - scrollable */}
               <div className="overflow-y-auto flex-1 min-h-0">
                 <TableDisplay
@@ -347,24 +348,27 @@ export function GameView({
 
           {/* Right Column: Players & Activity in single container */}
           <div className="rounded-lg border bg-card overflow-hidden">
+            {/* Round & Contract Info */}
+            <div className="px-4 py-2 bg-muted/30 text-center text-sm text-muted-foreground">
+              Round {gameState.currentRound} of 6 ·{" "}
+              <span className="font-medium text-foreground">
+                {gameState.contract.sets > 0 &&
+                  `${gameState.contract.sets} set${gameState.contract.sets > 1 ? "s" : ""}`}
+                {gameState.contract.sets > 0 &&
+                  gameState.contract.runs > 0 &&
+                  " + "}
+                {gameState.contract.runs > 0 &&
+                  `${gameState.contract.runs} run${gameState.contract.runs > 1 ? "s" : ""}`}
+              </span>
+            </div>
+
             {/* Players Table - full width, no padding */}
             <PlayersTableDisplay
               players={allPlayers}
               viewingPlayerId={gameState.viewingPlayerId}
               activePlayerId={gameState.awaitingPlayerId}
+              borderless
             />
-
-            {/* Round & Contract Info */}
-            <div className="px-4 py-2 border-t bg-muted/30 text-center text-sm text-muted-foreground">
-              Round {gameState.currentRound} of 6 —{" "}
-              <span className="font-medium text-foreground">
-                {gameState.contract.sets > 0 &&
-                  `${gameState.contract.sets} set${gameState.contract.sets > 1 ? "s" : ""}`}
-                {gameState.contract.sets > 0 && gameState.contract.runs > 0 && " + "}
-                {gameState.contract.runs > 0 &&
-                  `${gameState.contract.runs} run${gameState.contract.runs > 1 ? "s" : ""}`}
-              </span>
-            </div>
 
             {/* Activity Log */}
             <div className="p-4 border-t">
@@ -499,11 +503,12 @@ export function GameView({
         open={activeDrawer === "discard"}
         onOpenChange={(open) => !open && closeDrawer()}
         title="Discard"
-        description="Choose a card to discard"
+        description="Tap a card to select it, then confirm"
         className="sm:max-w-lg"
       >
         <DiscardView
           hand={gameState.yourHand}
+          showHeader={false}
           onDiscard={handleDiscard}
           onCancel={closeDrawer}
         />
@@ -533,11 +538,12 @@ export function GameView({
         open={activeDrawer === "organize"}
         onOpenChange={(open) => !open && closeDrawer()}
         title="Organize Hand"
-        description="Rearrange your cards"
+        description="Select a card and use arrows to move, or sort automatically"
         className="sm:max-w-lg"
       >
         <OrganizeHandView
           hand={gameState.yourHand}
+          showHeader={false}
           onSave={handleOrganize}
           onCancel={closeDrawer}
         />

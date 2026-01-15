@@ -31,7 +31,7 @@ export function PlayersTableDisplay({
   return (
     <div className={cn(!borderless && "rounded-lg border", "overflow-hidden", className)}>
       <table className="w-full text-sm">
-        <thead className="bg-muted/50">
+        <thead>
           <tr>
             <th className="text-left py-2 px-3 font-medium">Player</th>
             <th className="text-center py-2 px-3 font-medium">Cards</th>

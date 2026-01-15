@@ -8,6 +8,8 @@ interface DiscardViewProps {
   hand: Card[];
   onDiscard: (cardId: string) => void;
   onCancel: () => void;
+  /** When rendered inside a modal/drawer that already provides a title/description */
+  showHeader?: boolean;
   className?: string;
 }
 
@@ -15,6 +17,7 @@ export function DiscardView({
   hand,
   onDiscard,
   onCancel,
+  showHeader = true,
   className,
 }: DiscardViewProps) {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -24,9 +27,7 @@ export function DiscardView({
   };
 
   const handleDiscard = () => {
-    console.log("[DiscardView] handleDiscard called, selectedCardId:", selectedCardId);
     if (selectedCardId) {
-      console.log("[DiscardView] Calling onDiscard with:", selectedCardId);
       onDiscard(selectedCardId);
     }
   };
@@ -35,20 +36,23 @@ export function DiscardView({
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>
-      <div className="text-center">
-        <h2 className="text-lg font-semibold">Select a card to discard</h2>
-        <p className="text-sm text-muted-foreground">
-          Tap a card to select it, then confirm
-        </p>
-      </div>
+      {showHeader && (
+        <div className="text-center">
+          <h2 className="text-lg font-semibold">Select a card to discard</h2>
+          <p className="text-sm text-muted-foreground">
+            Tap a card to select it, then confirm
+          </p>
+        </div>
+      )}
 
       {/* Hand display */}
-      <div className="flex justify-center py-4">
+      <div className="py-4">
         <HandDisplay
           cards={hand}
           selectedIds={selectedCardId ? new Set([selectedCardId]) : new Set()}
           onCardClick={handleCardClick}
-          size="md"
+          size="auto"
+          className="justify-center"
         />
       </div>
 

@@ -10,6 +10,8 @@ interface OrganizeHandViewProps {
   hand: Card[];
   onSave: (newOrder: Card[]) => void;
   onCancel: () => void;
+  /** When rendered inside a modal/drawer that already provides a title/description */
+  showHeader?: boolean;
   className?: string;
 }
 
@@ -17,6 +19,7 @@ export function OrganizeHandView({
   hand,
   onSave,
   onCancel,
+  showHeader = true,
   className,
 }: OrganizeHandViewProps) {
   const [cards, setCards] = useState<Card[]>([...hand]);
@@ -62,15 +65,17 @@ export function OrganizeHandView({
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>
-      <div className="text-center">
-        <h2 className="text-lg font-semibold">Organize Your Hand</h2>
-        <p className="text-sm text-muted-foreground">
-          Select a card and use arrows to move, or sort automatically
-        </p>
-      </div>
+      {showHeader && (
+        <div className="text-center">
+          <h2 className="text-lg font-semibold">Organize Your Hand</h2>
+          <p className="text-sm text-muted-foreground">
+            Select a card and use arrows to move, or sort automatically
+          </p>
+        </div>
+      )}
 
       {/* Hand display */}
-      <div className="flex justify-center py-4">
+      <div className="py-4">
         <HandDisplay
           cards={cards}
           selectedIds={
@@ -79,7 +84,8 @@ export function OrganizeHandView({
               : new Set()
           }
           onCardClick={handleCardClick}
-          size="md"
+          size="auto"
+          className="justify-center"
         />
       </div>
 

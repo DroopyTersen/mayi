@@ -47,7 +47,7 @@ export function HandDrawer({
   onOpenChange,
   container,
 }: HandDrawerProps) {
-  const peekGesture = useRef<{
+  const peekHandleGesture = useRef<{
     pointerId: number;
     startX: number;
     startY: number;
@@ -83,11 +83,11 @@ export function HandDrawer({
     }
   }, [availableActions.canDrawFromStock, onAction]);
 
-  const handlePeekPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handlePeekHandlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.pointerType !== "touch") return;
 
-      peekGesture.current = {
+      peekHandleGesture.current = {
         pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
@@ -99,9 +99,9 @@ export function HandDrawer({
     []
   );
 
-  const handlePeekPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
-      const gesture = peekGesture.current;
+  const handlePeekHandlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const gesture = peekHandleGesture.current;
       if (!gesture) return;
       if (gesture.pointerId !== e.pointerId) return;
       if (gesture.triggered) return;
@@ -126,12 +126,12 @@ export function HandDrawer({
     [onOpenChange]
   );
 
-  const handlePeekPointerUpOrCancel = useCallback(
-    (e: React.PointerEvent<HTMLButtonElement>) => {
-      const gesture = peekGesture.current;
+  const handlePeekHandlePointerUpOrCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const gesture = peekHandleGesture.current;
       if (!gesture) return;
       if (gesture.pointerId !== e.pointerId) return;
-      peekGesture.current = null;
+      peekHandleGesture.current = null;
     },
     []
   );
@@ -151,20 +151,21 @@ export function HandDrawer({
             )}
             style={{
               height: `calc(${MOBILE_HAND_PEEK_HEIGHT_PX}px + env(safe-area-inset-bottom))`,
-              // Avoid the page trying to scroll when the user swipes on the peek bar.
-              touchAction: "none",
             }}
-            onPointerDown={handlePeekPointerDown}
-            onPointerMove={handlePeekPointerMove}
-            onPointerUp={handlePeekPointerUpOrCancel}
-            onPointerCancel={handlePeekPointerUpOrCancel}
           >
             <div className="max-w-6xl mx-auto px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
-              <div className="flex justify-center">
+              <div
+                className="flex justify-center py-2"
+                style={{ touchAction: "none" }}
+                onPointerDown={handlePeekHandlePointerDown}
+                onPointerMove={handlePeekHandlePointerMove}
+                onPointerUp={handlePeekHandlePointerUpOrCancel}
+                onPointerCancel={handlePeekHandlePointerUpOrCancel}
+              >
                 <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
               </div>
 
-              <div className="mt-2 h-[48px] overflow-hidden">
+              <div className="h-[48px] overflow-hidden">
                 <HandDisplay
                   cards={hand}
                   size="sm"
