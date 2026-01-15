@@ -15,6 +15,7 @@ const baseActions: AvailableActions = {
   canClaimMayI: false,
   canReorderHand: false,
   hasPendingMayIRequest: false,
+  shouldNudgeDiscard: false,
 };
 
 describe("ActionBar touch-optimized mode", () => {
