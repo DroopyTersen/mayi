@@ -695,6 +695,48 @@ describe("LAY_OFF action", () => {
       expect(actor.getSnapshot().context.hand.length).toBe(3);
     });
 
+    it("marks tookActionThisTurn after a successful lay off", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      expect(actor.getSnapshot().context.tookActionThisTurn).toBe(false);
+
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      expect(actor.getSnapshot().context.tookActionThisTurn).toBe(true);
+    });
+
+    it("persists tookActionThisTurn across snapshot restore", () => {
+      const nineS = card("9", "spades");
+      const setMeld = createMeld("set", [
+        card("9", "clubs"),
+        card("9", "diamonds"),
+        card("9", "hearts"),
+      ]);
+
+      const input = createTurnInputForLayOff([nineS, card("K", "hearts")], [setMeld]);
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "LAY_OFF", cardId: nineS.id, meldId: setMeld.id });
+
+      const persisted = actor.getPersistedSnapshot();
+
+      const restored = createActor(turnMachine, { input, snapshot: persisted });
+      restored.start();
+
+      expect(restored.getSnapshot().context.tookActionThisTurn).toBe(true);
+    });
+
     it("player remains in 'drawn' state (can lay off more)", () => {
       const nineS = card("9", "spades");
       const setMeld = createMeld("set", [
