@@ -111,6 +111,8 @@ export function mergeAIStatePreservingOtherPlayerHands(
   aiState: StoredGameState,
   currentPlayerEngineId: string
 ): StoredGameState {
+  type RoundSnapshotPlayer = { id: string; hand: unknown; isDown?: boolean };
+
   // If no fresh state, just use AI state
   if (!freshState) return aiState;
 
@@ -124,14 +126,13 @@ export function mergeAIStatePreservingOtherPlayerHands(
   const aiRoundNumber =
     aiSnapshot?.children?.round?.snapshot?.context?.roundNumber;
 
-  // If rounds differ, a transition occurred - use fresh state entirely
-  // Fresh state has the newly dealt hands from the new round
+  // If rounds differ, keep the newer round state (prevents rolling back a round transition).
   if (
     freshRoundNumber !== undefined &&
     aiRoundNumber !== undefined &&
     freshRoundNumber !== aiRoundNumber
   ) {
-    return freshState;
+    return aiRoundNumber > freshRoundNumber ? aiState : freshState;
   }
 
   // Navigate to players array in both snapshots
@@ -160,7 +161,7 @@ export function mergeAIStatePreservingOtherPlayerHands(
 
   // Merge: AI's snapshot with fresh hands for non-current players
   const mergedPlayers = aiPlayers.map(
-    (aiPlayer: { id: string; hand: unknown }, index: number) => {
+    (aiPlayer: RoundSnapshotPlayer, index: number): RoundSnapshotPlayer => {
       if (index === currentPlayerIndex) {
         // Use AI's version for current player (their hand may have changed from draws/discards)
         return aiPlayer;
@@ -173,6 +174,33 @@ export function mergeAIStatePreservingOtherPlayerHands(
       return aiPlayer;
     }
   );
+
+  // XState keeps the current player's authoritative hand in the TurnMachine
+  // context. After an AI turn completes, the persisted snapshot often includes
+  // a newly spawned TurnMachine for the NEXT player. If the AI's adapter was
+  // stale (e.g., May-I resolved while AI was "thinking"), we can end up with:
+  // - round.context.players[N].hand (fresh, merged) ✅
+  // - turn.context.hand (stale) ❌
+  //
+  // GameEngine prefers turn.context.hand for the current player when building
+  // PlayerView, so we must keep the TurnMachine hand in sync for non-AI players.
+  const turnContext =
+    aiSnapshot?.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+  const turnPlayerId = turnContext?.playerId as string | undefined;
+  const shouldSyncTurnHand =
+    typeof turnPlayerId === "string" && turnPlayerId !== currentPlayerEngineId;
+  const mergedTurnPlayer = shouldSyncTurnHand
+    ? mergedPlayers.find((p: RoundSnapshotPlayer) => p.id === turnPlayerId)
+    : null;
+  const turnContextPatch =
+    shouldSyncTurnHand && mergedTurnPlayer && mergedTurnPlayer.hand !== undefined
+      ? {
+          hand: mergedTurnPlayer.hand,
+          ...(typeof mergedTurnPlayer.isDown === "boolean"
+            ? { isDown: mergedTurnPlayer.isDown }
+            : {}),
+        }
+      : null;
 
   // Build merged snapshot - update players in the round actor's context
   const mergedSnapshot = {
@@ -187,6 +215,24 @@ export function mergeAIStatePreservingOtherPlayerHands(
             ...aiSnapshot.children?.round?.snapshot?.context,
             players: mergedPlayers,
           },
+          children:
+            turnContextPatch
+              ? {
+                  ...aiSnapshot.children?.round?.snapshot?.children,
+                  turn: {
+                    ...aiSnapshot.children?.round?.snapshot?.children?.turn,
+                    snapshot: {
+                      ...aiSnapshot.children?.round?.snapshot?.children?.turn
+                        ?.snapshot,
+                      context: {
+                        ...aiSnapshot.children?.round?.snapshot?.children?.turn
+                          ?.snapshot?.context,
+                        ...turnContextPatch,
+                      },
+                    },
+                  },
+                }
+              : aiSnapshot.children?.round?.snapshot?.children,
         },
       },
     },
