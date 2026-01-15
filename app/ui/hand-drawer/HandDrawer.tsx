@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Drawer } from "vaul";
 import type { Card } from "core/card/card.types";
 import type { AvailableActions } from "core/engine/game-engine.availability";
@@ -8,6 +8,8 @@ import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
 import { ActionBar } from "~/ui/action-bar/ActionBar";
 import { getDiscardInteractiveLabel } from "~/ui/game-view/game-view.utils";
 import { cn } from "~/shadcn/lib/utils";
+
+export const MOBILE_HAND_PEEK_HEIGHT_PX = 104;
 
 interface HandDrawerProps {
   /** Cards in the player's hand */
@@ -22,23 +24,17 @@ interface HandDrawerProps {
   onAction: (action: string) => void;
   /** Available actions - drives all button visibility and interactions */
   availableActions: AvailableActions;
+  /** Whether the drawer is open */
+  open: boolean;
+  /** Called when the drawer opens/closes */
+  onOpenChange: (open: boolean) => void;
   /** Optional container element for Portal (useful for storybook/testing) */
   container?: HTMLElement | null;
 }
 
-// Snap points: minimized (peek cards), half (comfortable view), expanded (full)
-const SNAP_POINTS = ["85px", "50%", 1] as const;
-type SnapPoint = (typeof SNAP_POINTS)[number];
-
 /**
- * Bottom drawer for the player's hand on mobile using Vaul snap points.
- *
- * Three states:
- * - Minimized (85px): Cards peek out, not interactive. Tap/swipe to expand.
- * - Half (50%): Full hand view with piles, scrollable, interactive.
- * - Expanded (90%): Full view with action bar visible.
- *
- * Background overlay appears at half+ and tapping it minimizes the drawer.
+ * Bottom drawer for the player's hand on mobile using Vaul's default open/close behavior.
+ * The "peek" effect is implemented as a fixed `Drawer.Trigger` bar (not snap points).
  */
 export function HandDrawer({
   hand,
@@ -47,9 +43,16 @@ export function HandDrawer({
   onCardClick,
   onAction,
   availableActions,
+  open,
+  onOpenChange,
   container,
 }: HandDrawerProps) {
-  const [snap, setSnap] = useState<SnapPoint | null>(SNAP_POINTS[0]);
+  const peekGesture = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    triggered: boolean;
+  } | null>(null);
 
   // Derive turn state from available actions
   const isYourTurn =
@@ -63,10 +66,6 @@ export function HandDrawer({
     () => getDiscardInteractiveLabel(availableActions),
     [availableActions]
   );
-
-  // State checks
-  const isMinimized = snap === SNAP_POINTS[0];
-  const isHalfOrExpanded = snap === SNAP_POINTS[1] || snap === SNAP_POINTS[2];
 
   // Handle discard pile click
   const handleDiscardClick = useCallback(() => {
@@ -84,114 +83,162 @@ export function HandDrawer({
     }
   }, [availableActions.canDrawFromStock, onAction]);
 
-  // Handle overlay click - minimize the drawer
-  const handleOverlayClick = useCallback(() => {
-    setSnap(SNAP_POINTS[0]);
-  }, []);
+  const handlePeekPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.pointerType !== "touch") return;
 
-  // Handle card click - only if not minimized
-  const handleCardClick = useCallback(
-    (cardId: string) => {
-      if (!isMinimized) {
-        onCardClick(cardId);
+      peekGesture.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        triggered: false,
+      };
+
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    []
+  );
+
+  const handlePeekPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      const gesture = peekGesture.current;
+      if (!gesture) return;
+      if (gesture.pointerId !== e.pointerId) return;
+      if (gesture.triggered) return;
+
+      const dx = e.clientX - gesture.startX;
+      const dy = e.clientY - gesture.startY;
+
+      // Open on an intentional upward swipe. Keep thresholds forgiving.
+      const SWIPE_OPEN_THRESHOLD_PX = 24;
+      const HORIZONTAL_TOLERANCE_PX = 80;
+      const isMostlyVertical = Math.abs(dy) > Math.abs(dx);
+      const isUpSwipe =
+        dy <= -SWIPE_OPEN_THRESHOLD_PX &&
+        Math.abs(dx) <= HORIZONTAL_TOLERANCE_PX &&
+        isMostlyVertical;
+
+      if (isUpSwipe) {
+        gesture.triggered = true;
+        onOpenChange(true);
       }
     },
-    [isMinimized, onCardClick]
+    [onOpenChange]
+  );
+
+  const handlePeekPointerUpOrCancel = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      const gesture = peekGesture.current;
+      if (!gesture) return;
+      if (gesture.pointerId !== e.pointerId) return;
+      peekGesture.current = null;
+    },
+    []
   );
 
   return (
-    <Drawer.Root
-      open={true}
-      snapPoints={SNAP_POINTS as unknown as (string | number)[]}
-      activeSnapPoint={snap}
-      setActiveSnapPoint={setSnap as (snap: string | number | null) => void}
-      fadeFromIndex={1}
-      modal={false}
-      dismissible={false}
-      snapToSequentialPoint
-    >
-      <Drawer.Portal container={container}>
-        {/* Overlay - only visible at half+ */}
-        {isHalfOrExpanded && (
-          <div
+    <Drawer.Root open={open} onOpenChange={onOpenChange}>
+      {!open && (
+        <Drawer.Trigger asChild>
+          <button
+            type="button"
+            aria-label="Open hand"
             className={cn(
-              "bg-black/40 z-40",
-              container ? "absolute inset-0" : "fixed inset-0"
+              "inset-x-0 bottom-0 z-30",
+              "border-t bg-background/95 backdrop-blur",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              container ? "absolute" : "fixed"
             )}
-            onClick={handleOverlayClick}
-            aria-hidden="true"
-          />
-        )}
+            style={{
+              height: `calc(${MOBILE_HAND_PEEK_HEIGHT_PX}px + env(safe-area-inset-bottom))`,
+              // Avoid the page trying to scroll when the user swipes on the peek bar.
+              touchAction: "none",
+            }}
+            onPointerDown={handlePeekPointerDown}
+            onPointerMove={handlePeekPointerMove}
+            onPointerUp={handlePeekPointerUpOrCancel}
+            onPointerCancel={handlePeekPointerUpOrCancel}
+          >
+            <div className="max-w-6xl mx-auto px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+              <div className="flex justify-center">
+                <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
+              </div>
+
+              <div className="mt-2 h-[48px] overflow-hidden">
+                <HandDisplay
+                  cards={hand}
+                  size="sm"
+                  className="justify-center items-start"
+                />
+              </div>
+            </div>
+          </button>
+        </Drawer.Trigger>
+      )}
+
+      <Drawer.Portal container={container}>
+        <Drawer.Overlay
+          className={cn(
+            "bg-black/50 z-40",
+            container ? "absolute inset-0" : "fixed inset-0"
+          )}
+        />
 
         <Drawer.Content
           className={cn(
             "inset-x-0 bottom-0 z-50 flex flex-col",
             "bg-background border-t rounded-t-xl",
             "outline-none",
-            "h-full max-h-[97%]",
+            // Keep the drawer compact; let content determine height (with a sane max).
+            "max-h-[70vh] overflow-y-auto",
             container ? "absolute" : "fixed"
           )}
         >
           {/* Drag Handle */}
-          <div className="flex justify-center pt-3 pb-2 shrink-0 cursor-grab active:cursor-grabbing">
+          <div className="flex justify-center pt-3 pb-2 shrink-0">
             <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
           </div>
 
-          {/* Hand + Piles Area - scrollable content */}
-          <div
-            className={cn(
-              "flex-1 overflow-y-auto px-4 pb-2 min-h-0 flex flex-col",
-              // Disable pointer events when minimized
-              isMinimized && "pointer-events-none"
+          <div className="px-4 pb-3">
+            <HandDisplay
+              cards={hand}
+              selectedIds={selectedCardIds}
+              onCardClick={onCardClick}
+              size="auto"
+              className="justify-center"
+            />
+
+            {selectedCardIds.size > 0 && (
+              <div className="mt-2 text-center text-sm text-muted-foreground">
+                {selectedCardIds.size} card
+                {selectedCardIds.size !== 1 && "s"} selected
+              </div>
             )}
-          >
-            {/* Hand Display */}
-            <div className="mb-3">
-              <HandDisplay
-                cards={hand}
-                selectedIds={isMinimized ? new Set() : selectedCardIds}
-                onCardClick={handleCardClick}
-                size="auto"
-                className="justify-center"
+
+            <div className="flex gap-3 justify-center mt-4">
+              <DiscardPileDisplay
+                topCard={topDiscard}
+                size="sm"
+                interactiveLabel={discardInteractiveLabel}
+                isClickable={!!discardInteractiveLabel}
+                onClick={discardInteractiveLabel ? handleDiscardClick : undefined}
               />
-            </div>
-
-            {/* Selection indicator - only when not minimized */}
-            {!isMinimized && selectedCardIds.size > 0 && (
-              <div className="text-center text-sm text-muted-foreground mb-2">
-                {selectedCardIds.size} card{selectedCardIds.size !== 1 && "s"} selected
-              </div>
-            )}
-
-            {/* Piles row - only show when not minimized */}
-            {isHalfOrExpanded && (
-              <div className="flex gap-3 justify-center mt-auto pt-2">
-                <DiscardPileDisplay
-                  topCard={topDiscard}
+              {isYourTurn && (
+                <StockPileDisplay
                   size="sm"
-                  interactiveLabel={discardInteractiveLabel}
-                  isClickable={!!discardInteractiveLabel}
-                  onClick={handleDiscardClick}
+                  isClickable={availableActions.canDrawFromStock}
+                  onClick={handleStockClick}
                 />
-                {isYourTurn && (
-                  <StockPileDisplay
-                    size="sm"
-                    isClickable={availableActions.canDrawFromStock}
-                    onClick={handleStockClick}
-                  />
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Action Bar - only when half or expanded */}
-          {isHalfOrExpanded && (
-            <ActionBar
-              availableActions={availableActions}
-              onAction={onAction}
-              className="shrink-0"
-            />
-          )}
+          <div
+            className="shrink-0"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            <ActionBar availableActions={availableActions} onAction={onAction} />
+          </div>
         </Drawer.Content>
       </Drawer.Portal>
     </Drawer.Root>

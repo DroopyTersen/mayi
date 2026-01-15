@@ -15,7 +15,8 @@ import { NamePromptDialog } from "./NamePromptDialog";
 import { AddAIPlayerDialog } from "./AddAIPlayerDialog";
 import { StartingRoundSelector } from "./StartingRoundSelector";
 import { StartGameButton } from "./StartGameButton";
-import { UserPlus, Pencil } from "lucide-react";
+import { UserPlus, Pencil, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
 import type {
   ConnectionStatus,
   JoinStatus,
@@ -74,6 +75,7 @@ export function LobbyView({
 }: LobbyViewProps) {
   const isJoining = joinStatus === "joining";
   const isJoined = joinStatus === "joined";
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Get current player's avatar for pre-filling the dialog
   const currentPlayer = players.find((p) => p.playerId === currentPlayerId);
@@ -191,21 +193,6 @@ export function LobbyView({
         </CardContent>
       </Card>
 
-      {/* Game Settings (host only, Phase 3) */}
-      {isHost && gameSettings && onSetStartingRound && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Game Settings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StartingRoundSelector
-              value={gameSettings.startingRound}
-              onChange={onSetStartingRound}
-            />
-          </CardContent>
-        </Card>
-      )}
-
       {/* Start Game Button (host only, Phase 3) */}
       {isHost && onStartGame && (
         <StartGameButton
@@ -213,6 +200,40 @@ export function LobbyView({
           onStart={onStartGame}
           isLoading={isStartingGame}
         />
+      )}
+
+      {/* Advanced Settings toggle (host only, Phase 3) */}
+      {isHost && gameSettings && onSetStartingRound && (
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-center text-muted-foreground"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? (
+              <>
+                <ChevronUp className="h-4 w-4 mr-1" />
+                Hide Advanced
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4 mr-1" />
+                Advanced
+              </>
+            )}
+          </Button>
+          {showAdvanced && (
+            <Card>
+              <CardContent className="pt-4">
+                <StartingRoundSelector
+                  value={gameSettings.startingRound}
+                  onChange={onSetStartingRound}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Join status message for non-host joined players */}

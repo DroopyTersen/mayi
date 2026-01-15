@@ -17,7 +17,7 @@ import { LayOffView } from "~/ui/lay-off-view/LayOffView";
 import { DiscardView } from "~/ui/discard-view/DiscardView";
 import { SwapJokerView } from "~/ui/swap-joker-view/SwapJokerView";
 import { OrganizeHandView } from "~/ui/organize-hand/OrganizeHandView";
-import { HandDrawer } from "~/ui/hand-drawer/HandDrawer";
+import { HandDrawer, MOBILE_HAND_PEEK_HEIGHT_PX } from "~/ui/hand-drawer/HandDrawer";
 import { useMediaQuery } from "~/shadcn/hooks/useMediaQuery";
 import { MOBILE_MEDIA_QUERY } from "~/ui/playing-card/playing-card.constants";
 import {
@@ -28,9 +28,6 @@ import { cn } from "~/shadcn/lib/utils";
 import { Layers } from "lucide-react";
 import { identifyJokerPositions } from "core/meld/meld.joker";
 import type { SwappableJoker } from "~/ui/swap-joker-view/swap-joker-view.types";
-
-/** Height reserved for the mobile hand drawer at bottom */
-const MOBILE_DRAWER_PADDING = 300;
 
 interface ActivityEntry {
   id: string;
@@ -75,6 +72,7 @@ export function GameView({
     new Set()
   );
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+  const [isHandDrawerOpen, setIsHandDrawerOpen] = useState(false);
 
   // Clean up stale selected card IDs when hand changes
   // This fixes the bug where "X cards selected" persists after discarding
@@ -143,6 +141,7 @@ export function GameView({
         action === "swapJoker" ||
         action === "organize"
       ) {
+        setIsHandDrawerOpen(false);
         setActiveDrawer(action);
         return;
       }
@@ -295,9 +294,6 @@ export function GameView({
 
       {/* Header - includes turn status on mobile */}
       <GameHeader
-        round={gameState.currentRound}
-        totalRounds={6}
-        contract={gameState.contract}
         turnStatus={isMobile ? turnPhaseText : undefined}
         isYourTurn={isMobile ? gameState.isYourTurn : undefined}
       />
@@ -321,9 +317,15 @@ export function GameView({
       {/* Main Content - Responsive Layout */}
       <div
         className={cn(
-          "flex-1 p-4 min-h-0 overflow-y-auto",
-          isMobile && `pb-[${MOBILE_DRAWER_PADDING}px]`
+          "flex-1 p-4 min-h-0 overflow-y-auto"
         )}
+        style={
+          isMobile
+            ? {
+                paddingBottom: `calc(${MOBILE_HAND_PEEK_HEIGHT_PX}px + env(safe-area-inset-bottom))`,
+              }
+            : undefined
+        }
       >
         {/* Desktop: 2-column layout, Mobile: stacked */}
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -352,6 +354,18 @@ export function GameView({
               activePlayerId={gameState.awaitingPlayerId}
             />
 
+            {/* Round & Contract Info */}
+            <div className="px-4 py-2 border-t bg-muted/30 text-center text-sm text-muted-foreground">
+              Round {gameState.currentRound} of 6 —{" "}
+              <span className="font-medium text-foreground">
+                {gameState.contract.sets > 0 &&
+                  `${gameState.contract.sets} set${gameState.contract.sets > 1 ? "s" : ""}`}
+                {gameState.contract.sets > 0 && gameState.contract.runs > 0 && " + "}
+                {gameState.contract.runs > 0 &&
+                  `${gameState.contract.runs} run${gameState.contract.runs > 1 ? "s" : ""}`}
+              </span>
+            </div>
+
             {/* Activity Log */}
             <div className="p-4 border-t">
               <h3 className="text-sm font-medium text-muted-foreground mb-3">
@@ -372,6 +386,8 @@ export function GameView({
           onCardClick={handleCardClick}
           onAction={handleAction}
           availableActions={gameState.availableActions}
+          open={isHandDrawerOpen}
+          onOpenChange={setIsHandDrawerOpen}
         />
       )}
 

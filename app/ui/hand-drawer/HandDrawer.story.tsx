@@ -157,6 +157,7 @@ function InteractiveDrawerExample({
   isYourTurn: boolean;
 }) {
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState(false);
   const [lastAction, setLastAction] = useState<string>("");
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
@@ -201,6 +202,8 @@ function InteractiveDrawerExample({
               onCardClick={handleCardClick}
               onAction={handleAction}
               availableActions={availableActions}
+              open={open}
+              onOpenChange={setOpen}
               container={container}
             />
           )}
@@ -213,6 +216,7 @@ function InteractiveDrawerExample({
 // Fullscreen test - renders drawer using actual window viewport (for mobile testing)
 function FullscreenDrawerTest() {
   const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set());
+  const [open, setOpen] = useState(false);
   const [lastAction, setLastAction] = useState<string>("");
 
   const handleCardClick = (cardId: string) => {
@@ -247,6 +251,8 @@ function FullscreenDrawerTest() {
         onCardClick={handleCardClick}
         onAction={handleAction}
         availableActions={DRAW_PHASE_ACTIONS}
+        open={open}
+        onOpenChange={setOpen}
       />
     </div>
   );
@@ -256,32 +262,27 @@ export function HandDrawerStory() {
   return (
     <div className="space-y-10">
       <header>
-        <h1 className="text-2xl font-bold">HandDrawer - Vaul Snap Point Drawer</h1>
+        <h1 className="text-2xl font-bold">HandDrawer - Vaul Default Drawer</h1>
         <p className="text-muted-foreground mt-1">
-          A Vaul-based swipeable drawer for the player's hand on mobile with 3 snap points.
+          A Vaul-based hand drawer for mobile using default open/close behavior and a fixed peek trigger.
         </p>
         <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm">
-          <strong>Snap Points:</strong>
+          <strong>Behavior:</strong>
           <ul className="list-disc ml-5 mt-2 space-y-1">
-            <li><strong>Minimized (85px):</strong> Cards peek out but are NOT interactive. Swipe/tap to expand.</li>
-            <li><strong>Half (50%):</strong> Full hand view, cards interactive, piles visible, action bar visible. Overlay blocks background.</li>
-            <li><strong>Expanded (90%):</strong> Maximum view with scrollable content. Overlay blocks background.</li>
+            <li><strong>Closed:</strong> A fixed peek bar shows a cropped hand preview. Tap it to open.</li>
+            <li><strong>Open:</strong> Full hand view with piles + action bar. Swipe down or tap overlay to close.</li>
           </ul>
           <p className="mt-3"><strong>Interactions:</strong></p>
           <ul className="list-disc ml-5 mt-1 space-y-1">
-            <li>Swipe up/down on drawer handle to change snap points</li>
-            <li>Tap the dark overlay to minimize back to peek state</li>
+            <li>Tap the peek bar to open</li>
+            <li>Swipe down (or tap overlay) to close</li>
             <li>Turn status is shown in the header, not the drawer</li>
           </ul>
-          <p className="mt-3 text-orange-600 dark:text-orange-400">
-            <strong>Note:</strong> Use the "Fullscreen Test" link below to test with real viewport (Vaul snap points don't work in containers).
-          </p>
         </div>
       </header>
 
-      {/* Simulated examples (snap points won't work correctly due to container) */}
       <section>
-        <h2 className="text-lg font-semibold mb-2">Simulated Examples (Limited - use fullscreen test)</h2>
+        <h2 className="text-lg font-semibold mb-2">Simulated Example</h2>
         <InteractiveDrawerExample
           hand={MEDIUM_HAND}
           title="Your Turn - Draw Phase (Medium Hand)"
@@ -296,19 +297,19 @@ export function HandDrawerStory() {
         <h2 className="text-lg font-semibold mb-3">Design Notes</h2>
         <ul className="space-y-2 text-sm">
           <li>
-            <strong>Snap Points:</strong> 85px (minimized peek), 50% (half), 90% (expanded)
+            <strong>Peek:</strong> Implemented as the `Drawer.Trigger` (not snap points)
           </li>
           <li>
-            <strong>Vaul Props:</strong> <code>dismissible=false</code>, <code>modal=false</code>, <code>fadeFromIndex=1</code>
+            <strong>Vaul:</strong> Default open/close drawer with overlay
           </li>
           <li>
-            <strong>Overlay:</strong> Only visible at half+ (fadeFromIndex=1). Clicking minimizes drawer.
+            <strong>Overlay:</strong> Tap to close (default)
           </li>
           <li>
-            <strong>Cards:</strong> Not interactive when minimized (pointer-events-none)
+            <strong>Cards:</strong> Preview is non-interactive; full hand is interactive when open
           </li>
           <li>
-            <strong>Piles & ActionBar:</strong> Only visible when half or expanded
+            <strong>Piles & ActionBar:</strong> Visible when open
           </li>
           <li>
             <strong>Turn Status:</strong> Moved to GameHeader for mobile

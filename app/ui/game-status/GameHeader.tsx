@@ -7,9 +7,9 @@ interface Contract {
 }
 
 interface GameHeaderProps {
-  round: number;
-  totalRounds: number;
-  contract: Contract;
+  round?: number;
+  totalRounds?: number;
+  contract?: Contract;
   /** Turn status text - shown on mobile below the main header info */
   turnStatus?: string;
   /** Whether it's the viewing player's turn - affects turn status styling */
@@ -52,12 +52,16 @@ export function GameHeader({
         >
           MAY I?
         </Link>
-        <span className="text-muted-foreground">—</span>
-        <span className="text-sm">
-          Round {round} of {totalRounds}
-        </span>
-        <span className="text-muted-foreground">—</span>
-        <span className="text-sm font-medium">{formatContract(contract)}</span>
+        {round != null && totalRounds != null && contract && (
+          <>
+            <span className="text-muted-foreground">—</span>
+            <span className="text-sm">
+              Round {round} of {totalRounds}
+            </span>
+            <span className="text-muted-foreground">—</span>
+            <span className="text-sm font-medium">{formatContract(contract)}</span>
+          </>
+        )}
       </div>
 
       {/* Turn status row - shown on mobile */}

@@ -1,14 +1,5 @@
 import { useState } from "react";
 import { Button } from "~/shadcn/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "~/shadcn/components/ui/dialog";
 import { Label } from "~/shadcn/components/ui/label";
 import {
   Select,
@@ -24,6 +15,7 @@ import {
 } from "~/party/protocol.types";
 import { Bot, Plus } from "lucide-react";
 import { CharacterPicker, type Character } from "./CharacterPicker";
+import { ResponsiveDrawer } from "~/ui/responsive-drawer/ResponsiveDrawer";
 
 interface AddAIPlayerDialogProps {
   onAdd: (name: string, modelId: AIModelId, avatarId: string) => void;
@@ -37,13 +29,10 @@ export function AddAIPlayerDialog({
   disabled,
 }: AddAIPlayerDialogProps) {
   const [open, setOpen] = useState(false);
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [modelId, setModelId] = useState<AIModelId>("default:grok");
 
-  const handleAdd = () => {
-    if (!selectedCharacter) return;
-    onAdd(selectedCharacter.name, modelId, selectedCharacter.id);
-    setSelectedCharacter(null);
+  const handleSelect = (character: Character) => {
+    onAdd(character.name, modelId, character.id);
     setModelId("default:grok");
     setOpen(false);
   };
@@ -52,34 +41,30 @@ export function AddAIPlayerDialog({
     setOpen(newOpen);
     if (!newOpen) {
       // Reset form when closing
-      setSelectedCharacter(null);
       setModelId("default:grok");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline" disabled={disabled} className="gap-2">
-          <Bot className="h-4 w-4" />
-          <span>Add AI Player</span>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add AI Player</DialogTitle>
-          <DialogDescription>
-            Choose a character for the AI opponent.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <CharacterPicker
-            mode="ai"
-            selectedId={selectedCharacter?.id ?? null}
-            takenIds={takenCharacterIds}
-            onSelect={setSelectedCharacter}
-          />
+    <>
+      <Button
+        variant="outline"
+        disabled={disabled}
+        className="gap-2"
+        onClick={() => setOpen(true)}
+      >
+        <Bot className="h-4 w-4" />
+        <span>Add AI Player</span>
+        <Plus className="h-4 w-4" />
+      </Button>
+      <ResponsiveDrawer
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="Add AI Player"
+        description="Choose a character for the AI opponent."
+        className="sm:max-w-2xl"
+      >
+        <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="ai-model">AI Model</Label>
             <Select value={modelId} onValueChange={(v) => setModelId(v as AIModelId)}>
@@ -95,16 +80,14 @@ export function AddAIPlayerDialog({
               </SelectContent>
             </Select>
           </div>
+          <CharacterPicker
+            mode="ai"
+            selectedId={null}
+            takenIds={takenCharacterIds}
+            onSelect={handleSelect}
+          />
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleAdd} disabled={!selectedCharacter}>
-            Add Player
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </ResponsiveDrawer>
+    </>
   );
 }
