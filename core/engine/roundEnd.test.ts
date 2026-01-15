@@ -914,8 +914,8 @@ describe("round transition - to next round", () => {
 
   describe("new deck and deal", () => {
     it("new deck created (appropriate for player count)", () => {
-      // 2-4 players: 2 decks (108 cards)
-      // 5-6 players: 3 decks (162 cards)
+      // 2-5 players: 2 decks (108 cards)
+      // 6-8 players: 3 decks (162 cards)
       const input2Players: NextRoundInput = {
         previousRound: 1 as RoundNumber,
         playerIds: ["player-1", "player-2"],
@@ -939,7 +939,19 @@ describe("round transition - to next round", () => {
         Object.values(result5.playerStates).reduce((sum, p) => sum + p.hand.length, 0) +
         result5.discard.length +
         result5.stock.length;
-      expect(totalCards5).toBe(162);
+      expect(totalCards5).toBe(108);
+
+      const input6Players: NextRoundInput = {
+        previousRound: 1 as RoundNumber,
+        playerIds: ["p1", "p2", "p3", "p4", "p5", "p6"],
+        previousDealerIndex: 0,
+      };
+      const result6 = setupNextRound(input6Players);
+      const totalCards6 =
+        Object.values(result6.playerStates).reduce((sum, p) => sum + p.hand.length, 0) +
+        result6.discard.length +
+        result6.stock.length;
+      expect(totalCards6).toBe(162);
     });
 
     it("deck shuffled", () => {

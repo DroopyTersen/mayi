@@ -112,6 +112,7 @@ export function mergeAIStatePreservingOtherPlayerHands(
   currentPlayerEngineId: string
 ): StoredGameState {
   type RoundSnapshotPlayer = { id: string; hand: unknown; isDown?: boolean };
+  type CardLike = { id: string };
 
   // If no fresh state, just use AI state
   if (!freshState) return aiState;
@@ -237,6 +238,55 @@ export function mergeAIStatePreservingOtherPlayerHands(
       },
     },
   };
+
+  // Safety: If the merged snapshot has duplicate card IDs across hands, or any
+  // hand card ID also appears in stock/discard piles, the AI snapshot is stale
+  // relative to storage. Returning the fresh state avoids resurrecting cards
+  // (e.g., after a May-I resolution) and prevents duplicate dealing.
+  const handCardIds = new Set<string>();
+  let hasDuplicateHandCards = false;
+  for (const player of mergedPlayers) {
+    const hand = player.hand;
+    if (!Array.isArray(hand)) continue;
+    for (const card of hand) {
+      if (!card || typeof card !== "object") continue;
+      const id = (card as CardLike).id;
+      if (typeof id === "string") {
+        if (handCardIds.has(id)) {
+          hasDuplicateHandCards = true;
+        }
+        handCardIds.add(id);
+      }
+    }
+  }
+
+  if (hasDuplicateHandCards) return freshState;
+
+  const mergedRoundContext = mergedSnapshot?.children?.round?.snapshot?.context as
+    | { stock?: unknown; discard?: unknown }
+    | undefined;
+  const mergedTurnContext = mergedSnapshot?.children?.round?.snapshot?.children?.turn?.snapshot
+    ?.context as
+    | { stock?: unknown; discard?: unknown }
+    | undefined;
+
+  const pilesToCheck: unknown[] = [
+    mergedRoundContext?.stock,
+    mergedRoundContext?.discard,
+    mergedTurnContext?.stock,
+    mergedTurnContext?.discard,
+  ];
+
+  const hasHandPileOverlap = pilesToCheck.some((pile) => {
+    if (!Array.isArray(pile)) return false;
+    return pile.some((card) => {
+      if (!card || typeof card !== "object") return false;
+      const id = (card as CardLike).id;
+      return typeof id === "string" && handCardIds.has(id);
+    });
+  });
+
+  if (hasHandPileOverlap) return freshState;
 
   return {
     ...aiState,

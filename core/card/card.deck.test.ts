@@ -2,6 +2,26 @@ import { describe, it, expect } from "bun:test";
 import { createDeck, shuffle, deal } from "./card.deck";
 import type { Card } from "./card.types";
 
+function countRankSuit(cards: Card[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const card of cards) {
+    const key = `${card.rank}-${card.suit}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function dealAllCardsRoundRobin(deck: Card[], playerCount: number): Card[][] {
+  const hands: Card[][] = Array.from({ length: playerCount }, () => []);
+  for (let i = 0; i < deck.length; i++) {
+    const hand = hands[i % playerCount];
+    if (hand) {
+      hand.push(deck[i]!);
+    }
+  }
+  return hands;
+}
+
 describe("createDeck", () => {
   describe("deck size", () => {
     it("creates 108 cards for 2 decks + 4 jokers (3-5 player setup)", () => {
@@ -50,6 +70,19 @@ describe("createDeck", () => {
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(deck.length);
     });
+
+    it("creates exactly one of each rank+suit for a single deck", () => {
+      const deck = createDeck({ deckCount: 1, jokerCount: 2 });
+      const nonJokers = deck.filter((c) => c.rank !== "Joker");
+      const jokers = deck.filter((c) => c.rank === "Joker");
+
+      const counts = countRankSuit(nonJokers);
+      expect(counts.size).toBe(52);
+      for (const count of counts.values()) {
+        expect(count).toBe(1);
+      }
+      expect(jokers.length).toBe(2);
+    });
   });
 
   describe("multiple decks", () => {
@@ -59,6 +92,28 @@ describe("createDeck", () => {
       // Should have 2 of each card (e.g., 2 Ace of Spades)
       const aceOfSpades = deck.filter((c) => c.rank === "A" && c.suit === "spades");
       expect(aceOfSpades.length).toBe(2);
+    });
+
+    it("creates exactly two of each rank+suit for two decks", () => {
+      const deck = createDeck({ deckCount: 2, jokerCount: 4 });
+      const nonJokers = deck.filter((c) => c.rank !== "Joker");
+
+      const counts = countRankSuit(nonJokers);
+      expect(counts.size).toBe(52);
+      for (const count of counts.values()) {
+        expect(count).toBe(2);
+      }
+    });
+
+    it("creates exactly three of each rank+suit for three decks", () => {
+      const deck = createDeck({ deckCount: 3, jokerCount: 6 });
+      const nonJokers = deck.filter((c) => c.rank !== "Joker");
+
+      const counts = countRankSuit(nonJokers);
+      expect(counts.size).toBe(52);
+      for (const count of counts.values()) {
+        expect(count).toBe(3);
+      }
     });
   });
 });
@@ -102,6 +157,50 @@ describe("shuffle", () => {
 
     // Check that at least one shuffle differs from original
     expect(ids1 !== idsOriginal || ids2 !== idsOriginal).toBe(true);
+  });
+});
+
+describe("deal all cards", () => {
+  it("deals every card into hands for a single deck", () => {
+    const deck = shuffle(createDeck({ deckCount: 1, jokerCount: 2 }));
+    const hands = dealAllCardsRoundRobin(deck, 4);
+    const allCards = hands.flat();
+
+    expect(allCards.length).toBe(deck.length);
+
+    const ids = new Set(allCards.map((c) => c.id));
+    expect(ids.size).toBe(allCards.length);
+
+    const nonJokers = allCards.filter((c) => c.rank !== "Joker");
+    const counts = countRankSuit(nonJokers);
+    expect(counts.size).toBe(52);
+    for (const count of counts.values()) {
+      expect(count).toBe(1);
+    }
+  });
+
+  it("deals every card into hands for N decks", () => {
+    const deckCounts = [2, 3];
+    for (const deckCount of deckCounts) {
+      const deck = shuffle(createDeck({ deckCount, jokerCount: deckCount * 2 }));
+      const hands = dealAllCardsRoundRobin(deck, 5);
+      const allCards = hands.flat();
+
+      expect(allCards.length).toBe(deck.length);
+
+      const ids = new Set(allCards.map((c) => c.id));
+      expect(ids.size).toBe(allCards.length);
+
+      const nonJokers = allCards.filter((c) => c.rank !== "Joker");
+      const counts = countRankSuit(nonJokers);
+      expect(counts.size).toBe(52);
+      for (const count of counts.values()) {
+        expect(count).toBe(deckCount);
+      }
+
+      const jokers = allCards.filter((c) => c.rank === "Joker");
+      expect(jokers.length).toBe(deckCount * 2);
+    }
   });
 });
 

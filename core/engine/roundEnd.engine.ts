@@ -131,10 +131,10 @@ export function setupNextRound(input: NextRoundInput): NextRoundState {
   const currentPlayerIndex = (dealerIndex + 1) % playerIds.length;
 
   // Determine deck size based on player count
-  // 2-4 players: 2 decks + 4 jokers = 108 cards
-  // 5-6 players: 3 decks + 6 jokers = 162 cards
-  const deckCount = playerIds.length >= 5 ? 3 : 2;
-  const jokerCount = playerIds.length >= 5 ? 6 : 4;
+  // 2-5 players: 2 decks + 4 jokers = 108 cards
+  // 6-8 players: 3 decks + 6 jokers = 162 cards
+  const deckCount = playerIds.length >= 6 ? 3 : 2;
+  const jokerCount = playerIds.length >= 6 ? 6 : 4;
 
   // Create, shuffle, and deal
   const deck = createDeck({ deckCount, jokerCount });

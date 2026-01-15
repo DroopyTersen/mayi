@@ -7,6 +7,13 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { GameEngine } from "./game-engine";
 import type { GameSnapshot, PlayerView, MeldSpec } from "./game-engine.types";
+import type { Card } from "../card/card.types";
+
+function collectAllCards(snapshot: GameSnapshot): Card[] {
+  const handCards = snapshot.players.flatMap((player) => player.hand);
+  const tableCards = snapshot.table.flatMap((meld) => meld.cards);
+  return [...handCards, ...snapshot.stock, ...snapshot.discard, ...tableCards];
+}
 
 describe("GameEngine", () => {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -183,6 +190,26 @@ describe("GameEngine", () => {
 
       // Should have 108 unique card IDs (2 decks)
       expect(allCardIds.size).toBe(108);
+    });
+
+    it("uses 108 cards (2 decks) for 5 players", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["A", "B", "C", "D", "E"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const totalCards = collectAllCards(snapshot).length;
+      expect(totalCards).toBe(108);
+    });
+
+    it("uses 162 cards (3 decks) for 6 players", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["A", "B", "C", "D", "E", "F"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const totalCards = collectAllCards(snapshot).length;
+      expect(totalCards).toBe(162);
     });
   });
 

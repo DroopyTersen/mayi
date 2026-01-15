@@ -179,6 +179,50 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
     expect(result).toBe(state);
   });
 
+  it("prefers fresh state when merge would duplicate a card across hands", () => {
+    const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+    const adapter = PartyGameAdapter.fromStoredState(state);
+    const mappings = adapter.getAllPlayerMappings();
+    const human = mappings.find((m) => !m.isAI);
+    const ai = mappings.find((m) => m.isAI);
+    if (!human || !ai) {
+      throw new Error("Expected a human and AI player mapping");
+    }
+
+    const staleSnapshot = JSON.parse(state.engineSnapshot);
+    const players = staleSnapshot.children?.round?.snapshot?.context?.players;
+    if (!Array.isArray(players)) {
+      throw new Error("Expected players in stale snapshot");
+    }
+    const humanPlayer = players.find((p: { id: string }) => p.id === human.engineId);
+    const aiPlayer = players.find((p: { id: string }) => p.id === ai.engineId);
+    if (!humanPlayer || !aiPlayer) {
+      throw new Error("Expected human and AI players in snapshot");
+    }
+
+    const duplicateCard = humanPlayer.hand.find(
+      (card: { id: string }) => !aiPlayer.hand.some((c: { id: string }) => c.id === card.id)
+    );
+    if (!duplicateCard) {
+      throw new Error("Expected a card to duplicate across hands");
+    }
+
+    aiPlayer.hand = [...aiPlayer.hand, duplicateCard];
+
+    const staleState: StoredGameState = {
+      ...state,
+      engineSnapshot: JSON.stringify(staleSnapshot),
+    };
+
+    const result = mergeAIStatePreservingOtherPlayerHands(
+      state,
+      staleState,
+      ai.engineId
+    );
+
+    expect(result).toBe(state);
+  });
+
   it("preserves multiple non-current players hands", () => {
     // Setup: 4-player game (1 human, 3 AI)
     const state = createTestGameState(["Human", "AI-A", "AI-B", "AI-C"]);
