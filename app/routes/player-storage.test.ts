@@ -3,6 +3,9 @@ import {
   getStoredPlayerName,
   storePlayerName,
   getOrCreatePlayerId,
+  getStoredAvatarId,
+  storeAvatarId,
+  clearStoredAvatarId,
 } from "./player-storage";
 
 // Mock localStorage and sessionStorage for testing
@@ -141,6 +144,58 @@ describe("player-storage", () => {
 
       expect(room1PlayerId).not.toBe(room2PlayerId); // Different player IDs per room
       expect(storedName).toBe("Drew"); // Same name across rooms
+    });
+  });
+
+  describe("getStoredAvatarId / storeAvatarId", () => {
+    it("returns null when no avatar is stored", () => {
+      expect(getStoredAvatarId()).toBeNull();
+    });
+
+    it("stores and retrieves avatar ID globally (not room-specific)", () => {
+      storeAvatarId("ethel");
+      expect(getStoredAvatarId()).toBe("ethel");
+    });
+
+    it("persists the same avatar for all rooms", () => {
+      storeAvatarId("bart");
+
+      // Avatar should be available globally, not per-room
+      expect(getStoredAvatarId()).toBe("bart");
+    });
+
+    it("overwrites previous avatar when storing new avatar", () => {
+      storeAvatarId("ethel");
+      expect(getStoredAvatarId()).toBe("ethel");
+
+      storeAvatarId("curt");
+      expect(getStoredAvatarId()).toBe("curt");
+    });
+
+    it("clears stored avatar ID", () => {
+      storeAvatarId("ethel");
+      expect(getStoredAvatarId()).toBe("ethel");
+
+      clearStoredAvatarId();
+      expect(getStoredAvatarId()).toBeNull();
+    });
+  });
+
+  describe("avatar persistence across rooms (integration)", () => {
+    it("remembers user avatar when switching rooms", () => {
+      // User joins room 1 and picks their avatar
+      const room1PlayerId = getOrCreatePlayerId("room-1");
+      storeAvatarId("ethel");
+      storePlayerName("Ethel");
+
+      // User joins room 2 - avatar should be remembered, but player ID is different
+      const room2PlayerId = getOrCreatePlayerId("room-2");
+      const storedAvatar = getStoredAvatarId();
+      const storedName = getStoredPlayerName();
+
+      expect(room1PlayerId).not.toBe(room2PlayerId); // Different player IDs per room
+      expect(storedAvatar).toBe("ethel"); // Same avatar across rooms
+      expect(storedName).toBe("Ethel"); // Same name across rooms
     });
   });
 });

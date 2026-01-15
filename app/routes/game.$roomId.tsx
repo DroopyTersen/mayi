@@ -9,10 +9,12 @@ import {
 } from "react";
 import {
   getStoredPlayerName,
+  getStoredAvatarId,
   storePlayerName,
   getOrCreatePlayerId,
   getPlayerIdKey,
   getPlayerNameKey,
+  storeAvatarId,
 } from "./player-storage";
 
 import { LobbyView } from "~/ui/lobby/LobbyView";
@@ -145,12 +147,14 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   const handleReconnect = useCallback(() => {
     const playerId = currentPlayerId;
     const storedName = getStoredPlayerName();
+    const storedAvatarId = getStoredAvatarId();
     if (playerId && storedName && socketRef.current) {
       console.log("[handleReconnect] Resyncing state with JOIN");
       socketRef.current.send(JSON.stringify({
         type: "JOIN",
         playerId,
         playerName: storedName,
+        avatarId: storedAvatarId ?? undefined,
       } as ClientMessage));
     }
   }, [currentPlayerId]);
@@ -175,23 +179,26 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   }, []);
 
   const sendJoin = useCallback(
-    (playerId: string, playerName: string) => {
-      sendMessage({ type: "JOIN", playerId, playerName });
+    (playerId: string, playerName: string, avatarId?: string) => {
+      sendMessage({ type: "JOIN", playerId, playerName, avatarId });
     },
     [sendMessage]
   );
 
   const onJoin = useCallback(
-    (name: string) => {
+    (name: string, avatarId?: string) => {
       const playerId = currentPlayerId ?? getOrCreatePlayerId(roomId);
       if (playerId !== currentPlayerId) {
         setCurrentPlayerId(playerId);
       }
       storePlayerName(name);
+      if (avatarId) {
+        storeAvatarId(avatarId);
+      }
 
       setShowNamePrompt(false);
       setJoinStatus("joining");
-      sendJoin(playerId, name);
+      sendJoin(playerId, name, avatarId);
     },
     [currentPlayerId, roomId, sendJoin]
   );
@@ -203,8 +210,8 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
   // Phase 3: Callbacks for game setup
   const onAddAIPlayer = useCallback(
-    (name: string, modelId: AIModelId) => {
-      sendMessage({ type: "ADD_AI_PLAYER", name, modelId });
+    (name: string, modelId: AIModelId, avatarId: string) => {
+      sendMessage({ type: "ADD_AI_PLAYER", name, modelId, avatarId });
     },
     [sendMessage]
   );
@@ -337,6 +344,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     setCurrentPlayerId(playerId);
 
     const storedName = getStoredPlayerName();
+    const storedAvatarId = getStoredAvatarId();
     setShareUrl(new URL(`/game/${roomId}`, window.location.origin).toString());
 
     const newSocket = new PartySocket({
@@ -368,10 +376,10 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         }
       }
 
-      if (storedName) {
+      if (storedName && storedAvatarId) {
         setShowNamePrompt(false);
         setJoinStatus("joining");
-        sendJoin(playerId, storedName);
+        sendJoin(playerId, storedName, storedAvatarId);
       } else {
         setJoinStatus("unjoined");
         setShowNamePrompt(true);

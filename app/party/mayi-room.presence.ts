@@ -8,6 +8,7 @@
 export interface StoredPlayer {
   playerId: string;
   name: string;
+  avatarId?: string; // Character avatar (e.g., "ethel", "curt")
 
   // timestamps (ms since epoch)
   joinedAt: number; // first time we ever saw this playerId
@@ -24,6 +25,7 @@ export interface StoredPlayer {
 export interface PlayerInfo {
   playerId: string;
   name: string;
+  avatarId?: string;
   isConnected: boolean;
   disconnectedAt: number | null;
 }
@@ -33,6 +35,7 @@ export function upsertStoredPlayerOnJoin(
   args: {
     playerId: string;
     playerName: string;
+    avatarId?: string;
     connectionId: string;
     now: number;
   }
@@ -40,10 +43,13 @@ export function upsertStoredPlayerOnJoin(
   const trimmedName = args.playerName.trim();
 
   const joinedAt = existing ? existing.joinedAt : args.now;
+  // Preserve existing avatarId if not provided in new join
+  const avatarId = args.avatarId ?? existing?.avatarId;
 
   return {
     playerId: args.playerId,
     name: trimmedName,
+    avatarId,
     joinedAt,
     lastSeenAt: args.now,
     isConnected: true,
@@ -90,6 +96,7 @@ export function buildPlayersSnapshotFromStorageEntries(
     players.push({
       playerId: stored.playerId,
       name: stored.name,
+      avatarId: stored.avatarId,
       isConnected: stored.isConnected,
       disconnectedAt: stored.disconnectedAt,
     });

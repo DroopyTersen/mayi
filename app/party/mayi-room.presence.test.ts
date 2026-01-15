@@ -59,6 +59,71 @@ describe("MayIRoom presence logic", () => {
     expect(updated.disconnectedAt).toBeNull();
   });
 
+  it("upsertStoredPlayerOnJoin stores avatarId when provided", () => {
+    const now = 1_700_000_000_000;
+
+    const created = upsertStoredPlayerOnJoin(null, {
+      playerId: "p_123",
+      playerName: "Ethel",
+      avatarId: "ethel",
+      connectionId: "c_1",
+      now,
+    });
+
+    expect(created.avatarId).toBe("ethel");
+    expect(created.name).toBe("Ethel");
+  });
+
+  it("upsertStoredPlayerOnJoin preserves existing avatarId when not provided in rejoin", () => {
+    const existing: StoredPlayer = {
+      playerId: "p_123",
+      name: "Alice",
+      avatarId: "ethel",
+      joinedAt: 111,
+      lastSeenAt: 222,
+      isConnected: false,
+      currentConnectionId: null,
+      connectedAt: 222,
+      disconnectedAt: 333,
+    };
+
+    const now = 444;
+    const updated = upsertStoredPlayerOnJoin(existing, {
+      playerId: "p_123",
+      playerName: "Alice",
+      // avatarId not provided - should preserve existing
+      connectionId: "c_new",
+      now,
+    });
+
+    expect(updated.avatarId).toBe("ethel");
+  });
+
+  it("upsertStoredPlayerOnJoin updates avatarId when provided on rejoin", () => {
+    const existing: StoredPlayer = {
+      playerId: "p_123",
+      name: "Alice",
+      avatarId: "ethel",
+      joinedAt: 111,
+      lastSeenAt: 222,
+      isConnected: false,
+      currentConnectionId: null,
+      connectedAt: 222,
+      disconnectedAt: 333,
+    };
+
+    const now = 444;
+    const updated = upsertStoredPlayerOnJoin(existing, {
+      playerId: "p_123",
+      playerName: "Alice",
+      avatarId: "bart",
+      connectionId: "c_new",
+      now,
+    });
+
+    expect(updated.avatarId).toBe("bart");
+  });
+
   it("maybeUpdateStoredPlayerOnClose ignores stale closes (connection id does not match currentConnectionId)", () => {
     const existing: StoredPlayer = {
       playerId: "p_123",

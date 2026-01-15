@@ -8,10 +8,11 @@ import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import { ConnectionStatusIndicator } from "./ConnectionStatusIndicator";
 import { LobbyPlayersList } from "./LobbyPlayersList";
+import { AIPlayersList } from "./AIPlayersList";
+import { EmptyPlayersState } from "./EmptyPlayersState";
 import { ShareLinkCard } from "./ShareLinkCard";
 import { NamePromptDialog } from "./NamePromptDialog";
 import { AddAIPlayerDialog } from "./AddAIPlayerDialog";
-import { AIPlayersList } from "./AIPlayersList";
 import { StartingRoundSelector } from "./StartingRoundSelector";
 import { StartGameButton } from "./StartGameButton";
 import { UserPlus, Pencil } from "lucide-react";
@@ -34,13 +35,13 @@ interface LobbyViewProps {
   /** Whether name prompt is open */
   showNamePrompt: boolean;
   onNamePromptChange: (open: boolean) => void;
-  onJoin: (name: string) => void;
+  onJoin: (name: string, avatarId?: string) => void;
   /** Phase 3: Game settings */
   gameSettings?: LobbyGameSettings;
   /** Phase 3: Whether this player is the host (first player) */
   isHost?: boolean;
   /** Phase 3: Callbacks for game setup */
-  onAddAIPlayer?: (name: string, modelId: AIModelId) => void;
+  onAddAIPlayer?: (name: string, modelId: AIModelId, avatarId: string) => void;
   onRemoveAIPlayer?: (playerId: string) => void;
   onSetStartingRound?: (round: RoundNumber) => void;
   onStartGame?: () => void;
@@ -71,14 +72,23 @@ export function LobbyView({
   const isJoining = joinStatus === "joining";
   const isJoined = joinStatus === "joined";
 
-  // Get current player's name for pre-filling the name dialog
+  // Get current player's avatar for pre-filling the dialog
   const currentPlayer = players.find((p) => p.playerId === currentPlayerId);
-  const currentPlayerName = currentPlayer?.name;
+  const currentPlayerAvatarId = currentPlayer?.avatarId;
 
   // Calculate total player count (human + AI)
   const humanCount = players.length;
   const aiCount = gameSettings?.aiPlayers.length ?? 0;
   const totalPlayerCount = humanCount + aiCount;
+
+  // Collect taken character IDs (from both human and AI players)
+  const takenCharacterIds = [
+    ...players.map((p) => p.avatarId).filter((id): id is string => id != null),
+    ...(gameSettings?.aiPlayers.map((p) => p.avatarId).filter((id): id is string => id != null) ?? []),
+  ];
+  const takenCharacterIdsForNamePrompt = currentPlayerAvatarId
+    ? takenCharacterIds.filter((id) => id !== currentPlayerAvatarId)
+    : takenCharacterIds;
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -143,23 +153,30 @@ export function LobbyView({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <LobbyPlayersList
-            players={players}
-            currentPlayerId={currentPlayerId}
-          />
-
-          {/* AI Players list (Phase 3) */}
-          {gameSettings && gameSettings.aiPlayers.length > 0 && (
-            <AIPlayersList
-              aiPlayers={gameSettings.aiPlayers}
-              onRemove={onRemoveAIPlayer ?? (() => {})}
-            />
+          {/* Players grid - human and AI in one row */}
+          {totalPlayerCount > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <LobbyPlayersList
+                players={players}
+                currentPlayerId={currentPlayerId}
+                onClickCurrentPlayer={() => onNamePromptChange(true)}
+              />
+              {gameSettings && gameSettings.aiPlayers.length > 0 && (
+                <AIPlayersList
+                  aiPlayers={gameSettings.aiPlayers}
+                  onRemove={onRemoveAIPlayer ?? (() => {})}
+                />
+              )}
+            </div>
+          ) : (
+            <EmptyPlayersState />
           )}
 
           {/* Add AI Player button (host only) */}
           {isHost && onAddAIPlayer && (
             <AddAIPlayerDialog
               onAdd={onAddAIPlayer}
+              takenCharacterIds={takenCharacterIds}
               disabled={totalPlayerCount >= 8}
             />
           )}
@@ -203,7 +220,8 @@ export function LobbyView({
         onOpenChange={onNamePromptChange}
         onSubmit={onJoin}
         isSubmitting={isJoining}
-        defaultName={currentPlayerName}
+        defaultAvatarId={currentPlayerAvatarId}
+        takenCharacterIds={takenCharacterIdsForNamePrompt}
       />
     </div>
   );

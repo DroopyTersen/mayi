@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/shadcn/components/ui/dialog";
-import { Input } from "~/shadcn/components/ui/input";
 import { Label } from "~/shadcn/components/ui/label";
 import {
   Select,
@@ -24,21 +23,27 @@ import {
   type AIModelId,
 } from "~/party/protocol.types";
 import { Bot, Plus } from "lucide-react";
+import { CharacterPicker, type Character } from "./CharacterPicker";
 
 interface AddAIPlayerDialogProps {
-  onAdd: (name: string, modelId: AIModelId) => void;
+  onAdd: (name: string, modelId: AIModelId, avatarId: string) => void;
+  takenCharacterIds?: string[];
   disabled?: boolean;
 }
 
-export function AddAIPlayerDialog({ onAdd, disabled }: AddAIPlayerDialogProps) {
+export function AddAIPlayerDialog({
+  onAdd,
+  takenCharacterIds = [],
+  disabled,
+}: AddAIPlayerDialogProps) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
+  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [modelId, setModelId] = useState<AIModelId>("default:grok");
 
   const handleAdd = () => {
-    if (name.trim().length === 0) return;
-    onAdd(name.trim(), modelId);
-    setName("");
+    if (!selectedCharacter) return;
+    onAdd(selectedCharacter.name, modelId, selectedCharacter.id);
+    setSelectedCharacter(null);
     setModelId("default:grok");
     setOpen(false);
   };
@@ -47,7 +52,7 @@ export function AddAIPlayerDialog({ onAdd, disabled }: AddAIPlayerDialogProps) {
     setOpen(newOpen);
     if (!newOpen) {
       // Reset form when closing
-      setName("");
+      setSelectedCharacter(null);
       setModelId("default:grok");
     }
   };
@@ -61,26 +66,20 @@ export function AddAIPlayerDialog({ onAdd, disabled }: AddAIPlayerDialogProps) {
           <Plus className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add AI Player</DialogTitle>
           <DialogDescription>
-            Add an AI opponent to the game. Choose a name and select which AI
-            model to use.
+            Choose a character for the AI opponent.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="ai-name">Name</Label>
-            <Input
-              id="ai-name"
-              placeholder="Enter AI player name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={24}
-              autoFocus
-            />
-          </div>
+          <CharacterPicker
+            mode="ai"
+            selectedId={selectedCharacter?.id ?? null}
+            takenIds={takenCharacterIds}
+            onSelect={setSelectedCharacter}
+          />
           <div className="grid gap-2">
             <Label htmlFor="ai-model">AI Model</Label>
             <Select value={modelId} onValueChange={(v) => setModelId(v as AIModelId)}>
@@ -101,7 +100,7 @@ export function AddAIPlayerDialog({ onAdd, disabled }: AddAIPlayerDialogProps) {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleAdd} disabled={name.trim().length === 0}>
+          <Button onClick={handleAdd} disabled={!selectedCharacter}>
             Add Player
           </Button>
         </DialogFooter>

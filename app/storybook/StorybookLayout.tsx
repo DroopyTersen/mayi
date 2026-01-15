@@ -19,6 +19,7 @@ import { OrganizeHandViewStory } from "~/ui/organize-hand/OrganizeHandView.story
 import { SwapJokerViewStory } from "~/ui/swap-joker-view/SwapJokerView.story";
 import { MayIRequestViewStory } from "~/ui/may-i-request/MayIRequestView.story";
 import { LobbyViewStory } from "~/ui/lobby/LobbyView.story";
+import { CharacterPickerStory } from "~/ui/lobby/CharacterPicker.story";
 import { GameViewStory } from "~/ui/game-view/GameView.story";
 import { HandDrawerStory, HandDrawerFullscreenTest } from "~/ui/hand-drawer/HandDrawer.story";
 
@@ -27,6 +28,7 @@ const STORIES: Array<{ path: string; label: string; component: React.ComponentTy
   { path: "hand-drawer", label: "HandDrawer (Mobile)", component: HandDrawerStory },
   { path: "hand-drawer-fullscreen", label: "HandDrawer (Fullscreen)", component: HandDrawerFullscreenTest, fullscreen: true },
   { path: "lobby-view", label: "LobbyView", component: LobbyViewStory },
+  { path: "character-picker", label: "CharacterPicker", component: CharacterPickerStory },
   { path: "playing-card", label: "PlayingCard", component: PlayingCardStory },
   { path: "hand-display", label: "HandDisplay", component: HandDisplayStory },
   { path: "meld-display", label: "MeldDisplay", component: MeldDisplayStory },

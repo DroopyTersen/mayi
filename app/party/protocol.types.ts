@@ -58,6 +58,7 @@ export type { AIModelId };
 export interface AIPlayerInfo {
   playerId: string;
   name: string;
+  avatarId?: string;
   modelId: AIModelId;
   modelDisplayName: string;
 }
@@ -70,6 +71,7 @@ export interface AIPlayerInfo {
 export interface HumanPlayerInfo {
   playerId: string;
   name: string;
+  avatarId?: string;
   isConnected: boolean;
   disconnectedAt: number | null;
 }
@@ -91,11 +93,13 @@ export const joinMessageSchema = z.object({
   type: z.literal("JOIN"),
   playerId: z.string().min(1).max(64),
   playerName: z.string().min(1).max(24),
+  avatarId: z.string().max(32).optional(),
 });
 
 export const addAIPlayerSchema = z.object({
   type: z.literal("ADD_AI_PLAYER"),
   name: z.string().min(1).max(24),
+  avatarId: z.string().max(32).optional(),
   modelId: z.enum(AI_MODEL_IDS),
 });
 

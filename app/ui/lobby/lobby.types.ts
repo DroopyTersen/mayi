@@ -16,6 +16,7 @@ export type JoinStatus = "unjoined" | "joining" | "joined";
 export interface PlayerInfo {
   playerId: string;
   name: string;
+  avatarId?: string;
   isConnected: boolean;
   disconnectedAt: number | null; // timestamp for "disconnected Xm ago"
 }

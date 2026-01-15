@@ -281,6 +281,7 @@ export class MayIRoom extends Server {
     const updated = upsertStoredPlayerOnJoin(existing, {
       playerId,
       playerName,
+      avatarId: msg.avatarId,
       connectionId: conn.id,
       now,
     });
@@ -329,7 +330,7 @@ export class MayIRoom extends Server {
     const humanPlayers = await this.getStoredPlayers();
     const humanCount = humanPlayers.length;
 
-    const newState = addAIPlayer(lobbyState, humanCount, msg.name, msg.modelId);
+    const newState = addAIPlayer(lobbyState, humanCount, msg.name, msg.modelId, msg.avatarId);
 
     if (!newState) {
       conn.send(

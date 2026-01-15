@@ -11,6 +11,7 @@ import type { Meld } from "../meld/meld.types";
 export interface Player {
   id: string;
   name: string;
+  avatarId?: string; // Character avatar (e.g., "ethel", "curt")
   hand: Card[];
   isDown: boolean; // Has laid down contract this round
   totalScore: number; // Cumulative across rounds

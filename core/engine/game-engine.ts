@@ -210,6 +210,7 @@ export class GameEngine {
       .map((p) => ({
         id: p.id,
         name: p.name,
+        avatarId: p.avatarId,
         handCount: p.hand.length,
         isDown: p.isDown,
         totalScore: p.totalScore,

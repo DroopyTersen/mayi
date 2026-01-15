@@ -189,6 +189,9 @@ export interface OpponentInfo {
   /** Player name */
   name: string;
 
+  /** Character avatar ID (e.g., "ethel", "curt") */
+  avatarId?: string;
+
   /** Number of cards in hand (NOT the actual cards!) */
   handCount: number;
 

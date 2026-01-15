@@ -1,7 +1,8 @@
 import { nanoid } from "nanoid";
 
-// Global key for player name - persists across all rooms
+// Global keys - persist across all rooms
 const PLAYER_NAME_KEY = "mayi:playerName";
+const PLAYER_AVATAR_KEY = "mayi:avatarId";
 
 // Room-specific key for player ID - each room has its own identity
 export function getPlayerIdKey(roomId: string): string {
@@ -43,4 +44,28 @@ export function getOrCreatePlayerId(roomId: string): string {
   const playerId = nanoid(12);
   sessionStorage.setItem(key, playerId);
   return playerId;
+}
+
+/**
+ * Get stored avatar ID from localStorage (persists across all rooms)
+ */
+export function getStoredAvatarId(): string | null {
+  if (typeof localStorage === "undefined") return null;
+  return localStorage.getItem(PLAYER_AVATAR_KEY);
+}
+
+/**
+ * Store avatar ID in localStorage (persists across all rooms)
+ */
+export function storeAvatarId(avatarId: string): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(PLAYER_AVATAR_KEY, avatarId);
+}
+
+/**
+ * Clear stored avatar ID from localStorage
+ */
+export function clearStoredAvatarId(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(PLAYER_AVATAR_KEY);
 }

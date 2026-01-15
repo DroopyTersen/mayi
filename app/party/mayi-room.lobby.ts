@@ -58,7 +58,8 @@ export function addAIPlayer(
   state: LobbyState,
   humanPlayerCount: number,
   name: string,
-  modelId: AIModelId
+  modelId: AIModelId,
+  avatarId?: string
 ): LobbyState | null {
   const totalPlayers = humanPlayerCount + state.aiPlayers.length;
 
@@ -69,6 +70,7 @@ export function addAIPlayer(
   const aiPlayer: AIPlayerInfo = {
     playerId: `ai-${nanoid(8)}`,
     name: name.trim(),
+    avatarId,
     modelId,
     modelDisplayName: AI_MODEL_DISPLAY_NAMES[modelId],
   };
@@ -166,6 +168,7 @@ export function storedPlayersToHumanPlayerInfo(
   return storedPlayers.map((p) => ({
     playerId: p.playerId,
     name: p.name,
+    avatarId: p.avatarId,
     isConnected: p.isConnected,
     disconnectedAt: p.disconnectedAt,
   }));

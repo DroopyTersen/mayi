@@ -37,6 +37,8 @@ export interface PlayerMapping {
   engineId: string;
   /** Player name */
   name: string;
+  /** Character avatar ID (e.g., "ethel", "curt") */
+  avatarId?: string;
   /** Is this an AI player? */
   isAI: boolean;
   /** AI model ID (if AI player) */
@@ -249,6 +251,7 @@ export class PartyGameAdapter {
         lobbyId: human.playerId,
         engineId: `player-${index}`,
         name: human.name,
+        avatarId: human.avatarId,
         isAI: false,
       });
     });
@@ -259,6 +262,7 @@ export class PartyGameAdapter {
         lobbyId: ai.playerId,
         engineId: `player-${humanPlayers.length + index}`,
         name: ai.name,
+        avatarId: ai.avatarId,
         isAI: true,
         aiModelId: ai.modelId,
       });
@@ -408,14 +412,29 @@ export class PartyGameAdapter {
   /**
    * Get a player-specific view using their lobby ID
    *
-   * Returns null if the lobby ID is not a valid player
+   * Returns null if the lobby ID is not a valid player.
+   * Enriches the view with avatarIds from player mappings.
    */
   getPlayerView(lobbyPlayerId: string): PlayerView | null {
     const engineId = this.lobbyIdToEngineId(lobbyPlayerId);
     if (!engineId) return null;
 
     try {
-      return this.engine.getPlayerView(engineId);
+      const view = this.engine.getPlayerView(engineId);
+
+      // Enrich opponents with avatarIds from mappings
+      const enrichedOpponents = view.opponents.map((opponent) => {
+        const mapping = this.playerMappings.find((m) => m.engineId === opponent.id);
+        return {
+          ...opponent,
+          avatarId: mapping?.avatarId,
+        };
+      });
+
+      return {
+        ...view,
+        opponents: enrichedOpponents,
+      };
     } catch {
       return null;
     }
