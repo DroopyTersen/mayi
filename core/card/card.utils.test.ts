@@ -114,6 +114,10 @@ describe("getRankValue", () => {
     expect(getRankValue("Joker")).toBeNull();
   });
 
+  it("returns null for invalid ranks", () => {
+    expect(getRankValue("NotARank" as Rank)).toBeNull();
+  });
+
   it("maintains correct ordering: 3 < 4 < ... < 10 < J < Q < K < A", () => {
     const ranks: Rank[] = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
     for (let i = 0; i < ranks.length - 1; i++) {

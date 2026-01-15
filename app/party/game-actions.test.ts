@@ -9,6 +9,9 @@ import { describe, it, expect } from "bun:test";
 import { PartyGameAdapter } from "./party-game-adapter";
 import { executeGameAction } from "./game-actions";
 import type { HumanPlayerInfo, AIPlayerInfo, GameAction } from "./protocol.types";
+import { convertAgentTestStateToStoredState } from "./agent-state.converter";
+import type { AgentTestState } from "./agent-state.types";
+import { createTestCard } from "../../core/engine/test.fixtures";
 
 describe("executeGameAction", () => {
   const humanPlayers: HumanPlayerInfo[] = [
@@ -32,6 +35,11 @@ describe("executeGameAction", () => {
       aiPlayers,
       startingRound: 1,
     });
+  }
+
+  function createAdapterFromAgentState(state: AgentTestState) {
+    const storedState = convertAgentTestStateToStoredState(state, "test-room");
+    return PartyGameAdapter.fromStoredState(storedState);
   }
 
   describe("DRAW_FROM_STOCK", () => {
@@ -60,6 +68,32 @@ describe("executeGameAction", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("NOT_YOUR_TURN");
+    });
+
+    it("fails when already drawn", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_STOCK" });
+
+      const result = executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_STOCK" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+  });
+
+  describe("DRAW_FROM_DISCARD", () => {
+    it("fails when already drawn", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_STOCK" });
+
+      const result = executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_DISCARD" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
     });
   });
 
@@ -171,6 +205,519 @@ describe("executeGameAction", () => {
       if (result.snapshot?.lastError) {
         expect(result.success).toBe(false);
       }
+    });
+
+    it("returns lastError when engine rejects a lay down", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_STOCK" });
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "LAY_DOWN",
+        melds: [
+          {
+            type: "set",
+            cardIds: ["missing-card"],
+          },
+        ],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("card not in hand");
+      expect(result.snapshot?.lastError).toBe("card not in hand");
+    });
+  });
+
+  describe("SKIP", () => {
+    it("fails when not in AWAITING_ACTION phase", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, { type: "SKIP" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+  });
+
+  describe("LAY_DOWN", () => {
+    it("fails when not in AWAITING_ACTION phase", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "LAY_DOWN",
+        melds: [],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+
+    it("fails when melds are missing", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_STOCK" });
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "LAY_DOWN",
+        melds: [],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("MISSING_MELDS");
+    });
+
+    it("succeeds with valid melds in awaiting action", () => {
+      const player0Hand = [
+        createTestCard("K", "hearts", "p0-K-H"),
+        createTestCard("K", "diamonds", "p0-K-D"),
+        createTestCard("K", "spades", "p0-K-S"),
+        createTestCard("Q", "hearts", "p0-Q-H"),
+        createTestCard("Q", "diamonds", "p0-Q-D"),
+        createTestCard("Q", "clubs", "p0-Q-C"),
+        createTestCard("3", "hearts", "p0-3-H"),
+        createTestCard("4", "clubs", "p0-4-C"),
+        createTestCard("5", "spades", "p0-5-S"),
+        createTestCard("6", "diamonds", "p0-6-D"),
+        createTestCard("7", "hearts", "p0-7-H"),
+      ];
+
+      const state: AgentTestState = {
+        players: [
+          {
+            id: "human-1",
+            name: "Alice",
+            isAI: false,
+            hand: player0Hand,
+            isDown: false,
+          },
+          {
+            id: "human-2",
+            name: "Bob",
+            isAI: false,
+            hand: [
+              createTestCard("9", "hearts", "p1-9-H"),
+              createTestCard("10", "hearts", "p1-10-H"),
+              createTestCard("J", "hearts", "p1-J-H"),
+              createTestCard("Q", "spades", "p1-Q-S"),
+              createTestCard("K", "clubs", "p1-K-C"),
+              createTestCard("A", "hearts", "p1-A-H"),
+              createTestCard("3", "clubs", "p1-3-C"),
+              createTestCard("4", "diamonds", "p1-4-D"),
+              createTestCard("5", "clubs", "p1-5-C"),
+              createTestCard("6", "clubs", "p1-6-C"),
+              createTestCard("7", "clubs", "p1-7-C"),
+            ],
+            isDown: false,
+          },
+          {
+            id: "ai-1",
+            name: "Grok",
+            isAI: true,
+            aiModelId: "default:grok",
+            hand: [
+              createTestCard("9", "spades", "p2-9-S"),
+              createTestCard("10", "spades", "p2-10-S"),
+              createTestCard("J", "spades", "p2-J-S"),
+              createTestCard("Q", "diamonds", "p2-Q-D"),
+              createTestCard("K", "hearts", "p2-K-H"),
+              createTestCard("A", "spades", "p2-A-S"),
+              createTestCard("3", "spades", "p2-3-S"),
+              createTestCard("4", "hearts", "p2-4-H"),
+              createTestCard("5", "diamonds", "p2-5-D"),
+              createTestCard("6", "diamonds", "p2-6-D"),
+              createTestCard("7", "diamonds", "p2-7-D"),
+            ],
+            isDown: false,
+          },
+        ],
+        roundNumber: 1,
+        stock: [createTestCard("8", "hearts", "stock-1")],
+        discard: [createTestCard("2", "clubs", "discard-1")],
+        table: [],
+        turn: {
+          currentPlayerIndex: 0,
+          hasDrawn: true,
+          drawSource: "stock",
+          phase: "awaitingAction",
+        },
+      };
+
+      const adapter = createAdapterFromAgentState(state);
+      const action: GameAction = {
+        type: "LAY_DOWN",
+        melds: [
+          {
+            type: "set",
+            cardIds: ["p0-K-H", "p0-K-D", "p0-K-S"],
+          },
+          {
+            type: "set",
+            cardIds: ["p0-Q-H", "p0-Q-D", "p0-Q-C"],
+          },
+        ],
+      };
+
+      const result = executeGameAction(adapter, "human-1", action);
+
+      expect(result.success).toBe(true);
+      expect(result.snapshot?.table.length).toBe(2);
+    });
+  });
+
+  describe("LAY_OFF", () => {
+    it("fails when not in valid phases", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "LAY_OFF",
+        cardId: "card-1",
+        meldId: "meld-1",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+
+    it("fails when missing card or meld id", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_STOCK" });
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "LAY_OFF",
+        cardId: "card-1",
+      } as GameAction);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("MISSING_CARD_OR_MELD_ID");
+    });
+
+    it("succeeds when laying off to a set", () => {
+      const state: AgentTestState = {
+        players: [
+          {
+            id: "human-1",
+            name: "Alice",
+            isAI: false,
+            hand: [
+              createTestCard("Q", "spades", "p0-Q-S"),
+              createTestCard("9", "clubs", "p0-9-C"),
+            ],
+            isDown: true,
+          },
+          {
+            id: "human-2",
+            name: "Bob",
+            isAI: false,
+            hand: [createTestCard("9", "hearts", "p1-9-H")],
+            isDown: false,
+          },
+          {
+            id: "ai-1",
+            name: "Grok",
+            isAI: true,
+            aiModelId: "default:grok",
+            hand: [createTestCard("9", "spades", "p2-9-S")],
+            isDown: false,
+          },
+        ],
+        roundNumber: 1,
+        stock: [createTestCard("8", "hearts", "stock-1")],
+        discard: [createTestCard("2", "clubs", "discard-1")],
+        table: [
+          {
+            id: "meld-1",
+            type: "set",
+            ownerId: "human-1",
+            cards: [
+              createTestCard("Q", "hearts", "table-Q-H"),
+              createTestCard("Q", "diamonds", "table-Q-D"),
+              createTestCard("Q", "clubs", "table-Q-C"),
+            ],
+          },
+        ],
+        turn: {
+          currentPlayerIndex: 0,
+          hasDrawn: true,
+          drawSource: "stock",
+          phase: "awaitingAction",
+        },
+      };
+
+      const adapter = createAdapterFromAgentState(state);
+      const result = executeGameAction(adapter, "human-1", {
+        type: "LAY_OFF",
+        cardId: "p0-Q-S",
+        meldId: "meld-1",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.snapshot?.table[0]?.cards.length).toBe(4);
+      expect(result.snapshot?.turnPhase).toBe("AWAITING_ACTION");
+    });
+  });
+
+  describe("SWAP_JOKER", () => {
+    it("fails when not in valid phases", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "SWAP_JOKER",
+        meldId: "meld-1",
+        jokerCardId: "joker-1",
+        swapCardId: "card-1",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+
+    it("fails when swap params are missing", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      executeGameAction(adapter, awaitingId, { type: "DRAW_FROM_STOCK" });
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "SWAP_JOKER",
+        meldId: "meld-1",
+      } as GameAction);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("MISSING_SWAP_PARAMS");
+    });
+
+    it("succeeds when swapping a joker in a run", () => {
+      const swapCard = createTestCard("6", "spades", "p0-6-S");
+      const jokerCard = createTestCard("Joker", null, "table-joker");
+
+      const state: AgentTestState = {
+        players: [
+          {
+            id: "human-1",
+            name: "Alice",
+            isAI: false,
+            hand: [swapCard],
+            isDown: false,
+          },
+          {
+            id: "human-2",
+            name: "Bob",
+            isAI: false,
+            hand: [createTestCard("9", "hearts", "p1-9-H")],
+            isDown: false,
+          },
+          {
+            id: "ai-1",
+            name: "Grok",
+            isAI: true,
+            aiModelId: "default:grok",
+            hand: [createTestCard("9", "spades", "p2-9-S")],
+            isDown: false,
+          },
+        ],
+        roundNumber: 1,
+        stock: [createTestCard("8", "hearts", "stock-1")],
+        discard: [createTestCard("2", "clubs", "discard-1")],
+        table: [
+          {
+            id: "meld-1",
+            type: "run",
+            ownerId: "human-2",
+            cards: [
+              createTestCard("5", "spades", "table-5"),
+              jokerCard,
+              createTestCard("7", "spades", "table-7"),
+              createTestCard("8", "spades", "table-8"),
+            ],
+          },
+        ],
+        turn: {
+          currentPlayerIndex: 0,
+          hasDrawn: true,
+          drawSource: "stock",
+          phase: "awaitingAction",
+        },
+      };
+
+      const adapter = createAdapterFromAgentState(state);
+      const result = executeGameAction(adapter, "human-1", {
+        type: "SWAP_JOKER",
+        meldId: "meld-1",
+        jokerCardId: "table-joker",
+        swapCardId: "p0-6-S",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.snapshot?.table[0]?.cards[1]?.id).toBe("p0-6-S");
+    });
+  });
+
+  describe("REORDER_HAND", () => {
+    it("fails when cardIds are missing", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "REORDER_HAND",
+        cardIds: [],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("MISSING_CARD_IDS");
+    });
+
+    it("returns ACTION_FAILED for invalid lobby player id", () => {
+      const adapter = createTestAdapter();
+
+      const result = executeGameAction(adapter, "missing-player", {
+        type: "REORDER_HAND",
+        cardIds: ["card-1"],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("ACTION_FAILED");
+    });
+  });
+
+  describe("May I actions", () => {
+    it("fails CALL_MAY_I on own turn", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, { type: "CALL_MAY_I" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("CANNOT_CALL_MAY_I_ON_OWN_TURN");
+    });
+
+    it("fails CALL_MAY_I when already resolving May-I", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const callerId = ["human-1", "human-2", "ai-abc123"].find(
+        (id) => id !== awaitingId
+      )!;
+
+      executeGameAction(adapter, callerId, { type: "CALL_MAY_I" });
+
+      const result = executeGameAction(adapter, callerId, { type: "CALL_MAY_I" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+
+    it("allows CALL_MAY_I from non-current player", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const callerId = ["human-1", "human-2", "ai-abc123"].find(
+        (id) => id !== awaitingId
+      )!;
+
+      const result = executeGameAction(adapter, callerId, { type: "CALL_MAY_I" });
+
+      expect(result.success).toBe(true);
+      expect(adapter.getSnapshot().phase).toBe("RESOLVING_MAY_I");
+    });
+
+    it("fails ALLOW_MAY_I outside resolving phase", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, { type: "ALLOW_MAY_I" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+
+    it("fails CLAIM_MAY_I outside resolving phase", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, { type: "CLAIM_MAY_I" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("INVALID_PHASE");
+    });
+
+    it("allows ALLOW_MAY_I during resolution", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const callerId = ["human-1", "human-2", "ai-abc123"].find(
+        (id) => id !== awaitingId
+      )!;
+
+      executeGameAction(adapter, callerId, { type: "CALL_MAY_I" });
+
+      const resolverId = adapter.getAwaitingLobbyPlayerId()!;
+      const result = executeGameAction(adapter, resolverId, { type: "ALLOW_MAY_I" });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("logs May-I resolution when allow resolves the call", () => {
+      const adapter = createTestAdapter();
+      const snapshot = adapter.getSnapshot();
+      const currentEngineId = snapshot.awaitingPlayerId;
+      if (!adapter.engineIdToLobbyId(currentEngineId)) {
+        throw new Error("Missing current lobby mapping");
+      }
+      const nextIndex = (snapshot.currentPlayerIndex + 1) % snapshot.players.length;
+      const nextEngineId = snapshot.players[nextIndex]?.id;
+      if (!nextEngineId) {
+        throw new Error("Missing next engine player");
+      }
+      const callerId = adapter.engineIdToLobbyId(nextEngineId);
+      if (!callerId) {
+        throw new Error("Missing caller lobby mapping");
+      }
+
+      executeGameAction(adapter, callerId, { type: "CALL_MAY_I" });
+
+      const resolverId = adapter.getAwaitingLobbyPlayerId()!;
+      const allowResult = executeGameAction(adapter, resolverId, { type: "ALLOW_MAY_I" });
+
+      expect(allowResult.success).toBe(true);
+      expect(adapter.getSnapshot().phase).toBe("ROUND_ACTIVE");
+
+      const actions = adapter.getRecentActivityLog(5).map((entry) => entry.action);
+      expect(actions).toContain("allowed May I");
+      expect(actions).toContain("took the May I card");
+    });
+
+    it("allows CLAIM_MAY_I during resolution", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+      const callerId = ["human-1", "human-2", "ai-abc123"].find(
+        (id) => id !== awaitingId
+      )!;
+
+      executeGameAction(adapter, callerId, { type: "CALL_MAY_I" });
+
+      const resolverId = adapter.getAwaitingLobbyPlayerId()!;
+      const result = executeGameAction(adapter, resolverId, { type: "CLAIM_MAY_I" });
+
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("UNKNOWN_ACTION", () => {
+    it("returns UNKNOWN_ACTION for unsupported types", () => {
+      const adapter = createTestAdapter();
+      const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
+
+      const result = executeGameAction(adapter, awaitingId, {
+        type: "UNKNOWN_ACTION",
+      } as GameAction);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("UNKNOWN_ACTION");
     });
   });
 

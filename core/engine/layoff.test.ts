@@ -128,6 +128,16 @@ describe("canLayOffCard guard", () => {
       expect(canLayOffToSet(cardToAdd, set)).toBe(false);
     });
 
+    it("invalid: cannot lay off to a non-set meld", () => {
+      const run = createMeld("run", [
+        card("5", "spades"),
+        card("6", "spades"),
+        card("7", "spades"),
+        card("8", "spades"),
+      ]);
+      expect(canLayOffToSet(card("5", "spades"), run)).toBe(false);
+    });
+
     it("valid: adding wild even if wilds would outnumber naturals (ratio not enforced on layoff)", () => {
       // Set with 2 naturals and 2 wilds already
       const set = createMeld("set", [
@@ -516,6 +526,19 @@ describe("canLayOffCard guard", () => {
       const hand = [card("K", "hearts"), card("5", "diamonds")];
       const result = validateCardOwnership("", hand);
       expect(result).toEqual({ valid: false, reason: "card_id_required" });
+    });
+  });
+
+  describe("getCardFromHand", () => {
+    it("returns the card when id matches", () => {
+      const target = card("9", "spades");
+      const hand = [card("K", "hearts"), target, card("5", "diamonds")];
+      expect(getCardFromHand(target.id, hand)).toBe(target);
+    });
+
+    it("returns undefined when id is not found", () => {
+      const hand = [card("K", "hearts"), card("5", "diamonds")];
+      expect(getCardFromHand("missing-card", hand)).toBeUndefined();
     });
   });
 

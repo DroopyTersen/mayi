@@ -14,15 +14,16 @@ import {
 
 import {
   createInitialLobbyState,
-  addAIPlayer,
-  removeAIPlayer,
-  setStartingRound,
   buildLobbyStatePayload,
   storedPlayersToHumanPlayerInfo,
   canStartGame,
-  isAvatarIdTaken,
   type LobbyState,
 } from "./mayi-room.lobby";
+import {
+  applyAddAIPlayerAction,
+  applyRemoveAIPlayerAction,
+  applySetStartingRoundAction,
+} from "./mayi-room.lobby-actions";
 
 import {
   parseClientMessage,
@@ -351,43 +352,28 @@ export class MayIRoom extends Server {
     msg: Extract<ClientMessage, { type: "ADD_AI_PLAYER" }>
   ) {
     const lobbyState = await this.getLobbyState();
-    const humanPlayers = await this.getStoredPlayers();
-    const humanCount = humanPlayers.length;
+    const storedPlayers = await this.getStoredPlayers();
+    const humansSnapshot = await this.readPlayersSnapshot();
 
-    const avatarId = msg.avatarId?.trim();
-    if (avatarId) {
-      const humansSnapshot = await this.readPlayersSnapshot();
-      if (
-        isAvatarIdTaken(avatarId, {
-          humanPlayers: humansSnapshot,
-          aiPlayers: lobbyState.aiPlayers,
-        })
-      ) {
-        conn.send(
-          JSON.stringify({
-            type: "ERROR",
-            error: "AVATAR_TAKEN",
-            message: "That character is already taken in this lobby",
-          } satisfies ServerMessage)
-        );
-        return;
-      }
-    }
+    const result = applyAddAIPlayerAction({
+      lobbyState,
+      humanPlayers: humansSnapshot,
+      humanPlayerCount: storedPlayers.length,
+      message: msg,
+    });
 
-    const newState = addAIPlayer(lobbyState, humanCount, msg.name, msg.modelId, avatarId || undefined);
-
-    if (!newState) {
+    if (!result.ok) {
       conn.send(
         JSON.stringify({
           type: "ERROR",
-          error: "MAX_PLAYERS",
-          message: "Cannot add more players (max 8)",
+          error: result.error.error,
+          message: result.error.message,
         } satisfies ServerMessage)
       );
       return;
     }
 
-    await this.setLobbyState(newState);
+    await this.setLobbyState(result.lobbyState);
     await this.broadcastLobbyState();
   }
 
@@ -396,20 +382,20 @@ export class MayIRoom extends Server {
     msg: Extract<ClientMessage, { type: "REMOVE_AI_PLAYER" }>
   ) {
     const lobbyState = await this.getLobbyState();
-    const newState = removeAIPlayer(lobbyState, msg.playerId);
+    const result = applyRemoveAIPlayerAction({ lobbyState, message: msg });
 
-    if (!newState) {
+    if (!result.ok) {
       conn.send(
         JSON.stringify({
           type: "ERROR",
-          error: "PLAYER_NOT_FOUND",
-          message: "AI player not found",
+          error: result.error.error,
+          message: result.error.message,
         } satisfies ServerMessage)
       );
       return;
     }
 
-    await this.setLobbyState(newState);
+    await this.setLobbyState(result.lobbyState);
     await this.broadcastLobbyState();
   }
 
@@ -418,20 +404,20 @@ export class MayIRoom extends Server {
     msg: Extract<ClientMessage, { type: "SET_STARTING_ROUND" }>
   ) {
     const lobbyState = await this.getLobbyState();
-    const newState = setStartingRound(lobbyState, msg.round);
+    const result = applySetStartingRoundAction({ lobbyState, message: msg });
 
-    if (!newState) {
+    if (!result.ok) {
       conn.send(
         JSON.stringify({
           type: "ERROR",
-          error: "INVALID_ROUND",
-          message: "Invalid round number (must be 1-6)",
+          error: result.error.error,
+          message: result.error.message,
         } satisfies ServerMessage)
       );
       return;
     }
 
-    await this.setLobbyState(newState);
+    await this.setLobbyState(result.lobbyState);
     await this.broadcastLobbyState();
   }
 

@@ -242,7 +242,7 @@ On your turn, after drawing, you may:
 - Add cards to any valid melds on the table:
   - Extend runs (e.g. add 5♠ or 10♠ to a 6♠ 7♠ 8♠ 9♠ run)
   - Extend sets (e.g. add another 8 of a different suit to a set of 8s)
-  - Use wilds, as long as the meld remains valid and wilds do not outnumber natural cards
+  - Use wilds freely — the wild ratio rule does NOT apply when laying off (see Section 6)
 
 Then discard one card.
 

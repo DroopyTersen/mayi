@@ -1,7 +1,6 @@
 import type { Card, Suit } from "../card/card.types";
 import type { Meld } from "./meld.types";
 import { isWild, getRankValue } from "../card/card.utils";
-import { countWildsAndNaturals } from "./meld.validation";
 
 /**
  * Check if a card can extend a run at either end.
@@ -79,7 +78,6 @@ export function canExtendRun(meld: Meld, card: Card): boolean {
  *
  * Rules:
  * - Card must be same rank (or wild)
- * - Adding wild must not make wilds outnumber naturals
  * - Duplicate suits are allowed (multi-deck)
  */
 export function canExtendSet(meld: Meld, card: Card): boolean {
@@ -103,9 +101,7 @@ export function canExtendSet(meld: Meld, card: Card): boolean {
   }
 
   if (isWild(card)) {
-    // Check if adding wild would make wilds outnumber naturals
-    const { wilds, naturals } = countWildsAndNaturals(cards);
-    return wilds + 1 <= naturals; // Adding one more wild
+    return true;
   }
 
   // Natural card must match rank

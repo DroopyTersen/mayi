@@ -21,7 +21,7 @@ import { renderCard } from "../../cli/shared/cli.renderer";
  * This adapter wraps PartyGameAdapter and converts positions to IDs,
  * always executing commands for the specified AI player.
  */
-class AIGameAdapterProxy implements AIGameAdapter {
+export class AIGameAdapterProxy implements AIGameAdapter {
   constructor(
     private adapter: PartyGameAdapter,
     private aiPlayerId: string

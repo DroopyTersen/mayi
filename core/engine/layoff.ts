@@ -108,7 +108,6 @@ function getSetRank(cards: Card[]): Card["rank"] | null {
  *
  * Rules for laying off to a set:
  * 1. Card must match the set's rank OR be wild (2 or Joker)
- * 2. After adding, wilds must not outnumber naturals
  *
  * @param card - The card to lay off
  * @param meld - The set meld to add to (must be type: 'set')
@@ -174,8 +173,7 @@ function getRunBounds(cards: Card[]): { lowValue: number; highValue: number; sui
  * 1. Card must extend the run at either the low or high end
  * 2. Card must be the same suit (unless wild)
  * 3. Wilds can extend at either end if there's a valid rank to represent
- * 4. After adding, wilds must not outnumber naturals
- * 5. Cannot extend below 3 or above Ace
+ * 4. Cannot extend below 3 or above Ace
  *
  * @param card - The card to lay off
  * @param meld - The run meld to add to (must be type: 'run')

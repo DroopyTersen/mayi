@@ -233,6 +233,16 @@ describe("normalizeRunCards", () => {
   });
 
   describe("failure cases - normalizer should report failure for invalid runs", () => {
+    it("fails for all wilds (no naturals)", () => {
+      const cards = [joker(), card("2", "clubs"), joker(), card("2", "hearts")];
+      const result = normalizeRunCards(cards);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.reason).toBe("Run must have at least one natural card");
+      }
+    });
+
     it("fails for mixed suits (cannot form valid run)", () => {
       const cards = [card("5", "spades"), card("6", "hearts"), card("7", "spades"), card("8", "spades")];
       const result = normalizeRunCards(cards);
@@ -249,6 +259,17 @@ describe("normalizeRunCards", () => {
       const result = normalizeRunCards(cards);
 
       expect(result.success).toBe(false);
+    });
+
+    it("fails for invalid rank values", () => {
+      const invalidCard = { id: `card-${cardId++}`, suit: "spades", rank: "NotARank" as Card["rank"] };
+      const cards = [invalidCard, card("6", "spades"), card("7", "spades"), card("8", "spades")];
+      const result = normalizeRunCards(cards);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.reason).toBe("Invalid rank: NotARank");
+      }
     });
 
     it("fails for duplicate natural ranks (5, 5, 6, 7)", () => {
