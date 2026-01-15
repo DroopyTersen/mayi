@@ -41,8 +41,6 @@ interface LobbyViewProps {
   onJoin: (name: string, avatarId?: string) => void;
   /** Phase 3: Game settings */
   gameSettings?: LobbyGameSettings;
-  /** Phase 3: Whether this player is the host (first player) */
-  isHost?: boolean;
   /** Phase 3: Callbacks for game setup */
   onAddAIPlayer?: (name: string, modelId: AIModelId, avatarId: string) => void;
   onRemoveAIPlayer?: (playerId: string) => void;
@@ -65,7 +63,6 @@ export function LobbyView({
   onNamePromptChange,
   onJoin,
   gameSettings,
-  isHost = false,
   onAddAIPlayer,
   onRemoveAIPlayer,
   onSetStartingRound,
@@ -182,8 +179,8 @@ export function LobbyView({
             <EmptyPlayersState />
           )}
 
-          {/* Add AI Player button (host only) */}
-          {isHost && onAddAIPlayer && (
+          {/* Add AI Player button (joined players only) */}
+          {isJoined && onAddAIPlayer && (
             <AddAIPlayerDialog
               onAdd={onAddAIPlayer}
               takenCharacterIds={takenCharacterIds}
@@ -193,8 +190,8 @@ export function LobbyView({
         </CardContent>
       </Card>
 
-      {/* Start Game Button (host only, Phase 3) */}
-      {isHost && onStartGame && (
+      {/* Start Game Button (joined players, Phase 3) */}
+      {isJoined && onStartGame && (
         <StartGameButton
           playerCount={totalPlayerCount}
           onStart={onStartGame}
@@ -202,8 +199,8 @@ export function LobbyView({
         />
       )}
 
-      {/* Advanced Settings toggle (host only, Phase 3) */}
-      {isHost && gameSettings && onSetStartingRound && (
+      {/* Advanced Settings toggle (joined players, Phase 3) */}
+      {isJoined && gameSettings && onSetStartingRound && (
         <div className="space-y-2">
           <Button
             variant="ghost"
@@ -234,13 +231,6 @@ export function LobbyView({
             </Card>
           )}
         </div>
-      )}
-
-      {/* Join status message for non-host joined players */}
-      {isJoined && !isHost && (
-        <p className="text-sm text-center text-muted-foreground">
-          Waiting for the host to start the game...
-        </p>
       )}
 
       {/* Name prompt dialog */}

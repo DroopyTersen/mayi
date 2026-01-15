@@ -451,7 +451,7 @@ export class MayIRoom extends Server {
       return;
     }
 
-    // Verify caller is the host (first player)
+    // Verify caller is joined
     const callerPlayerId = conn.state?.playerId;
     if (!callerPlayerId) {
       conn.send(
@@ -465,20 +465,6 @@ export class MayIRoom extends Server {
     }
 
     const storedPlayers = await this.getStoredPlayers();
-    // Sort by join time to find the host (first player to join)
-    const sortedPlayers = [...storedPlayers].sort((a, b) => a.joinedAt - b.joinedAt);
-    const hostPlayerId = sortedPlayers[0]?.playerId;
-
-    if (callerPlayerId !== hostPlayerId) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "NOT_HOST",
-          message: "Only the host can start the game",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
 
     // Check player count
     const lobbyState = await this.getLobbyState();

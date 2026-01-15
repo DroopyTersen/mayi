@@ -173,13 +173,6 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     onReconnect: handleReconnect,
   });
 
-  // Check if current player is the host (first player to join)
-  const isHost = useMemo(() => {
-    if (!currentPlayerId || players.length === 0) return false;
-    // The first player in the list is the host
-    return players[0]?.playerId === currentPlayerId;
-  }, [currentPlayerId, players]);
-
   const sendMessage = useCallback((msg: ClientMessage) => {
     const s = socketRef.current;
     if (!s) return;
@@ -664,7 +657,6 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         fallbackAvatarId={storedAvatarId ?? undefined}
         // Phase 3: Game settings and callbacks
         gameSettings={gameSettings}
-        isHost={isHost}
         onAddAIPlayer={onAddAIPlayer}
         onRemoveAIPlayer={onRemoveAIPlayer}
         onSetStartingRound={onSetStartingRound}
