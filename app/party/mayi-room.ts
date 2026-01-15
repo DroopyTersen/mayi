@@ -342,6 +342,11 @@ export class MayIRoom extends Server {
             } satisfies ServerMessage)
           );
         }
+
+        // Resume AI turns if one was interrupted by a client disconnect.
+        // This handles the case where the phone sleeps during an AI turn -
+        // without this, the AI turn would never complete and the game would be stuck.
+        await this.executeAITurnsIfNeeded();
       }
     }
   }
