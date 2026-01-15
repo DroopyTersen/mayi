@@ -8,7 +8,6 @@ import {
 import {
   buildPlayersSnapshotFromStorageEntries,
   maybeUpdateStoredPlayerOnClose,
-  upsertStoredPlayerOnJoin,
   type StoredPlayer,
 } from "./mayi-room.presence";
 
@@ -16,14 +15,17 @@ import {
   createInitialLobbyState,
   buildLobbyStatePayload,
   storedPlayersToHumanPlayerInfo,
-  canStartGame,
   type LobbyState,
 } from "./mayi-room.lobby";
 import {
-  applyAddAIPlayerAction,
-  applyRemoveAIPlayerAction,
-  applySetStartingRoundAction,
-} from "./mayi-room.lobby-actions";
+  handleAddAIPlayerMessage,
+  handleGameActionMessage,
+  handleJoinMessage,
+  handleRemoveAIPlayerMessage,
+  handleStartGameMessage,
+  handleSetStartingRoundMessage,
+  type RoomPhase,
+} from "./mayi-room.message-handlers";
 
 import {
   parseClientMessage,
@@ -43,7 +45,6 @@ import {
   type StoredGameState,
 } from "./party-game-adapter";
 
-import { executeGameAction } from "./game-actions";
 import {
   executeAITurn,
   executeFallbackTurn,
@@ -54,15 +55,9 @@ import type { AIEnv } from "./ai-model-factory";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const AUTO_PLAY_TIMEOUT_MS = 30 * 1000; // 30 seconds before auto-play for disconnected
-const MIN_NAME_LEN = 1;
-const MAX_NAME_LEN = 24;
-const MAX_PLAYER_ID_LEN = 64;
-
 const LOBBY_STATE_KEY = "lobby:state";
 const GAME_STATE_KEY = "game:state";
 const ROOM_PHASE_KEY = "room:phase";
-
-type RoomPhase = "lobby" | "playing";
 
 type MayIRoomConnectionState = { playerId: string };
 
@@ -252,98 +247,59 @@ export class MayIRoom extends Server {
     conn: Connection<MayIRoomConnectionState>,
     msg: Extract<ClientMessage, { type: "JOIN" }>
   ) {
-    const playerId = msg.playerId.trim();
-    const playerName = msg.playerName.trim();
-    const avatarId = msg.avatarId?.trim();
-
-    if (playerId.length < 1 || playerId.length > MAX_PLAYER_ID_LEN) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "INVALID_MESSAGE",
-          message: "Invalid playerId",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
-
-    if (playerName.length < MIN_NAME_LEN || playerName.length > MAX_NAME_LEN) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "INVALID_MESSAGE",
-          message: "Invalid playerName",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
-
-    if (avatarId) {
-      const humanPlayers = await this.readPlayersSnapshot();
-      const lobbyState = await this.getLobbyState();
-
-      if (
-        isAvatarIdTaken(avatarId, {
-          humanPlayers,
-          aiPlayers: lobbyState.aiPlayers,
-          excludeHumanPlayerId: playerId,
-        })
-      ) {
-        conn.send(
-          JSON.stringify({
-            type: "ERROR",
-            error: "AVATAR_TAKEN",
-            message: "That character is already taken in this lobby",
-          } satisfies ServerMessage)
-        );
-        return;
-      }
-    }
-
     const now = Date.now();
-    const key = `player:${playerId}`;
-    const existing = (await this.ctx.storage.get<StoredPlayer>(key)) ?? null;
-    const updated = upsertStoredPlayerOnJoin(existing, {
-      playerId,
-      playerName,
-      avatarId: avatarId || undefined,
-      connectionId: conn.id,
-      now,
+    const trimmedPlayerId = msg.playerId.trim();
+    const trimmedAvatarId = msg.avatarId?.trim();
+    const needsAvatarCheck = typeof trimmedAvatarId === "string" && trimmedAvatarId.length > 0;
+    const humanPlayers = needsAvatarCheck ? await this.readPlayersSnapshot() : [];
+    const lobbyState = await this.getLobbyState();
+    const roomPhase = await this.getRoomPhase();
+    const gameState = roomPhase === "playing" ? await this.getGameState() : null;
+    const existingKey = `player:${trimmedPlayerId}`;
+    const existing = (await this.ctx.storage.get<StoredPlayer>(existingKey)) ?? null;
+
+    const result = handleJoinMessage({
+      message: msg,
+      state: {
+        connectionId: conn.id,
+        now,
+        existingPlayer: existing,
+        humanPlayers,
+        lobbyState,
+        roomPhase,
+        gameState,
+      },
     });
 
-    await this.ctx.storage.put(key, updated);
+    if (!result.ok) {
+      conn.send(JSON.stringify(result.outboundMessages[0]));
+      return;
+    }
 
-    // Attribute this connection to the player so onClose can mark them disconnected.
-    conn.setState({ playerId });
-
-    conn.send(
-      JSON.stringify({
-        type: "JOINED",
-        playerId,
-        playerName: updated.name,
-      } satisfies ServerMessage)
+    await this.ctx.storage.put(
+      result.nextState.storedPlayerKey,
+      result.nextState.storedPlayer
     );
 
-    await this.broadcastPlayersAndLobby();
-
-    // If game is in progress, send game state to this player
-    const roomPhase = await this.getRoomPhase();
-    if (roomPhase === "playing") {
-      const gameState = await this.getGameState();
-      if (gameState) {
-        const adapter = PartyGameAdapter.fromStoredState(gameState);
-        const playerView = adapter.getPlayerView(playerId);
-        const activityLog = adapter.getRecentActivityLog(10);
-        if (playerView) {
-          conn.send(
-            JSON.stringify({
-              type: "GAME_STARTED",
-              state: playerView,
-              activityLog,
-            } satisfies ServerMessage)
-          );
-        }
+    for (const effect of result.sideEffects) {
+      if (effect.type === "setConnectionState") {
+        conn.setState(effect.state);
       }
+    }
+
+    for (const message of result.outboundMessages) {
+      conn.send(JSON.stringify(message));
+    }
+
+    const shouldBroadcast = result.sideEffects.some(
+      (effect) => effect.type === "broadcastPlayersAndLobby"
+    );
+    if (shouldBroadcast) {
+      await this.broadcastPlayersAndLobby();
+    }
+
+    for (const message of result.afterBroadcastMessages) {
+      conn.send(JSON.stringify(message));
     }
   }
 
@@ -355,26 +311,27 @@ export class MayIRoom extends Server {
     const storedPlayers = await this.getStoredPlayers();
     const humansSnapshot = await this.readPlayersSnapshot();
 
-    const result = applyAddAIPlayerAction({
-      lobbyState,
-      humanPlayers: humansSnapshot,
-      humanPlayerCount: storedPlayers.length,
+    const result = handleAddAIPlayerMessage({
       message: msg,
+      state: {
+        lobbyState,
+        humanPlayers: humansSnapshot,
+        humanPlayerCount: storedPlayers.length,
+      },
     });
 
     if (!result.ok) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: result.error.error,
-          message: result.error.message,
-        } satisfies ServerMessage)
-      );
+      conn.send(JSON.stringify(result.outboundMessages[0]));
       return;
     }
 
-    await this.setLobbyState(result.lobbyState);
-    await this.broadcastLobbyState();
+    for (const effect of result.sideEffects) {
+      if (effect.type === "setLobbyState") {
+        await this.setLobbyState(effect.state);
+      } else if (effect.type === "broadcastLobbyState") {
+        await this.broadcastLobbyState();
+      }
+    }
   }
 
   private async handleRemoveAIPlayer(
@@ -382,21 +339,23 @@ export class MayIRoom extends Server {
     msg: Extract<ClientMessage, { type: "REMOVE_AI_PLAYER" }>
   ) {
     const lobbyState = await this.getLobbyState();
-    const result = applyRemoveAIPlayerAction({ lobbyState, message: msg });
+    const result = handleRemoveAIPlayerMessage({
+      message: msg,
+      state: { lobbyState },
+    });
 
     if (!result.ok) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: result.error.error,
-          message: result.error.message,
-        } satisfies ServerMessage)
-      );
+      conn.send(JSON.stringify(result.outboundMessages[0]));
       return;
     }
 
-    await this.setLobbyState(result.lobbyState);
-    await this.broadcastLobbyState();
+    for (const effect of result.sideEffects) {
+      if (effect.type === "setLobbyState") {
+        await this.setLobbyState(effect.state);
+      } else if (effect.type === "broadcastLobbyState") {
+        await this.broadcastLobbyState();
+      }
+    }
   }
 
   private async handleSetStartingRound(
@@ -404,88 +363,58 @@ export class MayIRoom extends Server {
     msg: Extract<ClientMessage, { type: "SET_STARTING_ROUND" }>
   ) {
     const lobbyState = await this.getLobbyState();
-    const result = applySetStartingRoundAction({ lobbyState, message: msg });
+    const result = handleSetStartingRoundMessage({
+      message: msg,
+      state: { lobbyState },
+    });
 
     if (!result.ok) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: result.error.error,
-          message: result.error.message,
-        } satisfies ServerMessage)
-      );
+      conn.send(JSON.stringify(result.outboundMessages[0]));
       return;
     }
 
-    await this.setLobbyState(result.lobbyState);
-    await this.broadcastLobbyState();
+    for (const effect of result.sideEffects) {
+      if (effect.type === "setLobbyState") {
+        await this.setLobbyState(effect.state);
+      } else if (effect.type === "broadcastLobbyState") {
+        await this.broadcastLobbyState();
+      }
+    }
   }
 
   private async handleStartGame(
     conn: Connection<MayIRoomConnectionState>
   ) {
-    // Check if already in a game
     const roomPhase = await this.getRoomPhase();
-    if (roomPhase === "playing") {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "GAME_ALREADY_STARTED",
-          message: "Game has already started",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
-
-    // Verify caller is joined
-    const callerPlayerId = conn.state?.playerId;
-    if (!callerPlayerId) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "NOT_JOINED",
-          message: "You must join before starting the game",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
-
+    const lobbyState = await this.getLobbyState();
     const storedPlayers = await this.getStoredPlayers();
 
-    // Check player count
-    const lobbyState = await this.getLobbyState();
-    const humanPlayers = storedPlayersToHumanPlayerInfo(storedPlayers);
-    const humanCount = humanPlayers.length;
-    const aiCount = lobbyState.aiPlayers.length;
+    const result = handleStartGameMessage({
+      state: {
+        roomId: this.name,
+        roomPhase,
+        callerPlayerId: conn.state?.playerId ?? null,
+        lobbyState,
+        storedPlayers,
+      },
+    });
 
-    if (!canStartGame(humanCount, aiCount)) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "INVALID_PLAYER_COUNT",
-          message: "Need 3-8 players to start the game",
-        } satisfies ServerMessage)
-      );
+    if (!result.ok) {
+      conn.send(JSON.stringify(result.outboundMessages[0]));
       return;
     }
 
-    // Create game from lobby state
-    const adapter = PartyGameAdapter.createFromLobby({
-      roomId: this.name,
-      humanPlayers,
-      aiPlayers: lobbyState.aiPlayers,
-      startingRound: lobbyState.startingRound,
-    });
-
-    // Store game state
-    await this.setGameState(adapter.getStoredState());
-    await this.setRoomPhase("playing");
-
-    // Broadcast GAME_STARTED to each player with their specific view
-    await this.broadcastPlayerViews(adapter);
-
-    // Execute AI turns if the first player is an AI
-    await this.executeAITurnsIfNeeded();
+    for (const effect of result.sideEffects) {
+      if (effect.type === "setGameState") {
+        await this.setGameState(effect.state);
+      } else if (effect.type === "setRoomPhase") {
+        await this.setRoomPhase(effect.phase);
+      } else if (effect.type === "broadcastPlayerViews") {
+        await this.broadcastPlayerViews(effect.adapter);
+      } else if (effect.type === "executeAITurnsIfNeeded") {
+        await this.executeAITurnsIfNeeded();
+      }
+    }
   }
 
   /**
@@ -732,120 +661,90 @@ export class MayIRoom extends Server {
     conn: Connection<MayIRoomConnectionState>,
     msg: Extract<ClientMessage, { type: "GAME_ACTION" }>
   ) {
-    // Verify game is in playing phase
     const roomPhase = await this.getRoomPhase();
-    if (roomPhase !== "playing") {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "GAME_NOT_STARTED",
-          message: "Game has not started yet",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
+    const callerPlayerId = conn.state?.playerId ?? null;
+    const gameState = roomPhase === "playing" ? await this.getGameState() : null;
 
-    // Get caller's player ID
-    const callerPlayerId = conn.state?.playerId;
-    if (!callerPlayerId) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "NOT_JOINED",
-          message: "You must join before performing actions",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
-
-    // Load game state
-    const gameState = await this.getGameState();
-    if (!gameState) {
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: "GAME_NOT_FOUND",
-          message: "Game state not found",
-        } satisfies ServerMessage)
-      );
-      return;
-    }
-
-    const adapter = PartyGameAdapter.fromStoredState(gameState);
-
-    // Track state before action for transition detection
-    const snapshotBefore = adapter.getSnapshot();
-    const phaseBefore = snapshotBefore.phase;
-    const roundBefore = snapshotBefore.currentRound;
-
-    // If this is a CALL_MAY_I action, abort any running AI turn first
-    // The AI's partial state is already persisted via onPersist, so this is safe
-    if (msg.action.type === "CALL_MAY_I") {
+    if (msg.action.type === "CALL_MAY_I" && roomPhase === "playing" && callerPlayerId && gameState) {
       const wasRunning = this.getAICoordinator().isRunning();
       this.logMayI(`CALL_MAY_I received from ${callerPlayerId}, AI turn running: ${wasRunning}`);
       this.getAICoordinator().abortCurrentTurn();
       this.logMayI(`AI turn aborted`);
     }
 
-    // Execute the action
-    const result = executeGameAction(adapter, callerPlayerId, msg.action);
+    const result = handleGameActionMessage({
+      state: {
+        roomPhase,
+        callerPlayerId,
+        gameState,
+        action: msg.action,
+      },
+    });
 
-    if (!result.success) {
-      this.log(`Action ${msg.action.type} failed: ${result.error}`);
-      conn.send(
-        JSON.stringify({
-          type: "ERROR",
-          error: result.error ?? "ACTION_FAILED",
-          message: `Action failed: ${result.error}`,
-        } satisfies ServerMessage)
-      );
+    if (!result.ok) {
+      this.log(`Action ${msg.action.type} failed: ${result.outboundMessages[0].error}`);
+      conn.send(JSON.stringify(result.outboundMessages[0]));
       return;
     }
 
-    // Save updated state
-    await this.setGameState(adapter.getStoredState());
+    const transitionEffect = result.sideEffects.find(
+      (effect) => effect.type === "detectAndBroadcastTransitions"
+    );
+    const mayIPhaseBefore =
+      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
+        ? transitionEffect.phaseBefore
+        : null;
+    const mayIPhaseAfter =
+      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
+        ? transitionEffect.adapter.getSnapshot().phase
+        : null;
+    if (transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions") {
+      const snapshotAfter = transitionEffect.adapter.getSnapshot();
+      const phaseAfter = snapshotAfter.phase;
 
-    // Check for May I phase transitions
-    const snapshot = adapter.getSnapshot();
-    const phaseAfter = snapshot.phase;
-
-    if (msg.action.type === "CALL_MAY_I") {
-      this.logMayI(`Phase transition: ${phaseBefore} -> ${phaseAfter}`);
-      if (snapshot.mayIContext) {
-        this.logMayI(`May-I context: caller=${snapshot.mayIContext.originalCaller}, prompted=${snapshot.mayIContext.playerBeingPrompted}, card=${JSON.stringify(snapshot.mayIContext.cardBeingClaimed)}`);
-      } else {
-        this.logMayI(`WARNING: No May-I context after CALL_MAY_I!`);
+      if (msg.action.type === "CALL_MAY_I") {
+        this.logMayI(`Phase transition: ${transitionEffect.phaseBefore} -> ${phaseAfter}`);
+        if (snapshotAfter.mayIContext) {
+          this.logMayI(
+            `May-I context: caller=${snapshotAfter.mayIContext.originalCaller}, prompted=${snapshotAfter.mayIContext.playerBeingPrompted}, card=${JSON.stringify(snapshotAfter.mayIContext.cardBeingClaimed)}`
+          );
+        } else {
+          this.logMayI(`WARNING: No May-I context after CALL_MAY_I!`);
+        }
       }
     }
 
-    if (phaseBefore !== "RESOLVING_MAY_I" && phaseAfter === "RESOLVING_MAY_I") {
-      // May I was just called - broadcast MAY_I_PROMPT
-      this.logMayI(`Entering RESOLVING_MAY_I phase, broadcasting prompt...`);
-      await this.broadcastMayIPrompt(adapter);
-      // If prompted player is AI, execute their response
-      this.logMayI(`Checking if prompted player is AI...`);
-      await this.executeAIMayIResponseIfNeeded(adapter);
-    } else if (phaseBefore === "RESOLVING_MAY_I" && phaseAfter === "RESOLVING_MAY_I") {
-      // Still resolving (someone allowed) - prompt next player
-      this.logMayI(`Still in RESOLVING_MAY_I, prompting next player...`);
-      await this.broadcastMayIPrompt(adapter);
-      // If prompted player is AI, execute their response
-      await this.executeAIMayIResponseIfNeeded(adapter);
-    } else if (phaseBefore === "RESOLVING_MAY_I" && phaseAfter !== "RESOLVING_MAY_I") {
-      // May I was just resolved
-      this.logMayI(`May-I resolved, new phase: ${phaseAfter}`);
-      await this.broadcastMayIResolved(adapter);
-    }
-
-    // Check for round/game end transitions
-    await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore);
-
-    // Broadcast updated state to all players
-    await this.broadcastGameState();
-
-    // Execute AI turns if next player is an AI (only if game is still active)
-    if (phaseAfter === "ROUND_ACTIVE") {
-      await this.executeAITurnsIfNeeded();
+    for (const effect of result.sideEffects) {
+      if (effect.type === "setGameState") {
+        await this.setGameState(effect.state);
+      } else if (effect.type === "broadcastMayIPrompt") {
+        if (
+          mayIPhaseBefore === "RESOLVING_MAY_I" &&
+          mayIPhaseAfter === "RESOLVING_MAY_I"
+        ) {
+          this.logMayI(`Still in RESOLVING_MAY_I, prompting next player...`);
+        } else {
+          this.logMayI(`Entering RESOLVING_MAY_I phase, broadcasting prompt...`);
+        }
+        await this.broadcastMayIPrompt(effect.adapter);
+      } else if (effect.type === "executeAIMayIResponseIfNeeded") {
+        this.logMayI(`Checking if prompted player is AI...`);
+        await this.executeAIMayIResponseIfNeeded(effect.adapter);
+      } else if (effect.type === "broadcastMayIResolved") {
+        const phaseAfter = effect.adapter.getSnapshot().phase;
+        this.logMayI(`May-I resolved, new phase: ${phaseAfter}`);
+        await this.broadcastMayIResolved(effect.adapter);
+      } else if (effect.type === "detectAndBroadcastTransitions") {
+        await this.detectAndBroadcastTransitions(
+          effect.adapter,
+          effect.phaseBefore,
+          effect.roundBefore
+        );
+      } else if (effect.type === "broadcastGameState") {
+        await this.broadcastGameState();
+      } else if (effect.type === "executeAITurnsIfNeeded") {
+        await this.executeAITurnsIfNeeded();
+      }
     }
   }
 
