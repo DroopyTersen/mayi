@@ -6,6 +6,7 @@ interface NamePromptDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (name: string, avatarId?: string) => void;
   isSubmitting?: boolean;
+  mode?: "join" | "change";
   defaultAvatarId?: string;
   takenCharacterIds?: string[];
 }
@@ -15,6 +16,7 @@ export function NamePromptDialog({
   onOpenChange,
   onSubmit,
   isSubmitting = false,
+  mode = "join",
   defaultAvatarId,
   takenCharacterIds = [],
 }: NamePromptDialogProps) {
@@ -22,12 +24,18 @@ export function NamePromptDialog({
     onSubmit(character.name, character.id);
   }
 
+  const title = mode === "change" ? "Change Character" : "Choose Character";
+  const description =
+    mode === "change"
+      ? "Choose a character to update your lobby identity."
+      : "Choose your character to join the lobby.";
+
   return (
     <ResponsiveDrawer
       open={open}
       onOpenChange={onOpenChange}
-      title="Join the Game"
-      description="Choose your character to join the lobby."
+      title={title}
+      description={description}
       className="sm:max-w-2xl"
     >
       {isSubmitting ? (

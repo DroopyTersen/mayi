@@ -15,6 +15,7 @@ import {
   getPlayerIdKey,
   getPlayerNameKey,
   storeAvatarId,
+  clearStoredAvatarId,
 } from "./player-storage";
 
 import { LobbyView } from "~/ui/lobby/LobbyView";
@@ -81,10 +82,12 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   });
 
   const [joinStatus, setJoinStatus] = useState<JoinStatus>("unjoined");
+  const joinStatusRef = useRef<JoinStatus>("unjoined");
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | undefined>(undefined);
+  const [storedAvatarId, setStoredAvatarId] = useState<string | null>(null);
 
   // Phase 3: Game settings state
   const [gameSettings, setGameSettings] = useState<LobbyGameSettings>({
@@ -137,6 +140,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     roomPhaseRef.current = roomPhase;
   }, [roomPhase]);
+
+  // Keep joinStatusRef in sync with joinStatus state
+  useEffect(() => {
+    joinStatusRef.current = joinStatus;
+  }, [joinStatus]);
 
   // Debug: log when gameError changes
   useEffect(() => {
@@ -194,6 +202,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       storePlayerName(name);
       if (avatarId) {
         storeAvatarId(avatarId);
+        setStoredAvatarId(avatarId);
       }
 
       setShowNamePrompt(false);
@@ -343,8 +352,6 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     const playerId = getOrCreatePlayerId(roomId);
     setCurrentPlayerId(playerId);
 
-    const storedName = getStoredPlayerName();
-    const storedAvatarId = getStoredAvatarId();
     setShareUrl(new URL(`/game/${roomId}`, window.location.origin).toString());
 
     const newSocket = new PartySocket({
@@ -375,6 +382,16 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           return;
         }
       }
+
+      // If we're already joined or in-game, do not reset the UI on reconnect blips.
+      // `usePartyConnection` will invoke `handleReconnect` to resync state.
+      if (joinStatusRef.current !== "unjoined" || roomPhaseRef.current === "playing") {
+        return;
+      }
+
+      const storedName = getStoredPlayerName();
+      const storedAvatarId = getStoredAvatarId();
+      setStoredAvatarId(storedAvatarId);
 
       if (storedName && storedAvatarId) {
         setShowNamePrompt(false);
@@ -421,6 +438,15 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           return;
         }
         case "ERROR": {
+          if (msg.error === "AVATAR_TAKEN") {
+            clearStoredAvatarId();
+            setStoredAvatarId(null);
+            setJoinStatus("unjoined");
+            setShowNamePrompt(true);
+            setIsStartingGame(false);
+            return;
+          }
+
           // Use ref to get current roomPhase (avoids stale closure)
           const currentPhase = roomPhaseRef.current;
           console.log("[ERROR handler] Received error:", msg.error, msg.message, "roomPhase:", currentPhase);
@@ -635,6 +661,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         showNamePrompt={showNamePrompt}
         onNamePromptChange={setShowNamePrompt}
         onJoin={onJoin}
+        fallbackAvatarId={storedAvatarId ?? undefined}
         // Phase 3: Game settings and callbacks
         gameSettings={gameSettings}
         isHost={isHost}

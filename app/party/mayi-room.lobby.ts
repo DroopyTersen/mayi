@@ -131,6 +131,31 @@ export function canStartGame(
 }
 
 /**
+ * Check whether an avatarId is already used by any human or AI player in the lobby.
+ *
+ * Note: "taken" includes disconnected humans still present in the lobby snapshot
+ * (until they expire), matching the UI behavior.
+ */
+export function isAvatarIdTaken(
+  avatarId: string,
+  args: {
+    humanPlayers: HumanPlayerInfo[];
+    aiPlayers: AIPlayerInfo[];
+    excludeHumanPlayerId?: string;
+  }
+): boolean {
+  const normalized = avatarId.trim();
+  if (!normalized) return false;
+
+  const takenByHuman = args.humanPlayers.some(
+    (p) => p.avatarId === normalized && p.playerId !== args.excludeHumanPlayerId
+  );
+  const takenByAI = args.aiPlayers.some((p) => p.avatarId === normalized);
+
+  return takenByHuman || takenByAI;
+}
+
+/**
  * Get total player count
  */
 export function getTotalPlayerCount(

@@ -32,6 +32,8 @@ interface LobbyViewProps {
   joinStatus: JoinStatus;
   players: PlayerInfo[];
   currentPlayerId: string | null;
+  /** Fallback avatar selection when player isn't in `players` yet (e.g., join failures) */
+  fallbackAvatarId?: string;
   /** Whether name prompt is open */
   showNamePrompt: boolean;
   onNamePromptChange: (open: boolean) => void;
@@ -57,6 +59,7 @@ export function LobbyView({
   joinStatus,
   players,
   currentPlayerId,
+  fallbackAvatarId,
   showNamePrompt,
   onNamePromptChange,
   onJoin,
@@ -89,6 +92,11 @@ export function LobbyView({
   const takenCharacterIdsForNamePrompt = currentPlayerAvatarId
     ? takenCharacterIds.filter((id) => id !== currentPlayerAvatarId)
     : takenCharacterIds;
+  const rawDefaultAvatarId = currentPlayerAvatarId ?? fallbackAvatarId;
+  const effectiveDefaultAvatarId =
+    rawDefaultAvatarId && !takenCharacterIdsForNamePrompt.includes(rawDefaultAvatarId)
+      ? rawDefaultAvatarId
+      : undefined;
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -113,12 +121,12 @@ export function LobbyView({
         {isJoined ? (
           <>
             <Pencil className="h-4 w-4 mr-2" />
-            Change Name
+            Change Character
           </>
         ) : (
           <>
             <UserPlus className="h-4 w-4 mr-2" />
-            Join Game
+            Choose Character
           </>
         )}
       </Button>
@@ -220,7 +228,8 @@ export function LobbyView({
         onOpenChange={onNamePromptChange}
         onSubmit={onJoin}
         isSubmitting={isJoining}
-        defaultAvatarId={currentPlayerAvatarId}
+        mode={isJoined ? "change" : "join"}
+        defaultAvatarId={effectiveDefaultAvatarId}
         takenCharacterIds={takenCharacterIdsForNamePrompt}
       />
     </div>

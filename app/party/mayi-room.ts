@@ -20,6 +20,7 @@ import {
   buildLobbyStatePayload,
   storedPlayersToHumanPlayerInfo,
   canStartGame,
+  isAvatarIdTaken,
   type LobbyState,
 } from "./mayi-room.lobby";
 
@@ -252,6 +253,7 @@ export class MayIRoom extends Server {
   ) {
     const playerId = msg.playerId.trim();
     const playerName = msg.playerName.trim();
+    const avatarId = msg.avatarId?.trim();
 
     if (playerId.length < 1 || playerId.length > MAX_PLAYER_ID_LEN) {
       conn.send(
@@ -275,13 +277,35 @@ export class MayIRoom extends Server {
       return;
     }
 
+    if (avatarId) {
+      const humanPlayers = await this.readPlayersSnapshot();
+      const lobbyState = await this.getLobbyState();
+
+      if (
+        isAvatarIdTaken(avatarId, {
+          humanPlayers,
+          aiPlayers: lobbyState.aiPlayers,
+          excludeHumanPlayerId: playerId,
+        })
+      ) {
+        conn.send(
+          JSON.stringify({
+            type: "ERROR",
+            error: "AVATAR_TAKEN",
+            message: "That character is already taken in this lobby",
+          } satisfies ServerMessage)
+        );
+        return;
+      }
+    }
+
     const now = Date.now();
     const key = `player:${playerId}`;
     const existing = (await this.ctx.storage.get<StoredPlayer>(key)) ?? null;
     const updated = upsertStoredPlayerOnJoin(existing, {
       playerId,
       playerName,
-      avatarId: msg.avatarId,
+      avatarId: avatarId || undefined,
       connectionId: conn.id,
       now,
     });
@@ -330,7 +354,27 @@ export class MayIRoom extends Server {
     const humanPlayers = await this.getStoredPlayers();
     const humanCount = humanPlayers.length;
 
-    const newState = addAIPlayer(lobbyState, humanCount, msg.name, msg.modelId, msg.avatarId);
+    const avatarId = msg.avatarId?.trim();
+    if (avatarId) {
+      const humansSnapshot = await this.readPlayersSnapshot();
+      if (
+        isAvatarIdTaken(avatarId, {
+          humanPlayers: humansSnapshot,
+          aiPlayers: lobbyState.aiPlayers,
+        })
+      ) {
+        conn.send(
+          JSON.stringify({
+            type: "ERROR",
+            error: "AVATAR_TAKEN",
+            message: "That character is already taken in this lobby",
+          } satisfies ServerMessage)
+        );
+        return;
+      }
+    }
+
+    const newState = addAIPlayer(lobbyState, humanCount, msg.name, msg.modelId, avatarId || undefined);
 
     if (!newState) {
       conn.send(
