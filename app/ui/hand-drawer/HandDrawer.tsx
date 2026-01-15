@@ -137,7 +137,7 @@ export function HandDrawer({
   );
 
   return (
-    <Drawer.Root open={open} onOpenChange={onOpenChange}>
+    <Drawer.Root open={open} onOpenChange={onOpenChange} handleOnly>
       {!open && (
         <Drawer.Trigger asChild>
           <button
@@ -197,7 +197,7 @@ export function HandDrawer({
         >
           {/* Drag Handle */}
           <div className="flex justify-center pt-3 pb-2 shrink-0">
-            <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
+            <Drawer.Handle className="!h-1.5 !w-12 !bg-muted-foreground/40 !opacity-100" />
           </div>
 
           <div className="px-4 pb-3">
@@ -238,7 +238,11 @@ export function HandDrawer({
             className="shrink-0"
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           >
-            <ActionBar availableActions={availableActions} onAction={onAction} />
+            <ActionBar
+              availableActions={availableActions}
+              onAction={onAction}
+              touchOptimized
+            />
           </div>
         </Drawer.Content>
       </Drawer.Portal>

@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import type { AvailableActions } from "core/engine/game-engine.availability";
@@ -7,6 +8,8 @@ interface ActionBarProps {
   availableActions: AvailableActions;
   /** Called when player performs an action */
   onAction: (action: string) => void;
+  /** Improves tap reliability in touch contexts like drawers */
+  touchOptimized?: boolean;
   className?: string;
 }
 
@@ -19,8 +22,12 @@ interface ActionBarProps {
 export function ActionBar({
   availableActions,
   onAction,
+  touchOptimized = false,
   className,
 }: ActionBarProps) {
+  type ButtonSize = ComponentProps<typeof Button>["size"];
+  const buttonSize: ButtonSize = touchOptimized ? "mobile" : undefined;
+  const organizeButtonSize: ButtonSize = touchOptimized ? "mobile" : "sm";
   const {
     canDrawFromStock,
     canDrawFromDiscard,
@@ -52,71 +59,109 @@ export function ActionBar({
     <div
       className={cn(
         "flex items-center justify-center gap-2 p-3 bg-muted/50 border-t",
+        touchOptimized && "touch-manipulation",
         className
       )}
+      data-vaul-no-drag={touchOptimized ? "" : undefined}
     >
       {/* Draw Phase */}
       {canDrawFromStock && (
-        <Button onClick={() => onAction("drawStock")} variant="default">
+        <Button
+          onClick={() => onAction("drawStock")}
+          variant="default"
+          size={buttonSize}
+        >
           Draw Card
         </Button>
       )}
       {canDrawFromDiscard && (
-        <Button onClick={() => onAction("pickUpDiscard")} variant="outline">
+        <Button
+          onClick={() => onAction("pickUpDiscard")}
+          variant="outline"
+          size={buttonSize}
+        >
           Pick Up Discard
         </Button>
       )}
 
       {/* Action Phase - Lay Down */}
       {canLayDown && (
-        <Button onClick={() => onAction("layDown")} variant="default">
+        <Button
+          onClick={() => onAction("layDown")}
+          variant="default"
+          size={buttonSize}
+        >
           Lay Down
         </Button>
       )}
 
       {/* Action Phase - Lay Off (only when down) */}
       {canLayOff && (
-        <Button onClick={() => onAction("layOff")} variant="default">
+        <Button
+          onClick={() => onAction("layOff")}
+          variant="default"
+          size={buttonSize}
+        >
           Lay Off
         </Button>
       )}
 
       {/* Action Phase - Swap Joker (only when not down, runs with jokers exist) */}
       {canSwapJoker && (
-        <Button onClick={() => onAction("swapJoker")} variant="outline">
+        <Button
+          onClick={() => onAction("swapJoker")}
+          variant="outline"
+          size={buttonSize}
+        >
           Swap Joker
         </Button>
       )}
 
       {/* Discard */}
       {canDiscard && (
-        <Button onClick={() => onAction("discard")} variant="outline">
+        <Button
+          onClick={() => onAction("discard")}
+          variant="outline"
+          size={buttonSize}
+        >
           Discard
         </Button>
       )}
 
       {/* May I - when not your turn */}
       {canMayI && (
-        <Button onClick={() => onAction("mayI")} variant="secondary">
+        <Button
+          onClick={() => onAction("mayI")}
+          variant="secondary"
+          size={buttonSize}
+        >
           May I?
         </Button>
       )}
 
       {/* May I pending - waiting for resolution */}
       {hasPendingMayIRequest && (
-        <Button variant="secondary" disabled>
+        <Button variant="secondary" size={buttonSize} disabled>
           Waiting...
         </Button>
       )}
 
       {/* May I Resolution - Allow/Claim */}
       {canAllowMayI && (
-        <Button onClick={() => onAction("allowMayI")} variant="outline">
+        <Button
+          onClick={() => onAction("allowMayI")}
+          variant="outline"
+          size={buttonSize}
+        >
           Allow
         </Button>
       )}
       {canClaimMayI && (
-        <Button onClick={() => onAction("claimMayI")} variant="default">
+        <Button
+          onClick={() => onAction("claimMayI")}
+          variant="default"
+          size={buttonSize}
+        >
           Claim
         </Button>
       )}
@@ -133,7 +178,7 @@ export function ActionBar({
         <Button
           onClick={() => onAction("organize")}
           variant="ghost"
-          size="sm"
+          size={organizeButtonSize}
           className="ml-2"
         >
           Organize
