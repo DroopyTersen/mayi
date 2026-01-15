@@ -2,10 +2,31 @@
 
 You are running in AgentFlow autonomous mode. Complete ONE card's current phase, then exit.
 
-**⚠️ CRITICAL: ONE CARD ONLY ⚠️**
-Process exactly ONE card, then output `AGENTFLOW_ITERATION_COMPLETE` and STOP.
-Do NOT process multiple cards. Do NOT continue after the completion signal.
-The external loop will restart you for the next card.
+**⚠️ CRITICAL: ONE CARD, ONE COLUMN, ONE ITERATION ⚠️**
+
+Process exactly ONE card through exactly ONE column transition, then output `AGENTFLOW_ITERATION_COMPLETE` and STOP.
+
+- Do NOT process multiple cards
+- Do NOT move a card through multiple columns
+- Do NOT skip columns, ever, for any reason
+- Do NOT continue after the completion signal
+
+**The maximum a card can move in one iteration is ONE column forward.**
+
+| Start Column | End Column | Valid? |
+|--------------|------------|--------|
+| approved | refinement | ✅ YES |
+| refinement | tech-design | ✅ YES |
+| tech-design | implementation | ✅ YES |
+| implementation | final-review | ✅ YES |
+| approved | tech-design | ❌ NO - skips refinement |
+| approved | implementation | ❌ NO - skips 2 columns |
+| approved | final-review | ❌ NO - skips 3 columns |
+| refinement | implementation | ❌ NO - skips tech-design |
+
+**Even for "trivial" bugs:** A trivial bug still goes approved → refinement → tech-design → implementation → final-review. Each column transition is a separate iteration. "Trivial" only means you might not need human feedback within a phase — it does NOT mean you can skip phases.
+
+The external loop will restart you for the next column.
 
 ---
 
@@ -235,7 +256,8 @@ Implemented run.normalizer.ts (28 tests), code review 92/100, pushed.
 
 ## Important Rules
 
-- **⚠️ ONE CARD PER ITERATION ⚠️** — Process ONE card, output `AGENTFLOW_ITERATION_COMPLETE`, then STOP. Do not process another card. Do not continue generating text.
+- **⚠️ ONE CARD, ONE COLUMN PER ITERATION ⚠️** — Process ONE card through ONE column transition, then STOP. Never skip columns. Never move a card more than one column forward.
+- **NEVER skip columns** — Even for trivial bugs: approved→refinement→tech-design→implementation→final-review. Each arrow is one iteration.
 - **Approved = workable** — Cards in `approved` ARE workable! Pick them up, create branch, start work
 - **Announce before working** — Write STARTING entry to progress.txt before beginning work
 - **Check for interruptions** — If last progress entry is STARTING without completion, assess and recover
@@ -259,23 +281,47 @@ Implemented run.normalizer.ts (28 tests), code review 92/100, pushed.
 
 **Default to asking.** The human prefers to be consulted rather than have you make assumptions.
 
+**⚠️ IMPORTANT: "Skip human feedback" ≠ "Skip the phase"**
+
+When we say you can "skip asking" or "proceed without human input," we mean:
+- You can complete the phase WITHOUT adding `needs-feedback` tag
+- You still MUST do all the work for that phase
+- You still MUST move to the NEXT column only (not skip columns)
+
+**Example of CORRECT behavior for a trivial bug:**
+```
+Iteration 1: approved → refinement (document requirements, no questions needed)
+Iteration 2: refinement → tech-design (design obvious fix, no approval needed)
+Iteration 3: tech-design → implementation (implement, run review)
+Iteration 4: implementation → final-review (code complete)
+```
+
+**Example of WRONG behavior (NEVER do this):**
+```
+Iteration 1: approved → final-review  ❌ WRONG - skipped 3 phases!
+```
+
 **In Refinement:**
 - If the card title/description is vague or could be interpreted multiple ways → ask
 - If you're unsure what "done" looks like → ask
 - If there are UX/UI decisions implied but not specified → ask
+- If clear: document requirements and move to tech-design (NOT implementation)
 
 **In Tech Design:**
 - For features: ALWAYS present your proposed approach and ask for approval
 - For bugs with multiple fix options: present them and ask
 - For anything touching >2-3 files: present the plan first
-- Only skip asking for truly trivial, obvious, single-file bug fixes
+- Only skip asking for truly trivial, obvious, single-line bug fixes
+- If clear: document design and move to implementation (NOT final-review)
 
-**The bar for "obvious enough to proceed":**
+**The bar for "obvious enough to proceed without asking":**
 - Would a senior engineer on this project agree there's only one reasonable approach?
 - Is there zero ambiguity about what the user wants?
 - If you're wrong, would it take <5 minutes to fix?
 
 If you can't confidently answer YES to all three, use `/af tag <id> add needs-feedback` and exit.
+
+**Remember:** Meeting these criteria lets you skip the `needs-feedback` tag. It does NOT let you skip columns.
 
 ---
 
@@ -506,14 +552,19 @@ Never finish an iteration with unpushed commits.
 
 ---
 
-## ⚠️ FINAL REMINDER: STOP AFTER ONE CARD ⚠️
+## ⚠️ FINAL REMINDER: ONE CARD, ONE COLUMN, THEN STOP ⚠️
 
-After completing Steps 1-9 for ONE card:
+After completing Steps 1-9 for ONE card through ONE column transition:
 
-1. You have output `AGENTFLOW_ITERATION_COMPLETE`
-2. **STOP NOW**
-3. Do not look for another card
-4. Do not check for more workable cards
-5. Do not continue generating text
+1. You have moved the card exactly ONE column forward (or added `needs-feedback`)
+2. You have output `AGENTFLOW_ITERATION_COMPLETE`
+3. **STOP NOW**
+4. Do not look for another card
+5. Do not move the card another column
+6. Do not continue generating text
+
+**Self-check before exiting:**
+- Did I move the card more than one column? If yes, STOP — you violated the one-column rule.
+- Did I skip any columns? If yes, STOP — you violated the no-skip rule.
 
 The external loop will restart you. Your job for THIS iteration is done.

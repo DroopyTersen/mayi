@@ -10,6 +10,10 @@
 
 Document user-facing functional requirements. This phase focuses on **what** needs to happen, not **how** to implement it. Think of this as backlog refinement.
 
+**⚠️ THIS PHASE IS NEVER SKIPPED**
+
+Every card must go through refinement, even trivial bugs. The question is only whether you need human feedback before moving to tech-design.
+
 **Default: Ask questions.** Only proceed without human input if ALL of these are true:
 - The card description is highly specific (not vague or open-ended)
 - There is only ONE reasonable interpretation
@@ -17,6 +21,11 @@ Document user-facing functional requirements. This phase focuses on **what** nee
 - It's a small, scoped bug fix with obvious expected behavior
 
 When in doubt, ask. It's better to pause for clarification than to build the wrong thing.
+
+**"Proceed without human input" means:**
+- ✅ Complete refinement and move to tech-design (without `needs-feedback` tag)
+- ❌ It does NOT mean skip refinement entirely
+- ❌ It does NOT mean jump straight to implementation or final-review
 
 ---
 
