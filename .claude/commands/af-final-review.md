@@ -83,19 +83,93 @@ bun test
 # More tests = implementation added test coverage
 ```
 
-#### 4c. Code Review
-```bash
-# See scope of changes
-git diff main...<branch> --stat
+#### 4c. Dual Code Review (Claude + Codex)
 
-# Review specific files
-git diff main...<branch> -- path/to/file.ts
+Run both Claude's code-reviewer agent and OpenAI Codex in parallel. Two independent reviewers catch more issues than one.
+
+**First, get the diff context:**
+```bash
+BRANCH=$(git branch --show-current)
+FILES_CHANGED=$(git diff --name-only main..HEAD | tr '\n' ', ')
+echo "Branch: $BRANCH"
+echo "Files: $FILES_CHANGED"
 ```
 
-Verify:
-- Implementation matches issue requirements
-- Code follows project patterns
-- No obvious bugs or regressions
+**Start Codex review (runs in background):**
+
+```bash
+codex exec "You are a senior code reviewer. Review the changes on branch '$BRANCH' compared to main.
+
+Files changed: $FILES_CHANGED
+
+Think like a seasoned engineer. For every potential issue:
+- Tug on the thread: trace ripple effects and dependencies
+- Play devil's advocate: try to disprove your concern before reporting
+- Only surface high-confidence, fully vetted suggestions
+
+Focus on:
+1. Bugs and logic errors
+2. Security vulnerabilities
+3. Missing error handling
+4. SOLID violations (monolithic components, duplicated logic, mixed concerns)
+5. Existing abstractions that should be used instead of new code
+
+For each issue provide:
+- Reasoning: detailed exploration with file/line references
+- Conclusion: concrete fix recommendation
+
+Skip style preferences and speculative suggestions." \
+  --full-auto \
+  --output-last-message .agentflow/codex-review.txt \
+  --sandbox read-only &
+
+CODEX_PID=$!
+echo "Codex review started (PID: $CODEX_PID)"
+```
+
+**Run Claude code-reviewer agent:**
+
+```
+Task(subagent_type="feature-dev:code-reviewer")
+> Review the changes on this branch compared to main.
+> Branch: {branch}
+> Files changed: {files}
+> Card: #{issue_number} - {title}
+```
+
+**Wait for Codex to complete:**
+
+```bash
+wait $CODEX_PID
+echo "Codex review complete"
+```
+
+**Post both reviews to GitHub issue:**
+
+```bash
+# Post Claude's review
+gh issue comment <NUMBER> --body "## 🟣 Claude Code Review
+
+{Claude's review output}"
+
+# Post Codex's review
+gh issue comment <NUMBER> --body "## 🟢 Codex Code Review
+
+$(cat .agentflow/codex-review.txt)"
+```
+
+**Synthesize suggestions:**
+
+Evaluate each suggestion from both reviewers:
+
+| Signal | Action |
+|--------|--------|
+| Both reviewers found it | High confidence - note it |
+| Clear bug/security issue | Valid regardless of source |
+| Style preference only | Skip |
+| Speculative/low-confidence | Skip |
+
+Document synthesis in your verification comment.
 
 #### 4d. UI Testing with Claude Chrome
 
@@ -131,10 +205,10 @@ gh issue comment <NUMBER> --body "**Agent Verification ($(date +%Y-%m-%d)):**
 
 ## Verification Results
 
-### Code Review
-- ✅ Implementation matches requirements
-- ✅ Changes are minimal and focused
-- Files changed: \`file1.ts\`, \`file2.ts\`
+### Dual Code Review (Claude + Codex)
+- 🟣 Claude: [X suggestions - see comment above]
+- 🟢 Codex: [Y suggestions - see comment above]
+- **Synthesis:** [N high-confidence issues found / No significant issues]
 
 ### Test Results
 - ✅ Type check: Pass
