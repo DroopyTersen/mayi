@@ -572,6 +572,15 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     return true;
   }, [gameState]);
 
+  // Determine if the viewing player is the current turn player
+  // Note: We can't use isYourTurn because during May I resolution,
+  // isYourTurn is true for whoever is being prompted (not necessarily the turn player)
+  const isCurrentTurnPlayer = useMemo(() => {
+    if (!gameState) return false;
+    // If no opponent has isCurrentPlayer=true, then we are the current player
+    return !gameState.opponents.some((o) => o.isCurrentPlayer);
+  }, [gameState]);
+
   // Handler for leaving game
   const onLeaveGame = useCallback(() => {
     window.location.href = "/";
@@ -611,6 +620,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             callerName={mayIPrompt.callerName}
             card={mayIPrompt.card}
             canMayIInstead={canMayIInstead}
+            isCurrentPlayer={isCurrentTurnPlayer}
             onAllow={onAllowMayI}
             onMayIInstead={onClaimMayI}
             onOpenChange={(open) => {

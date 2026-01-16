@@ -7,6 +7,8 @@ interface MayIRequestViewProps {
   requesterName: string;
   discardCard: Card;
   canMayIInstead: boolean;
+  /** Whether the prompted player is the current turn player (affects button text) */
+  isCurrentPlayer?: boolean;
   timeoutSeconds?: number;
   onAllow: () => void;
   onMayIInstead: () => void;
@@ -17,11 +19,15 @@ export function MayIRequestView({
   requesterName,
   discardCard,
   canMayIInstead,
+  isCurrentPlayer,
   timeoutSeconds,
   onAllow,
   onMayIInstead,
   className,
 }: MayIRequestViewProps) {
+  // Current player takes their normal turn (picking up discard), not doing a "May I"
+  // Non-current players do a "May I Instead" to claim the card
+  const actionButtonText = isCurrentPlayer ? "Pick Up" : "May I Instead!";
   return (
     <div
       className={cn(
@@ -55,7 +61,7 @@ export function MayIRequestView({
           Allow
         </Button>
         {canMayIInstead && (
-          <Button onClick={onMayIInstead}>May I Instead!</Button>
+          <Button onClick={onMayIInstead}>{actionButtonText}</Button>
         )}
       </div>
 
