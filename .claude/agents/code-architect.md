@@ -1,5 +1,6 @@
 ---
 name: code-architect
+model: opus
 description: |
   Architecture design agent. Evaluates multiple implementation approaches
   (Minimal, Clean, Pragmatic) and provides detailed recommendations.

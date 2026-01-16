@@ -94,12 +94,21 @@ gh project item-add {PROJECT} --owner {OWNER} --url {ISSUE_URL}
 ```
 
 **Step 3: Get the project item ID**
+
+**IMPORTANT:** Newly added items have NO status initially. Use `--limit 100` to ensure all items are returned, including those without status:
+
 ```bash
-ITEM_ID=$(gh project item-list {PROJECT} --owner {OWNER} --format json | \
-  jq -r '.items[] | select(.content.number == {NUMBER}) | .id')
+ITEM_ID=$(gh project item-list {PROJECT} --owner {OWNER} --limit 100 --format json | \
+  jq -r '[.items[] | select(.content.number != null)] | sort_by(-.content.number) | .[] | select(.content.number == {NUMBER}) | .id')
 ```
 
-**Step 4: Set status column** (using IDs from github.json)
+If ITEM_ID is empty, the item may not have been added. Retry step 2 and check again.
+
+**Step 4: Set status column (REQUIRED)**
+
+**CRITICAL:** You MUST set the status immediately after adding. Items without status appear in "No Status" column and won't show up in filtered queries.
+
+Using IDs from github.json:
 ```bash
 gh project item-edit \
   --project-id {projectId} \
@@ -110,8 +119,8 @@ gh project item-edit \
 
 **Step 5: Verify the issue**
 ```bash
-gh project item-list {PROJECT} --owner {OWNER} --format json | \
-  jq '.items[] | select(.content.number == {NUMBER}) | {number: .content.number, title: .title, status: .status}'
+gh project item-list {PROJECT} --owner {OWNER} --limit 100 --format json | \
+  jq '[.items[] | select(.content.number != null)] | .[] | select(.content.number == {NUMBER}) | {number: .content.number, title: .title, status: .status}'
 ```
 
 **Confirm:** "✅ Created issue #{number}: {title} in {column}"
@@ -132,9 +141,13 @@ Show cards grouped by column (Status field).
 
 **Process:**
 ```bash
-# Get all project items with their status
-gh project item-list {PROJECT} --owner {OWNER} --format json
+# Get all project items, sorted by issue number descending (newest first)
+# Use --limit 100 to include items without status
+gh project item-list {PROJECT} --owner {OWNER} --limit 100 --format json | \
+  jq '[.items[] | select(.content.number != null)] | sort_by(-.content.number)'
 ```
+
+**Tip:** To exclude old Done items, add `| map(select(.status != "Done"))` before sorting, or limit to recent items with `| .[0:50]` after sorting.
 
 **Output format:**
 ```
@@ -180,8 +193,9 @@ Items are returned in board order (position = priority).
 
 **Process:**
 ```bash
-# Get project items
-gh project item-list {PROJECT} --owner {OWNER} --format json
+# Get project items, sorted by issue number descending (newest first)
+gh project item-list {PROJECT} --owner {OWNER} --limit 100 --format json | \
+  jq '[.items[] | select(.content.number != null)] | sort_by(-.content.number)'
 
 # For each issue, check labels
 gh issue view {NUMBER} --json labels
@@ -226,9 +240,9 @@ Display full card information. The `<id>` is the issue number.
 # Get issue details - ALWAYS include comments field
 gh issue view {NUMBER} --json number,title,body,labels,state,comments
 
-# Get project item status
-gh project item-list {PROJECT} --owner {OWNER} --format json | \
-  jq '.items[] | select(.content.number == {NUMBER})'
+# Get project item status (use --limit 100 to include items without status)
+gh project item-list {PROJECT} --owner {OWNER} --limit 100 --format json | \
+  jq '[.items[] | select(.content.number != null)] | .[] | select(.content.number == {NUMBER})'
 ```
 
 **Display (in this order):**
@@ -256,9 +270,9 @@ Move a card to a different column by updating the project item's Status field.
 
 **Process:**
 ```bash
-# Get project item ID for this issue
-ITEM_ID=$(gh project item-list {PROJECT} --owner {OWNER} --format json | \
-  jq -r '.items[] | select(.content.number == {NUMBER}) | .id')
+# Get project item ID for this issue (use --limit 100 to include items without status)
+ITEM_ID=$(gh project item-list {PROJECT} --owner {OWNER} --limit 100 --format json | \
+  jq -r '[.items[] | select(.content.number != null)] | .[] | select(.content.number == {NUMBER}) | .id')
 
 # Get project field IDs (need project node ID first)
 PROJECT_ID=$(gh project view {PROJECT} --owner {OWNER} --format json | jq -r '.id')
