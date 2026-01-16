@@ -130,14 +130,14 @@ describe("canExtendSet", () => {
     expect(canExtendSet(meld, card("10", "spades"))).toBe(false);
   });
 
-  it("returns false if adding wild would make wilds outnumber naturals", () => {
+  it("allows adding wild even if wilds would outnumber naturals (ratio not enforced on layoff)", () => {
     // 2 naturals + 1 wild = equal, OK to add more
     const meld1 = makeSet([card("9", "clubs"), card("9", "diamonds"), joker()]);
     expect(canExtendSet(meld1, joker())).toBe(true); // 2 naturals + 2 wilds = equal, OK
 
     // 2 naturals + 2 wilds = equal, adding another wild would make wilds > naturals
     const meld2 = makeSet([card("9", "clubs"), card("9", "diamonds"), joker(), card("2", "hearts")]);
-    expect(canExtendSet(meld2, joker())).toBe(false); // Would be 2 naturals + 3 wilds
+    expect(canExtendSet(meld2, joker())).toBe(true); // Allowed during layoff
   });
 
   it("handles duplicate cards from multiple decks (9♣ extends 9♣ 9♦ 9♥)", () => {

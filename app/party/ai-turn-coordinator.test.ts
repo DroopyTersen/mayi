@@ -122,6 +122,28 @@ describe("AITurnCoordinator", () => {
       expect(persistCount.value).toBe(0); // No AI turn executed
     });
 
+    it("should exit when game state is missing", async () => {
+      let executeCalled = false;
+      const { deps } = createFakeDeps({
+        isAITurn: true,
+        executeAITurnFn: async () => {
+          executeCalled = true;
+          return {
+            success: true,
+            actions: ["draw"],
+            usedFallback: false,
+          };
+        },
+      });
+      deps.getState = async () => null;
+
+      const coordinator = new AITurnCoordinator(deps);
+      await coordinator.executeAITurnsIfNeeded();
+
+      expect(executeCalled).toBe(false);
+      expect(coordinator.isRunning()).toBe(false);
+    });
+
     it("should execute AI turn when it's an AI's turn", async () => {
       let aiTurnExecuted = false;
       const { deps } = createFakeDeps({
@@ -141,6 +163,33 @@ describe("AITurnCoordinator", () => {
 
       expect(aiTurnExecuted).toBe(true);
       expect(coordinator.isRunning()).toBe(false); // Cleaned up after completion
+    });
+
+    it("should call onAIDone when abort interrupts a turn", async () => {
+      const { deps } = createFakeDeps({
+        isAITurn: true,
+        executeAITurnFn: async ({ abortSignal }) => {
+          return new Promise((_, reject) => {
+            abortSignal?.addEventListener("abort", () => {
+              reject(new DOMException("Aborted", "AbortError"));
+            });
+          });
+        },
+      });
+
+      const coordinator = new AITurnCoordinator(deps);
+      const doneCalls: string[] = [];
+
+      const turnPromise = coordinator.executeAITurnsIfNeeded({
+        onAIDone: (playerId) => {
+          doneCalls.push(playerId);
+        },
+      });
+      await new Promise((r) => setTimeout(r, 10));
+      coordinator.abortCurrentTurn();
+      await turnPromise;
+
+      expect(doneCalls).toEqual(["ai-player-1"]);
     });
 
     it("should abort when abortCurrentTurn is called mid-turn", async () => {
@@ -275,6 +324,39 @@ describe("AITurnCoordinator", () => {
       await coordinator.executeAITurnsIfNeeded();
 
       expect(aiTurnCount).toBe(3);
+    });
+
+    it("should stop chaining when game ends after an AI turn", async () => {
+      let phase = "ROUND_ACTIVE";
+      let aiTurnCount = 0;
+      let state = createTestGameState();
+
+      const deps: AITurnCoordinatorDeps = {
+        getState: async () => state,
+        setState: async (next) => {
+          state = next;
+        },
+        broadcast: async () => {},
+        executeAITurn: async () => {
+          aiTurnCount++;
+          phase = "GAME_END";
+          return { success: true, actions: ["draw"], usedFallback: false };
+        },
+        env: {} as AITurnCoordinatorDeps["env"],
+        isAIPlayerTurn: () => createAIPlayerMapping(),
+        createAdapter: (s) =>
+          ({
+            getSnapshot: () => ({ phase, currentRound: 1 }),
+            getStoredState: () => s,
+          }) as unknown as ReturnType<AITurnCoordinatorDeps["createAdapter"] & {}>,
+        thinkingDelayMs: 0,
+        interTurnDelayMs: 0,
+      };
+
+      const coordinator = new AITurnCoordinator(deps);
+      await coordinator.executeAITurnsIfNeeded();
+
+      expect(aiTurnCount).toBe(1);
     });
 
     it("should respect MAX_CHAINED_TURNS limit", async () => {

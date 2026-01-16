@@ -214,4 +214,47 @@ describe("executeFallbackTurn - Regular Turn", () => {
     // Discard action includes card ID like "discard(card-63)"
     expect(result.actions.some(a => a.startsWith("discard("))).toBe(true);
   });
+
+  it("returns success when aborted during the draw delay", async () => {
+    const engine = GameEngine.createGame({
+      playerNames: ["AI Player 0", "Player 1", "Player 2"],
+    });
+
+    const engineSnapshot = engine.getSnapshot();
+    const playerIds = engineSnapshot.players.map(p => p.id);
+
+    const playerMappings: PlayerMapping[] = [
+      { lobbyId: "lobby-0", engineId: playerIds[0]!, name: "AI Player 0", isAI: true },
+      { lobbyId: "lobby-1", engineId: playerIds[1]!, name: "Player 1", isAI: false },
+      { lobbyId: "lobby-2", engineId: playerIds[2]!, name: "Player 2", isAI: false },
+    ];
+
+    const storedState: StoredGameState = {
+      roomId: "test-room",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      activityLog: [],
+      playerMappings,
+      engineSnapshot: engine.toJSON(),
+    };
+
+    const adapter = PartyGameAdapter.fromStoredState(storedState);
+    const awaitingLobbyId = adapter.getAwaitingLobbyPlayerId();
+    if (!awaitingLobbyId) {
+      throw new Error("Expected an awaiting lobby player");
+    }
+    const controller = new AbortController();
+    const resultPromise = executeFallbackTurn(adapter, awaitingLobbyId, {
+      abortSignal: controller.signal,
+      phaseDelayMs: 50,
+    });
+
+    setTimeout(() => controller.abort(), 0);
+
+    const result = await resultPromise;
+
+    expect(result.success).toBe(true);
+    expect(result.usedFallback).toBe(true);
+    expect(result.actions).toContain("draw_from_stock");
+  });
 });

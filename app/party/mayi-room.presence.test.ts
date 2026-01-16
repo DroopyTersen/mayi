@@ -227,6 +227,44 @@ describe("MayIRoom presence logic", () => {
       "p_recent",
     ]);
   });
-});
 
+  it("buildPlayersSnapshotFromStorageEntries orders connected players by joinedAt", () => {
+    const now = 2_000_000;
+    const graceMs = 5 * 60 * 1000;
+
+    const early: StoredPlayer = {
+      playerId: "p_early",
+      name: "Early",
+      joinedAt: 100,
+      lastSeenAt: 500,
+      isConnected: true,
+      currentConnectionId: "c1",
+      connectedAt: 500,
+      disconnectedAt: null,
+    };
+
+    const late: StoredPlayer = {
+      playerId: "p_late",
+      name: "Late",
+      joinedAt: 200,
+      lastSeenAt: 600,
+      isConnected: true,
+      currentConnectionId: "c2",
+      connectedAt: 600,
+      disconnectedAt: null,
+    };
+
+    const entries = new Map<string, StoredPlayer>([
+      ["player:p_late", late],
+      ["player:p_early", early],
+    ]);
+
+    const snapshot = buildPlayersSnapshotFromStorageEntries(entries, {
+      now,
+      disconnectGraceMs: graceMs,
+    });
+
+    expect(snapshot.players.map((p) => p.playerId)).toEqual(["p_early", "p_late"]);
+  });
+});
 

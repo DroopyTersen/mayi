@@ -287,6 +287,14 @@ describe("isValidRun", () => {
     });
   });
 
+  describe("invalid runs - invalid rank values", () => {
+    it("invalid: contains a rank not in the run sequence", () => {
+      const invalidCard = { id: `card-${cardId++}`, suit: "spades", rank: "NotARank" as Card["rank"] };
+      const cards = [invalidCard, card("6", "spades"), card("7", "spades"), card("8", "spades")];
+      expect(isValidRun(cards)).toBe(false);
+    });
+  });
+
   describe("invalid runs - ace positioning", () => {
     it("invalid: Ace as low card (A♠ 3♠ 4♠ 5♠) — Ace is HIGH only", () => {
       const cards = [card("A", "spades"), card("3", "spades"), card("4", "spades"), card("5", "spades")];

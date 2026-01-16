@@ -50,5 +50,9 @@ export function getRankValue(rank: Rank): number | null {
   if (rank === "Q") return 12;
   if (rank === "J") return 11;
 
-  return parseInt(rank, 10);
+  const parsed = parseInt(rank, 10);
+  if (!Number.isFinite(parsed) || parsed < 3 || parsed > 10) {
+    return null;
+  }
+  return parsed;
 }

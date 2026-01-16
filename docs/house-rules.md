@@ -239,10 +239,12 @@ Starting from your next turn after laying down:
 
 On your turn, after drawing, you may:
 
+- **Wild ratio rules do NOT apply when laying off.** You may add any number of wilds to existing melds.
+
 - Add cards to any valid melds on the table:
   - Extend runs (e.g. add 5♠ or 10♠ to a 6♠ 7♠ 8♠ 9♠ run)
   - Extend sets (e.g. add another 8 of a different suit to a set of 8s)
-  - Use wilds, as long as the meld remains valid and wilds do not outnumber natural cards
+  - Add wilds freely (no ratio limits)
 
 Then discard one card.
 

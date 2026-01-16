@@ -786,6 +786,43 @@ describe("TurnMachine - turn output", () => {
   });
 });
 
+describe("TurnMachine - round 6 laydown errors", () => {
+  it("requires laying down all cards at once", () => {
+    const nineC = card("9", "clubs");
+    const nineD = card("9", "diamonds");
+    const nineH = card("9", "hearts");
+    const threeH = card("3", "hearts");
+    const fourH = card("4", "hearts");
+    const fiveH = card("5", "hearts");
+    const sixH = card("6", "hearts");
+    const tenC = card("10", "clubs");
+    const jackC = card("J", "clubs");
+    const queenC = card("Q", "clubs");
+    const kingC = card("K", "clubs");
+    const extra = card("A", "spades");
+
+    const hand = [nineC, nineD, nineH, threeH, fourH, fiveH, sixH, tenC, jackC, queenC, kingC];
+    const actor = createTurnActor({ hand, stock: [extra], roundNumber: 6 });
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+
+    actor.send({
+      type: "LAY_DOWN",
+      melds: [
+        { type: "set", cardIds: [nineC.id, nineD.id, nineH.id] },
+        { type: "run", cardIds: [threeH.id, fourH.id, fiveH.id, sixH.id] },
+        { type: "run", cardIds: [tenC.id, jackC.id, queenC.id, kingC.id] },
+      ],
+    });
+
+    expect(actor.getSnapshot().value).toBe("drawn");
+    expect(actor.getSnapshot().context.lastError).toBe(
+      "Round 6 requires laying down ALL 12 cards at once"
+    );
+    actor.stop();
+  });
+});
+
 describe("TurnMachine - LAY_DOWN with auto-sorted runs", () => {
   it("accepts run cards selected in descending order (round 2)", () => {
     // Round 2 requires 1 set + 1 run

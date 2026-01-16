@@ -100,6 +100,13 @@ describe("identifyJokerPositions", () => {
     expect(positions.length).toBe(0);
   });
 
+  it("throws when a wild would resolve below 3 or above A", () => {
+    const j = joker();
+    const meld = makeRun([j, card("3"), card("4"), card("5")]);
+
+    expect(() => identifyJokerPositions(meld)).toThrow("Invalid rank value: 2");
+  });
+
   it("returns empty array for run with all wilds (no natural to anchor)", () => {
     // Edge case: a run composed entirely of wilds can't determine positions
     const j1 = joker();
