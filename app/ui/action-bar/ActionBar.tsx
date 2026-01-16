@@ -2,10 +2,14 @@ import type { ComponentProps } from "react";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import type { AvailableActions } from "core/engine/game-engine.availability";
+import type { UnavailabilityHint } from "core/engine/game-engine.hints";
+import { ActionInfoButton } from "./ActionInfoButton";
 
 interface ActionBarProps {
   /** Available actions for the current player - from PlayerView.availableActions */
   availableActions: AvailableActions;
+  /** Hints explaining why certain actions are unavailable */
+  unavailabilityHints?: UnavailabilityHint[];
   /** Called when player performs an action */
   onAction: (action: string) => void;
   /** Improves tap reliability in touch contexts like drawers */
@@ -21,6 +25,7 @@ interface ActionBarProps {
  */
 export function ActionBar({
   availableActions,
+  unavailabilityHints = [],
   onAction,
   touchOptimized = false,
   className,
@@ -174,6 +179,9 @@ export function ActionBar({
           Waiting for other players...
         </span>
       )}
+
+      {/* Info button for unavailability hints */}
+      <ActionInfoButton hints={unavailabilityHints} />
 
       {/* Organize available during round for any player (free action) */}
       {canReorderHand && (

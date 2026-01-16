@@ -10,6 +10,7 @@ import type { Meld } from "../meld/meld.types";
 import type { Player, RoundNumber, RoundRecord } from "./engine.types";
 import type { Contract } from "./contracts";
 import type { AvailableActions } from "./game-engine.availability";
+import type { UnavailabilityHint } from "./game-engine.hints";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Phase Types
@@ -311,6 +312,9 @@ export interface PlayerView {
 
   /** What actions this player can currently take */
   availableActions: AvailableActions;
+
+  /** Hints explaining why certain actions are unavailable */
+  unavailabilityHints: UnavailabilityHint[];
 
   // ─────────────────────────────────────────────────────────────────────────
   // Turn Order

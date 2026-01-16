@@ -163,6 +163,7 @@ const MOCK_GAME_STATE: PlayerView = {
     hasPendingMayIRequest: false,
     shouldNudgeDiscard: false,
   },
+  unavailabilityHints: [],
   turnOrder: ["p1", "p2", "p3", "p4"],
 };
 

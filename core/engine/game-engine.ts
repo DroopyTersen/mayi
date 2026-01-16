@@ -31,6 +31,7 @@ import type {
 } from "./game-engine.types";
 import type { Contract } from "./contracts";
 import { getAvailableActions } from "./game-engine.availability";
+import { getUnavailabilityHints } from "./game-engine.hints";
 
 /**
  * Type for XState's persisted snapshot structure
@@ -242,6 +243,7 @@ export class GameEngine {
       roundHistory: [...snapshot.roundHistory],
       mayIContext: snapshot.mayIContext ? { ...snapshot.mayIContext } : null,
       availableActions: getAvailableActions(snapshot, playerId),
+      unavailabilityHints: getUnavailabilityHints(snapshot, playerId),
       turnOrder: snapshot.players.map((p) => p.id),
     };
   }
