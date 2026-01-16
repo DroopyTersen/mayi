@@ -84,6 +84,7 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     # Run Claude in background, show progress dots every 10 seconds
     set +e
     claude -p "$(cat $PROMPT_FILE)" \
+        --verbose \
         --output-format stream-json \
         --allowedTools "Read,Write,Edit,Bash,Glob,Grep,Task" \
         --chrome \
