@@ -306,6 +306,30 @@ describe("normalizeRunCards", () => {
       expect(result.success).toBe(true);
     });
 
+    it("fails when run already spans 3 to A and an extra wild cannot fit", () => {
+      const cards = [
+        card("3", "hearts"),
+        card("4", "hearts"),
+        card("5", "hearts"),
+        card("6", "hearts"),
+        card("7", "hearts"),
+        card("8", "hearts"),
+        card("9", "hearts"),
+        card("10", "hearts"),
+        card("J", "hearts"),
+        card("Q", "hearts"),
+        card("K", "hearts"),
+        card("A", "hearts"),
+        joker(),
+      ];
+      const result = normalizeRunCards(cards);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.reason).toBe("Cannot form valid run with given cards");
+      }
+    });
+
     it("fails when wilds outnumber naturals after normalization", () => {
       // 1 natural + 3 wilds
       const cards = [card("5", "spades"), joker(), joker(), card("2", "clubs")];

@@ -775,6 +775,41 @@ describe("RoundMachine - May I Edge Cases", () => {
       // Hand should only have original + discard (no penalty)
       expect(player2?.hand.length).toBe(2); // 1 original + 1 discard
     });
+
+    it("replenishes stock from discard before granting penalty card", () => {
+      const claimedCard: Card = { id: "discard-top", suit: "spades", rank: "K" };
+      const keepDiscard: Card = { id: "discard-next", suit: "hearts", rank: "Q" };
+      const reshuffleCard: Card = { id: "discard-reshuffle", suit: "clubs", rank: "J" };
+
+      const input: RoundInput = {
+        roundNumber: 1,
+        players: createTestPlayers(3),
+        dealerIndex: 0,
+        predefinedState: {
+          hands: [
+            [{ id: "p0-1", suit: "hearts", rank: "5" }],
+            [{ id: "p1-1", suit: "diamonds", rank: "5" }],
+            [{ id: "p2-1", suit: "clubs", rank: "5" }],
+          ],
+          stock: [], // Empty stock, should replenish from discard
+          discard: [claimedCard, keepDiscard, reshuffleCard],
+          playerDownStatus: [false, false, false],
+        },
+      };
+      const actor = createRoundActor(input);
+
+      // Player 2 calls May I, player 1 allows
+      actor.send({ type: "CALL_MAY_I", playerId: "player-2" });
+      actor.send({ type: "ALLOW_MAY_I", playerId: "player-1" });
+
+      const ctx = getContext(actor);
+      const player2 = ctx.players.find((p) => p.id === "player-2");
+
+      expect(player2?.hand).toContainEqual(claimedCard);
+      expect(player2?.hand).toContainEqual(reshuffleCard);
+      expect(ctx.discard).toEqual([keepDiscard]);
+      expect(ctx.stock).toEqual([]);
+    });
   });
 
   describe("May I timing relative to draw", () => {
