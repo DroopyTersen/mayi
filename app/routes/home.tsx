@@ -1,6 +1,6 @@
 import { Form, redirect } from "react-router";
-import { nanoid } from "nanoid";
 import type { Route } from "./+types/home";
+import { generateRoomId } from "../../core/room/room-id.utils";
 import { Button } from "~/shadcn/components/ui/button";
 import { Input } from "~/shadcn/components/ui/input";
 import {
@@ -20,7 +20,7 @@ export async function action({ request }: Route.ActionArgs) {
   const intent = formData.get("intent");
 
   if (intent === "create") {
-    return redirect(`/game/${nanoid(8)}`);
+    return redirect(`/game/${generateRoomId()}`);
   }
 
   if (intent === "join") {

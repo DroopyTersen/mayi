@@ -15,8 +15,8 @@
  */
 
 import { redirect } from "react-router";
-import { nanoid } from "nanoid";
 import type { Route } from "./+types/game.agent.state.$state";
+import { generateRoomId } from "../../core/room/room-id.utils";
 import { agentTestStateSchema, encodeAgentTestState } from "~/party/agent-state.validation";
 import { agentStoredStateV1Schema } from "~/party/agent-harness.types";
 import { decodeBase64UrlToUtf8, encodeUtf8ToBase64Url } from "core/utils/base64url";
@@ -53,7 +53,7 @@ export function loader({ params }: Route.LoaderArgs) {
     throw new Response(`Invalid state: ${message}`, { status: 400 });
   }
 
-  const roomId = nanoid(8);
+  const roomId = generateRoomId();
 
   // Redirect to the game with the state parameter
   return redirect(`/game/${roomId}?agentState=${cleanEncoded}`);

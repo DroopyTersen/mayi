@@ -1,0 +1,140 @@
+I’ll use the code-architect skill because this is an architecture/design request. I couldn’t open `/home/sprite/mayi/.codex/skills/code-architect/SKILL.md` due to sandbox restrictions, so I’m proceeding with a best-effort architecture design.
+
+## Overview
+Add a reusable `HouseRulesDrawer` that renders the markdown from `docs/house-rules.md` and expose it via a help icon in the game header and a button on the home page. The drawer uses the existing `ResponsiveDrawer` to switch between Dialog (desktop) and Drawer (mobile), ensuring consistent UX and scrollable long content. Both entry points control the same `HouseRulesDrawer` via `open`/`onOpenChange`.
+
+## Files to create
+
+| File path | Purpose |
+|---|---|
+| `app/ui/house-rules/HouseRulesDrawer.tsx` | Reusable drawer component rendering house rules markdown via `ResponsiveDrawer` |
+
+## Files to modify
+
+| File path | Changes |
+|---|---|
+| `app/ui/game-status/GameHeader.tsx` | Add HelpCircle ghost button on right side to open `HouseRulesDrawer` |
+| `app/routes/home.tsx` | Add “View House Rules” outline button with BookOpen icon below Join form, opens `HouseRulesDrawer` |
+
+## Key design decisions with rationale
+- **Use `ResponsiveDrawer` for layout switching**: keeps mobile/desktop behavior consistent and aligns with existing app patterns.
+- **Controlled open state (`open`, `onOpenChange`)**: enables both entry points to manage visibility without internal state, making it composable and testable.
+- **Render markdown via `?raw` import**: keeps `docs/house-rules.md` as the single source of truth and avoids duplication.
+- **Apply markdown-friendly styling**: use Tailwind prose classes or existing markdown styles to ensure headers/tables/lists render correctly.
+- **Scoped `HouseRulesDrawer` in `app/ui/house-rules/`**: aligns with UI component organization and avoids creating barrel files.
+
+## Code sketch (key interfaces/signatures)
+
+```tsx
+// app/ui/house-rules/HouseRulesDrawer.tsx
+import * as React from "react";
+import { ResponsiveDrawer } from "~/ui/responsive-drawer/ResponsiveDrawer";
+// import any markdown renderer in use; otherwise use a lightweight renderer
+// import ReactMarkdown from "react-markdown";
+// import remarkGfm from "remark-gfm";
+
+// Vite raw import; adjust path if alias differs
+import houseRulesMarkdown from "~/../docs/house-rules.md?raw";
+
+type HouseRulesDrawerProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function HouseRulesDrawer({ open, onOpenChange }: HouseRulesDrawerProps) {
+  return (
+    <ResponsiveDrawer
+      open={open}
+      onOpenChange={onOpenChange}
+      title="House Rules"
+      description="Mayi house rules"
+    >
+      <div className="max-h-[70vh] overflow-y-auto">
+        {/* Prefer existing markdown styling conventions */}
+        {/* If the project already has a markdown component, use it here */}
+        <div className="prose prose-slate max-w-none">
+          {/* <ReactMarkdown remarkPlugins={[remarkGfm]}> */}
+          {/*   {houseRulesMarkdown} */}
+          {/* </ReactMarkdown> */}
+          <pre className="whitespace-pre-wrap">{houseRulesMarkdown}</pre>
+        </div>
+      </div>
+    </ResponsiveDrawer>
+  );
+}
+```
+
+```tsx
+// app/ui/game-status/GameHeader.tsx
+import * as React from "react";
+import { HelpCircle } from "lucide-react";
+import { Button } from "~/shadcn/components/ui/button";
+import { HouseRulesDrawer } from "~/ui/house-rules/HouseRulesDrawer";
+
+export function GameHeader(/* existing props */) {
+  const [rulesOpen, setRulesOpen] = React.useState(false);
+
+  return (
+    <header className="flex items-center justify-between">
+      {/* existing left/center content */}
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="View house rules"
+        onClick={() => setRulesOpen(true)}
+      >
+        <HelpCircle className="h-5 w-5" />
+      </Button>
+
+      <HouseRulesDrawer open={rulesOpen} onOpenChange={setRulesOpen} />
+    </header>
+  );
+}
+```
+
+```tsx
+// app/routes/home.tsx
+import * as React from "react";
+import { BookOpen } from "lucide-react";
+import { Button } from "~/shadcn/components/ui/button";
+import { HouseRulesDrawer } from "~/ui/house-rules/HouseRulesDrawer";
+
+export default function HomeRoute() {
+  const [rulesOpen, setRulesOpen] = React.useState(false);
+
+  return (
+    <Card>
+      <CardContent>
+        {/* join form */}
+        <div className="mt-4">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setRulesOpen(true)}
+          >
+            <BookOpen className="mr-2 h-4 w-4" />
+            View House Rules
+          </Button>
+        </div>
+      </CardContent>
+
+      <HouseRulesDrawer open={rulesOpen} onOpenChange={setRulesOpen} />
+    </Card>
+  );
+}
+```
+
+## Trade-offs analysis
+- **Dev time**: Low. Reuses existing `ResponsiveDrawer` and markdown source; only small UI wiring is required.
+- **Risk**: Moderate around markdown rendering if no existing renderer is in use. If none exists, adding a renderer may add a new dependency. If one exists, reuse it to reduce risk.
+- **Maintainability**: High. Single source of truth (`docs/house-rules.md`) and a shared UI component reduce duplication.
+- **Testability**: Good. Controlled `open` state makes the drawer easy to test with DOM queries; can add a simple render test if needed.
+
+## Implementation sequence
+1. Create `app/ui/house-rules/HouseRulesDrawer.tsx` using `ResponsiveDrawer`, render `docs/house-rules.md` via `?raw`, and apply markdown styling classes.
+2. Update `app/ui/game-status/GameHeader.tsx` to add the HelpCircle ghost icon button and `HouseRulesDrawer` with local `open` state.
+3. Update `app/routes/home.tsx` to add the “View House Rules” outline button below the join form and attach the same `HouseRulesDrawer`.
+4. Verify responsive behavior (desktop dialog vs mobile drawer) and that long content scrolls within the drawer.
+5. Optional: add a lightweight render test if a UI testing pattern already exists.
+
+If you want, I can translate this into concrete code changes next.
