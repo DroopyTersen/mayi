@@ -6,33 +6,16 @@
 
 import type { Card } from "../../core/card/card.types";
 import type { GameState } from "../../core/engine/engine.types";
-
-/**
- * Unicode suit symbols
- */
-const SUIT_SYMBOLS: Record<string, string> = {
-  hearts: "♥",
-  diamonds: "♦",
-  clubs: "♣",
-  spades: "♠",
-};
+import { formatCardText } from "../../core/card/card-text.utils";
 
 /**
  * Renders a single card as a string
  * Examples: "9♥", "10♦", "J♠", "Q♣", "Joker"
+ *
+ * @deprecated Use formatCardText from core/card/card-text.utils directly
  */
 export function renderCard(card: Card): string {
-  if (card.rank === "Joker") {
-    return "Joker";
-  }
-
-  const suit = card.suit;
-  if (!suit) {
-    return card.rank;
-  }
-
-  const suitSymbol = SUIT_SYMBOLS[suit] ?? suit;
-  return `${card.rank}${suitSymbol}`;
+  return formatCardText(card);
 }
 
 /**

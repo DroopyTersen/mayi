@@ -36,6 +36,7 @@ import {
   type HumanPlayerInfo,
   type InjectStateMessage,
   type AgentSetupMessage,
+  type MayINotificationMessage,
 } from "./protocol.types";
 
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
@@ -727,6 +728,8 @@ export class MayIRoom extends Server {
           this.logMayI(`Still in RESOLVING_MAY_I, prompting next player...`);
         } else {
           this.logMayI(`Entering RESOLVING_MAY_I phase, broadcasting prompt...`);
+          // Notify ALL players when someone first calls May I
+          await this.broadcastMayINotification(effect.adapter);
         }
         await this.broadcastMayIPrompt(effect.adapter);
       } else if (effect.type === "executeAIMayIResponseIfNeeded") {
@@ -1040,6 +1043,34 @@ export class MayIRoom extends Server {
         break;
       }
     }
+  }
+
+  /**
+   * Broadcast MAY_I_NOTIFICATION to ALL connected players
+   *
+   * This is separate from MAY_I_PROMPT (which only goes to the current player being asked).
+   * MAY_I_NOTIFICATION lets all players see that someone has called May I in the table view.
+   */
+  private async broadcastMayINotification(adapter: PartyGameAdapter): Promise<void> {
+    const snapshot = adapter.getSnapshot();
+    const mayIContext = snapshot.mayIContext;
+    if (!mayIContext) return;
+
+    // Get caller info
+    const callerMapping = adapter.getAllPlayerMappings().find(
+      (m) => m.engineId === mayIContext.originalCaller
+    );
+    if (!callerMapping) return;
+
+    const message: MayINotificationMessage = {
+      type: "MAY_I_NOTIFICATION",
+      callerId: callerMapping.lobbyId,
+      callerName: callerMapping.name,
+      card: mayIContext.cardBeingClaimed,
+    };
+
+    // Broadcast to ALL connected players
+    this.broadcast(JSON.stringify(message satisfies ServerMessage));
   }
 
   /**
