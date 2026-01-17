@@ -554,8 +554,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           // Update notification to show outcome, then fade after 5 seconds
           setMayINotification((prev) => {
             if (!prev) return null;
-            // Determine outcome from the resolved message
-            const outcome = msg.winnerId ? "allowed" : "blocked";
+            // Server sends outcome="resolved" when May I completed
+            // This means someone got the card (allowed)
+            // Note: winnerId is currently always null (server TODO), so we use outcome field
+            const outcome: "allowed" | "blocked" =
+              msg.outcome === "resolved" ? "allowed" : "blocked";
             return {
               ...prev,
               outcome,
