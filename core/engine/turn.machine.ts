@@ -30,6 +30,7 @@ import {
   resolveRunInsertPosition,
 } from "./layoff";
 import { canSwapJokerWithCard } from "../meld/meld.joker";
+import { normalizeRunCards } from "../meld/run.normalizer";
 // Note: May I is now handled at the round level, not turn level
 // The mayIWindow.machine.ts will be removed
 
@@ -460,9 +461,19 @@ export const turnMachine = setup({
         // Build melds and add to table with deterministic IDs
         const tableLen = context.table.length;
         const newMelds: Meld[] = event.melds.map((proposal, i) => {
-          const cards = proposal.cardIds
+          let cards = proposal.cardIds
             .map((id) => context.hand.find((c) => c.id === id))
             .filter((c): c is Card => c !== undefined);
+
+          // For runs, normalize card order (allows selection in any order)
+          if (proposal.type === "run") {
+            const normalized = normalizeRunCards(cards);
+            if (normalized.success) {
+              cards = normalized.cards;
+            }
+            // If normalization fails, use original order and let validation catch it
+          }
+
           return {
             id: `meld-${context.playerId}-${tableLen + i}`,
             type: proposal.type,
