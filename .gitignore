@@ -46,3 +46,4 @@ cli/game-log.jsonl
 .wrangler/
 build/
 .agentflow/loop_status.txt
+.agentflow/codex-architecture.txt

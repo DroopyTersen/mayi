@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import type { Card } from "core/card/card.types";
 import { MayIRequestView } from "./MayIRequestView";
 import {
@@ -14,48 +14,67 @@ interface MayIPromptDialogProps {
   callerName: string;
   card: Card;
   canMayIInstead: boolean;
+  /** Whether the prompted player is the current turn player (affects button text) */
+  isCurrentPlayer?: boolean;
   onAllow: () => void;
   onMayIInstead: () => void;
   onOpenChange?: (open: boolean) => void;
 }
 
-const AUTO_ALLOW_SECONDS = 15;
+/** Auto-allow timeout in seconds (per house rules: 60 seconds) */
+export const AUTO_ALLOW_SECONDS = 60;
 
 export function MayIPromptDialog({
   open,
   callerName,
   card,
   canMayIInstead,
+  isCurrentPlayer,
   onAllow,
   onMayIInstead,
   onOpenChange,
 }: MayIPromptDialogProps) {
   const [secondsRemaining, setSecondsRemaining] = useState(AUTO_ALLOW_SECONDS);
 
-  // Reset timer when dialog opens
+  // Store callback in ref to prevent effect dependency issues
+  const onAllowRef = useRef(onAllow);
   useEffect(() => {
-    if (open) {
-      setSecondsRemaining(AUTO_ALLOW_SECONDS);
-    }
-  }, [open]);
+    onAllowRef.current = onAllow;
+  }, [onAllow]);
 
-  // Countdown timer
+  // Store start time in ref for deterministic countdown calculation
+  const startTimeRef = useRef<number | null>(null);
+
+  // Countdown timer using start-time tracking for stability
+  // This prevents timer restarts when parent re-renders with new callback refs
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      startTimeRef.current = null;
+      setSecondsRemaining(AUTO_ALLOW_SECONDS);
+      return;
+    }
+
+    // Capture start time once when dialog opens
+    startTimeRef.current = Date.now();
+    setSecondsRemaining(AUTO_ALLOW_SECONDS);
 
     const interval = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          // Auto-allow when timer runs out
-          onAllow();
-          return 0;
-        }
-        return prev - 1;
-      });
+      if (!startTimeRef.current) return;
+
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const remaining = AUTO_ALLOW_SECONDS - elapsed;
+
+      if (remaining <= 0) {
+        onAllowRef.current();
+        clearInterval(interval);
+        setSecondsRemaining(0);
+      } else {
+        setSecondsRemaining(remaining);
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [open, onAllow]);
+  }, [open]); // Only depends on `open`, not on callback
 
   const handleAllow = useCallback(() => {
     onAllow();
@@ -78,6 +97,7 @@ export function MayIPromptDialog({
           requesterName={callerName}
           discardCard={card}
           canMayIInstead={canMayIInstead}
+          isCurrentPlayer={isCurrentPlayer}
           timeoutSeconds={secondsRemaining}
           onAllow={handleAllow}
           onMayIInstead={handleMayIInstead}
