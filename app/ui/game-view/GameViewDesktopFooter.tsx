@@ -91,6 +91,7 @@ export function GameViewDesktopFooter({
       {/* Action Bar */}
       <ActionBar
         availableActions={gameState.availableActions}
+        actionStates={gameState.actionStates}
         unavailabilityHints={gameState.unavailabilityHints}
         onAction={onAction}
       />

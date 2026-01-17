@@ -154,6 +154,7 @@ export function GameView({
           onCardClick={state.handleCardClick}
           onAction={state.handleAction}
           availableActions={gameState.availableActions}
+          actionStates={gameState.actionStates}
           unavailabilityHints={gameState.unavailabilityHints}
           open={state.isHandDrawerOpen}
           onOpenChange={state.setIsHandDrawerOpen}
