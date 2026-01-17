@@ -205,6 +205,56 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 - If a test suite is large or slow, run specific tests with `--test-name-pattern` instead of the whole file
 - Prefer `| head -N` to limit output rather than waiting for full completion
 
+## Git Safety: Rebase and Force-Push
+
+**⚠️ CRITICAL: Always verify commits exist after rebasing, before force-pushing.**
+
+Rebasing can silently produce empty branches if:
+- The branch was based on old main
+- Changes already landed in main from other PRs
+- Conflict resolution accidentally discarded changes
+
+### Mandatory Verification Steps
+
+After EVERY `git rebase main`, run:
+
+```bash
+git log main..HEAD --oneline
+```
+
+- If this shows commits → Safe to push
+- If this is EMPTY → **STOP. Do NOT push.** Investigate what happened.
+
+### Safe Rebase Workflow
+
+```bash
+# 1. Create backup tag before rebasing
+git tag backup/branch-name-pre-rebase
+
+# 2. Rebase
+git rebase main
+
+# 3. VERIFY commits still exist
+git log main..HEAD --oneline
+# If empty, recover with: git reset --hard backup/branch-name-pre-rebase
+
+# 4. Only then push
+git push --force-with-lease origin branch-name
+
+# 5. Clean up backup tag
+git tag -d backup/branch-name-pre-rebase
+```
+
+### If You Lose Commits
+
+Commits can be recovered from the local reflog (kept ~90 days):
+
+```bash
+git reflog
+# Find the commit hash before the bad rebase
+git reset --hard <commit-hash>
+```
+
 ## UI Components with shadcn/ui
 
 **Reference**: https://ui.shadcn.com/llms.txt
