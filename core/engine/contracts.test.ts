@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { CONTRACTS, getContractForRound, getMinimumCardsForContract, validateContractMelds } from "./contracts";
 import type { Meld } from "../meld/meld.types";
 import type { Card } from "../card/card.types";
@@ -8,13 +8,23 @@ function card(rank: Card["rank"], suit: Card["suit"]): Card {
   return { id: `${rank}-${suit}-${Math.random()}`, rank, suit };
 }
 
+// Track suit rotation for mockMeld to avoid same-suit run gap violations
+let mockMeldRunSuitIndex = 0;
+const runSuits: Card["suit"][] = ["spades", "hearts", "diamonds", "clubs"];
+
 // Helper to create a mock meld with valid cards
+// Note: Runs use different suits to avoid triggering the same-suit gap rule
 function mockMeld(type: "set" | "run"): Meld {
   // Create valid cards for the meld type
-  const cards: Card[] =
-    type === "set"
-      ? [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")]
-      : [card("5", "spades"), card("6", "spades"), card("7", "spades"), card("8", "spades")];
+  let cards: Card[];
+  if (type === "set") {
+    cards = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")];
+  } else {
+    // Rotate through suits to avoid same-suit runs that violate gap rule
+    const suit = runSuits[mockMeldRunSuitIndex % runSuits.length]!;
+    mockMeldRunSuitIndex++;
+    cards = [card("5", suit), card("6", suit), card("7", suit), card("8", suit)];
+  }
 
   return {
     id: `meld-${Math.random()}`,
@@ -33,6 +43,11 @@ function meldWithCards(type: "set" | "run", cards: Card[]): Meld {
     ownerId: "player-1",
   };
 }
+
+// Reset mockMeld state before each test for isolation
+beforeEach(() => {
+  mockMeldRunSuitIndex = 0;
+});
 
 describe("Contract definitions", () => {
   describe("CONTRACTS constant", () => {
@@ -410,6 +425,201 @@ describe("validateContractMelds", () => {
 
       const result = validateContractMelds(CONTRACTS[1], [set1, set2]);
       expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("same-suit run gap rule", () => {
+    // Helper to create a run meld with specific cards
+    function runMeld(cards: Card[]): Meld {
+      return {
+        id: `meld-${Math.random()}`,
+        type: "run",
+        cards,
+        ownerId: "player-1",
+      };
+    }
+
+    describe("valid same-suit runs (gap >= 2)", () => {
+      it("accepts 2 same-suit runs with gap of exactly 2 cards", () => {
+        // Run 1: 3♠ 4♠ 5♠ 6♠ (bounds: 3-6)
+        // Run 2: 9♠ 10♠ J♠ Q♠ (bounds: 9-12)
+        // Gap: 9 - 6 - 1 = 2 cards (7♠, 8♠)
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("9", "spades"), card("10", "spades"), card("J", "spades"), card("Q", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(true);
+      });
+
+      it("accepts 2 same-suit runs with gap of more than 2 cards", () => {
+        // Run 1: 3♠ 4♠ 5♠ 6♠ (bounds: 3-6)
+        // Run 2: 10♠ J♠ Q♠ K♠ (bounds: 10-13)
+        // Gap: 10 - 6 - 1 = 3 cards (7♠, 8♠, 9♠)
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("10", "spades"), card("J", "spades"), card("Q", "spades"), card("K", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(true);
+      });
+
+      it("accepts same-suit runs with wilds when gap >= 2", () => {
+        // Run 1: 3♠ 4♠ Wild 6♠ (bounds: 3-6, wild represents 5♠)
+        // Run 2: 9♠ Wild J♠ Q♠ (bounds: 9-12, wild represents 10♠)
+        // Gap: 9 - 6 - 1 = 2 cards
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("2", "hearts"), card("6", "spades")]);
+        const run2 = runMeld([card("9", "spades"), card("Joker", null), card("J", "spades"), card("Q", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(true);
+      });
+    });
+
+    describe("invalid same-suit runs (gap < 2)", () => {
+      it("rejects 2 same-suit runs with gap of exactly 1 card", () => {
+        // Run 1: 3♠ 4♠ 5♠ 6♠ (bounds: 3-6)
+        // Run 2: 8♠ 9♠ 10♠ J♠ (bounds: 8-11)
+        // Gap: 8 - 6 - 1 = 1 card (only 7♠) - INVALID
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("8", "spades"), card("9", "spades"), card("10", "spades"), card("J", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain("gap");
+      });
+
+      it("rejects 2 same-suit runs that are adjacent (gap = 0)", () => {
+        // Run 1: 3♠ 4♠ 5♠ 6♠ (bounds: 3-6)
+        // Run 2: 7♠ 8♠ 9♠ 10♠ (bounds: 7-10)
+        // Gap: 7 - 6 - 1 = 0 (adjacent, could be combined) - INVALID
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("7", "spades"), card("8", "spades"), card("9", "spades"), card("10", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain("gap");
+      });
+
+      it("rejects 2 same-suit runs that overlap", () => {
+        // Run 1: 3♠ 4♠ 5♠ 6♠ (bounds: 3-6)
+        // Run 2: 5♠ 6♠ 7♠ 8♠ (bounds: 5-8)
+        // Gap: 5 - 6 - 1 = -2 (overlapping) - INVALID
+        // Note: These are different physical cards (different IDs) from different decks
+        const run1 = runMeld([
+          { id: "3s-1", rank: "3", suit: "spades" },
+          { id: "4s-1", rank: "4", suit: "spades" },
+          { id: "5s-1", rank: "5", suit: "spades" },
+          { id: "6s-1", rank: "6", suit: "spades" },
+        ]);
+        const run2 = runMeld([
+          { id: "5s-2", rank: "5", suit: "spades" },
+          { id: "6s-2", rank: "6", suit: "spades" },
+          { id: "7s-1", rank: "7", suit: "spades" },
+          { id: "8s-1", rank: "8", suit: "spades" },
+        ]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain("gap");
+      });
+
+      it("rejects same-suit runs with wilds when gap < 2", () => {
+        // Run 1: 3♠ 4♠ Wild 6♠ (bounds: 3-6)
+        // Run 2: 8♠ Wild 10♠ J♠ (bounds: 8-11)
+        // Gap: 8 - 6 - 1 = 1 card - INVALID
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("Joker", null), card("6", "spades")]);
+        const run2 = runMeld([card("8", "spades"), card("2", "hearts"), card("10", "spades"), card("J", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain("gap");
+      });
+    });
+
+    describe("different-suit runs (no gap requirement)", () => {
+      it("accepts 2 different-suit runs regardless of position (same ranks)", () => {
+        // Run 1: 3♠ 4♠ 5♠ 6♠ (spades)
+        // Run 2: 3♥ 4♥ 5♥ 6♥ (hearts - different suit)
+        // No gap requirement - should be valid
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("3", "hearts"), card("4", "hearts"), card("5", "hearts"), card("6", "hearts")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(true);
+      });
+
+      it("accepts 2 different-suit runs that would violate gap rule if same suit", () => {
+        // Run 1: 3♠ 4♠ 5♠ 6♠ (spades)
+        // Run 2: 7♥ 8♥ 9♥ 10♥ (hearts - different suit, adjacent ranks)
+        // Would be invalid if same suit (gap=0), but different suits so OK
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("7", "hearts"), card("8", "hearts"), card("9", "hearts"), card("10", "hearts")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(true);
+      });
+    });
+
+    describe("contracts with different run counts", () => {
+      it("does not apply gap rule when contract has 0 runs", () => {
+        // Round 1: 2 sets, 0 runs - gap rule should not apply
+        const set1 = meldWithCards("set", [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts")]);
+        const set2 = meldWithCards("set", [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")]);
+
+        const result = validateContractMelds(CONTRACTS[1], [set1, set2]);
+        expect(result.valid).toBe(true);
+      });
+
+      it("does not apply gap rule when contract has only 1 run", () => {
+        // Round 2: 1 set + 1 run - gap rule should not apply (only 1 run)
+        const set1 = meldWithCards("set", [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts")]);
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[2], [set1, run1]);
+        expect(result.valid).toBe(true);
+      });
+
+      it("applies gap rule for round 6 (1 set + 2 runs)", () => {
+        // Round 6: 1 set + 2 runs - gap rule applies to the 2 runs if same suit
+        const set1 = meldWithCards("set", [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts")]);
+        // Invalid: adjacent same-suit runs
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("7", "spades"), card("8", "spades"), card("9", "spades"), card("10", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[6], [set1, run1, run2]);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain("gap");
+      });
+
+      it("round 6 valid with different-suit runs", () => {
+        // Round 6: 1 set + 2 runs of different suits - valid
+        const set1 = meldWithCards("set", [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts")]);
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("3", "hearts"), card("4", "hearts"), card("5", "hearts"), card("6", "hearts")]);
+
+        const result = validateContractMelds(CONTRACTS[6], [set1, run1, run2]);
+        expect(result.valid).toBe(true);
+      });
+    });
+
+    describe("error message quality", () => {
+      it("error message mentions the affected suits", () => {
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("7", "spades"), card("8", "spades"), card("9", "spades"), card("10", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain("spades");
+      });
+
+      it("error message describes the gap requirement", () => {
+        const run1 = runMeld([card("3", "spades"), card("4", "spades"), card("5", "spades"), card("6", "spades")]);
+        const run2 = runMeld([card("8", "spades"), card("9", "spades"), card("10", "spades"), card("J", "spades")]);
+
+        const result = validateContractMelds(CONTRACTS[3], [run1, run2]);
+        expect(result.valid).toBe(false);
+        // Should mention that 2 cards gap is required
+        expect(result.error?.toLowerCase()).toMatch(/gap|2|two|cards/);
+      });
     });
   });
 });

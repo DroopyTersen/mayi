@@ -9,6 +9,7 @@
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import { isWild, getRankValue } from "../card/card.utils";
+import { getRunBounds } from "../meld/meld.bounds";
 
 /**
  * Result of validating card ownership for lay off.
@@ -131,39 +132,6 @@ export function canLayOffToSet(card: Card, meld: Meld): boolean {
   // Per house rules, you can add wilds freely to existing melds even if wilds outnumber naturals
 
   return true;
-}
-
-/**
- * Gets the run's low and high rank values and suit.
- * Returns null if the run has no natural cards.
- */
-function getRunBounds(cards: Card[]): { lowValue: number; highValue: number; suit: Card["suit"] } | null {
-  const naturalsWithValues: { value: number; position: number; suit: Card["suit"] }[] = [];
-
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i]!;
-    if (!isWild(card)) {
-      const value = getRankValue(card.rank);
-      if (value !== null) {
-        naturalsWithValues.push({ value, position: i, suit: card.suit });
-      }
-    }
-  }
-
-  if (naturalsWithValues.length === 0) {
-    return null;
-  }
-
-  // Calculate the start value based on first natural's position
-  const firstNatural = naturalsWithValues[0]!;
-  const startValue = firstNatural.value - firstNatural.position;
-  const endValue = startValue + cards.length - 1;
-
-  return {
-    lowValue: startValue,
-    highValue: endValue,
-    suit: firstNatural.suit,
-  };
 }
 
 /**

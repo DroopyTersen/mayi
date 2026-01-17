@@ -7,6 +7,7 @@
 import type { RoundNumber } from "./engine.types";
 import type { Meld } from "../meld/meld.types";
 import { isValidSet, isValidRun } from "../meld/meld.validation";
+import { getRunBounds } from "../meld/meld.bounds";
 
 /**
  * A contract specifies the required melds to lay down in a round
@@ -131,6 +132,86 @@ export function validateContractMelds(
         };
       }
       seenCardIds.add(card.id);
+    }
+  }
+
+  // Check same-suit run gap rule when there are 2+ runs
+  if (runs.length >= 2) {
+    const gapResult = validateSameSuitRunGap(runs);
+    if (!gapResult.valid) {
+      return gapResult;
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates the same-suit run gap rule for contracts with 2+ runs.
+ *
+ * When two runs share the same suit, there must be a gap of at least 2 cards
+ * between them. This prevents players from splitting what could be a single
+ * longer run into two separate runs to satisfy the contract.
+ *
+ * Valid: 3♠-6♠ and 9♠-Q♠ (gap of 7♠-8♠ = 2 cards)
+ * Invalid: 3♠-6♠ and 8♠-J♠ (gap of only 7♠ = 1 card)
+ * Invalid: 3♠-6♠ and 7♠-10♠ (adjacent, gap = 0)
+ * Invalid: 3♠-6♠ and 5♠-8♠ (overlapping, gap < 0)
+ *
+ * @param runs - Array of run melds to check
+ * @returns Validation result
+ */
+function validateSameSuitRunGap(runs: Meld[]): ContractValidationResult {
+  // Group runs by suit
+  const runsBySuit = new Map<string, Array<{ meld: Meld; lowValue: number; highValue: number }>>();
+
+  for (const run of runs) {
+    const bounds = getRunBounds(run.cards);
+    if (!bounds) {
+      // All-wild run - skip (cannot determine suit)
+      continue;
+    }
+
+    const suitKey = bounds.suit ?? "unknown";
+    const existing = runsBySuit.get(suitKey) ?? [];
+    existing.push({ meld: run, lowValue: bounds.lowValue, highValue: bounds.highValue });
+    runsBySuit.set(suitKey, existing);
+  }
+
+  // Check each suit that has 2+ runs
+  for (const [suit, suitRuns] of runsBySuit) {
+    if (suitRuns.length < 2) {
+      continue;
+    }
+
+    // Check all pairs of runs in this suit
+    for (let i = 0; i < suitRuns.length; i++) {
+      for (let j = i + 1; j < suitRuns.length; j++) {
+        const run1 = suitRuns[i]!;
+        const run2 = suitRuns[j]!;
+
+        // Calculate gap: the number of ranks between the runs
+        // gap = max(low1, low2) - min(high1, high2) - 1
+        const lower = run1.highValue < run2.highValue ? run1 : run2;
+        const upper = run1.highValue < run2.highValue ? run2 : run1;
+        const gap = upper.lowValue - lower.highValue - 1;
+
+        if (gap < 2) {
+          let errorDescription: string;
+          if (gap < 0) {
+            errorDescription = "overlap";
+          } else if (gap === 0) {
+            errorDescription = "are adjacent (no gap)";
+          } else {
+            errorDescription = "have only 1 card gap";
+          }
+
+          return {
+            valid: false,
+            error: `Same-suit runs of ${suit} ${errorDescription}. Runs of the same suit must have a gap of at least 2 cards between them.`,
+          };
+        }
+      }
     }
   }
 
