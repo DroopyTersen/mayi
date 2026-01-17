@@ -22,6 +22,7 @@ import { LobbyViewStory } from "~/ui/lobby/LobbyView.story";
 import { CharacterPickerStory } from "~/ui/lobby/CharacterPicker.story";
 import { GameViewStory } from "~/ui/game-view/GameView.story";
 import { HandDrawerStory, HandDrawerFullscreenTest } from "~/ui/hand-drawer/HandDrawer.story";
+import { HouseRulesDrawerStory } from "~/ui/house-rules/HouseRulesDrawer.story";
 
 const STORIES: Array<{ path: string; label: string; component: React.ComponentType; fullscreen?: boolean }> = [
   { path: "game-view", label: "GameView (Layout)", component: GameViewStory },
@@ -47,6 +48,7 @@ const STORIES: Array<{ path: string; label: string; component: React.ComponentTy
   { path: "organize-hand-view", label: "OrganizeHandView", component: OrganizeHandViewStory },
   { path: "swap-joker-view", label: "SwapJokerView", component: SwapJokerViewStory },
   { path: "may-i-request-view", label: "MayIRequestView", component: MayIRequestViewStory },
+  { path: "house-rules-drawer", label: "HouseRulesDrawer", component: HouseRulesDrawerStory },
 ];
 
 export function StorybookLayout() {
