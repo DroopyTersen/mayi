@@ -9,7 +9,10 @@ import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { Player, RoundNumber, RoundRecord } from "./engine.types";
 import type { Contract } from "./contracts";
-import type { AvailableActions } from "./game-engine.availability";
+import type {
+  ActionAvailabilityState,
+  AvailableActions,
+} from "./game-engine.availability";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Phase Types
@@ -31,6 +34,20 @@ export type TurnPhase =
   | "AWAITING_DRAW"
   | "AWAITING_ACTION"
   | "AWAITING_DISCARD";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Action Availability
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * A hint explaining why an action is unavailable.
+ */
+export interface UnavailabilityHint {
+  /** Human-readable action name (e.g., "Lay Off", "Swap Joker") */
+  action: string;
+  /** Short explanation of why it's unavailable */
+  reason: string;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // May I Context
@@ -311,6 +328,12 @@ export interface PlayerView {
 
   /** What actions this player can currently take */
   availableActions: AvailableActions;
+
+  /** Full action availability breakdown (for explaining why actions are blocked) */
+  actionStates: ActionAvailabilityState[];
+
+  /** Hints explaining why certain actions are unavailable */
+  unavailabilityHints: UnavailabilityHint[];
 
   // ─────────────────────────────────────────────────────────────────────────
   // Turn Order

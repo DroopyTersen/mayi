@@ -114,11 +114,12 @@ describe("isAIPlayerTurn", () => {
 
   it("returns null when a human is up", () => {
     const state = createAIOnlyState();
+    const originalPlayer = state.players[0]!;
     state.players[0] = {
       id: "human-0",
       name: "Human",
       isAI: false,
-      hand: state.players[0].hand,
+      hand: originalPlayer.hand,
       isDown: false,
     };
 

@@ -289,7 +289,11 @@ describe("isValidRun", () => {
 
   describe("invalid runs - invalid rank values", () => {
     it("invalid: contains a rank not in the run sequence", () => {
-      const invalidCard = { id: `card-${cardId++}`, suit: "spades", rank: "NotARank" as Card["rank"] };
+      const invalidCard: Card = {
+        id: `card-${cardId++}`,
+        suit: "spades",
+        rank: "NotARank" as Card["rank"],
+      };
       const cards = [invalidCard, card("6", "spades"), card("7", "spades"), card("8", "spades")];
       expect(isValidRun(cards)).toBe(false);
     });

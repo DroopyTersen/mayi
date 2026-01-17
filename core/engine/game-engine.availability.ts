@@ -5,7 +5,7 @@
  * to understand what actions are available for each player.
  */
 
-import type { GameSnapshot } from "./game-engine.types";
+import type { GameSnapshot, UnavailabilityHint } from "./game-engine.types";
 import type { Contract } from "./contracts";
 
 /**
@@ -41,31 +41,118 @@ export interface AvailableActions {
   shouldNudgeDiscard: boolean;
 }
 
-/**
- * Get available actions for a player based on current game state.
- *
- * This centralizes all the game rules about what actions are valid when.
- * House rules encoded here:
- * - Down players can only draw from stock, never discard pile
- * - Down players cannot call May I
- * - Joker swapping only allowed before laying down, only from runs, not in round 6
- * - Lay off only available when down and not in round 6
- *
- * @param snapshot Current game snapshot
- * @param playerId Player to get actions for
- * @returns Object with boolean flags for each available action
- */
-export function getAvailableActions(snapshot: GameSnapshot, playerId: string): AvailableActions {
-  const player = snapshot.players.find((p) => p.id === playerId);
-  const isDown = player?.isDown ?? false;
-  const isYourTurn = snapshot.awaitingPlayerId === playerId;
-  const isRound6 = snapshot.currentRound === 6;
+export type ActionAvailabilityStatus = "available" | "unavailable" | "hidden";
 
-  // Check if this player has a pending May I request (they are the originalCaller)
-  const hasPendingMayIRequest = snapshot.mayIContext?.originalCaller === playerId;
+export type ActionId =
+  | "drawStock"
+  | "pickUpDiscard"
+  | "layDown"
+  | "layOff"
+  | "swapJoker"
+  | "discard"
+  | "mayI"
+  | "allowMayI"
+  | "claimMayI"
+  | "reorderHand";
 
-  // Default: nothing available
-  const actions: AvailableActions = {
+export interface ActionAvailabilityState {
+  id: ActionId;
+  label: string;
+  status: ActionAvailabilityStatus;
+  reason?: string;
+}
+
+export interface ActionAvailabilityDetails {
+  availableActions: AvailableActions;
+  unavailabilityHints: UnavailabilityHint[];
+  actionStates: ActionAvailabilityState[];
+}
+
+const ACTION_LABELS: Record<ActionId, string> = {
+  drawStock: "Draw Card",
+  pickUpDiscard: "Pick Up Discard",
+  layDown: "Lay Down",
+  layOff: "Lay Off",
+  swapJoker: "Swap Joker",
+  discard: "Discard",
+  mayI: "May I?",
+  allowMayI: "Allow",
+  claimMayI: "Claim",
+  reorderHand: "Organize",
+};
+
+const ACTION_ORDER: ActionId[] = [
+  "drawStock",
+  "pickUpDiscard",
+  "layDown",
+  "layOff",
+  "swapJoker",
+  "discard",
+  "mayI",
+  "allowMayI",
+  "claimMayI",
+  "reorderHand",
+];
+
+const HINT_ORDER: ActionId[] = ["layOff", "swapJoker", "pickUpDiscard"];
+
+function createActionStateMap(): Record<ActionId, ActionAvailabilityState> {
+  return {
+    drawStock: {
+      id: "drawStock",
+      label: ACTION_LABELS.drawStock,
+      status: "hidden",
+    },
+    pickUpDiscard: {
+      id: "pickUpDiscard",
+      label: ACTION_LABELS.pickUpDiscard,
+      status: "hidden",
+    },
+    layDown: {
+      id: "layDown",
+      label: ACTION_LABELS.layDown,
+      status: "hidden",
+    },
+    layOff: {
+      id: "layOff",
+      label: ACTION_LABELS.layOff,
+      status: "hidden",
+    },
+    swapJoker: {
+      id: "swapJoker",
+      label: ACTION_LABELS.swapJoker,
+      status: "hidden",
+    },
+    discard: {
+      id: "discard",
+      label: ACTION_LABELS.discard,
+      status: "hidden",
+    },
+    mayI: {
+      id: "mayI",
+      label: ACTION_LABELS.mayI,
+      status: "hidden",
+    },
+    allowMayI: {
+      id: "allowMayI",
+      label: ACTION_LABELS.allowMayI,
+      status: "hidden",
+    },
+    claimMayI: {
+      id: "claimMayI",
+      label: ACTION_LABELS.claimMayI,
+      status: "hidden",
+    },
+    reorderHand: {
+      id: "reorderHand",
+      label: ACTION_LABELS.reorderHand,
+      status: "hidden",
+    },
+  };
+}
+
+function createEmptyAvailableActions(hasPendingMayIRequest: boolean): AvailableActions {
+  return {
     canDrawFromStock: false,
     canDrawFromDiscard: false,
     canLayDown: false,
@@ -79,24 +166,87 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
     hasPendingMayIRequest,
     shouldNudgeDiscard: false,
   };
+}
+
+function buildUnavailabilityHints(
+  actionStates: Record<ActionId, ActionAvailabilityState>
+): UnavailabilityHint[] {
+  return HINT_ORDER.flatMap((actionId) => {
+    const state = actionStates[actionId];
+    if (state.status !== "unavailable" || !state.reason) {
+      return [];
+    }
+    return [{ action: state.label, reason: state.reason }];
+  });
+}
+
+/**
+ * Evaluate action availability and unavailability hints from shared rules.
+ *
+ * This is the single source of truth for both availableActions and hints.
+ */
+export function getActionAvailabilityDetails(
+  snapshot: GameSnapshot,
+  playerId: string
+): ActionAvailabilityDetails {
+  const actionStates = createActionStateMap();
+  const player = snapshot.players.find((p) => p.id === playerId);
+  const isDown = player?.isDown ?? false;
+  const isYourTurn = snapshot.awaitingPlayerId === playerId;
+  const isRound6 = snapshot.currentRound === 6;
+  const hasDrawn = snapshot.hasDrawn;
+  const hasMeldsOnTable = snapshot.table.length > 0;
+  const hasRunWithJoker = snapshot.table.some(
+    (meld) =>
+      meld.type === "run" && meld.cards.some((c) => c.rank === "Joker")
+  );
+  const hasDiscard = snapshot.discard.length > 0;
+
+  const hasPendingMayIRequest = snapshot.mayIContext?.originalCaller === playerId;
+  const actions = createEmptyAvailableActions(hasPendingMayIRequest);
+
+  const setActionState = (
+    actionId: ActionId,
+    status: ActionAvailabilityStatus,
+    reason?: string
+  ) => {
+    const current = actionStates[actionId];
+    actionStates[actionId] = {
+      id: current.id,
+      label: current.label,
+      status,
+      reason,
+    };
+  };
+
+  const buildDetails = (): ActionAvailabilityDetails => ({
+    availableActions: actions,
+    unavailabilityHints: buildUnavailabilityHints(actionStates),
+    actionStates: ACTION_ORDER.map((actionId) => actionStates[actionId]),
+  });
 
   // Handle RESOLVING_MAY_I phase - only allow/claim available for prompted player
   if (snapshot.phase === "RESOLVING_MAY_I") {
     const isPrompted = snapshot.mayIContext?.playerBeingPrompted === playerId;
-    actions.canAllowMayI = isPrompted;
-    actions.canClaimMayI = isPrompted;
-    return actions;
+    if (isPrompted) {
+      actions.canAllowMayI = true;
+      actions.canClaimMayI = true;
+      setActionState("allowMayI", "available");
+      setActionState("claimMayI", "available");
+    }
+    return buildDetails();
   }
 
   // No actions during ROUND_END or GAME_END
   if (snapshot.phase === "ROUND_END" || snapshot.phase === "GAME_END") {
-    return actions;
+    return buildDetails();
   }
 
   // Hand reordering is available during active round for any player (free action)
   // Not available during May I resolution (handled above with early return)
   if (snapshot.phase === "ROUND_ACTIVE") {
     actions.canReorderHand = true;
+    setActionState("reorderHand", "available");
   }
 
   // May I is available when:
@@ -110,24 +260,31 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
   if (!isYourTurn && snapshot.phase === "ROUND_ACTIVE") {
     const canCallMayI =
       !isDown &&
-      snapshot.discard.length > 0 &&
+      hasDiscard &&
       !snapshot.discardClaimed &&
       snapshot.mayIContext === null &&
       snapshot.lastDiscardedByPlayerId !== playerId;
-    actions.canMayI = canCallMayI;
+    if (canCallMayI) {
+      actions.canMayI = true;
+      setActionState("mayI", "available");
+    }
   }
 
   // If not your turn, May I is the only possible action
   if (!isYourTurn) {
-    return actions;
+    return buildDetails();
   }
 
   // Your turn actions based on turn phase
   switch (snapshot.turnPhase) {
     case "AWAITING_DRAW":
       actions.canDrawFromStock = true;
+      setActionState("drawStock", "available");
       // Down players can only draw from stock (house rule)
-      actions.canDrawFromDiscard = !isDown;
+      if (!isDown) {
+        actions.canDrawFromDiscard = true;
+        setActionState("pickUpDiscard", "available");
+      }
       break;
 
     case "AWAITING_ACTION":
@@ -135,28 +292,63 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
         // Down player: can lay off (if melds exist) and discard
         // Lay off not available in round 6 (no melds until someone wins)
         // IMPORTANT: Cannot lay off on the same turn you laid down (house rule)
-        actions.canLayOff = !isRound6 && snapshot.table.length > 0 && !snapshot.laidDownThisTurn;
+        if (!isRound6 && hasMeldsOnTable && !snapshot.laidDownThisTurn) {
+          actions.canLayOff = true;
+          setActionState("layOff", "available");
+        }
         actions.canDiscard = true;
+        setActionState("discard", "available");
       } else {
         // Not down: can lay down, swap joker (if applicable), discard
         actions.canLayDown = true;
+        setActionState("layDown", "available");
         actions.canDiscard = true;
+        setActionState("discard", "available");
 
         // Joker swapping: only from runs, only when not down, not in round 6
         // Per house rules: "Jokers can be swapped out of runs only, never out of sets"
-        if (!isRound6) {
-          const hasRunWithJoker = snapshot.table.some(
-            (meld) =>
-              meld.type === "run" && meld.cards.some((c) => c.rank === "Joker")
-          );
-          actions.canSwapJoker = hasRunWithJoker;
+        if (!isRound6 && hasRunWithJoker) {
+          actions.canSwapJoker = true;
+          setActionState("swapJoker", "available");
         }
       }
       break;
 
     case "AWAITING_DISCARD":
       actions.canDiscard = true;
+      setActionState("discard", "available");
       break;
+  }
+
+  // Hints are only shown during the player's active turn.
+  const canShowHints =
+    snapshot.phase === "ROUND_ACTIVE" &&
+    isYourTurn &&
+    player !== undefined;
+
+  if (canShowHints) {
+    const canLayOffContext = !isRound6 && hasMeldsOnTable;
+    if (canLayOffContext) {
+      if (isDown && snapshot.laidDownThisTurn) {
+        setActionState("layOff", "unavailable", "Available next turn");
+      } else if (!isDown && hasDrawn) {
+        setActionState("layOff", "unavailable", "Lay down your contract first");
+      }
+    }
+
+    // Per house rules: "You may only swap Jokers if you have not laid down yet this hand"
+    if (!isRound6 && hasRunWithJoker && isDown) {
+      setActionState("swapJoker", "unavailable", "Only before laying down");
+    }
+
+    // Per house rules: "Once you have laid down ('down'), you may only draw from the stock pile"
+    if (isDown && snapshot.turnPhase === "AWAITING_DRAW" && hasDiscard) {
+      setActionState(
+        "pickUpDiscard",
+        "unavailable",
+        "Must draw from stock when down"
+      );
+    }
   }
 
   // Nudge to discard when:
@@ -168,7 +360,18 @@ export function getAvailableActions(snapshot: GameSnapshot, playerId: string): A
     actions.canDiscard &&
     snapshot.tookActionThisTurn;
 
-  return actions;
+  return buildDetails();
+}
+
+/**
+ * Get available actions for a player based on current game state.
+ *
+ * @param snapshot Current game snapshot
+ * @param playerId Player to get actions for
+ * @returns Object with boolean flags for each available action
+ */
+export function getAvailableActions(snapshot: GameSnapshot, playerId: string): AvailableActions {
+  return getActionAvailabilityDetails(snapshot, playerId).availableActions;
 }
 
 /**

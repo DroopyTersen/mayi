@@ -22,7 +22,9 @@ describe("protocol.types", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.type).toBe("JOIN");
-        expect(result.data.playerId).toBe("player-1");
+        if (result.data.type === "JOIN") {
+          expect(result.data.playerId).toBe("player-1");
+        }
       }
     });
 

@@ -163,6 +163,19 @@ const MOCK_GAME_STATE: PlayerView = {
     hasPendingMayIRequest: false,
     shouldNudgeDiscard: false,
   },
+  actionStates: [
+    { id: "drawStock", label: "Draw Card", status: "hidden" },
+    { id: "pickUpDiscard", label: "Pick Up Discard", status: "hidden" },
+    { id: "layDown", label: "Lay Down", status: "hidden" },
+    { id: "layOff", label: "Lay Off", status: "hidden" },
+    { id: "swapJoker", label: "Swap Joker", status: "hidden" },
+    { id: "discard", label: "Discard", status: "hidden" },
+    { id: "mayI", label: "May I?", status: "available" },
+    { id: "allowMayI", label: "Allow", status: "hidden" },
+    { id: "claimMayI", label: "Claim", status: "hidden" },
+    { id: "reorderHand", label: "Organize", status: "available" },
+  ],
+  unavailabilityHints: [],
   turnOrder: ["p1", "p2", "p3", "p4"],
 };
 

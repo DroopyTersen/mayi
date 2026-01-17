@@ -1,7 +1,11 @@
 import { useCallback, useMemo, useRef } from "react";
 import { Drawer } from "vaul";
 import type { Card } from "core/card/card.types";
-import type { AvailableActions } from "core/engine/game-engine.availability";
+import type {
+  ActionAvailabilityState,
+  AvailableActions,
+} from "core/engine/game-engine.availability";
+import type { UnavailabilityHint } from "core/engine/game-engine.types";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
 import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
@@ -24,6 +28,10 @@ interface HandDrawerProps {
   onAction: (action: string) => void;
   /** Available actions - drives all button visibility and interactions */
   availableActions: AvailableActions;
+  /** Full action availability breakdown (for disabled actions and future hints) */
+  actionStates?: ActionAvailabilityState[];
+  /** Hints explaining why certain actions are unavailable */
+  unavailabilityHints?: UnavailabilityHint[];
   /** Whether the drawer is open */
   open: boolean;
   /** Called when the drawer opens/closes */
@@ -43,6 +51,8 @@ export function HandDrawer({
   onCardClick,
   onAction,
   availableActions,
+  actionStates,
+  unavailabilityHints = [],
   open,
   onOpenChange,
   container,
@@ -240,6 +250,8 @@ export function HandDrawer({
           >
             <ActionBar
               availableActions={availableActions}
+              actionStates={actionStates}
+              unavailabilityHints={unavailabilityHints}
               onAction={onAction}
               touchOptimized
             />

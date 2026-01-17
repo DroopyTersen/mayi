@@ -714,7 +714,7 @@ describe("executeGameAction", () => {
 
       const result = executeGameAction(adapter, awaitingId, {
         type: "UNKNOWN_ACTION",
-      } as GameAction);
+      } as unknown as GameAction);
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("UNKNOWN_ACTION");

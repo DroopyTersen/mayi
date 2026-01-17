@@ -262,7 +262,11 @@ describe("normalizeRunCards", () => {
     });
 
     it("fails for invalid rank values", () => {
-      const invalidCard = { id: `card-${cardId++}`, suit: "spades", rank: "NotARank" as Card["rank"] };
+      const invalidCard: Card = {
+        id: `card-${cardId++}`,
+        suit: "spades",
+        rank: "NotARank" as Card["rank"],
+      };
       const cards = [invalidCard, card("6", "spades"), card("7", "spades"), card("8", "spades")];
       const result = normalizeRunCards(cards);
 
