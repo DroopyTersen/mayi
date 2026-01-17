@@ -8,6 +8,7 @@ import * as fs from "node:fs";
 import type { ActionLogEntry, CliGameSave } from "./cli.types";
 import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
 import { GameEngine } from "../../core/engine/game-engine";
+import { generateRoomId } from "../../core/room/room-id.utils";
 
 const DATA_DIR = ".data";
 
@@ -36,7 +37,7 @@ function getLogFilePath(gameId: string): string {
  * Generate a new 6-character game ID
  */
 export function generateGameId(): string {
-  return crypto.randomUUID().slice(0, 6);
+  return generateRoomId();
 }
 
 /**

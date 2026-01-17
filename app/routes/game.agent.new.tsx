@@ -8,14 +8,14 @@
  */
 
 import { redirect } from "react-router";
-import { nanoid } from "nanoid";
 import type { Route } from "./+types/game.agent.new";
+import { generateRoomId } from "../../core/room/room-id.utils";
 
 export function loader({}: Route.LoaderArgs) {
   if (import.meta.env.MODE === "production") {
     throw new Response("Not Found", { status: 404 });
   }
 
-  const roomId = nanoid(8);
+  const roomId = generateRoomId();
   return redirect(`/game/${roomId}?agent=true`);
 }
