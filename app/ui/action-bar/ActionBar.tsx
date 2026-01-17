@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import type { AvailableActions } from "core/engine/game-engine.availability";
-import type { UnavailabilityHint } from "core/engine/game-engine.hints";
+import type { UnavailabilityHint } from "core/engine/game-engine.types";
 import { ActionInfoButton } from "./ActionInfoButton";
 
 interface ActionBarProps {

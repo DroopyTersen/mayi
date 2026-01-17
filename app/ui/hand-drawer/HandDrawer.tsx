@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { Drawer } from "vaul";
 import type { Card } from "core/card/card.types";
 import type { AvailableActions } from "core/engine/game-engine.availability";
-import type { UnavailabilityHint } from "core/engine/game-engine.hints";
+import type { UnavailabilityHint } from "core/engine/game-engine.types";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
 import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";

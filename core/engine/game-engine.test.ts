@@ -418,6 +418,25 @@ describe("GameEngine", () => {
       expect(view.youAreDown).toBe(false);
     });
 
+    it("includes action states for the viewing player", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      const snapshot = engine.getSnapshot();
+      const view = engine.getPlayerView(snapshot.awaitingPlayerId);
+      const actionStates = (
+        view as { actionStates?: Array<{ id: string; status: string }> }
+      ).actionStates;
+
+      expect(Array.isArray(actionStates)).toBe(true);
+      expect(
+        actionStates?.some(
+          (state) => state.id === "drawStock" && state.status === "available"
+        )
+      ).toBe(true);
+    });
+
     it("throws for invalid player ID", () => {
       const engine = GameEngine.createGame({
         playerNames: ["Alice", "Bob", "Carol"],

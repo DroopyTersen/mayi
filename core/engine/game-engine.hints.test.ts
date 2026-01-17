@@ -114,6 +114,20 @@ describe("getUnavailabilityHints", () => {
       const layOffHints = hints.filter((h) => h.action === "Lay Off");
       expect(layOffHints).toHaveLength(0);
     });
+
+    it("does NOT show 'lay down contract first' hint during AWAITING_DRAW phase", () => {
+      const snapshot = createTestSnapshot({
+        players: [{ id: "player1", name: "Test", hand: [], isDown: false, totalScore: 0 }],
+        turnPhase: "AWAITING_DRAW",
+        hasDrawn: false,
+        table: [{ id: "meld1", type: "set", cards: [], ownerId: "player2" }],
+      });
+
+      const hints = getUnavailabilityHints(snapshot, "player1");
+
+      const layOffHints = hints.filter((h) => h.action === "Lay Off");
+      expect(layOffHints).toHaveLength(0);
+    });
   });
 
   describe("Swap Joker hints", () => {

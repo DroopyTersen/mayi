@@ -12,6 +12,7 @@ import {
 import type { StoredPlayer } from "./mayi-room.presence";
 import type {
   AIPlayerInfo,
+  AddAIPlayerMessage,
   GameAction,
   HumanPlayerInfo,
   JoinMessage,
@@ -199,15 +200,11 @@ describe("mayi-room.message-handlers", () => {
 
   describe("lobby action handlers", () => {
     const buildAddAI = (
-      overrides: Partial<{
-        name: string;
-        avatarId: string;
-        modelId: "default:grok";
-      }> = {}
-    ) => ({
+      overrides: Partial<AddAIPlayerMessage> = {}
+    ): AddAIPlayerMessage => ({
       type: "ADD_AI_PLAYER",
       name: "Grok",
-      modelId: "default:grok" as const,
+      modelId: "default:grok",
       ...overrides,
     });
 

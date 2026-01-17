@@ -30,8 +30,7 @@ import type {
   MayIContext,
 } from "./game-engine.types";
 import type { Contract } from "./contracts";
-import { getAvailableActions } from "./game-engine.availability";
-import { getUnavailabilityHints } from "./game-engine.hints";
+import { getActionAvailabilityDetails } from "./game-engine.availability";
 
 /**
  * Type for XState's persisted snapshot structure
@@ -220,6 +219,8 @@ export class GameEngine {
         isCurrentPlayer: snapshot.players[snapshot.currentPlayerIndex]?.id === p.id,
       }));
 
+    const actionAvailability = getActionAvailabilityDetails(snapshot, playerId);
+
     return {
       gameId: snapshot.gameId,
       viewingPlayerId: playerId,
@@ -242,8 +243,9 @@ export class GameEngine {
       table: [...snapshot.table],
       roundHistory: [...snapshot.roundHistory],
       mayIContext: snapshot.mayIContext ? { ...snapshot.mayIContext } : null,
-      availableActions: getAvailableActions(snapshot, playerId),
-      unavailabilityHints: getUnavailabilityHints(snapshot, playerId),
+      availableActions: actionAvailability.availableActions,
+      actionStates: actionAvailability.actionStates,
+      unavailabilityHints: actionAvailability.unavailabilityHints,
       turnOrder: snapshot.players.map((p) => p.id),
     };
   }

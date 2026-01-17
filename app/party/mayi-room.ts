@@ -15,6 +15,8 @@ import {
   createInitialLobbyState,
   buildLobbyStatePayload,
   storedPlayersToHumanPlayerInfo,
+  addAIPlayer,
+  setStartingRound,
   type LobbyState,
 } from "./mayi-room.lobby";
 import {

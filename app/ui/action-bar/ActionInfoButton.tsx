@@ -5,7 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "~/shadcn/components/ui/popover";
-import type { UnavailabilityHint } from "core/engine/game-engine.hints";
+import type { UnavailabilityHint } from "core/engine/game-engine.types";
 
 interface ActionInfoButtonProps {
   /** Array of hints explaining why actions are unavailable */

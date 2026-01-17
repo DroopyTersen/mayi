@@ -18,6 +18,7 @@ import {
   isAIPlayer,
   isAvatarIdTaken,
 } from "./mayi-room.lobby";
+import type { LobbyState } from "./mayi-room.lobby";
 import type { AIPlayerInfo, HumanPlayerInfo } from "./protocol.types";
 import { AI_MODEL_DISPLAY_NAMES } from "./protocol.types";
 import type { StoredPlayer } from "./mayi-room.presence";
@@ -117,7 +118,7 @@ describe("mayi-room.lobby", () => {
         { playerId: "h1", name: "A", isConnected: true, disconnectedAt: null },
         { playerId: "h2", name: "B", isConnected: true, disconnectedAt: null },
       ];
-      const lobbyState = {
+      const lobbyState: LobbyState = {
         aiPlayers: [
           {
             playerId: "ai-1",
@@ -145,9 +146,12 @@ describe("mayi-room.lobby", () => {
           playerId: "p1",
           name: "Alice",
           avatarId: "ethel",
+          joinedAt: 100,
+          lastSeenAt: 200,
           isConnected: true,
+          currentConnectionId: "conn-1",
+          connectedAt: 200,
           disconnectedAt: null,
-          socketIds: ["s1"],
         },
       ];
 
@@ -226,7 +230,8 @@ describe("mayi-room.lobby", () => {
     });
 
     it("returns AI info when index maps to AI player", () => {
-      expect(getAIPlayerByEngineId("player-2", 2, ai)).toBe(ai[0]);
+      const firstAI = ai[0]!;
+      expect(getAIPlayerByEngineId("player-2", 2, ai)).toBe(firstAI);
     });
   });
 
