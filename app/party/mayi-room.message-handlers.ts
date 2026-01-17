@@ -119,6 +119,8 @@ export type GameActionSideEffect =
       adapter: PartyGameAdapter;
       phaseBefore: string;
       roundBefore: number;
+      /** Snapshot captured BEFORE action - used for round summary */
+      snapshotBefore: import("../../core/engine/game-engine.types").GameSnapshot;
     }
   | { type: "broadcastMayIPrompt"; adapter: PartyGameAdapter }
   | { type: "executeAIMayIResponseIfNeeded"; adapter: PartyGameAdapter }
@@ -460,6 +462,7 @@ export function handleGameActionMessage(args: {
     adapter,
     phaseBefore,
     roundBefore,
+    snapshotBefore,
   });
   sideEffects.push({ type: "broadcastGameState" });
 

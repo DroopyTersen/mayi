@@ -48,6 +48,9 @@ import {
   type StoredGameState,
 } from "./party-game-adapter";
 
+import { captureRoundSummary } from "./round-summary.capture";
+import type { RoundSummaryPayload } from "./round-summary.types";
+
 import {
   executeAITurn,
   executeFallbackTurn,
@@ -743,7 +746,8 @@ export class MayIRoom extends Server {
         await this.detectAndBroadcastTransitions(
           effect.adapter,
           effect.phaseBefore,
-          effect.roundBefore
+          effect.roundBefore,
+          effect.snapshotBefore
         );
       } else if (effect.type === "broadcastGameState") {
         await this.broadcastGameState();
@@ -918,7 +922,8 @@ export class MayIRoom extends Server {
   private async detectAndBroadcastTransitions(
     adapter: PartyGameAdapter,
     phaseBefore: string,
-    roundBefore: number
+    roundBefore: number,
+    snapshotBefore: import("../../core/engine/game-engine.types").GameSnapshot
   ): Promise<void> {
     const snapshot = adapter.getSnapshot();
     const phaseAfter = snapshot.phase;
@@ -927,11 +932,11 @@ export class MayIRoom extends Server {
     // Detect round completion
     if (roundAfter > roundBefore) {
       // Normal case: round completed and new round started
-      await this.broadcastRoundEnded(adapter, roundBefore);
+      await this.broadcastRoundEnded(adapter, roundBefore, snapshotBefore);
     } else if (phaseAfter === "GAME_END" && phaseBefore === "ROUND_ACTIVE") {
       // Edge case: final round ended, game ended (round number doesn't increment)
       // Still need to broadcast round end for the final round before game end
-      await this.broadcastRoundEnded(adapter, roundBefore);
+      await this.broadcastRoundEnded(adapter, roundBefore, snapshotBefore);
     }
 
     // Detect game end
@@ -942,17 +947,24 @@ export class MayIRoom extends Server {
 
   /**
    * Broadcast ROUND_ENDED to all clients
+   *
+   * Uses snapshotBefore (captured BEFORE the round transition) to get accurate
+   * hand contents - after transition, hands have been dealt for the new round.
    */
   private async broadcastRoundEnded(
     adapter: PartyGameAdapter,
-    completedRoundNumber: number
+    completedRoundNumber: number,
+    snapshotBefore: import("../../core/engine/game-engine.types").GameSnapshot
   ): Promise<void> {
-    const snapshot = adapter.getSnapshot();
+    // Capture round summary from the snapshot BEFORE round transition
+    // This ensures we have the actual hands at round end, not new dealt cards
+    const summary = captureRoundSummary(snapshotBefore, adapter.getAllPlayerMappings());
 
-    // Build scores map: lobbyId -> total score
+    // Use current snapshot for updated scores (after points were added)
+    const snapshotAfter = adapter.getSnapshot();
     const scores: Record<string, number> = {};
     for (const mapping of adapter.getAllPlayerMappings()) {
-      const player = snapshot.players.find((p) => p.id === mapping.engineId);
+      const player = snapshotAfter.players.find((p) => p.id === mapping.engineId);
       if (player) {
         scores[mapping.lobbyId] = player.totalScore;
       }
@@ -967,6 +979,7 @@ export class MayIRoom extends Server {
         roundNumber: completedRoundNumber,
         scores,
         playerNames,
+        summary,
       } satisfies ServerMessage)
     );
   }
@@ -1234,8 +1247,8 @@ export class MayIRoom extends Server {
       onAIDone: (playerId) => {
         this.broadcastAIDone(playerId);
       },
-      onTransitionCheck: async (adapter, phaseBefore, roundBefore) => {
-        await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore);
+      onTransitionCheck: async (adapter, phaseBefore, roundBefore, snapshotBefore) => {
+        await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore, snapshotBefore);
       },
     });
   }

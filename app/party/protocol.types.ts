@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { Card } from "../../core/card/card.types";
 import type { Meld } from "../../core/meld/meld.types";
 import type { PlayerView, MeldSpec } from "../../core/engine/game-engine.types";
+import type { RoundSummaryPayload } from "./round-summary.types";
 import type { RoundNumber } from "../../core/engine/engine.types";
 import type { Contract } from "../../core/engine/contracts";
 import type { AgentTestState } from "./agent-state.types";
@@ -297,6 +298,8 @@ export interface RoundEndedMessage {
   scores: Record<string, number>;
   /** Map of lobby player IDs to display names */
   playerNames: Record<string, string>;
+  /** Full round summary payload for detailed display */
+  summary: RoundSummaryPayload;
 }
 
 export interface GameEndedMessage {
