@@ -38,7 +38,7 @@ describe("ActionBar touch-optimized mode", () => {
 });
 
 describe("ActionBar action state rendering", () => {
-  it("renders unavailable actions as disabled buttons when provided", () => {
+  it("hides unavailable actions when action states are provided", () => {
     const actionStates: ActionAvailabilityState[] = [
       { id: "drawStock", label: "Draw Card", status: "available" },
       {
@@ -53,14 +53,10 @@ describe("ActionBar action state rendering", () => {
       <ActionBar
         availableActions={{ ...baseActions, canDrawFromStock: true }}
         actionStates={actionStates}
-        unavailabilityHints={[
-          { action: "Lay Off", reason: "Lay down your contract first" },
-        ]}
         onAction={() => {}}
       />
     );
 
-    expect(html).toContain("Lay Off");
-    expect(html).toMatch(/<button[^>]*disabled[^>]*>Lay Off<\/button>/);
+    expect(html).not.toContain("Lay Off");
   });
 });
