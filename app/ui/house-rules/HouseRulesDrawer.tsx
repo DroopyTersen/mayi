@@ -16,8 +16,8 @@ export function HouseRulesDrawer({ open, onOpenChange }: HouseRulesDrawerProps) 
       open={open}
       onOpenChange={onOpenChange}
       title="House Rules"
-      description="Quick reference for May I? game rules"
-      className="sm:max-w-[480px]"
+      description="Grandma Jeanne's complete guide to May I?"
+      className="sm:max-w-[640px]"
     >
       <HouseRulesContent />
     </ResponsiveDrawer>
