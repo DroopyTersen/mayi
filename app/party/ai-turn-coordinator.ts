@@ -91,7 +91,8 @@ export interface AITurnEventCallbacks {
   onTransitionCheck?: (
     adapter: PartyGameAdapter,
     phaseBefore: string,
-    roundBefore: number
+    roundBefore: number,
+    snapshotBefore: import("../../core/engine/game-engine.types").GameSnapshot
   ) => Promise<void>;
 }
 
@@ -225,7 +226,7 @@ export class AITurnCoordinator {
 
           // Check for round/game end transitions
           if (callbacks?.onTransitionCheck) {
-            await callbacks.onTransitionCheck(adapter, phaseBefore, roundBefore);
+            await callbacks.onTransitionCheck(adapter, phaseBefore, roundBefore, snapshotBefore);
           }
 
           // Broadcast updated game state

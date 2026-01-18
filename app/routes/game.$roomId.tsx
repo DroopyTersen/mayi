@@ -21,7 +21,7 @@ import {
 import { LobbyView } from "~/ui/lobby/LobbyView";
 import { GameView } from "~/ui/game-view/GameView";
 import { MayIPromptDialog } from "~/ui/may-i-request/MayIPromptDialog";
-import { RoundEndOverlay } from "~/ui/game-transitions/RoundEndOverlay";
+import { RoundSummaryDialog } from "~/ui/round-summary/RoundSummaryDialog";
 import { GameEndScreen } from "~/ui/game-transitions/GameEndScreen";
 import { usePartyConnection } from "~/hooks/usePartyConnection";
 import type {
@@ -39,6 +39,7 @@ import type {
   GameAction,
   ActivityLogEntry,
 } from "~/party/protocol.types";
+import type { RoundSummaryPayload } from "~/party/round-summary.types";
 import type { Card } from "core/card/card.types";
 import { formatCardText } from "core/card/card-text.utils";
 import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
@@ -134,6 +135,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     roundNumber: number;
     scores: Record<string, number>;
     playerNames: Record<string, string>;
+    summary: RoundSummaryPayload;
   } | null>(null);
 
   const [gameEndData, setGameEndData] = useState<{
@@ -577,12 +579,13 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             roundNumber: msg.roundNumber,
             scores: msg.scores,
             playerNames: msg.playerNames,
+            summary: msg.summary,
           });
-          // Auto-clear after countdown (4 seconds + 500ms buffer)
+          // Auto-clear after countdown (15 seconds + 500ms buffer)
           roundEndTimeoutRef.current = setTimeout(() => {
             setRoundEndData(null);
             roundEndTimeoutRef.current = null;
-          }, 4500);
+          }, 15500);
           return;
         }
         case "GAME_ENDED": {
@@ -687,13 +690,18 @@ export default function Game({ loaderData }: Route.ComponentProps) {
             }}
           />
         )}
-        {/* Phase 3.8: Round End Overlay */}
+        {/* Phase 3.8: Round Summary Dialog */}
         {roundEndData && !gameEndData && (
-          <RoundEndOverlay
+          <RoundSummaryDialog
             roundNumber={roundEndData.roundNumber}
+            winnerId={roundEndData.summary.winnerId}
+            tableMelds={roundEndData.summary.tableMelds}
+            playerHands={roundEndData.summary.playerHands}
             scores={roundEndData.scores}
             playerNames={roundEndData.playerNames}
+            playerAvatars={roundEndData.summary.playerAvatars}
             currentPlayerId={currentPlayerId ?? ""}
+            countdownSeconds={15}
           />
         )}
         {/* Phase 3.8: Game End Screen */}
