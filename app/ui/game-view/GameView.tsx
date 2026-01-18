@@ -1,6 +1,7 @@
 import type { PlayerView } from "~/party/protocol.types";
 import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
 import type { ActivityEntry } from "./game-view.types";
+import type { MayINotificationState } from "~/routes/game.$roomId";
 import { GameHeader } from "~/ui/game-status/GameHeader";
 import { TableDisplay } from "~/ui/game-table/TableDisplay";
 import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
@@ -34,6 +35,8 @@ interface GameViewProps {
   errorMessage?: string | null;
   /** WebSocket connection status */
   connectionStatus?: ConnectionStatus;
+  /** May I notification shown to all players in table view */
+  mayINotification?: MayINotificationState | null;
   className?: string;
 }
 
@@ -44,6 +47,7 @@ export function GameView({
   onAction,
   errorMessage,
   connectionStatus = "connected",
+  mayINotification,
   className,
 }: GameViewProps) {
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
@@ -124,6 +128,7 @@ export function GameView({
                   players={derived.tablePlayers}
                   currentPlayerId={derived.currentPlayerId}
                   viewingPlayerId={gameState.viewingPlayerId}
+                  mayINotification={mayINotification}
                 />
               </div>
             </div>

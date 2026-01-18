@@ -1,4 +1,5 @@
 import type { Meld } from "core/meld/meld.types";
+import type { MayINotificationState } from "~/routes/game.$roomId";
 import { MeldDisplay } from "./MeldDisplay";
 import { cn } from "~/shadcn/lib/utils";
 
@@ -10,6 +11,8 @@ interface PlayerMeldsDisplayProps {
   isActiveTurn?: boolean;
   /** Whether this is the viewing player's meld section (for "(you)" label) */
   isViewingPlayer?: boolean;
+  /** May I notification for this player (when they called May I) */
+  mayINotification?: MayINotificationState | null;
   className?: string;
 }
 
@@ -19,8 +22,13 @@ export function PlayerMeldsDisplay({
   melds,
   isActiveTurn = false,
   isViewingPlayer = false,
+  mayINotification,
   className,
 }: PlayerMeldsDisplayProps) {
+  // Compute status message: May I notification takes priority over "hasn't laid down yet"
+  const statusMessage = mayINotification
+    ? getMayIStatusMessage(mayINotification)
+    : null;
   return (
     <div
       className={cn(
@@ -54,11 +62,22 @@ export function PlayerMeldsDisplay({
             <span className="text-xs text-muted-foreground">(you)</span>
           )}
         </div>
-        <div className="flex-1 min-w-0 flex items-center">
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+          {/* May I notification (highest priority) */}
+          {statusMessage && (
+            <MayIStatusBadge
+              message={statusMessage.text}
+              variant={statusMessage.variant}
+              size="md"
+            />
+          )}
+          {/* Melds or "hasn't laid down" status */}
           {melds.length === 0 ? (
-            <p className="text-sm text-muted-foreground/60 italic">
-              {playerName} hasn't laid down yet
-            </p>
+            !statusMessage && (
+              <p className="text-sm text-muted-foreground/60 italic">
+                {playerName} hasn't laid down yet
+              </p>
+            )
           ) : (
             <div className="flex flex-wrap gap-4">
               {melds.map((meld) => (
@@ -90,10 +109,21 @@ export function PlayerMeldsDisplay({
             </span>
           )}
         </h3>
+        {/* May I notification (highest priority) */}
+        {statusMessage && (
+          <MayIStatusBadge
+            message={statusMessage.text}
+            variant={statusMessage.variant}
+            size="sm"
+          />
+        )}
+        {/* Melds or "hasn't laid down" status */}
         {melds.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 italic">
-            {playerName} hasn't laid down yet
-          </p>
+          !statusMessage && (
+            <p className="text-xs text-muted-foreground/60 italic">
+              {playerName} hasn't laid down yet
+            </p>
+          )
         ) : (
           <div className="flex flex-wrap gap-4">
             {melds.map((meld) => (
@@ -157,5 +187,64 @@ function PlayerAvatar({
       {/* Avatar centered inside */}
       {avatarContent}
     </div>
+  );
+}
+
+/**
+ * Helper to compute the status message text and variant from notification state
+ */
+function getMayIStatusMessage(notification: MayINotificationState): {
+  text: string;
+  variant: "pending" | "allowed" | "blocked";
+} {
+  if (notification.outcome === "allowed") {
+    return {
+      text: `${notification.callerName}'s May I was allowed`,
+      variant: "allowed",
+    };
+  } else if (notification.outcome === "blocked") {
+    return {
+      text: `${notification.callerName}'s May I was blocked`,
+      variant: "blocked",
+    };
+  } else {
+    return {
+      text: `${notification.callerName} has May I'd for ${notification.cardText}`,
+      variant: "pending",
+    };
+  }
+}
+
+/**
+ * Badge component for displaying May I status notifications
+ */
+function MayIStatusBadge({
+  message,
+  variant,
+  size = "md",
+}: {
+  message: string;
+  variant: "pending" | "allowed" | "blocked";
+  size?: "sm" | "md";
+}) {
+  const variantClasses = {
+    pending: "bg-amber-100 text-amber-800 border-amber-300",
+    allowed: "bg-green-100 text-green-800 border-green-300",
+    blocked: "bg-red-100 text-red-800 border-red-300",
+  };
+
+  const sizeClasses = size === "sm" ? "text-xs px-2 py-0.5" : "text-sm px-3 py-1";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center font-semibold rounded-full border animate-pulse",
+        variantClasses[variant],
+        sizeClasses
+      )}
+      style={{ animationDuration: "2s" }}
+    >
+      {message}
+    </span>
   );
 }

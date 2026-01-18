@@ -40,7 +40,19 @@ import type {
   ActivityLogEntry,
 } from "~/party/protocol.types";
 import type { Card } from "core/card/card.types";
+import { formatCardText } from "core/card/card-text.utils";
 import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
+
+/**
+ * State for May I notification shown to ALL players in the table view
+ */
+export interface MayINotificationState {
+  callerId: string;
+  callerName: string;
+  cardText: string;  // Pre-formatted: "Q♠"
+  outcome?: "allowed" | "blocked";  // Set when resolved
+  expiresAt: number | null;  // null = stays until resolved, number = timestamp to clear
+}
 
 type RoomPhase = "lobby" | "playing";
 
@@ -107,12 +119,15 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     string | undefined
   >(undefined);
 
-  // Phase 3.6: May I prompt state
+  // Phase 3.6: May I prompt state (for player being prompted)
   const [mayIPrompt, setMayIPrompt] = useState<{
     callerId: string;
     callerName: string;
     card: Card;
   } | null>(null);
+
+  // May I notification state (for ALL players to see in table view)
+  const [mayINotification, setMayINotification] = useState<MayINotificationState | null>(null);
 
   // Phase 3.8: Round/game end state
   const [roundEndData, setRoundEndData] = useState<{
@@ -150,6 +165,25 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     console.log("[gameError state changed]", gameError);
   }, [gameError]);
+
+  // May I notification expiration timer
+  useEffect(() => {
+    if (!mayINotification?.expiresAt) return;
+
+    const timeRemaining = mayINotification.expiresAt - Date.now();
+    if (timeRemaining <= 0) {
+      // Already expired, clear immediately
+      setMayINotification(null);
+      return;
+    }
+
+    // Set timeout to clear notification when it expires
+    const timeoutId = setTimeout(() => {
+      setMayINotification(null);
+    }, timeRemaining);
+
+    return () => clearTimeout(timeoutId);
+  }, [mayINotification?.expiresAt]);
 
   // Handle reconnection - resync state by re-sending JOIN
   const handleReconnect = useCallback(() => {
@@ -505,8 +539,32 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           });
           return;
         }
+        case "MAY_I_NOTIFICATION": {
+          // Broadcast to ALL players - show notification in table view
+          setMayINotification({
+            callerId: msg.callerId,
+            callerName: msg.callerName,
+            cardText: formatCardText(msg.card),
+            expiresAt: null,  // Stays visible until resolved
+          });
+          return;
+        }
         case "MAY_I_RESOLVED": {
           setMayIPrompt(null);
+          // Update notification to show outcome, then fade after 5 seconds
+          setMayINotification((prev) => {
+            if (!prev) return null;
+            // Server sends outcome="resolved" when May I completed
+            // This means someone got the card (allowed)
+            // Note: winnerId is currently always null (server TODO), so we use outcome field
+            const outcome: "allowed" | "blocked" =
+              msg.outcome === "resolved" ? "allowed" : "blocked";
+            return {
+              ...prev,
+              outcome,
+              expiresAt: Date.now() + 5000,  // Clear in 5 seconds
+            };
+          });
           return;
         }
         // Phase 3.8: Round/game end messages
@@ -612,6 +670,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           onAction={onGameAction}
           errorMessage={gameError}
           connectionStatus={connectionStatus}
+          mayINotification={mayINotification}
         />
         {/* Phase 3.6: May I Prompt Dialog */}
         {mayIPrompt && (

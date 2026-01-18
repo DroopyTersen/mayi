@@ -272,6 +272,18 @@ export interface MayIPromptMessage {
   card: Card;
 }
 
+/**
+ * Broadcast to ALL players when someone calls May I
+ * This is separate from MAY_I_PROMPT which only goes to the current player being prompted.
+ * Used to show a notification in the calling player's status area on the table view.
+ */
+export interface MayINotificationMessage {
+  type: "MAY_I_NOTIFICATION";
+  callerId: string;
+  callerName: string;
+  card: Card;
+}
+
 export interface MayIResolvedMessage {
   type: "MAY_I_RESOLVED";
   winnerId: string | null;
@@ -318,6 +330,7 @@ export type ServerMessage =
   | AIThinkingMessage
   | AIDoneMessage
   | MayIPromptMessage
+  | MayINotificationMessage
   | MayIResolvedMessage
   | RoundEndedMessage
   | GameEndedMessage
