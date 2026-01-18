@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Form, redirect } from "react-router";
+import { BookOpen } from "lucide-react";
 import type { Route } from "./+types/home";
 import { generateRoomId } from "../../core/room/room-id.utils";
 import { Button } from "~/shadcn/components/ui/button";
@@ -10,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/shadcn/components/ui/card";
+import { HouseRulesDrawer } from "~/ui/house-rules/HouseRulesDrawer";
 
 export function meta() {
   return [{ title: "May I?" }];
@@ -33,6 +36,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Home() {
+  const [rulesOpen, setRulesOpen] = useState(false);
+
   return (
     <main className="flex flex-col items-center justify-center min-h-screen gap-8">
       <Card className="w-full max-w-md">
@@ -64,6 +69,16 @@ export default function Home() {
               Join
             </Button>
           </Form>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setRulesOpen(true)}
+          >
+            <BookOpen className="h-4 w-4 mr-2" />
+            View House Rules
+          </Button>
+          <HouseRulesDrawer open={rulesOpen} onOpenChange={setRulesOpen} />
         </CardContent>
       </Card>
     </main>
