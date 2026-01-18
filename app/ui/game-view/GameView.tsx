@@ -6,6 +6,7 @@ import { TableDisplay } from "~/ui/game-table/TableDisplay";
 import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
 import { AIThinkingIndicator } from "./AIThinkingIndicator";
+import { InactivityHintBanner } from "./InactivityHintBanner";
 import { ConnectionBanner } from "~/ui/connection-status/ConnectionBanner";
 import {
   HandDrawer,
@@ -18,6 +19,8 @@ import { useGameViewState } from "./useGameViewState";
 import { useGameViewDerived } from "./useGameViewDerived";
 import { GameViewDesktopFooter } from "./GameViewDesktopFooter";
 import { GameViewDrawers } from "./GameViewDrawers";
+import { useInactivityHint } from "./useInactivityHint";
+import { getInactivityHintMessage } from "core/engine/game-engine.inactivity";
 
 interface GameViewProps {
   gameState: PlayerView;
@@ -53,6 +56,12 @@ export function GameView({
 
   // Derived/computed values
   const derived = useGameViewDerived({ gameState });
+  const inactivityMessage = getInactivityHintMessage(gameState);
+  const inactivityHint = useInactivityHint({
+    isEnabled: gameState.isYourTurn && gameState.phase === "ROUND_ACTIVE",
+    message: inactivityMessage,
+    activityKey: state.activityCounter,
+  });
 
   return (
     <div className={cn("flex flex-col min-h-screen", className)}>
@@ -64,6 +73,16 @@ export function GameView({
         turnStatus={isMobile ? derived.turnPhaseText : undefined}
         isYourTurn={isMobile ? gameState.isYourTurn : undefined}
       />
+
+      {/* Inactivity Hint */}
+      {inactivityHint.isVisible && inactivityHint.message && (
+        <div className="px-4 py-2">
+          <InactivityHintBanner
+            message={inactivityHint.message}
+            onDismiss={inactivityHint.dismiss}
+          />
+        </div>
+      )}
 
       {/* AI Thinking Indicator */}
       {aiThinkingPlayerName && (

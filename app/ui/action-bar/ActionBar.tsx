@@ -93,8 +93,8 @@ export function ActionBar({
     }
 
     return {
-      shouldRender: true,
-      disabled: state.status === "unavailable",
+      shouldRender: state.status === "available",
+      disabled: false,
       label: state.label,
       status: state.status,
     };
@@ -113,7 +113,7 @@ export function ActionBar({
     hasPendingMayIRequest;
 
   const hasAnyAction = actionStates
-    ? actionStates.some((state) => state.status !== "hidden") ||
+    ? actionStates.some((state) => state.status === "available") ||
       hasPendingMayIRequest
     : hasAnyActionFromFlags;
 
