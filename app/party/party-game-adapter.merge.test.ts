@@ -594,6 +594,54 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
       const mergedSnapshot = mergedAdapter.getSnapshot();
       expect(mergedSnapshot.lastError).toBeNull();
     });
+
+    it("syncs turn context stock to round context when desynced", () => {
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      const desyncedSnapshot = JSON.parse(state.engineSnapshot);
+      const roundContext = desyncedSnapshot.children?.round?.snapshot?.context;
+      const turnContext =
+        desyncedSnapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+
+      if (!roundContext || !turnContext) {
+        throw new Error("Expected round and turn context in snapshot");
+      }
+
+      const removedCard = roundContext.stock?.[0];
+      if (!removedCard) {
+        throw new Error("Expected at least one card in stock");
+      }
+
+      // Desync: round.stock removes a card, turn.stock keeps it.
+      roundContext.stock = roundContext.stock.slice(1);
+
+      const desyncedState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify(desyncedSnapshot),
+      };
+
+      const turnPlayerId = turnContext.playerId as string;
+      const aiPlayerId = turnPlayerId === "player-0" ? "player-1" : "player-0";
+
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        state,
+        desyncedState,
+        aiPlayerId
+      );
+
+      // Ensure we did not bail out to the fresh state.
+      expect(merged.engineSnapshot).not.toBe(state.engineSnapshot);
+
+      const mergedTurnStock = getTurnContextStock(merged);
+      const mergedRoundStock = getRoundContextStock(merged);
+
+      expect(mergedTurnStock).toBeDefined();
+      expect(mergedRoundStock).toBeDefined();
+
+      if (mergedTurnStock && mergedRoundStock) {
+        expect(mergedTurnStock).toEqual(mergedRoundStock);
+      }
+    });
   });
 
   describe("pile-to-pile duplicate detection (#74 hypothesis)", () => {

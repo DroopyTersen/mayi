@@ -193,6 +193,16 @@ export function mergeAIStatePreservingOtherPlayerHands(
   const mergedTurnPlayer = shouldSyncTurnHand
     ? mergedPlayers.find((p: RoundSnapshotPlayer) => p.id === turnPlayerId)
     : null;
+  const roundContextForTurnPiles = aiSnapshot?.children?.round?.snapshot?.context;
+  const turnPilePatch =
+    shouldSyncTurnHand &&
+    Array.isArray(roundContextForTurnPiles?.stock) &&
+    Array.isArray(roundContextForTurnPiles?.discard)
+      ? {
+          stock: roundContextForTurnPiles.stock,
+          discard: roundContextForTurnPiles.discard,
+        }
+      : null;
   const turnContextPatch =
     shouldSyncTurnHand && mergedTurnPlayer && mergedTurnPlayer.hand !== undefined
       ? {
@@ -200,6 +210,7 @@ export function mergeAIStatePreservingOtherPlayerHands(
           ...(typeof mergedTurnPlayer.isDown === "boolean"
             ? { isDown: mergedTurnPlayer.isDown }
             : {}),
+          ...(turnPilePatch ?? {}),
         }
       : null;
 
