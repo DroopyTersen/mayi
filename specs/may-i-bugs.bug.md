@@ -142,6 +142,14 @@ Added defensive duplicate ID detection:
 ### Key Finding
 Normal May-I engine operations do NOT produce duplicate IDs. The bug is triggered by something else - possibly WebSocket layer, state sync timing, or persistence/hydration.
 
+### Defensive Fix (Commit `6b8b222`)
+
+Added purge of duplicate card IDs from stock during May-I resolution:
+- In `grantMayICardsToWinner` action (`round.machine.ts`)
+- Filters out any card from stock that matches the claimed discard ID
+- Prevents duplicate IDs if stock was somehow corrupted
+- Test added: "skips duplicate stock cards that match the claimed discard"
+
 ---
 
 ## Testing Context
