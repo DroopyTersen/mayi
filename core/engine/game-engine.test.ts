@@ -271,7 +271,10 @@ describe("GameEngine", () => {
       engine2.stop();
     });
 
-    it("flags duplicate card IDs in persisted snapshots", () => {
+    it("logs warning for duplicate card IDs but does not set lastError", () => {
+      // Duplicate detection logs a warning but doesn't set lastError,
+      // because setting lastError would cause game-actions.ts to treat
+      // valid actions as failed (see specs/may-i-bugs.bug.md).
       const engine1 = GameEngine.createGame({
         playerNames: ["Alice", "Bob", "Carol"],
       });
@@ -291,7 +294,9 @@ describe("GameEngine", () => {
       const engine2 = GameEngine.fromPersistedSnapshot(persisted);
       const snapshot2 = engine2.getSnapshot();
 
-      expect(snapshot2.lastError).toContain("Duplicate card IDs");
+      // Warning is logged but lastError is NOT set
+      // (the warning goes to console.warn which we can't easily assert in tests)
+      expect(snapshot2.lastError).toBeNull();
       engine2.stop();
     });
   });
