@@ -392,6 +392,7 @@ export const roundMachine = setup({
       const winnerId = resolution.winner;
       const cardBeingClaimed = resolution.cardBeingClaimed;
       const isCurrentPlayerClaim = resolution.outcome === "current_player_claimed";
+      const claimedCardId = cardBeingClaimed.id;
 
       // Fallback to round context if, for some reason, turn actor isn't available
       let stock: Card[] = context.stock;
@@ -407,7 +408,9 @@ export const roundMachine = setup({
       }
 
       // Remove the claimed discard card from the discard pile (if still present)
-      discard = discard.filter((c) => c.id !== cardBeingClaimed.id);
+      discard = discard.filter((c) => c.id !== claimedCardId);
+      // Defensive: purge any duplicate claimed card from stock to avoid duplicate IDs.
+      stock = stock.filter((c) => c.id !== claimedCardId);
 
       // Helper: replenish stock from discard if empty (keeping discard[0] exposed)
       const replenishStockIfEmpty = (

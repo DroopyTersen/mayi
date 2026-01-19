@@ -37,6 +37,42 @@ import { getActionAvailabilityDetails } from "./game-engine.availability";
  */
 type PersistedSnapshot = ReturnType<ReturnType<typeof createActor>["getPersistedSnapshot"]>;
 
+function findDuplicateCardIds(
+  players: Player[],
+  stock: Card[],
+  discard: Card[],
+  table: Meld[]
+): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  const addCard = (card: Card | undefined) => {
+    if (!card?.id) return;
+    if (seen.has(card.id)) {
+      duplicates.add(card.id);
+    } else {
+      seen.add(card.id);
+    }
+  };
+
+  for (const player of players) {
+    for (const card of player.hand) {
+      addCard(card);
+    }
+  }
+
+  for (const card of stock) addCard(card);
+  for (const card of discard) addCard(card);
+
+  for (const meld of table) {
+    for (const card of meld.cards) {
+      addCard(card);
+    }
+  }
+
+  return [...duplicates];
+}
+
 /**
  * Internal types for extracting nested actor state from XState's persisted snapshot
  */
@@ -454,8 +490,18 @@ export class GameEngine {
 
     const currentRound = (context.currentRound ?? 1) as RoundNumber;
 
+    const stock = turnContext?.stock ?? roundContext?.stock ?? [];
+    const discard = turnContext?.discard ?? roundContext?.discard ?? [];
+    const table = turnContext?.table ?? roundContext?.table ?? [];
+
     // Prefer turn error when available, then fall back to game-level error
-    const lastError = turnContext?.lastError ?? context.lastError ?? null;
+    let lastError = turnContext?.lastError ?? context.lastError ?? null;
+    if (!lastError) {
+      const duplicateIds = findDuplicateCardIds(updatedPlayers, stock, discard, table);
+      if (duplicateIds.length > 0) {
+        lastError = `Duplicate card IDs detected: ${duplicateIds.join(", ")}`;
+      }
+    }
 
     return {
       version: "3.0",
@@ -473,9 +519,9 @@ export class GameEngine {
       currentPlayerIndex,
       awaitingPlayerId,
       // Prefer turn context for stock/discard/table as they're most current during a turn
-      stock: turnContext?.stock ?? roundContext?.stock ?? [],
-      discard: turnContext?.discard ?? roundContext?.discard ?? [],
-      table: turnContext?.table ?? roundContext?.table ?? [],
+      stock,
+      discard,
+      table,
       hasDrawn: turnContext?.hasDrawn ?? false,
       laidDownThisTurn: turnContext?.laidDownThisTurn ?? false,
       tookActionThisTurn: turnContext?.tookActionThisTurn ?? false,

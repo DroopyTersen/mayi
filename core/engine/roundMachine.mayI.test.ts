@@ -119,6 +119,27 @@ function getTurnSnapshot(actor: ReturnType<typeof createRoundActor>) {
   };
 }
 
+function collectAllCardsFromRound(actor: ReturnType<typeof createRoundActor>): Card[] {
+  const snapshot = actor.getSnapshot();
+  const turnSnapshot = getTurnSnapshot(actor);
+  const roundContext = snapshot.context;
+  const turnContext = turnSnapshot.context;
+
+  const players = roundContext.players.map((player) => {
+    if (player.id === turnContext.playerId) {
+      return { ...player, hand: turnContext.hand };
+    }
+    return player;
+  });
+
+  const handCards = players.flatMap((player) => player.hand);
+  const tableCards = roundContext.table.flatMap((meld) => meld.cards);
+  const stock = turnContext.stock;
+  const discard = turnContext.discard;
+
+  return [...handCards, ...stock, ...discard, ...tableCards];
+}
+
 describe("RoundMachine - May I Resolution", () => {
   describe("CALL_MAY_I starts resolution", () => {
     it("CALL_MAY_I transitions round to resolvingMayI state when discard is exposed", () => {
@@ -812,6 +833,38 @@ describe("RoundMachine - May I Edge Cases", () => {
     });
   });
 
+  describe("Duplicate IDs across discard and stock", () => {
+    it("skips duplicate stock cards that match the claimed discard", () => {
+      const duplicateCard: Card = { id: "dup-1", suit: "spades", rank: "7" };
+      const penaltyCard: Card = { id: "penalty-1", suit: "hearts", rank: "9" };
+
+      const input: RoundInput = {
+        roundNumber: 1,
+        players: createTestPlayers(3),
+        dealerIndex: 0,
+        predefinedState: {
+          hands: [[], [], []],
+          stock: [duplicateCard, penaltyCard],
+          discard: [duplicateCard],
+          playerDownStatus: [false, false, false],
+        },
+      };
+      const actor = createRoundActor(input);
+
+      // Player 2 calls May I, player 1 allows
+      actor.send({ type: "CALL_MAY_I", playerId: "player-2" });
+      actor.send({ type: "ALLOW_MAY_I", playerId: "player-1" });
+
+      const player2 = getContext(actor).players.find((p) => p.id === "player-2");
+      if (!player2) throw new Error("player-2 not found");
+      const player2Ids = new Set(player2.hand.map((card) => card.id));
+
+      expect(player2.hand).toContainEqual(duplicateCard);
+      expect(player2.hand).toContainEqual(penaltyCard);
+      expect(player2Ids.size).toBe(player2.hand.length);
+    });
+  });
+
   describe("May I timing relative to draw", () => {
     it("May I can be called BEFORE current player draws", () => {
       const input: RoundInput = {
@@ -1137,5 +1190,66 @@ describe("RoundMachine - May I skips down players during turn", () => {
     // Since player-1 is skipped and player-2 is the only one ahead who isn't down,
     // player-2 should be the first to be prompted
     expect(ctx.mayIResolution?.playerBeingPrompted).toBe("player-2");
+  });
+
+  describe("duplicate card IDs after multiple May-I resolutions", () => {
+    it("keeps card IDs unique in round 5 after multiple May-I sequences", () => {
+      const input: RoundInput = {
+        roundNumber: 5,
+        players: createTestPlayers(3),
+        dealerIndex: 0,
+        predefinedState: {
+          hands: [
+            [
+              { id: "p0-1", suit: "hearts", rank: "5" },
+              { id: "p0-2", suit: "hearts", rank: "6" },
+              { id: "p0-3", suit: "hearts", rank: "7" },
+            ],
+            [
+              { id: "p1-1", suit: "diamonds", rank: "5" },
+              { id: "p1-2", suit: "diamonds", rank: "6" },
+              { id: "p1-3", suit: "diamonds", rank: "7" },
+            ],
+            [
+              { id: "p2-1", suit: "clubs", rank: "5" },
+              { id: "p2-2", suit: "clubs", rank: "6" },
+              { id: "p2-3", suit: "clubs", rank: "7" },
+            ],
+          ],
+          stock: [
+            { id: "stock-1", suit: "spades", rank: "A" },
+            { id: "stock-2", suit: "spades", rank: "K" },
+            { id: "stock-3", suit: "spades", rank: "Q" },
+            { id: "stock-4", suit: "spades", rank: "J" },
+          ],
+          discard: [{ id: "discard-1", suit: "hearts", rank: "9" }],
+          playerDownStatus: [false, false, false],
+        },
+      };
+
+      const actor = createRoundActor(input);
+
+      // First May-I: player-2 calls, current player (player-1) allows.
+      actor.send({ type: "CALL_MAY_I", playerId: "player-2" });
+      actor.send({ type: "ALLOW_MAY_I", playerId: "player-1" });
+
+      // Current player draws from stock and discards to end turn.
+      actor.send({ type: "DRAW_FROM_STOCK", playerId: "player-1" });
+      const turnAfterDraw = getTurnSnapshot(actor);
+      const discardCandidate = turnAfterDraw.context.hand[0];
+      if (!discardCandidate) {
+        throw new Error("Expected a card to discard");
+      }
+      actor.send({ type: "DISCARD", playerId: "player-1", cardId: discardCandidate.id });
+
+      // Second May-I: next player (player-2) is current, player-0 calls.
+      actor.send({ type: "CALL_MAY_I", playerId: "player-0" });
+      actor.send({ type: "ALLOW_MAY_I", playerId: "player-2" });
+
+      const allCards = collectAllCardsFromRound(actor);
+      const ids = allCards.map((card) => card.id);
+      const uniqueIds = new Set(ids);
+      expect(uniqueIds.size).toBe(ids.length);
+    });
   });
 });
