@@ -833,6 +833,37 @@ describe("RoundMachine - May I Edge Cases", () => {
     });
   });
 
+  describe("Duplicate IDs across discard and stock", () => {
+    it("skips duplicate stock cards that match the claimed discard", () => {
+      const duplicateCard: Card = { id: "dup-1", suit: "spades", rank: "7" };
+      const penaltyCard: Card = { id: "penalty-1", suit: "hearts", rank: "9" };
+
+      const input: RoundInput = {
+        roundNumber: 1,
+        players: createTestPlayers(3),
+        dealerIndex: 0,
+        predefinedState: {
+          hands: [[], [], []],
+          stock: [duplicateCard, penaltyCard],
+          discard: [duplicateCard],
+          playerDownStatus: [false, false, false],
+        },
+      };
+      const actor = createRoundActor(input);
+
+      // Player 2 calls May I, player 1 allows
+      actor.send({ type: "CALL_MAY_I", playerId: "player-2" });
+      actor.send({ type: "ALLOW_MAY_I", playerId: "player-1" });
+
+      const player2 = getContext(actor).players.find((p) => p.id === "player-2");
+      const player2Ids = new Set(player2?.hand.map((card) => card.id));
+
+      expect(player2?.hand).toContainEqual(duplicateCard);
+      expect(player2?.hand).toContainEqual(penaltyCard);
+      expect(player2Ids?.size).toBe(player2?.hand.length);
+    });
+  });
+
   describe("May I timing relative to draw", () => {
     it("May I can be called BEFORE current player draws", () => {
       const input: RoundInput = {
