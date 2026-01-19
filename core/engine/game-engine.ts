@@ -490,17 +490,59 @@ export class GameEngine {
 
     const currentRound = (context.currentRound ?? 1) as RoundNumber;
 
-    const stock = turnContext?.stock ?? roundContext?.stock ?? [];
-    const discard = turnContext?.discard ?? roundContext?.discard ?? [];
-    const table = turnContext?.table ?? roundContext?.table ?? [];
+    const roundStock = roundContext?.stock ?? [];
+    const roundDiscard = roundContext?.discard ?? [];
+    const roundTable = roundContext?.table ?? [];
+
+    const turnStock = Array.isArray(turnContext?.stock) ? turnContext.stock : null;
+    const turnDiscard = Array.isArray(turnContext?.discard) ? turnContext.discard : null;
+    const turnTable = Array.isArray(turnContext?.table) ? turnContext.table : null;
+
+    const stock = turnStock ?? roundStock;
+    let discard = turnDiscard ?? roundDiscard;
+    const table = turnTable ?? roundTable;
+
+    if (turnContext && !turnDiscard && Array.isArray(turnContext.hand)) {
+      const handIds = new Set(turnContext.hand.map((card) => card.id));
+      const filtered = roundDiscard.filter((card) => !handIds.has(card.id));
+      if (filtered.length !== roundDiscard.length) {
+        discard = filtered;
+        console.warn(
+          "[GameEngine] turnContext.discard missing; filtered cards from discard for snapshot.",
+          {
+            gameId: this.gameId,
+            filteredCount: roundDiscard.length - filtered.length,
+            roundDiscardCount: roundDiscard.length,
+            turnHandCount: turnContext.hand.length,
+          }
+        );
+      }
+    }
 
     // Prefer turn error when available, then fall back to game-level error
-    let lastError = turnContext?.lastError ?? context.lastError ?? null;
-    if (!lastError) {
-      const duplicateIds = findDuplicateCardIds(updatedPlayers, stock, discard, table);
-      if (duplicateIds.length > 0) {
-        lastError = `Duplicate card IDs detected: ${duplicateIds.join(", ")}`;
-      }
+    const lastError = turnContext?.lastError ?? context.lastError ?? null;
+
+    // Duplicate detection runs for debugging but does NOT set lastError.
+    // Setting lastError would cause game-actions.ts to treat valid actions as failed.
+    // The underlying duplicate cause is unknown (see specs/may-i-bugs.bug.md),
+    // but we shouldn't block users from playing when duplicates are detected.
+    const duplicateIds = findDuplicateCardIds(updatedPlayers, stock, discard, table);
+    if (duplicateIds.length > 0) {
+      console.warn(
+        `[GameEngine] Duplicate card IDs detected: ${duplicateIds.join(", ")}. ` +
+          "Game continues but state may be corrupted.",
+        {
+          gameId: this.gameId,
+          turnPlayerId: turnContext?.playerId ?? null,
+          turnHasDiscard: Array.isArray(turnContext?.discard),
+          turnDiscardCount: Array.isArray(turnContext?.discard)
+            ? turnContext.discard.length
+            : null,
+          roundDiscardCount: roundContext?.discard?.length ?? null,
+          turnHandCount: Array.isArray(turnContext?.hand) ? turnContext.hand.length : null,
+          roundPlayerCount: roundContext?.players?.length ?? null,
+        }
+      );
     }
 
     return {

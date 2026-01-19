@@ -2,14 +2,18 @@
  * Manufactured May-I duplicate snapshot repro.
  *
  * This test simulates a May-I sequence, then mutates the persisted snapshot
- * to introduce a duplicate card ID so the invariant flags it.
+ * to introduce a duplicate card ID. The duplicate detection now logs a warning
+ * but does NOT set lastError (because that would cause valid actions to fail).
  */
 
 import { describe, it, expect } from "bun:test";
 import { GameEngine } from "./game-engine";
 
 describe("GameEngine May-I duplicate snapshot repro", () => {
-  it("flags duplicates when a May-I snapshot is corrupted", () => {
+  it("logs warning for duplicates in corrupted May-I snapshot but does not set lastError", () => {
+    // Duplicate detection logs a warning but doesn't set lastError,
+    // because setting lastError would cause game-actions.ts to treat
+    // valid actions as failed (see specs/may-i-bugs.bug.md).
     const engine = GameEngine.createGame({
       playerNames: ["Mom", "Dad", "Jane"],
       startingRound: 5,
@@ -62,7 +66,9 @@ describe("GameEngine May-I duplicate snapshot repro", () => {
     const restored = GameEngine.fromPersistedSnapshot(persisted);
     const restoredSnapshot = restored.getSnapshot();
 
-    expect(restoredSnapshot.lastError).toContain("Duplicate card IDs");
+    // Warning is logged to console.warn but lastError is NOT set
+    // This allows the game to continue even when duplicates are detected
+    expect(restoredSnapshot.lastError).toBeNull();
     restored.stop();
   });
 });

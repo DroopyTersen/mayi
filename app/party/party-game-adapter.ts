@@ -193,6 +193,16 @@ export function mergeAIStatePreservingOtherPlayerHands(
   const mergedTurnPlayer = shouldSyncTurnHand
     ? mergedPlayers.find((p: RoundSnapshotPlayer) => p.id === turnPlayerId)
     : null;
+  const roundContextForTurnPiles = aiSnapshot?.children?.round?.snapshot?.context;
+  const turnPilePatch =
+    shouldSyncTurnHand &&
+    Array.isArray(roundContextForTurnPiles?.stock) &&
+    Array.isArray(roundContextForTurnPiles?.discard)
+      ? {
+          stock: roundContextForTurnPiles.stock,
+          discard: roundContextForTurnPiles.discard,
+        }
+      : null;
   const turnContextPatch =
     shouldSyncTurnHand && mergedTurnPlayer && mergedTurnPlayer.hand !== undefined
       ? {
@@ -200,6 +210,7 @@ export function mergeAIStatePreservingOtherPlayerHands(
           ...(typeof mergedTurnPlayer.isDown === "boolean"
             ? { isDown: mergedTurnPlayer.isDown }
             : {}),
+          ...(turnPilePatch ?? {}),
         }
       : null;
 
@@ -287,6 +298,42 @@ export function mergeAIStatePreservingOtherPlayerHands(
   });
 
   if (hasHandPileOverlap) return freshState;
+
+  // Safety: Check for stock-discard overlap (card appearing in both stock AND discard).
+  // This can happen when round.context and turn.context become desynchronized
+  // during AI turn merges (e.g., card in round.stock AND turn.discard).
+  // Note: round.stock and turn.stock may legitimately contain the same cards
+  // (they're synchronized), so we only check stock vs discard overlap.
+  const stockCardIds = new Set<string>();
+  const discardCardIds = new Set<string>();
+
+  // Collect stock card IDs from both contexts
+  for (const stockPile of [mergedRoundContext?.stock, mergedTurnContext?.stock]) {
+    if (!Array.isArray(stockPile)) continue;
+    for (const card of stockPile) {
+      if (!card || typeof card !== "object") continue;
+      const id = (card as CardLike).id;
+      if (typeof id === "string") {
+        stockCardIds.add(id);
+      }
+    }
+  }
+
+  // Collect discard card IDs from both contexts
+  for (const discardPile of [mergedRoundContext?.discard, mergedTurnContext?.discard]) {
+    if (!Array.isArray(discardPile)) continue;
+    for (const card of discardPile) {
+      if (!card || typeof card !== "object") continue;
+      const id = (card as CardLike).id;
+      if (typeof id === "string") {
+        discardCardIds.add(id);
+      }
+    }
+  }
+
+  // Check if any card appears in both stock and discard
+  const hasStockDiscardOverlap = [...stockCardIds].some((id) => discardCardIds.has(id));
+  if (hasStockDiscardOverlap) return freshState;
 
   return {
     ...aiState,

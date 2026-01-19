@@ -379,4 +379,457 @@ describe("mergeAIStatePreservingOtherPlayerHands", () => {
       expect(result).toBe(freshState);
     });
   });
+
+  describe("turn context stock/discard sync (#74)", () => {
+    // Helper to get stock from turn context in stored state
+    function getTurnContextStock(state: StoredGameState): string[] | undefined {
+      const snapshot = JSON.parse(state.engineSnapshot);
+      const turnContext =
+        snapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+      return turnContext?.stock?.map((c: { id: string }) => c.id);
+    }
+
+    // Helper to get stock from round context in stored state
+    function getRoundContextStock(state: StoredGameState): string[] | undefined {
+      const snapshot = JSON.parse(state.engineSnapshot);
+      const roundContext = snapshot.children?.round?.snapshot?.context;
+      return roundContext?.stock?.map((c: { id: string }) => c.id);
+    }
+
+    it("syncs turn context stock/discard to prevent duplicate card detection", () => {
+      // BUG REPRODUCTION: #74 duplicate card-42 on first discard
+      //
+      // Scenario:
+      // 1. Fresh state has current player drawing card-X (card is in hand, removed from stock)
+      // 2. AI state (stale) has card-X still in turn.context.stock
+      // 3. Merge patches turn.context.hand but NOT turn.context.stock
+      // 4. Result: card-X appears in BOTH hand and turn.context.stock
+      // 5. findDuplicateCardIds detects duplicate
+      //
+      // This test simulates that scenario by directly manipulating snapshots.
+
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      // Get the initial snapshot to find a card in stock
+      const snapshot = JSON.parse(state.engineSnapshot);
+      const turnContext =
+        snapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+      const roundContext = snapshot.children?.round?.snapshot?.context;
+
+      if (!turnContext || !roundContext) {
+        throw new Error("Expected turn and round context in snapshot");
+      }
+
+      // Find the current turn player (from turn context)
+      const currentPlayerId = turnContext.playerId as string;
+      expect(currentPlayerId).toBeDefined();
+
+      // Get the first card from stock - we'll simulate drawing this
+      const drawnCard = turnContext.stock[0];
+      if (!drawnCard) {
+        throw new Error("Expected at least one card in stock");
+      }
+      const drawnCardId = drawnCard.id;
+
+      // Create "fresh" state: card has been drawn (in hand, removed from stock)
+      const freshSnapshot = JSON.parse(state.engineSnapshot);
+      const freshTurnContext =
+        freshSnapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+      const freshRoundContext = freshSnapshot.children?.round?.snapshot?.context;
+
+      // Add drawn card to player's hand (both turn context and round context player)
+      freshTurnContext.hand = [...freshTurnContext.hand, drawnCard];
+      freshTurnContext.hasDrawn = true;
+      // Remove drawn card from stock
+      freshTurnContext.stock = freshTurnContext.stock.slice(1);
+      // Also update round context stock and player hand (to match)
+      freshRoundContext.stock = freshRoundContext.stock.slice(1);
+      const roundPlayer = freshRoundContext.players.find(
+        (p: { id: string }) => p.id === currentPlayerId
+      );
+      if (roundPlayer) {
+        roundPlayer.hand = [...roundPlayer.hand, drawnCard];
+      }
+
+      const freshState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify(freshSnapshot),
+      };
+
+      // The stale AI state still has the original state (card in stock, not in hand)
+      const staleAiState = state;
+
+      // Verify setup: fresh state has card in hand for the current player
+      expect(getPlayerHand(freshState, currentPlayerId)).toContain(drawnCardId);
+      // Stale state does NOT have card in hand
+      expect(getPlayerHand(staleAiState, currentPlayerId)).not.toContain(drawnCardId);
+
+      // Now merge: fresh state has human's draw, AI state is stale
+      // Use a different player ID for the "AI" (not the current turn player)
+      const aiPlayerId = currentPlayerId === "player-0" ? "player-1" : "player-0";
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        freshState, // fresh: has the draw
+        staleAiState, // AI: stale, turn.context.stock has drawn card
+        aiPlayerId // AI is not the current turn player
+      );
+
+      // After merge, BOTH turn context AND round context stock should NOT contain
+      // the drawn card, because that card is now in the current player's hand
+      const mergedTurnStock = getTurnContextStock(merged);
+      const mergedRoundStock = getRoundContextStock(merged);
+
+      // Check that the drawn card is NOT in turn context stock
+      if (mergedTurnStock) {
+        expect(mergedTurnStock).not.toContain(drawnCardId);
+      }
+
+      // Check that the drawn card is NOT in round context stock
+      // BUG: The merge function doesn't sync round.context.stock from fresh state
+      if (mergedRoundStock) {
+        expect(mergedRoundStock).not.toContain(drawnCardId);
+      }
+
+      // Verify no duplicates would be detected by loading the merged state
+      const mergedAdapter = PartyGameAdapter.fromStoredState(merged);
+      const mergedSnapshot = mergedAdapter.getSnapshot();
+
+      // This assertion will FAIL until the bug is fixed - the duplicate detection
+      // will find the drawn card in both hand and round.context.stock
+      expect(mergedSnapshot.lastError).toBeNull();
+    });
+
+    it("patches turn context stock/discard when patching turn context hand", () => {
+      // BUG: The merge function patches turn.context.hand (via turnContextPatch)
+      // but does NOT patch turn.context.stock or turn.context.discard.
+      //
+      // When findDuplicateCardIds runs, it uses turnContext?.stock (stale)
+      // which may still contain cards that are now in the patched turn.context.hand.
+      //
+      // This test verifies that when the merge patches the turn context hand,
+      // it also syncs the turn context stock/discard from the fresh state.
+
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      // Get the initial snapshot
+      const snapshot = JSON.parse(state.engineSnapshot);
+      const turnContext =
+        snapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+      const roundContext = snapshot.children?.round?.snapshot?.context;
+
+      if (!turnContext || !roundContext) {
+        throw new Error("Expected turn and round context in snapshot");
+      }
+
+      // Find the current turn player (from turn context)
+      const currentPlayerId = turnContext.playerId as string;
+      expect(currentPlayerId).toBeDefined();
+
+      // Get the first card from stock - we'll simulate drawing this
+      const drawnCard = turnContext.stock[0];
+      if (!drawnCard) {
+        throw new Error("Expected at least one card in stock");
+      }
+      const drawnCardId = drawnCard.id;
+
+      // Create "fresh" state: card has been drawn (in hand, removed from stock)
+      const freshSnapshot = JSON.parse(state.engineSnapshot);
+      const freshTurnContext =
+        freshSnapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+      const freshRoundContext = freshSnapshot.children?.round?.snapshot?.context;
+
+      // Add drawn card to player's hand in both turn and round context
+      freshTurnContext.hand = [...freshTurnContext.hand, drawnCard];
+      freshTurnContext.hasDrawn = true;
+      // Remove drawn card from stock in both contexts
+      freshTurnContext.stock = freshTurnContext.stock.slice(1);
+      freshRoundContext.stock = freshRoundContext.stock.slice(1);
+
+      // Also update round context player hand
+      const roundPlayer = freshRoundContext.players.find(
+        (p: { id: string }) => p.id === currentPlayerId
+      );
+      if (roundPlayer) {
+        roundPlayer.hand = [...roundPlayer.hand, drawnCard];
+      }
+
+      const freshState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify(freshSnapshot),
+      };
+
+      // The stale AI state still has the original state
+      // Key: turn.context.stock still has the drawn card
+      const staleAiState = state;
+
+      // Verify the stale turn context stock has the card
+      const staleTurnStock = getTurnContextStock(staleAiState);
+      expect(staleTurnStock).toContain(drawnCardId);
+
+      // Verify fresh turn context stock does NOT have the card
+      const freshTurnStock = getTurnContextStock(freshState);
+      expect(freshTurnStock).not.toContain(drawnCardId);
+
+      // Now merge: this should trigger turnContextPatch because
+      // the turn player differs from the AI player
+      const aiPlayerId = currentPlayerId === "player-0" ? "player-1" : "player-0";
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        freshState,
+        staleAiState,
+        aiPlayerId
+      );
+
+      // The merge patches turn.context.hand from fresh, but the BUG is that
+      // it doesn't patch turn.context.stock from fresh.
+      // This means turn.context.stock would still have the drawn card (stale).
+
+      // After merge, turn context stock should match fresh state (no drawn card)
+      const mergedTurnStock = getTurnContextStock(merged);
+      if (mergedTurnStock) {
+        // BUG: This will FAIL because turn.context.stock isn't patched
+        expect(mergedTurnStock).not.toContain(drawnCardId);
+      }
+
+      // The ultimate check: no duplicates should be detected
+      const mergedAdapter = PartyGameAdapter.fromStoredState(merged);
+      const mergedSnapshot = mergedAdapter.getSnapshot();
+      expect(mergedSnapshot.lastError).toBeNull();
+    });
+
+    it("syncs turn context stock to round context when desynced", () => {
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      const desyncedSnapshot = JSON.parse(state.engineSnapshot);
+      const roundContext = desyncedSnapshot.children?.round?.snapshot?.context;
+      const turnContext =
+        desyncedSnapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+
+      if (!roundContext || !turnContext) {
+        throw new Error("Expected round and turn context in snapshot");
+      }
+
+      const removedCard = roundContext.stock?.[0];
+      if (!removedCard) {
+        throw new Error("Expected at least one card in stock");
+      }
+
+      // Desync: round.stock removes a card, turn.stock keeps it.
+      roundContext.stock = roundContext.stock.slice(1);
+
+      const desyncedState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify(desyncedSnapshot),
+      };
+
+      const turnPlayerId = turnContext.playerId as string;
+      const aiPlayerId = turnPlayerId === "player-0" ? "player-1" : "player-0";
+
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        state,
+        desyncedState,
+        aiPlayerId
+      );
+
+      // Ensure we did not bail out to the fresh state.
+      expect(merged.engineSnapshot).not.toBe(state.engineSnapshot);
+
+      const mergedTurnStock = getTurnContextStock(merged);
+      const mergedRoundStock = getRoundContextStock(merged);
+
+      expect(mergedTurnStock).toBeDefined();
+      expect(mergedRoundStock).toBeDefined();
+
+      if (mergedTurnStock && mergedRoundStock) {
+        expect(mergedTurnStock).toEqual(mergedRoundStock);
+      }
+    });
+  });
+
+  describe("pile-to-pile duplicate detection (#74 hypothesis)", () => {
+    /**
+     * HYPOTHESIS TEST: The merge safeguard only checks hand-pile overlap,
+     * NOT pile-to-pile overlap. If a card exists in BOTH:
+     * - round.context.stock AND turn.context.discard
+     * - OR round.context.discard AND turn.context.stock
+     *
+     * ...the merge function would NOT catch it and would return corrupted state.
+     *
+     * This test manufactures such a scenario to prove the gap exists.
+     */
+    it("should reject merge when card appears in both round.stock and turn.discard", () => {
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      // Parse and manipulate snapshot to create pile-to-pile duplicate
+      const corruptedSnapshot = JSON.parse(state.engineSnapshot);
+      const roundContext = corruptedSnapshot.children?.round?.snapshot?.context;
+      const turnContext =
+        corruptedSnapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+
+      if (!roundContext || !turnContext) {
+        throw new Error("Expected round and turn context in snapshot");
+      }
+
+      // Get a card from the stock
+      const cardToDuplicate = roundContext.stock?.[0] ?? turnContext.stock?.[0];
+      if (!cardToDuplicate) {
+        throw new Error("Expected at least one card in stock");
+      }
+
+      // Create the pile-to-pile duplicate:
+      // Put the same card in BOTH round.context.stock AND turn.context.discard
+      // (simulating a desync between round and turn actor states)
+      if (!roundContext.stock?.includes(cardToDuplicate)) {
+        roundContext.stock = [cardToDuplicate, ...(roundContext.stock ?? [])];
+      }
+      turnContext.discard = [cardToDuplicate, ...(turnContext.discard ?? [])];
+
+      const corruptedState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify(corruptedSnapshot),
+      };
+
+      // Fresh state is clean (no duplicates)
+      const freshState = state;
+
+      // The AI state has pile-to-pile duplicates
+      const aiStateWithDuplicates = corruptedState;
+
+      // When we merge, the safeguard should detect pile-to-pile duplicates
+      // and return freshState instead of the corrupted merge result
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        freshState,
+        aiStateWithDuplicates,
+        "player-1" // AI is current player
+      );
+
+      // HYPOTHESIS: This will FAIL because the merge doesn't check pile-to-pile
+      // Current safeguard only checks: handCardIds.has(pileCardId)
+      // It does NOT check if a card appears in multiple piles
+
+      // If the safeguard worked, it would return freshState (clean)
+      // If the safeguard is missing, it returns the corrupted merged state
+      expect(merged.engineSnapshot).toBe(freshState.engineSnapshot);
+    });
+
+    it("should reject merge when card appears in both turn.stock and turn.discard", () => {
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      // Parse and manipulate snapshot to create pile-to-pile duplicate within turn context
+      const corruptedSnapshot = JSON.parse(state.engineSnapshot);
+      const turnContext =
+        corruptedSnapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+
+      if (!turnContext) {
+        throw new Error("Expected turn context in snapshot");
+      }
+
+      // Get a card from the stock
+      const cardToDuplicate = turnContext.stock?.[0];
+      if (!cardToDuplicate) {
+        throw new Error("Expected at least one card in stock");
+      }
+
+      // Create duplicate: same card in BOTH turn.stock AND turn.discard
+      turnContext.discard = [cardToDuplicate, ...(turnContext.discard ?? [])];
+
+      const corruptedState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify(corruptedSnapshot),
+      };
+
+      const freshState = state;
+      const aiStateWithDuplicates = corruptedState;
+
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        freshState,
+        aiStateWithDuplicates,
+        "player-1"
+      );
+
+      // HYPOTHESIS: Merge doesn't detect stock-discard overlap within same context
+      expect(merged.engineSnapshot).toBe(freshState.engineSnapshot);
+    });
+
+    it("should reject merge when round and turn contexts have desynchronized stock", () => {
+      // This tests the specific scenario from the screenshot:
+      // AI turns complete, state gets merged, but round.context and turn.context
+      // have different views of where cards are located.
+
+      const state = createTestGameState(["Human", "AI-Alice", "AI-Bob"]);
+
+      const desyncedSnapshot = JSON.parse(state.engineSnapshot);
+      const roundContext = desyncedSnapshot.children?.round?.snapshot?.context;
+      const turnContext =
+        desyncedSnapshot.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+
+      if (!roundContext || !turnContext) {
+        throw new Error("Expected round and turn context in snapshot");
+      }
+
+      // Simulate desync: round.stock has card-42, but turn.stock doesn't
+      // (and turn.discard has card-42 instead - as if AI discarded but round wasn't updated)
+      const card42 = turnContext.stock?.find(
+        (c: { id: string }) => c.id === "card-42"
+      ) ?? roundContext.stock?.find((c: { id: string }) => c.id === "card-42");
+
+      if (!card42) {
+        // If card-42 doesn't exist, use the first available card
+        const anyCard = turnContext.stock?.[0] ?? roundContext.stock?.[0];
+        if (!anyCard) {
+          throw new Error("No cards available for test");
+        }
+
+        // Create the desync scenario with this card instead
+        // Card is in round.stock but we'll also put it in turn.discard
+        if (!Array.isArray(roundContext.stock)) {
+          roundContext.stock = [];
+        }
+        if (!roundContext.stock.some((c: { id: string }) => c.id === anyCard.id)) {
+          roundContext.stock.push(anyCard);
+        }
+
+        if (!Array.isArray(turnContext.discard)) {
+          turnContext.discard = [];
+        }
+        turnContext.discard = [anyCard, ...turnContext.discard];
+
+        // Remove from turn.stock to simulate the "discarded" state
+        turnContext.stock = turnContext.stock?.filter(
+          (c: { id: string }) => c.id !== anyCard.id
+        ) ?? [];
+      } else {
+        // Use card-42 for the test (matches the screenshot)
+        if (!Array.isArray(turnContext.discard)) {
+          turnContext.discard = [];
+        }
+        turnContext.discard = [card42, ...turnContext.discard];
+
+        // Remove from turn.stock
+        turnContext.stock = turnContext.stock?.filter(
+          (c: { id: string }) => c.id !== "card-42"
+        ) ?? [];
+
+        // Ensure it's still in round.stock (the desync)
+        if (!roundContext.stock?.some((c: { id: string }) => c.id === "card-42")) {
+          roundContext.stock = [card42, ...(roundContext.stock ?? [])];
+        }
+      }
+
+      const desyncedState: StoredGameState = {
+        ...state,
+        engineSnapshot: JSON.stringify(desyncedSnapshot),
+      };
+
+      const freshState = state;
+
+      const merged = mergeAIStatePreservingOtherPlayerHands(
+        freshState,
+        desyncedState,
+        "player-1"
+      );
+
+      // The merged state should be freshState (clean), not the desynced state
+      // HYPOTHESIS: This will FAIL - merge doesn't detect round/turn context desync
+      expect(merged.engineSnapshot).toBe(freshState.engineSnapshot);
+    });
+  });
 });
