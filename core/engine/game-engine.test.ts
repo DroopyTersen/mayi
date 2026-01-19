@@ -270,6 +270,30 @@ describe("GameEngine", () => {
       expect(snapshot2.discard.length).toBe(snapshot1.discard.length);
       engine2.stop();
     });
+
+    it("flags duplicate card IDs in persisted snapshots", () => {
+      const engine1 = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+      });
+
+      const persisted = engine1.getPersistedSnapshot() as any;
+      const roundSnapshot = persisted.children?.round?.snapshot;
+      const turnContext = roundSnapshot?.children?.turn?.snapshot?.context;
+
+      if (!turnContext || !Array.isArray(turnContext.hand) || turnContext.hand.length === 0) {
+        throw new Error("Expected turn hand in persisted snapshot");
+      }
+
+      const duplicateCard = turnContext.hand[0];
+      turnContext.discard = [duplicateCard, ...(turnContext.discard ?? [])];
+
+      engine1.stop();
+      const engine2 = GameEngine.fromPersistedSnapshot(persisted);
+      const snapshot2 = engine2.getSnapshot();
+
+      expect(snapshot2.lastError).toContain("Duplicate card IDs");
+      engine2.stop();
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
