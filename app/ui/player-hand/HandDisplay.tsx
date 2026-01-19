@@ -59,6 +59,11 @@ export function HandDisplay({
   size = "auto",
   className,
 }: HandDisplayProps) {
+  const supportsContainerQueries =
+    typeof CSS !== "undefined" &&
+    typeof CSS.supports === "function" &&
+    CSS.supports("container-type: inline-size");
+
   if (cards.length === 0) {
     return (
       <div
@@ -140,6 +145,36 @@ export function HandDisplay({
   // - huge (21+): maximum overlap at all sizes
   const handTier = getHandSizeTier(cards.length);
   const overlapClass = OVERLAP_TIERS[handTier];
+
+  if (!supportsContainerQueries) {
+    const fallbackSize: CardSize = cards.length > 14 ? "sm" : "md";
+    return (
+      <div className={cn("flex items-end", className)}>
+        {cards.map((card, index) => {
+          const isSelected = selectedIds.has(card.id);
+          return (
+            <div
+              key={card.id}
+              className={cn(
+                index > 0 && OVERLAP[fallbackSize],
+                "transition-transform",
+                HOVER_LIFT[fallbackSize],
+                isSelected && "-translate-y-1"
+              )}
+              style={{ zIndex: index }}
+            >
+              <PlayingCard
+                card={card}
+                size={fallbackSize}
+                selected={isSelected}
+                onClick={onCardClick ? () => onCardClick(card.id) : undefined}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div

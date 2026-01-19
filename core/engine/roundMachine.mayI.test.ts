@@ -856,11 +856,12 @@ describe("RoundMachine - May I Edge Cases", () => {
       actor.send({ type: "ALLOW_MAY_I", playerId: "player-1" });
 
       const player2 = getContext(actor).players.find((p) => p.id === "player-2");
-      const player2Ids = new Set(player2?.hand.map((card) => card.id));
+      if (!player2) throw new Error("player-2 not found");
+      const player2Ids = new Set(player2.hand.map((card) => card.id));
 
-      expect(player2?.hand).toContainEqual(duplicateCard);
-      expect(player2?.hand).toContainEqual(penaltyCard);
-      expect(player2Ids?.size).toBe(player2?.hand.length);
+      expect(player2.hand).toContainEqual(duplicateCard);
+      expect(player2.hand).toContainEqual(penaltyCard);
+      expect(player2Ids.size).toBe(player2.hand.length);
     });
   });
 

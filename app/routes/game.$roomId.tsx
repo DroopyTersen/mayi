@@ -43,6 +43,7 @@ import type { RoundSummaryPayload } from "~/party/round-summary.types";
 import type { Card } from "core/card/card.types";
 import { formatCardText } from "core/card/card-text.utils";
 import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
+import { sendGameActionIfConnected } from "./game/game-action.sender";
 
 /**
  * State for May I notification shown to ALL players in the table view
@@ -209,6 +210,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     onReconnect: handleReconnect,
   });
 
+  const setTransientGameError = useCallback((message: string) => {
+    setGameError(message);
+    setTimeout(() => setGameError(null), 5000);
+  }, []);
+
   const sendMessage = useCallback((msg: ClientMessage) => {
     const s = socketRef.current;
     if (!s) return;
@@ -275,14 +281,30 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
   // Phase 3.6: May I prompt actions
   const onAllowMayI = useCallback(() => {
-    sendMessage({ type: "GAME_ACTION", action: { type: "ALLOW_MAY_I" } });
+    const result = sendGameActionIfConnected({
+      connectionStatus,
+      sendMessage,
+      action: { type: "ALLOW_MAY_I" },
+    });
+    if (!result.sent) {
+      setTransientGameError("Connection lost. Retrying...");
+      return;
+    }
     setMayIPrompt(null);
-  }, [sendMessage]);
+  }, [connectionStatus, sendMessage, setTransientGameError]);
 
   const onClaimMayI = useCallback(() => {
-    sendMessage({ type: "GAME_ACTION", action: { type: "CLAIM_MAY_I" } });
+    const result = sendGameActionIfConnected({
+      connectionStatus,
+      sendMessage,
+      action: { type: "CLAIM_MAY_I" },
+    });
+    if (!result.sent) {
+      setTransientGameError("Connection lost. Retrying...");
+      return;
+    }
     setMayIPrompt(null);
-  }, [sendMessage]);
+  }, [connectionStatus, sendMessage, setTransientGameError]);
 
   // Phase 3.3: Handle game actions from GameView
   const onGameAction = useCallback(
@@ -353,12 +375,19 @@ export default function Game({ loaderData }: Route.ComponentProps) {
 
       if (gameAction) {
         console.log("[onGameAction] Sending game action:", gameAction);
-        sendMessage({ type: "GAME_ACTION", action: gameAction });
+        const result = sendGameActionIfConnected({
+          connectionStatus,
+          sendMessage,
+          action: gameAction,
+        });
+        if (!result.sent) {
+          setTransientGameError("Connection lost. Retrying...");
+        }
       } else {
         console.log("[onGameAction] No game action to send (gameAction is null)");
       }
     },
-    [sendMessage]
+    [connectionStatus, sendMessage, setTransientGameError]
   );
 
   useEffect(() => {
