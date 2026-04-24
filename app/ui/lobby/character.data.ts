@@ -44,6 +44,13 @@ export const FAMILY_CHARACTERS: Character[] = [
     category: "family",
     avatarPath: "/avatars/jane.svg",
   },
+  {
+    id: "carter",
+    name: "Carter",
+    description: "Playful little card shark with a bright smile",
+    category: "family",
+    avatarPath: "/avatars/carter.svg",
+  },
 ];
 
 export const HOYLE_CHARACTERS: Character[] = [
