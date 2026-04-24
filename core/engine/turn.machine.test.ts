@@ -435,6 +435,39 @@ describe("TurnMachine - discarding", () => {
       expect(actor.getSnapshot().context.stock).toEqual(stockAfterDraw);
       actor.stop();
     });
+
+    it("removes only one physical card when a corrupted hand contains duplicate card IDs", () => {
+      const duplicatedSevenOfClubs: Card = {
+        id: "card-duplicate-7-clubs",
+        rank: "7",
+        suit: "clubs",
+      };
+      const otherCard = card("K", "hearts");
+      const hand = [
+        duplicatedSevenOfClubs,
+        otherCard,
+        { ...duplicatedSevenOfClubs },
+      ];
+      const actor = createTurnActor({ hand });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      actor.send({ type: "SKIP_LAY_DOWN" });
+
+      const handSizeAfterDraw = actor.getSnapshot().context.hand.length;
+      actor.send({ type: "DISCARD", cardId: duplicatedSevenOfClubs.id });
+
+      const finalHand = actor.getSnapshot().context.hand;
+      const remainingDuplicateCount = finalHand.filter(
+        (card) => card.id === duplicatedSevenOfClubs.id
+      ).length;
+
+      expect(finalHand.length).toBe(handSizeAfterDraw - 1);
+      expect(remainingDuplicateCount).toBe(1);
+      expect(actor.getSnapshot().context.discard[0]?.id).toBe(
+        duplicatedSevenOfClubs.id
+      );
+      actor.stop();
+    });
   });
 
   describe("DISCARD command validation", () => {

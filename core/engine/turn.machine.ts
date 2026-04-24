@@ -429,7 +429,15 @@ export const turnMachine = setup({
     discardCard: assign({
       hand: ({ context, event }) => {
         if (event.type !== "DISCARD") return context.hand;
-        return context.hand.filter((card) => card.id !== event.cardId);
+
+        let removed = false;
+        return context.hand.filter((card) => {
+          if (!removed && card.id === event.cardId) {
+            removed = true;
+            return false;
+          }
+          return true;
+        });
       },
       discard: ({ context, event }) => {
         if (event.type !== "DISCARD") return context.discard;

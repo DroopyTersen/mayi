@@ -12,6 +12,29 @@ import { describe, it, expect } from "bun:test";
 import { GameEngine } from "./game-engine";
 
 describe("Round Machine - REORDER_HAND", () => {
+  function duplicateCardIds(snapshot: ReturnType<GameEngine["getSnapshot"]>): string[] {
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    const add = (id: string) => {
+      if (seen.has(id)) {
+        duplicates.add(id);
+      } else {
+        seen.add(id);
+      }
+    };
+
+    for (const player of snapshot.players) {
+      for (const card of player.hand) add(card.id);
+    }
+    for (const card of snapshot.stock) add(card.id);
+    for (const card of snapshot.discard) add(card.id);
+    for (const meld of snapshot.table) {
+      for (const card of meld.cards) add(card.id);
+    }
+
+    return [...duplicates];
+  }
+
   describe("during own turn", () => {
     it("allows reordering hand during AWAITING_DRAW phase", () => {
       const engine = GameEngine.createGame({
@@ -143,6 +166,70 @@ describe("Round Machine - REORDER_HAND", () => {
       expect(after.awaitingPlayerId).toBe(currentPlayerId);
       expect(after.turnPhase).toBe("AWAITING_ACTION");
     });
+
+    it("does not restore the drawn stock card to piles when a non-current player reorders", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Human", "AI Alice", "AI Bob"],
+      });
+
+      const before = engine.getSnapshot();
+      const currentPlayerId = before.awaitingPlayerId;
+      const drawnCard = before.stock[0];
+      if (!drawnCard) {
+        throw new Error("Expected stock card to draw");
+      }
+
+      engine.drawFromStock(currentPlayerId);
+
+      const mid = engine.getSnapshot();
+      expect(mid.stock.map((c) => c.id)).not.toContain(drawnCard.id);
+
+      const nonCurrentPlayer = mid.players.find((p) => p.id !== currentPlayerId);
+      if (!nonCurrentPlayer) {
+        throw new Error("Expected non-current player");
+      }
+      const newOrder = [...nonCurrentPlayer.hand.map((c) => c.id)].reverse();
+
+      engine.reorderHand(nonCurrentPlayer.id, newOrder);
+
+      const after = engine.getSnapshot();
+      expect(after.stock.map((c) => c.id)).not.toContain(drawnCard.id);
+      expect(duplicateCardIds(after)).toEqual([]);
+
+      engine.stop();
+    });
+
+    it("does not restore the claimed discard card to piles when a non-current player reorders", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Human", "AI Alice", "AI Bob"],
+      });
+
+      const before = engine.getSnapshot();
+      const currentPlayerId = before.awaitingPlayerId;
+      const claimedDiscard = before.discard[0];
+      if (!claimedDiscard) {
+        throw new Error("Expected discard card to draw");
+      }
+
+      engine.drawFromDiscard(currentPlayerId);
+
+      const mid = engine.getSnapshot();
+      expect(mid.discard.map((c) => c.id)).not.toContain(claimedDiscard.id);
+
+      const nonCurrentPlayer = mid.players.find((p) => p.id !== currentPlayerId);
+      if (!nonCurrentPlayer) {
+        throw new Error("Expected non-current player");
+      }
+      const newOrder = [...nonCurrentPlayer.hand.map((c) => c.id)].reverse();
+
+      engine.reorderHand(nonCurrentPlayer.id, newOrder);
+
+      const after = engine.getSnapshot();
+      expect(after.discard.map((c) => c.id)).not.toContain(claimedDiscard.id);
+      expect(duplicateCardIds(after)).toEqual([]);
+
+      engine.stop();
+    });
   });
 
   describe("validation", () => {
@@ -225,6 +312,98 @@ describe("Round Machine - REORDER_HAND", () => {
   });
 
   describe("current player sync", () => {
+    it("keeps persisted round piles in sync when current player reorders after drawing from stock", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Human", "AI Alice", "AI Bob"],
+      });
+
+      const before = engine.getSnapshot();
+      const currentPlayerId = before.awaitingPlayerId;
+      const drawnCard = before.stock[0];
+      if (!drawnCard) {
+        throw new Error("Expected stock card to draw");
+      }
+
+      engine.drawFromStock(currentPlayerId);
+
+      const mid = engine.getSnapshot();
+      const player = mid.players.find((p) => p.id === currentPlayerId);
+      if (!player) {
+        throw new Error("Expected current player after draw");
+      }
+
+      expect(player.hand.map((c) => c.id)).toContain(drawnCard.id);
+      expect(mid.stock.map((c) => c.id)).not.toContain(drawnCard.id);
+
+      engine.reorderHand(currentPlayerId, [...player.hand.map((c) => c.id)].reverse());
+
+      const persisted = engine.getPersistedSnapshot() as any;
+      const roundContext = persisted.children?.round?.snapshot?.context;
+      const roundPlayer = roundContext?.players?.find(
+        (p: { id: string }) => p.id === currentPlayerId
+      );
+      if (!roundContext || !roundPlayer) {
+        throw new Error("Expected persisted round context");
+      }
+
+      const roundHandIds = new Set(
+        roundPlayer.hand.map((card: { id: string }) => card.id)
+      );
+      const overlappingStockIds = roundContext.stock
+        .filter((card: { id: string }) => roundHandIds.has(card.id))
+        .map((card: { id: string }) => card.id);
+
+      expect(overlappingStockIds).toEqual([]);
+
+      engine.stop();
+    });
+
+    it("keeps persisted round piles in sync when current player reorders after drawing from discard", () => {
+      const engine = GameEngine.createGame({
+        playerNames: ["Human", "AI Alice", "AI Bob"],
+      });
+
+      const before = engine.getSnapshot();
+      const currentPlayerId = before.awaitingPlayerId;
+      const claimedDiscard = before.discard[0];
+      if (!claimedDiscard) {
+        throw new Error("Expected discard card to draw");
+      }
+
+      engine.drawFromDiscard(currentPlayerId);
+
+      const mid = engine.getSnapshot();
+      const player = mid.players.find((p) => p.id === currentPlayerId);
+      if (!player) {
+        throw new Error("Expected current player after draw");
+      }
+
+      expect(player.hand.map((c) => c.id)).toContain(claimedDiscard.id);
+      expect(mid.discard.map((c) => c.id)).not.toContain(claimedDiscard.id);
+
+      engine.reorderHand(currentPlayerId, [...player.hand.map((c) => c.id)].reverse());
+
+      const persisted = engine.getPersistedSnapshot() as any;
+      const roundContext = persisted.children?.round?.snapshot?.context;
+      const roundPlayer = roundContext?.players?.find(
+        (p: { id: string }) => p.id === currentPlayerId
+      );
+      if (!roundContext || !roundPlayer) {
+        throw new Error("Expected persisted round context");
+      }
+
+      const roundHandIds = new Set(
+        roundPlayer.hand.map((card: { id: string }) => card.id)
+      );
+      const overlappingDiscardIds = roundContext.discard
+        .filter((card: { id: string }) => roundHandIds.has(card.id))
+        .map((card: { id: string }) => card.id);
+
+      expect(overlappingDiscardIds).toEqual([]);
+
+      engine.stop();
+    });
+
     it("syncs reordered hand to turn machine when current player reorders", () => {
       const engine = GameEngine.createGame({
         playerNames: ["Human", "AI Alice", "AI Bob"],

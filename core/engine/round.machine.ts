@@ -486,32 +486,58 @@ export const roundMachine = setup({
 
       // Get effective hand - use turn context for current player (has drawn card)
       let hand = player.hand;
+      let currentTurnContext: TurnMachineContext | null = null;
       const currentPlayer = context.players[context.currentPlayerIndex];
       if (playerId === currentPlayer?.id && self) {
-        const snapshot = self.getSnapshot() as { children?: { turn?: { getSnapshot: () => { context?: { hand?: Card[] } } } } };
-        const turnActor = snapshot?.children?.turn;
-        if (turnActor) {
-          const turnSnapshot = turnActor.getSnapshot();
-          if (turnSnapshot?.context?.hand) {
-            hand = turnSnapshot.context.hand;
-          }
+        const turnActor = self.getSnapshot().children.turn;
+        const turnSnapshot = turnActor?.getSnapshot();
+        const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+        if (turnContext !== null && turnContext.playerId === playerId) {
+          currentTurnContext = turnContext;
+          hand = turnContext.hand;
         }
       }
 
       const result = reorderHandUtil(hand, event.newOrder);
       if (!result.success) return {};
 
+      const players = context.players.map((p, i) => {
+        if (i !== playerIndex) return p;
+        return {
+          ...p,
+          hand: result.hand,
+          ...(currentTurnContext ? { isDown: currentTurnContext.isDown } : {}),
+        };
+      });
+
+      if (currentTurnContext) {
+        return {
+          players,
+          stock: currentTurnContext.stock,
+          discard: currentTurnContext.discard,
+          table: currentTurnContext.table,
+        };
+      }
+
       return {
-        players: context.players.map((p, i) =>
-          i === playerIndex ? { ...p, hand: result.hand } : p
-        ),
+        players,
       };
     }),
 
     syncTurnHand: sendTo("turn", ({ context, event, self }) => {
+      const getCurrentTurnPiles = (): { stock: Card[]; discard: Card[] } => {
+        const turnActor = self.getSnapshot().children.turn;
+        const turnSnapshot = turnActor?.getSnapshot();
+        const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+        return {
+          stock: turnContext?.stock ?? context.stock,
+          discard: turnContext?.discard ?? context.discard,
+        };
+      };
+
       if (event.type !== "REORDER_HAND") {
         // Return no-op - shouldn't happen but type-safe
-        return { type: "SYNC_PILES" as const, stock: context.stock, discard: context.discard };
+        return { type: "SYNC_PILES" as const, ...getCurrentTurnPiles() };
       }
 
       const playerId = event.playerId;
@@ -526,15 +552,11 @@ export const roundMachine = setup({
           let hand = player.hand;
 
           // Try to get turn context hand (authoritative for current player after draw)
-          if (self) {
-            const snapshot = self.getSnapshot() as { children?: { turn?: { getSnapshot: () => { context?: { hand?: Card[] } } } } };
-            const turnActor = snapshot?.children?.turn;
-            if (turnActor) {
-              const turnSnapshot = turnActor.getSnapshot();
-              if (turnSnapshot?.context?.hand) {
-                hand = turnSnapshot.context.hand;
-              }
-            }
+          const turnActor = self.getSnapshot().children.turn;
+          const turnSnapshot = turnActor?.getSnapshot();
+          const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+          if (turnContext !== null && turnContext.playerId === playerId) {
+            hand = turnContext.hand;
           }
 
           // Validate using the same utility function
@@ -546,7 +568,7 @@ export const roundMachine = setup({
       }
 
       // Not current player or invalid - return no-op sync
-      return { type: "SYNC_PILES" as const, stock: context.stock, discard: context.discard };
+      return { type: "SYNC_PILES" as const, ...getCurrentTurnPiles() };
     }),
   },
 }).createMachine({
