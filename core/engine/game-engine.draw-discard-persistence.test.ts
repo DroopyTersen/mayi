@@ -23,8 +23,6 @@ describe("GameEngine draw from discard persistence", () => {
     expect(topDiscardBefore).toBeDefined();
 
     const topDiscardId = topDiscardBefore!.id;
-    console.log(`Top discard before draw: ${topDiscardId}`);
-
     // Draw from discard
     engine.drawFromDiscard(currentPlayerId);
 
@@ -60,8 +58,6 @@ describe("GameEngine draw from discard persistence", () => {
     const topDiscardBefore = snapshot1.discard[0]!;
     const topDiscardId = topDiscardBefore.id;
 
-    console.log(`Top discard before draw: ${topDiscardId} (${topDiscardBefore.rank}${topDiscardBefore.suit?.[0] ?? 'J'})`);
-
     // Draw from discard
     engine.drawFromDiscard(currentPlayerId);
 
@@ -92,8 +88,6 @@ describe("GameEngine draw from discard persistence", () => {
     const cardInDiscardAfterRestore = snapshot3.discard.some(c => c.id === topDiscardId);
     expect(cardInDiscardAfterRestore).toBe(false);
 
-    console.log(`After restore - card ${topDiscardId} in hand: ${cardInHandAfterRestore}, in discard: ${cardInDiscardAfterRestore}`);
-
     restored.stop();
   });
 
@@ -113,11 +107,11 @@ describe("GameEngine draw from discard persistence", () => {
 
     // Manually corrupt the persisted snapshot to simulate the bug
     const persisted = engine.getPersistedSnapshot() as any;
-    const turnContext = persisted.children?.round?.snapshot?.children?.turn?.snapshot?.context;
+    const roundContext = persisted.children?.round?.snapshot?.context;
 
-    if (turnContext) {
+    if (roundContext) {
       // Add the drawn card back to discard (simulating the bug)
-      turnContext.discard = [topDiscardBefore, ...turnContext.discard];
+      roundContext.discard = [topDiscardBefore, ...roundContext.discard];
     }
 
     engine.stop();
@@ -130,8 +124,6 @@ describe("GameEngine draw from discard persistence", () => {
     const playerHand = corruptedSnapshot.players.find(p => p.id === currentPlayerId)!.hand;
     const cardInHand = playerHand.some(c => c.id === topDiscardId);
     const cardInDiscard = corruptedSnapshot.discard.some(c => c.id === topDiscardId);
-
-    console.log(`Corrupted state - card ${topDiscardId} in hand: ${cardInHand}, in discard: ${cardInDiscard}`);
 
     // The duplicate detection should have logged a warning
     // (We changed it to not set lastError, but it should still detect)

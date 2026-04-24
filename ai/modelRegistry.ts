@@ -8,7 +8,7 @@
  *   // Use named defaults (RECOMMENDED - these are the only models we test)
  *   const model = modelRegistry.languageModel("default:openai");  // GPT-5 Mini
  *   const model = modelRegistry.languageModel("default:claude");  // Claude Haiku 4.5
- *   const model = modelRegistry.languageModel("default:gemini");  // Gemini 3 Flash Preview
+ *   const model = modelRegistry.languageModel("default:gemini");  // Gemini 3.1 Flash Lite Preview
  *   const model = modelRegistry.languageModel("default:grok");    // Grok 4.1 Fast
  *
  *   // Direct provider access (for experimentation only - not tested!)
@@ -72,7 +72,7 @@ export type ModelId =
 export const CANONICAL_MODELS = {
   openai: "gpt-5-mini",
   claude: "claude-haiku-4-5",
-  gemini: "gemini-3-flash-preview",
+  gemini: "gemini-3.1-flash-lite-preview",
   grok: "grok-4-1-fast-reasoning",
 } as const;
 /**
@@ -82,7 +82,7 @@ export const CANONICAL_MODELS = {
  *   const model = withDevTools(modelRegistry.languageModel("default:grok"));
  */
 export function withDevTools<T extends ReturnType<typeof wrapLanguageModel>>(
-  model: T
+  model: T,
 ): T {
   return wrapLanguageModel({
     model,
@@ -99,7 +99,6 @@ const defaultPlayerSettings = defaultSettingsMiddleware({
     temperature: 0.7,
   },
 });
-
 
 export const modelRegistry = createProviderRegistry(
   {
@@ -131,7 +130,5 @@ export const modelRegistry = createProviderRegistry(
     gemini: modelProviders.gemini,
     xai: modelProviders.xai,
   },
-  { separator: ":" }
+  { separator: ":" },
 );
-
-modelProviders.gemini("gemini-3-flash-preview")

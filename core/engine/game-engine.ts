@@ -31,46 +31,33 @@ import type {
 } from "./game-engine.types";
 import type { Contract } from "./contracts";
 import { getActionAvailabilityDetails } from "./game-engine.availability";
+import {
+  duplicateCardIdsFromReport,
+  validateCardZones,
+  zonesFromRoundState,
+} from "./card-state.invariants";
 
 /**
  * Type for XState's persisted snapshot structure
  */
 type PersistedSnapshot = ReturnType<ReturnType<typeof createActor>["getPersistedSnapshot"]>;
 
-function findDuplicateCardIds(
-  players: Player[],
-  stock: Card[],
-  discard: Card[],
-  table: Meld[]
-): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
+function cloneCards(cards: Card[]): Card[] {
+  return cards.map((card) => ({ ...card }));
+}
 
-  const addCard = (card: Card | undefined) => {
-    if (!card?.id) return;
-    if (seen.has(card.id)) {
-      duplicates.add(card.id);
-    } else {
-      seen.add(card.id);
-    }
-  };
+function clonePlayers(players: Player[]): Player[] {
+  return players.map((player) => ({
+    ...player,
+    hand: cloneCards(player.hand),
+  }));
+}
 
-  for (const player of players) {
-    for (const card of player.hand) {
-      addCard(card);
-    }
-  }
-
-  for (const card of stock) addCard(card);
-  for (const card of discard) addCard(card);
-
-  for (const meld of table) {
-    for (const card of meld.cards) {
-      addCard(card);
-    }
-  }
-
-  return [...duplicates];
+function cloneTable(table: Meld[]): Meld[] {
+  return table.map((meld) => ({
+    ...meld,
+    cards: cloneCards(meld.cards),
+  }));
 }
 
 /**
@@ -360,6 +347,11 @@ export class GameEngine {
     return this.getSnapshot();
   }
 
+  /** Swap a joker from a run with a card from hand */
+  swapJoker(playerId: string, meldId: string, jokerCardId: string, swapCardId: string): CommandResult {
+    return this.swap(playerId, meldId, jokerCardId, swapCardId);
+  }
+
   /** Discard a card from hand */
   discard(playerId: string, cardId: string): CommandResult {
     this.actor.send({ type: "DISCARD", playerId, cardId });
@@ -447,27 +439,16 @@ export class GameEngine {
       }
     }
 
-    // Build players array - prefer round context if available
-    const players: Player[] = roundContext?.players ?? context.players;
-
-    // Update current player's hand from turn context
-    const updatedPlayers = players.map((p) => {
-      if (turnContext && p.id === turnContext.playerId) {
-        return {
-          ...p,
-          hand: turnContext.hand,
-          isDown: turnContext.isDown,
-        };
-      }
-      return p;
-    });
+    // RoundMachine owns physical card zones. TurnMachine still exposes turn-local
+    // flags and errors, but its card arrays are not authoritative for snapshots.
+    const players: Player[] = clonePlayers(roundContext?.players ?? context.players);
 
     // Get current player index
     const currentPlayerIndex = roundContext?.currentPlayerIndex ?? 0;
     const dealerIndex = roundContext?.dealerIndex ?? context.dealerIndex;
 
     // Get awaiting player - during May I resolution, it's the prompted player
-    let awaitingPlayerId = updatedPlayers[currentPlayerIndex]?.id ?? "";
+    let awaitingPlayerId = players[currentPlayerIndex]?.id ?? "";
     if (isResolvingMayI && roundContext?.mayIResolution?.playerBeingPrompted) {
       awaitingPlayerId = roundContext.mayIResolution.playerBeingPrompted;
     }
@@ -490,34 +471,13 @@ export class GameEngine {
 
     const currentRound = (context.currentRound ?? 1) as RoundNumber;
 
-    const roundStock = roundContext?.stock ?? [];
-    const roundDiscard = roundContext?.discard ?? [];
-    const roundTable = roundContext?.table ?? [];
+    const roundStock = cloneCards(roundContext?.stock ?? []);
+    const roundDiscard = cloneCards(roundContext?.discard ?? []);
+    const roundTable = cloneTable(roundContext?.table ?? []);
 
-    const turnStock = Array.isArray(turnContext?.stock) ? turnContext.stock : null;
-    const turnDiscard = Array.isArray(turnContext?.discard) ? turnContext.discard : null;
-    const turnTable = Array.isArray(turnContext?.table) ? turnContext.table : null;
-
-    const stock = turnStock ?? roundStock;
-    let discard = turnDiscard ?? roundDiscard;
-    const table = turnTable ?? roundTable;
-
-    if (turnContext && !turnDiscard && Array.isArray(turnContext.hand)) {
-      const handIds = new Set(turnContext.hand.map((card) => card.id));
-      const filtered = roundDiscard.filter((card) => !handIds.has(card.id));
-      if (filtered.length !== roundDiscard.length) {
-        discard = filtered;
-        console.warn(
-          "[GameEngine] turnContext.discard missing; filtered cards from discard for snapshot.",
-          {
-            gameId: this.gameId,
-            filteredCount: roundDiscard.length - filtered.length,
-            roundDiscardCount: roundDiscard.length,
-            turnHandCount: turnContext.hand.length,
-          }
-        );
-      }
-    }
+    const stock = roundStock;
+    const discard = roundDiscard;
+    const table = roundTable;
 
     // Prefer turn error when available, then fall back to game-level error
     const lastError = turnContext?.lastError ?? context.lastError ?? null;
@@ -526,13 +486,22 @@ export class GameEngine {
     // Setting lastError would cause game-actions.ts to treat valid actions as failed.
     // The underlying duplicate cause is unknown (see specs/may-i-bugs.bug.md),
     // but we shouldn't block users from playing when duplicates are detected.
-    const duplicateIds = findDuplicateCardIds(updatedPlayers, stock, discard, table);
+    const cardInvariantReport = validateCardZones(
+      zonesFromRoundState({
+        players,
+        stock,
+        discard,
+        table,
+      })
+    );
+    const duplicateIds = duplicateCardIdsFromReport(cardInvariantReport);
     if (duplicateIds.length > 0) {
       console.warn(
         `[GameEngine] Duplicate card IDs detected: ${duplicateIds.join(", ")}. ` +
           "Game continues but state may be corrupted.",
         {
           gameId: this.gameId,
+          cardInvariantViolations: cardInvariantReport.violations,
           turnPlayerId: turnContext?.playerId ?? null,
           turnHasDiscard: Array.isArray(turnContext?.discard),
           turnDiscardCount: Array.isArray(turnContext?.discard)
@@ -556,11 +525,10 @@ export class GameEngine {
       discardClaimed: roundContext?.discardClaimed ?? false,
       currentRound,
       contract: getContractForRound(currentRound)!,
-      players: updatedPlayers,
+      players,
       dealerIndex,
       currentPlayerIndex,
       awaitingPlayerId,
-      // Prefer turn context for stock/discard/table as they're most current during a turn
       stock,
       discard,
       table,

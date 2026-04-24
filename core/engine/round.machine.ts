@@ -20,6 +20,21 @@ import { createDeck, shuffle, deal } from "../card/card.deck";
 import { turnMachine, type TurnInput, type TurnOutput, type TurnContext as TurnMachineContext } from "./turn.machine";
 import { calculateHandScore } from "../scoring/scoring";
 import { reorderHand as reorderHandUtil } from "./hand.reordering";
+import {
+  buildMeldsFromProposals,
+  meetsContract,
+  validMelds,
+  type MeldProposal,
+} from "./guards";
+import {
+  canLayOffCard,
+  canLayOffToRun,
+  canLayOffToSet,
+  getCardFromHand,
+  resolveRunInsertPosition,
+  validateCardOwnership,
+} from "./layoff";
+import { canSwapJokerWithCard } from "../meld/meld.joker";
 
 /**
  * Events that need to be forwarded to child turn actor
@@ -154,6 +169,19 @@ function getPlayersAheadOfCaller(
   return result;
 }
 
+function replenishStockAfterDraw(stock: Card[], discard: Card[]): { stock: Card[]; discard: Card[] } {
+  if (stock.length > 0 || discard.length <= 1) {
+    return { stock, discard };
+  }
+
+  const topDiscard = discard[0];
+  const cardsToReshuffle = discard.slice(1);
+  return {
+    stock: shuffle(cardsToReshuffle),
+    discard: topDiscard ? [topDiscard] : [],
+  };
+}
+
 export const roundMachine = setup({
   types: {
     context: {} as RoundContext,
@@ -224,8 +252,8 @@ export const roundMachine = setup({
       const player = context.players.find((p) => p.id === playerId);
       if (!player) return false;
 
-      // For current player, always return true (action will validate with turn context)
-      // This is needed because after a draw, the turn machine has the authoritative hand
+      // For current player, allow the event through so the round-level action can
+      // validate against the canonical hand after any in-flight draw/action.
       const currentPlayer = context.players[context.currentPlayerIndex];
       if (playerId === currentPlayer?.id) {
         return true;
@@ -299,6 +327,250 @@ export const roundMachine = setup({
 
     trackDrawFromStock: assign({
       currentPlayerHasDrawnFromStock: true,
+    }),
+
+    applyDrawFromStockToRound: assign(({ context, event, self }) => {
+      if (event.type !== "DRAW_FROM_STOCK") return {};
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (!currentPlayer) return {};
+      if (event.playerId !== undefined && event.playerId !== currentPlayer.id) return {};
+
+      const turnActor = self.getSnapshot().children.turn;
+      const turnSnapshot = turnActor?.getSnapshot();
+      const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+      if (turnSnapshot?.value !== "awaitingDraw") return {};
+      if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
+
+      const drawnCard = context.stock[0];
+      if (!drawnCard) return {};
+
+      const hand = [...currentPlayer.hand, drawnCard];
+      const replenished = replenishStockAfterDraw(context.stock.slice(1), context.discard);
+
+      return {
+        players: context.players.map((player, index) =>
+          index === context.currentPlayerIndex ? { ...player, hand } : player
+        ),
+        stock: replenished.stock,
+        discard: replenished.discard,
+      };
+    }),
+
+    applyDrawFromDiscardToRound: assign(({ context, event, self }) => {
+      if (event.type !== "DRAW_FROM_DISCARD") return {};
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (!currentPlayer) return {};
+      if (event.playerId !== undefined && event.playerId !== currentPlayer.id) return {};
+      if (currentPlayer.isDown) return {};
+
+      const turnActor = self.getSnapshot().children.turn;
+      const turnSnapshot = turnActor?.getSnapshot();
+      const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+      if (turnSnapshot?.value !== "awaitingDraw") return {};
+      if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
+
+      const drawnCard = context.discard[0];
+      if (!drawnCard) return {};
+
+      return {
+        players: context.players.map((player, index) =>
+          index === context.currentPlayerIndex
+            ? { ...player, hand: [...currentPlayer.hand, drawnCard] }
+            : player
+        ),
+        discard: context.discard.slice(1),
+      };
+    }),
+
+    applyLayDownToRound: assign(({ context, event, self }) => {
+      if (event.type !== "LAY_DOWN") return {};
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (!currentPlayer) return {};
+      if (event.playerId !== undefined && event.playerId !== currentPlayer.id) return {};
+      if (currentPlayer.isDown) return {};
+
+      const turnActor = self.getSnapshot().children.turn;
+      const turnSnapshot = turnActor?.getSnapshot();
+      const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+      if (turnSnapshot?.value !== "drawn") return {};
+      if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
+
+      const proposals = event.melds as MeldProposal[];
+      const melds = buildMeldsFromProposals(proposals, currentPlayer.hand, currentPlayer.id);
+      if (!melds) return {};
+      if (!validMelds(melds)) return {};
+      if (!meetsContract(context.roundNumber, melds)) return {};
+
+      const usedCardIds = new Set(proposals.flatMap((proposal) => proposal.cardIds));
+      if (context.roundNumber === 6 && usedCardIds.size !== currentPlayer.hand.length) {
+        return {};
+      }
+
+      const tableLen = context.table.length;
+      const newMelds = melds.map((meld, index) => ({
+        ...meld,
+        id: `meld-${currentPlayer.id}-${tableLen + index}`,
+      }));
+
+      return {
+        players: context.players.map((player, index) =>
+          index === context.currentPlayerIndex
+            ? {
+                ...player,
+                hand: player.hand.filter((card) => !usedCardIds.has(card.id)),
+                isDown: true,
+              }
+            : player
+        ),
+        table: [...context.table, ...newMelds],
+      };
+    }),
+
+    applyLayOffToRound: assign(({ context, event, self }) => {
+      if (event.type !== "LAY_OFF") return {};
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (!currentPlayer) return {};
+      if (event.playerId !== undefined && event.playerId !== currentPlayer.id) return {};
+
+      const turnActor = self.getSnapshot().children.turn;
+      const turnSnapshot = turnActor?.getSnapshot();
+      const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+      if (turnSnapshot?.value !== "drawn") return {};
+      if (turnContext === null || turnContext.playerId !== currentPlayer.id) return {};
+      if (context.roundNumber === 6) return {};
+
+      const canLayOff = canLayOffCard({
+        isDown: currentPlayer.isDown,
+        laidDownThisTurn: turnContext.laidDownThisTurn,
+        hasDrawn: turnContext.hasDrawn,
+      });
+      if (!canLayOff) return {};
+
+      const ownership = validateCardOwnership(event.cardId, currentPlayer.hand);
+      if (!ownership.valid) return {};
+
+      const card = getCardFromHand(event.cardId, currentPlayer.hand);
+      if (!card) return {};
+
+      const targetMeld = context.table.find((meld) => meld.id === event.meldId);
+      if (!targetMeld) return {};
+
+      let updatedMeld: Meld | null = null;
+      if (targetMeld.type === "set") {
+        if (!canLayOffToSet(card, targetMeld)) return {};
+        updatedMeld = { ...targetMeld, cards: [...targetMeld.cards, card] };
+      } else {
+        if (!canLayOffToRun(card, targetMeld)) return {};
+        const insertPosition = resolveRunInsertPosition(card, targetMeld, event.position);
+        if (insertPosition === null) return {};
+        updatedMeld =
+          insertPosition === "start"
+            ? { ...targetMeld, cards: [card, ...targetMeld.cards] }
+            : { ...targetMeld, cards: [...targetMeld.cards, card] };
+      }
+
+      const updatedTable = context.table.map((meld) =>
+        meld.id === event.meldId && updatedMeld !== null ? updatedMeld : meld
+      );
+
+      return {
+        players: context.players.map((player, index) =>
+          index === context.currentPlayerIndex
+            ? {
+                ...player,
+                hand: currentPlayer.hand.filter((handCard) => handCard.id !== event.cardId),
+              }
+            : player
+        ),
+        table: updatedTable,
+      };
+    }),
+
+    applySwapJokerToRound: assign(({ context, event, self }) => {
+      if (event.type !== "SWAP_JOKER") return {};
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (!currentPlayer) return {};
+      if (event.playerId !== undefined && event.playerId !== currentPlayer.id) return {};
+
+      const turnActor = self.getSnapshot().children.turn;
+      const turnSnapshot = turnActor?.getSnapshot();
+      const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+      if (turnSnapshot?.value !== "drawn") return {};
+      if (turnContext === null || turnContext.playerId !== currentPlayer.id) return {};
+      if (context.roundNumber === 6) return {};
+      if (currentPlayer.isDown) return {};
+
+      const targetMeld = context.table.find((meld) => meld.id === event.meldId);
+      if (!targetMeld || targetMeld.type !== "run") return {};
+
+      const jokerCard = targetMeld.cards.find((card) => card.id === event.jokerCardId);
+      if (!jokerCard || jokerCard.rank !== "Joker") return {};
+
+      const swapCard = currentPlayer.hand.find((card) => card.id === event.swapCardId);
+      if (!swapCard) return {};
+      if (!canSwapJokerWithCard(targetMeld, jokerCard, swapCard)) return {};
+
+      const updatedTable = context.table.map((meld) => {
+        if (meld.id !== event.meldId) return meld;
+        return {
+          ...meld,
+          cards: meld.cards.map((card) =>
+            card.id === event.jokerCardId ? swapCard : card
+          ),
+        };
+      });
+
+      return {
+        players: context.players.map((player, index) =>
+          index === context.currentPlayerIndex
+            ? {
+                ...player,
+                hand: [
+                  ...currentPlayer.hand.filter((handCard) => handCard.id !== event.swapCardId),
+                  jokerCard,
+                ],
+              }
+            : player
+        ),
+        table: updatedTable,
+      };
+    }),
+
+    applyDiscardToRound: assign(({ context, event, self }) => {
+      if (event.type !== "DISCARD") return {};
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      if (!currentPlayer) return {};
+      if (event.playerId !== undefined && event.playerId !== currentPlayer.id) return {};
+
+      const turnActor = self.getSnapshot().children.turn;
+      const turnSnapshot = turnActor?.getSnapshot();
+      const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
+      if (turnSnapshot?.value !== "drawn" && turnSnapshot?.value !== "awaitingDiscard") {
+        return {};
+      }
+      if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
+
+      const card = currentPlayer.hand.find((handCard) => handCard.id === event.cardId);
+      if (!card) return {};
+
+      let removed = false;
+      return {
+        players: context.players.map((player, index) =>
+          index === context.currentPlayerIndex
+            ? {
+                ...player,
+                hand: player.hand.filter((handCard) => {
+                  if (!removed && handCard.id === event.cardId) {
+                    removed = true;
+                    return false;
+                  }
+                  return true;
+                }),
+              }
+            : player
+        ),
+        discard: [card, ...context.discard],
+      };
     }),
 
     initializeMayIResolution: assign(({ context, event }) => {
@@ -385,7 +657,7 @@ export const roundMachine = setup({
       return { mayIResolution: resolution };
     }),
 
-    grantMayICardsToWinner: assign(({ context, self }) => {
+    grantMayICardsToWinner: assign(({ context }) => {
       if (!context.mayIResolution?.winner) return {};
 
       const resolution = context.mayIResolution;
@@ -394,18 +666,8 @@ export const roundMachine = setup({
       const isCurrentPlayerClaim = resolution.outcome === "current_player_claimed";
       const claimedCardId = cardBeingClaimed.id;
 
-      // Fallback to round context if, for some reason, turn actor isn't available
       let stock: Card[] = context.stock;
       let discard: Card[] = context.discard;
-
-      // Read current piles from the invoked TurnMachine (if present)
-      const turnActor = self.getSnapshot().children.turn;
-      const turnSnapshot = turnActor?.getSnapshot();
-      const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
-      if (turnContext) {
-        stock = turnContext.stock;
-        discard = turnContext.discard;
-      }
 
       // Remove the claimed discard card from the discard pile (if still present)
       discard = discard.filter((c) => c.id !== claimedCardId);
@@ -441,11 +703,9 @@ export const roundMachine = setup({
         }
       }
 
-      const cardsToAdd: Card[] = [];
-      if (!isCurrentPlayerClaim) {
-        cardsToAdd.push(cardBeingClaimed);
-        if (penaltyCard) cardsToAdd.push(penaltyCard);
-      }
+      const cardsToAdd: Card[] = isCurrentPlayerClaim
+        ? [cardBeingClaimed]
+        : [cardBeingClaimed, ...(penaltyCard ? [penaltyCard] : [])];
 
       return {
         players: context.players.map((player) => {
@@ -468,13 +728,19 @@ export const roundMachine = setup({
       discardClaimed: false,
     }),
 
-    syncTurnPiles: sendTo("turn", ({ context }) => ({
-      type: "SYNC_PILES",
-      stock: context.stock,
-      discard: context.discard,
-    })),
+    syncTurnFromRound: sendTo("turn", ({ context }) => {
+      const currentPlayer = context.players[context.currentPlayerIndex];
+      return {
+        type: "SYNC_ROUND_STATE" as const,
+        hand: currentPlayer?.hand ?? [],
+        stock: context.stock,
+        discard: context.discard,
+        table: context.table,
+        isDown: currentPlayer?.isDown ?? false,
+      };
+    }),
 
-    reorderPlayerHand: assign(({ context, event, self }) => {
+    reorderPlayerHand: assign(({ context, event }) => {
       if (event.type !== "REORDER_HAND") return {};
       const playerId = event.playerId;
       if (!playerId) return {};
@@ -483,92 +749,14 @@ export const roundMachine = setup({
       if (playerIndex === -1) return {};
 
       const player = context.players[playerIndex]!;
-
-      // Get effective hand - use turn context for current player (has drawn card)
-      let hand = player.hand;
-      let currentTurnContext: TurnMachineContext | null = null;
-      const currentPlayer = context.players[context.currentPlayerIndex];
-      if (playerId === currentPlayer?.id && self) {
-        const turnActor = self.getSnapshot().children.turn;
-        const turnSnapshot = turnActor?.getSnapshot();
-        const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
-        if (turnContext !== null && turnContext.playerId === playerId) {
-          currentTurnContext = turnContext;
-          hand = turnContext.hand;
-        }
-      }
-
-      const result = reorderHandUtil(hand, event.newOrder);
+      const result = reorderHandUtil(player.hand, event.newOrder);
       if (!result.success) return {};
 
-      const players = context.players.map((p, i) => {
-        if (i !== playerIndex) return p;
-        return {
-          ...p,
-          hand: result.hand,
-          ...(currentTurnContext ? { isDown: currentTurnContext.isDown } : {}),
-        };
-      });
-
-      if (currentTurnContext) {
-        return {
-          players,
-          stock: currentTurnContext.stock,
-          discard: currentTurnContext.discard,
-          table: currentTurnContext.table,
-        };
-      }
-
       return {
-        players,
+        players: context.players.map((p, i) =>
+          i === playerIndex ? { ...p, hand: result.hand } : p
+        ),
       };
-    }),
-
-    syncTurnHand: sendTo("turn", ({ context, event, self }) => {
-      const getCurrentTurnPiles = (): { stock: Card[]; discard: Card[] } => {
-        const turnActor = self.getSnapshot().children.turn;
-        const turnSnapshot = turnActor?.getSnapshot();
-        const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
-        return {
-          stock: turnContext?.stock ?? context.stock,
-          discard: turnContext?.discard ?? context.discard,
-        };
-      };
-
-      if (event.type !== "REORDER_HAND") {
-        // Return no-op - shouldn't happen but type-safe
-        return { type: "SYNC_PILES" as const, ...getCurrentTurnPiles() };
-      }
-
-      const playerId = event.playerId;
-      const currentPlayer = context.players[context.currentPlayerIndex];
-
-      // Only sync if reorder is for the current player (turn actor exists for them)
-      if (currentPlayer?.id === playerId) {
-        // Get effective hand - use turn context for current player (has drawn card)
-        const playerIndex = context.players.findIndex((p) => p.id === playerId);
-        if (playerIndex !== -1) {
-          const player = context.players[playerIndex]!;
-          let hand = player.hand;
-
-          // Try to get turn context hand (authoritative for current player after draw)
-          const turnActor = self.getSnapshot().children.turn;
-          const turnSnapshot = turnActor?.getSnapshot();
-          const turnContext = (turnSnapshot?.context ?? null) as TurnMachineContext | null;
-          if (turnContext !== null && turnContext.playerId === playerId) {
-            hand = turnContext.hand;
-          }
-
-          // Validate using the same utility function
-          const result = reorderHandUtil(hand, event.newOrder);
-          if (result.success) {
-            return { type: "SYNC_HAND" as const, hand: result.hand };
-          }
-        }
-      }
-
-      // Not current player or invalid - return no-op sync
-      return { type: "SYNC_PILES" as const, ...getCurrentTurnPiles() };
     }),
   },
 }).createMachine({
@@ -707,33 +895,57 @@ export const roundMachine = setup({
             // Track when current player draws from stock (loses May I priority)
             DRAW_FROM_STOCK: {
               actions: [
+                "syncTurnFromRound",
                 "trackDrawFromStock",
+                "applyDrawFromStockToRound",
                 sendTo("turn", ({ event }) => event),
               ],
             },
             // Track when current player draws from discard (claims it)
             DRAW_FROM_DISCARD: {
               actions: [
+                "syncTurnFromRound",
                 assign({ discardClaimed: true }),
+                "applyDrawFromDiscardToRound",
                 sendTo("turn", ({ event }) => event),
               ],
             },
             // Forward other events to turn machine
             SKIP_LAY_DOWN: { actions: sendTo("turn", ({ event }) => event) },
-            LAY_DOWN: { actions: sendTo("turn", ({ event }) => event) },
-            LAY_OFF: { actions: sendTo("turn", ({ event }) => event) },
+            LAY_DOWN: {
+              actions: [
+                "syncTurnFromRound",
+                "applyLayDownToRound",
+                sendTo("turn", ({ event }) => event),
+              ],
+            },
+            LAY_OFF: {
+              actions: [
+                "syncTurnFromRound",
+                "applyLayOffToRound",
+                sendTo("turn", ({ event }) => event),
+              ],
+            },
             DISCARD: {
               actions: [
+                "syncTurnFromRound",
                 "resetDiscardClaimed",
+                "applyDiscardToRound",
                 sendTo("turn", ({ event }) => event),
               ],
             },
             PASS_MAY_I: { actions: sendTo("turn", ({ event }) => event) },
-            SWAP_JOKER: { actions: sendTo("turn", ({ event }) => event) },
+            SWAP_JOKER: {
+              actions: [
+                "syncTurnFromRound",
+                "applySwapJokerToRound",
+                sendTo("turn", ({ event }) => event),
+              ],
+            },
             // REORDER_HAND is handled at round level so any player can reorder anytime
             REORDER_HAND: {
               guard: "canReorderPlayerHand",
-              actions: ["reorderPlayerHand", "syncTurnHand"],
+              actions: ["reorderPlayerHand", "syncTurnFromRound"],
             },
             RESHUFFLE_STOCK: {
               guard: "stockEmpty",
@@ -786,6 +998,7 @@ export const roundMachine = setup({
                     guard: "isCurrentPlayerClaiming",
                     target: "resolved",
                     actions: [
+                      "syncTurnFromRound",
                       sendTo("turn", ({ event }) => ({
                         type: "DRAW_FROM_DISCARD",
                         playerId: event.type === "CLAIM_MAY_I" ? event.playerId : undefined,
@@ -810,7 +1023,7 @@ export const roundMachine = setup({
             target: "playing",
             actions: [
               "grantMayICardsToWinner",
-              "syncTurnPiles",
+              "syncTurnFromRound",
               "clearMayIResolution",
             ],
           },

@@ -21,13 +21,14 @@ import {
 } from "./mayi-room.lobby";
 import {
   handleAddAIPlayerMessage,
-  handleGameActionMessage,
   handleJoinMessage,
   handleRemoveAIPlayerMessage,
   handleStartGameMessage,
   handleSetStartingRoundMessage,
   type RoomPhase,
 } from "./mayi-room.message-handlers";
+import { executeStoredGameAction } from "./game-action-executor";
+import { GameActionQueue } from "./game-action-queue";
 
 import {
   parseClientMessage,
@@ -45,6 +46,7 @@ import { AI_MODEL_DISPLAY_NAMES } from "./ai-models";
 
 import {
   PartyGameAdapter,
+  mergeAIStatePreservingOtherPlayerHands,
   type StoredGameState,
 } from "./party-game-adapter";
 
@@ -79,6 +81,9 @@ export class MayIRoom extends Server {
 
   /** AI turn coordinator for abort support */
   private aiCoordinator: AITurnCoordinator | null = null;
+
+  /** Serializes game mutations so each action reads the latest stored state. */
+  private gameActionQueue = new GameActionQueue();
 
   /** Debug logging with game ID prefix */
   private log(message: string, ...args: unknown[]): void {
@@ -667,24 +672,25 @@ export class MayIRoom extends Server {
     conn: Connection<MayIRoomConnectionState>,
     msg: Extract<ClientMessage, { type: "GAME_ACTION" }>
   ) {
-    const roomPhase = await this.getRoomPhase();
     const callerPlayerId = conn.state?.playerId ?? null;
-    const gameState = roomPhase === "playing" ? await this.getGameState() : null;
+    const roomPhaseBeforeQueue = await this.getRoomPhase();
 
-    if (msg.action.type === "CALL_MAY_I" && roomPhase === "playing" && callerPlayerId && gameState) {
+    if (msg.action.type === "CALL_MAY_I" && roomPhaseBeforeQueue === "playing" && callerPlayerId) {
       const wasRunning = this.getAICoordinator().isRunning();
       this.logMayI(`CALL_MAY_I received from ${callerPlayerId}, AI turn running: ${wasRunning}`);
       this.getAICoordinator().abortCurrentTurn();
       this.logMayI(`AI turn aborted`);
     }
 
-    const result = handleGameActionMessage({
-      state: {
+    const result = await this.gameActionQueue.enqueue(async () => {
+      const roomPhase = await this.getRoomPhase();
+      return executeStoredGameAction({
         roomPhase,
         callerPlayerId,
-        gameState,
         action: msg.action,
-      },
+        getState: () => this.getGameState(),
+        setState: (state) => this.setGameState(state),
+      });
     });
 
     if (!result.ok) {
@@ -1141,7 +1147,13 @@ export class MayIRoom extends Server {
         debug: true, // Enable debug for May-I responses
         useFallbackOnError: true, // Use fallback if AI fails - auto-allow
         onPersist: async () => {
-          await this.setGameState(adapter.getStoredState());
+          const freshState = await this.getGameState();
+          const mergedState = mergeAIStatePreservingOtherPlayerHands(
+            freshState,
+            adapter.getStoredState(),
+            promptedMapping.engineId
+          );
+          await this.setGameState(mergedState);
           await this.broadcastGameState();
         },
       });
@@ -1151,7 +1163,13 @@ export class MayIRoom extends Server {
 
       if (result.success) {
         // Save state after AI response
-        await this.setGameState(adapter.getStoredState());
+        const freshState = await this.getGameState();
+        const mergedState = mergeAIStatePreservingOtherPlayerHands(
+          freshState,
+          adapter.getStoredState(),
+          promptedMapping.engineId
+        );
+        await this.setGameState(mergedState);
 
         // Check new phase
         const newSnapshot = adapter.getSnapshot();

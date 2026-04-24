@@ -1,8 +1,6 @@
 /**
- * Test that turnContext.discard is properly populated after drawing from discard.
- *
- * Bug hypothesis: turnContext.discard might be undefined, causing fallback to
- * roundContext.discard which still has the drawn card.
+ * Tests that drawing from discard updates both round-owned card state and the
+ * active turn actor's local copy.
  */
 
 import { describe, it, expect } from "bun:test";
@@ -20,10 +18,6 @@ describe("GameEngine turnContext.discard population", () => {
     const topDiscardBefore = snapshot1.discard[0]!;
     const topDiscardId = topDiscardBefore.id;
 
-    console.log(`Top discard before: ${topDiscardId}`);
-    console.log(`Discard count before: ${snapshot1.discard.length}`);
-
-    // Draw from discard
     engine.drawFromDiscard(currentPlayerId);
 
     // Get persisted snapshot to examine raw structure
@@ -31,35 +25,27 @@ describe("GameEngine turnContext.discard population", () => {
     const turnContext = persisted.children?.round?.snapshot?.children?.turn?.snapshot?.context;
     const roundContext = persisted.children?.round?.snapshot?.context;
 
-    console.log(`turnContext exists: ${!!turnContext}`);
-    console.log(`turnContext.discard exists: ${turnContext?.discard !== undefined}`);
-    console.log(`turnContext.discard length: ${turnContext?.discard?.length}`);
-    console.log(`roundContext.discard exists: ${roundContext?.discard !== undefined}`);
-    console.log(`roundContext.discard length: ${roundContext?.discard?.length}`);
-
-    // Check if turnContext.discard is defined
     expect(turnContext).toBeDefined();
     expect(turnContext.discard).toBeDefined();
     expect(Array.isArray(turnContext.discard)).toBe(true);
+    expect(roundContext).toBeDefined();
+    expect(roundContext.discard).toBeDefined();
+    expect(Array.isArray(roundContext.discard)).toBe(true);
 
-    // Card should NOT be in turnContext.discard
     const cardInTurnDiscard = turnContext.discard.some(
       (c: { id: string }) => c.id === topDiscardId
     );
     expect(cardInTurnDiscard).toBe(false);
 
-    // Card SHOULD be in turnContext.hand
     const cardInTurnHand = turnContext.hand.some(
       (c: { id: string }) => c.id === topDiscardId
     );
     expect(cardInTurnHand).toBe(true);
 
-    // roundContext.discard might still have the old card (it's not updated until turn ends)
-    // But extractGameSnapshot should prefer turnContext.discard
-    console.log(
-      `Card ${topDiscardId} in turnContext.discard: ${cardInTurnDiscard}`
+    const cardInRoundDiscard = roundContext.discard.some(
+      (c: { id: string }) => c.id === topDiscardId
     );
-    console.log(`Card ${topDiscardId} in turnContext.hand: ${cardInTurnHand}`);
+    expect(cardInRoundDiscard).toBe(false);
 
     // The extracted snapshot should show the correct discard
     const snapshot2 = engine.getSnapshot();
@@ -67,10 +53,6 @@ describe("GameEngine turnContext.discard population", () => {
       (c) => c.id === topDiscardId
     );
     expect(cardInSnapshotDiscard).toBe(false);
-
-    console.log(
-      `Card ${topDiscardId} in extracted snapshot.discard: ${cardInSnapshotDiscard}`
-    );
 
     engine.stop();
   });
@@ -99,11 +81,6 @@ describe("GameEngine turnContext.discard population", () => {
     const persisted = restored.getPersistedSnapshot() as any;
     const turnContext = persisted.children?.round?.snapshot?.children?.turn?.snapshot?.context;
 
-    console.log(`After restore - turnContext exists: ${!!turnContext}`);
-    console.log(`After restore - turnContext.discard exists: ${turnContext?.discard !== undefined}`);
-    console.log(`After restore - turnContext.discard length: ${turnContext?.discard?.length}`);
-
-    // turnContext.discard should still be defined and correct
     expect(turnContext).toBeDefined();
     expect(turnContext.discard).toBeDefined();
 
@@ -118,10 +95,6 @@ describe("GameEngine turnContext.discard population", () => {
       (c) => c.id === topDiscardId
     );
     expect(cardInSnapshotDiscard).toBe(false);
-
-    console.log(
-      `After restore - Card ${topDiscardId} in snapshot.discard: ${cardInSnapshotDiscard}`
-    );
 
     restored.stop();
   });

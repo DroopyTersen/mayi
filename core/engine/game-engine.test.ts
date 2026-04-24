@@ -281,14 +281,22 @@ describe("GameEngine", () => {
 
       const persisted = engine1.getPersistedSnapshot() as any;
       const roundSnapshot = persisted.children?.round?.snapshot;
-      const turnContext = roundSnapshot?.children?.turn?.snapshot?.context;
+      const roundContext = roundSnapshot?.context;
 
-      if (!turnContext || !Array.isArray(turnContext.hand) || turnContext.hand.length === 0) {
-        throw new Error("Expected turn hand in persisted snapshot");
+      if (!roundContext || !Array.isArray(roundContext.players)) {
+        throw new Error("Expected round players in persisted snapshot");
       }
 
-      const duplicateCard = turnContext.hand[0];
-      turnContext.discard = [duplicateCard, ...(turnContext.discard ?? [])];
+      const playerWithCards = roundContext.players.find(
+        (player: { hand?: unknown[] }) =>
+          Array.isArray(player.hand) && player.hand.length > 0
+      );
+      if (!playerWithCards || !Array.isArray(playerWithCards.hand)) {
+        throw new Error("Expected round hand in persisted snapshot");
+      }
+
+      const duplicateCard = playerWithCards.hand[0];
+      roundContext.discard = [duplicateCard, ...(roundContext.discard ?? [])];
 
       engine1.stop();
       const engine2 = GameEngine.fromPersistedSnapshot(persisted);

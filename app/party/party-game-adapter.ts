@@ -16,6 +16,11 @@ import type {
   MeldSpec,
   GameSnapshot,
 } from "../../core/engine/game-engine.types";
+import type { Card } from "../../core/card/card.types";
+import {
+  validateCardZones,
+  type CardZone,
+} from "../../core/engine/card-state.invariants";
 import type { RoundNumber } from "../../core/engine/engine.types";
 import type { AIPlayerInfo, HumanPlayerInfo, ActivityLogEntry } from "./protocol.types";
 import { renderCard } from "../../cli/shared/cli.renderer";
@@ -61,6 +66,8 @@ export interface StoredGameState {
   updatedAt: string;
   /** Activity log entries */
   activityLog: ActivityLogEntry[];
+  /** Monotonic mutation revision. Missing means revision 0 for older stored games. */
+  revision?: number;
 }
 
 /**
@@ -75,6 +82,78 @@ export interface CreateGameFromLobbyOptions {
   aiPlayers: AIPlayerInfo[];
   /** Starting round (1-6) */
   startingRound: RoundNumber;
+}
+
+function isCardLike(value: unknown): value is Card {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof (value as { id: unknown }).id === "string"
+  );
+}
+
+function toCardArray(value: unknown): Card[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isCardLike);
+}
+
+function uniqueCardsById(values: unknown[]): Card[] {
+  const cardsById = new Map<string, Card>();
+
+  for (const value of values) {
+    for (const card of toCardArray(value)) {
+      if (!cardsById.has(card.id)) {
+        cardsById.set(card.id, card);
+      }
+    }
+  }
+
+  return [...cardsById.values()];
+}
+
+function tableCardsFromContext(context: unknown): Card[] {
+  const table = (context as { table?: unknown } | null)?.table;
+  if (!Array.isArray(table)) return [];
+
+  const cards: Card[] = [];
+  for (const meld of table) {
+    const meldCards = (meld as { cards?: unknown } | null)?.cards;
+    cards.push(...toCardArray(meldCards));
+  }
+  return cards;
+}
+
+function buildMergeInvariantZones(
+  players: Array<{ id: string; hand: unknown }>,
+  roundContext: { stock?: unknown; discard?: unknown; table?: unknown } | undefined,
+  turnContext: { stock?: unknown; discard?: unknown; table?: unknown } | undefined
+): CardZone[] {
+  return [
+    ...players.map((player) => ({
+      id: `hand:${player.id}`,
+      label: `Hand ${player.id}`,
+      cards: toCardArray(player.hand),
+    })),
+    {
+      id: "stock",
+      label: "Stock",
+      cards: uniqueCardsById([roundContext?.stock, turnContext?.stock]),
+    },
+    {
+      id: "discard",
+      label: "Discard",
+      cards: uniqueCardsById([roundContext?.discard, turnContext?.discard]),
+    },
+    {
+      id: "table",
+      label: "Table",
+      cards: uniqueCardsById([
+        tableCardsFromContext(roundContext),
+        tableCardsFromContext(turnContext),
+      ]),
+    },
+  ];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -112,7 +191,6 @@ export function mergeAIStatePreservingOtherPlayerHands(
   currentPlayerEngineId: string
 ): StoredGameState {
   type RoundSnapshotPlayer = { id: string; hand: unknown; isDown?: boolean };
-  type CardLike = { id: string };
 
   // If no fresh state, just use AI state
   if (!freshState) return aiState;
@@ -176,15 +254,9 @@ export function mergeAIStatePreservingOtherPlayerHands(
     }
   );
 
-  // XState keeps the current player's authoritative hand in the TurnMachine
-  // context. After an AI turn completes, the persisted snapshot often includes
-  // a newly spawned TurnMachine for the NEXT player. If the AI's adapter was
-  // stale (e.g., May-I resolved while AI was "thinking"), we can end up with:
-  // - round.context.players[N].hand (fresh, merged) ✅
-  // - turn.context.hand (stale) ❌
-  //
-  // GameEngine prefers turn.context.hand for the current player when building
-  // PlayerView, so we must keep the TurnMachine hand in sync for non-AI players.
+  // Round context is authoritative for visible card zones. The active
+  // TurnMachine still validates turn events against its local copy, so keep
+  // that copy aligned when a merge preserves a non-AI player's fresh hand.
   const turnContext =
     aiSnapshot?.children?.round?.snapshot?.children?.turn?.snapshot?.context;
   const turnPlayerId = turnContext?.playerId as string | undefined;
@@ -250,90 +322,17 @@ export function mergeAIStatePreservingOtherPlayerHands(
     },
   };
 
-  // Safety: If the merged snapshot has duplicate card IDs across hands, or any
-  // hand card ID also appears in stock/discard piles, the AI snapshot is stale
-  // relative to storage. Returning the fresh state avoids resurrecting cards
-  // (e.g., after a May-I resolution) and prevents duplicate dealing.
-  const handCardIds = new Set<string>();
-  let hasDuplicateHandCards = false;
-  for (const player of mergedPlayers) {
-    const hand = player.hand;
-    if (!Array.isArray(hand)) continue;
-    for (const card of hand) {
-      if (!card || typeof card !== "object") continue;
-      const id = (card as CardLike).id;
-      if (typeof id === "string") {
-        if (handCardIds.has(id)) {
-          hasDuplicateHandCards = true;
-        }
-        handCardIds.add(id);
-      }
-    }
-  }
-
-  if (hasDuplicateHandCards) return freshState;
-
   const mergedRoundContext = mergedSnapshot?.children?.round?.snapshot?.context as
-    | { stock?: unknown; discard?: unknown }
+    | { stock?: unknown; discard?: unknown; table?: unknown }
     | undefined;
   const mergedTurnContext = mergedSnapshot?.children?.round?.snapshot?.children?.turn?.snapshot
     ?.context as
-    | { stock?: unknown; discard?: unknown }
+    | { stock?: unknown; discard?: unknown; table?: unknown }
     | undefined;
-
-  const pilesToCheck: unknown[] = [
-    mergedRoundContext?.stock,
-    mergedRoundContext?.discard,
-    mergedTurnContext?.stock,
-    mergedTurnContext?.discard,
-  ];
-
-  const hasHandPileOverlap = pilesToCheck.some((pile) => {
-    if (!Array.isArray(pile)) return false;
-    return pile.some((card) => {
-      if (!card || typeof card !== "object") return false;
-      const id = (card as CardLike).id;
-      return typeof id === "string" && handCardIds.has(id);
-    });
-  });
-
-  if (hasHandPileOverlap) return freshState;
-
-  // Safety: Check for stock-discard overlap (card appearing in both stock AND discard).
-  // This can happen when round.context and turn.context become desynchronized
-  // during AI turn merges (e.g., card in round.stock AND turn.discard).
-  // Note: round.stock and turn.stock may legitimately contain the same cards
-  // (they're synchronized), so we only check stock vs discard overlap.
-  const stockCardIds = new Set<string>();
-  const discardCardIds = new Set<string>();
-
-  // Collect stock card IDs from both contexts
-  for (const stockPile of [mergedRoundContext?.stock, mergedTurnContext?.stock]) {
-    if (!Array.isArray(stockPile)) continue;
-    for (const card of stockPile) {
-      if (!card || typeof card !== "object") continue;
-      const id = (card as CardLike).id;
-      if (typeof id === "string") {
-        stockCardIds.add(id);
-      }
-    }
-  }
-
-  // Collect discard card IDs from both contexts
-  for (const discardPile of [mergedRoundContext?.discard, mergedTurnContext?.discard]) {
-    if (!Array.isArray(discardPile)) continue;
-    for (const card of discardPile) {
-      if (!card || typeof card !== "object") continue;
-      const id = (card as CardLike).id;
-      if (typeof id === "string") {
-        discardCardIds.add(id);
-      }
-    }
-  }
-
-  // Check if any card appears in both stock and discard
-  const hasStockDiscardOverlap = [...stockCardIds].some((id) => discardCardIds.has(id));
-  if (hasStockDiscardOverlap) return freshState;
+  const invariantReport = validateCardZones(
+    buildMergeInvariantZones(mergedPlayers, mergedRoundContext, mergedTurnContext)
+  );
+  if (!invariantReport.ok) return freshState;
 
   return {
     ...aiState,

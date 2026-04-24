@@ -72,15 +72,20 @@ export interface TurnContext {
 export type TurnEvent =
   | { type: "DRAW_FROM_STOCK"; playerId?: string }
   | { type: "DRAW_FROM_DISCARD"; playerId?: string }
-  | { type: "SYNC_PILES"; stock: Card[]; discard: Card[] }
+  | {
+      type: "SYNC_ROUND_STATE";
+      hand: Card[];
+      stock: Card[];
+      discard: Card[];
+      table: Meld[];
+      isDown: boolean;
+    }
   | { type: "CALL_MAY_I"; playerId: string }
   | { type: "SKIP_LAY_DOWN"; playerId?: string }
   | { type: "LAY_DOWN"; playerId?: string; melds: MeldProposal[] }
   | { type: "LAY_OFF"; playerId?: string; cardId: string; meldId: string; position?: "start" | "end" }
   | { type: "DISCARD"; playerId?: string; cardId: string }
-  | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string }
-  | { type: "REORDER_HAND"; playerId?: string; newOrder: string[] }
-  | { type: "SYNC_HAND"; hand: Card[] };
+  | { type: "SWAP_JOKER"; playerId?: string; jokerCardId: string; meldId: string; swapCardId: string };
 
 /**
  * Input required to create a TurnMachine actor
@@ -307,23 +312,6 @@ export const turnMachine = setup({
       // Check if swap is valid using the meld.joker utility
       return canSwapJokerWithCard(meld, jokerCard, swapCard);
     },
-    // Check if hand can be reordered (free action)
-    canReorderHand: ({ context, event }) => {
-      if (event.type !== "REORDER_HAND") return false;
-      // Must be current player (when provided)
-      if (event.playerId !== undefined && event.playerId !== context.playerId) return false;
-      // Must have same number of cards
-      if (event.newOrder.length !== context.hand.length) return false;
-      // All cards in newOrder must be in hand
-      const handIds = new Set(context.hand.map((c) => c.id));
-      for (const cardId of event.newOrder) {
-        if (!handIds.has(cardId)) return false;
-      }
-      // All cards in hand must be in newOrder (no duplicates, no missing)
-      const orderIds = new Set(event.newOrder);
-      if (orderIds.size !== event.newOrder.length) return false;
-      return true;
-    },
   },
   actions: {
     clearError: assign({
@@ -446,16 +434,15 @@ export const turnMachine = setup({
         return [card, ...context.discard];
       },
     }),
-    syncPiles: assign(({ event }) => {
-      if (event.type !== "SYNC_PILES") return {};
+    syncRoundState: assign(({ event }) => {
+      if (event.type !== "SYNC_ROUND_STATE") return {};
       return {
+        hand: event.hand,
         stock: event.stock,
         discard: event.discard,
+        table: event.table,
+        isDown: event.isDown,
       };
-    }),
-    syncHand: assign(({ event }) => {
-      if (event.type !== "SYNC_HAND") return {};
-      return { hand: event.hand };
     }),
     layDown: assign({
       hand: ({ context, event }) => {
@@ -566,54 +553,12 @@ export const turnMachine = setup({
       },
       tookActionThisTurn: () => true,
     }),
-    // REORDER_HAND action - reorder cards in hand (free action)
-    reorderHand: assign({
-      hand: ({ context, event }) => {
-        if (event.type !== "REORDER_HAND") return context.hand;
-
-        // Reorder hand according to newOrder
-        const cardMap = new Map(context.hand.map((c) => [c.id, c]));
-        const reordered: Card[] = [];
-        for (const cardId of event.newOrder) {
-          const card = cardMap.get(cardId);
-          if (card) {
-            reordered.push(card);
-          }
-        }
-        return reordered;
-      },
-    }),
-    setReorderError: assign({
-      lastError: ({ context, event }) => {
-        if (event.type !== "REORDER_HAND") return "invalid event";
-        if (event.playerId !== undefined && event.playerId !== context.playerId) {
-          return context.lastError;
-        }
-        if (event.newOrder.length !== context.hand.length) {
-          return "card count mismatch";
-        }
-        const handIds = new Set(context.hand.map((c) => c.id));
-        for (const cardId of event.newOrder) {
-          if (!handIds.has(cardId)) {
-            return "card not in hand";
-          }
-        }
-        const orderIds = new Set(event.newOrder);
-        for (const card of context.hand) {
-          if (!orderIds.has(card.id)) {
-            return "card missing from new order";
-          }
-        }
-        return "invalid reorder";
-      },
-    }),
   },
 }).createMachine({
   id: "turn",
   initial: "awaitingDraw",
   on: {
-    SYNC_PILES: { actions: "syncPiles" },
-    SYNC_HAND: { actions: "syncHand" },
+    SYNC_ROUND_STATE: { actions: "syncRoundState" },
   },
   context: ({ input }) => ({
     playerId: input.playerId,
@@ -644,7 +589,8 @@ export const turnMachine = setup({
       wentOut: context.hand.length === 0,
     };
   },
-  // Note: REORDER_HAND is now handled at round level and synced via SYNC_HAND
+  // User REORDER_HAND commands are handled by RoundMachine. SYNC_ROUND_STATE
+  // keeps this phase actor aligned with the round-owned physical card state.
   states: {
     awaitingDraw: {
       on: {
@@ -671,7 +617,6 @@ export const turnMachine = setup({
       },
     },
     // Note: mayIWindow state removed - May I is now handled at round level
-    // Note: REORDER_HAND is now handled at round level via SYNC_HAND
     drawn: {
       on: {
         SKIP_LAY_DOWN: {
