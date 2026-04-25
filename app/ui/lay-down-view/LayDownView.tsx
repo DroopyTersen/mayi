@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
+import { isValidRun, isValidSet } from "core/meld/meld.validation";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
@@ -10,9 +11,84 @@ interface Contract {
   runs: number;
 }
 
-interface StagedMeld {
+export interface StagedMeld {
   type: "set" | "run";
   cards: Card[];
+}
+
+interface StageCardInMeldsInput {
+  stagedMelds: StagedMeld[];
+  card: Card;
+  activeMeldIndex: number;
+}
+
+interface StageCardInMeldsResult {
+  stagedMelds: StagedMeld[];
+  activeMeldIndex: number;
+}
+
+interface LayDownStagingState {
+  stagedMelds: StagedMeld[];
+  activeMeldIndex: number;
+}
+
+function minimumMeldCardCount(type: StagedMeld["type"]): number {
+  return type === "set" ? 3 : 4;
+}
+
+function isMeldComplete(meld: StagedMeld): boolean {
+  return meld.cards.length >= minimumMeldCardCount(meld.type);
+}
+
+function findNextIncompleteMeldIndex(
+  stagedMelds: StagedMeld[],
+  fromIndex: number
+): number {
+  for (let offset = 1; offset <= stagedMelds.length; offset++) {
+    const index = (fromIndex + offset) % stagedMelds.length;
+    const meld = stagedMelds[index];
+    if (meld && !isMeldComplete(meld)) {
+      return index;
+    }
+  }
+
+  return fromIndex;
+}
+
+function isStagedMeldValid(meld: StagedMeld): boolean {
+  return meld.type === "set" ? isValidSet(meld.cards) : isValidRun(meld.cards);
+}
+
+export function stageCardInMelds({
+  stagedMelds,
+  card,
+  activeMeldIndex,
+}: StageCardInMeldsInput): StageCardInMeldsResult {
+  if (stagedMelds.some((m) => m.cards.some((c) => c.id === card.id))) {
+    return { stagedMelds, activeMeldIndex };
+  }
+
+  const preferredMeld = stagedMelds[activeMeldIndex];
+  const targetIndex = preferredMeld && !isMeldComplete(preferredMeld)
+    ? activeMeldIndex
+    : findNextIncompleteMeldIndex(stagedMelds, activeMeldIndex);
+
+  const targetMeld = stagedMelds[targetIndex];
+  if (!targetMeld) {
+    return { stagedMelds, activeMeldIndex };
+  }
+
+  const next = stagedMelds.map((meld, index) =>
+    index === targetIndex
+      ? { ...meld, cards: [...meld.cards, card] }
+      : meld
+  );
+  const nextTarget = next[targetIndex];
+  const nextActiveMeldIndex = nextTarget && isMeldComplete(nextTarget)
+    ? findNextIncompleteMeldIndex(next, targetIndex)
+    : targetIndex;
+
+  return { stagedMelds: next, activeMeldIndex: nextActiveMeldIndex };
 }
 
 interface LayDownViewProps {
@@ -39,8 +115,11 @@ export function LayDownView({
     ...Array(contract.runs).fill(null).map(() => ({ type: "run" as const, cards: [] })),
   ];
 
-  const [stagedMelds, setStagedMelds] = useState<StagedMeld[]>(initialStagedMelds ?? defaultMelds);
-  const [activeMeldIndex, setActiveMeldIndex] = useState<number>(0);
+  const [stagingState, setStagingState] = useState<LayDownStagingState>({
+    stagedMelds: initialStagedMelds ?? defaultMelds,
+    activeMeldIndex: 0,
+  });
+  const { stagedMelds, activeMeldIndex } = stagingState;
 
   // Cards not yet staged
   const stagedCardIds = new Set(stagedMelds.flatMap((m) => m.cards.map((c) => c.id)));
@@ -50,35 +129,29 @@ export function LayDownView({
     const card = availableCards.find((c) => c.id === cardId);
     if (!card) return;
 
-    setStagedMelds((prev) => {
-      // Defensive: prevent the same card id from being staged multiple times
-      // (e.g. rapid taps / double-fired events before re-render).
-      const alreadyStaged = prev.some((m) => m.cards.some((c) => c.id === card.id));
-      if (alreadyStaged) return prev;
-
-      const activeMeld = prev[activeMeldIndex];
-      if (!activeMeld) return prev;
-
-      const next = [...prev];
-      next[activeMeldIndex] = {
-        ...activeMeld,
-        cards: [...activeMeld.cards, card],
-      };
-      return next;
-    });
+    setStagingState((prev) =>
+      stageCardInMelds({
+        stagedMelds: prev.stagedMelds,
+        card,
+        activeMeldIndex: prev.activeMeldIndex,
+      })
+    );
   };
 
   const removeCardFromMeld = (meldIndex: number, cardId: string) => {
-    setStagedMelds((prev) => {
-      const meld = prev[meldIndex];
+    setStagingState((prev) => {
+      const meld = prev.stagedMelds[meldIndex];
       if (!meld) return prev;
 
-      const next = [...prev];
+      const next = [...prev.stagedMelds];
       next[meldIndex] = {
         ...meld,
         cards: meld.cards.filter((c) => c.id !== cardId),
       };
-      return next;
+      return {
+        stagedMelds: next,
+        activeMeldIndex: meldIndex,
+      };
     });
   };
 
@@ -86,10 +159,7 @@ export function LayDownView({
     onLayDown(stagedMelds);
   };
 
-  // Validation: sets need 3+ cards, runs need 4+ cards
-  const allMeldsValid = stagedMelds.every((m) =>
-    m.type === "set" ? m.cards.length >= 3 : m.cards.length >= 4
-  );
+  const allMeldsValid = stagedMelds.every(isStagedMeldValid);
 
   return (
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
@@ -103,6 +173,7 @@ export function LayDownView({
             cards={availableCards}
             onCardClick={handleCardClick}
             size="sm"
+            overlap="none"
           />
         </div>
       </div>
@@ -123,7 +194,12 @@ export function LayDownView({
                   ? "border-primary bg-primary/5"
                   : "border-dashed border-muted-foreground/30"
               )}
-              onClick={() => setActiveMeldIndex(index)}
+              onClick={() =>
+                setStagingState((prev) => ({
+                  ...prev,
+                  activeMeldIndex: index,
+                }))
+              }
             >
               <div className="text-xs text-muted-foreground mb-2 font-medium">
                 {meld.type === "set" ? "Set" : "Run"} {index + 1}
@@ -148,7 +224,7 @@ export function LayDownView({
                         removeCardFromMeld(index, card.id);
                       }}
                     >
-                      <PlayingCard card={card} size="sm" />
+                      <PlayingCard card={card} size="sm" onClick={() => undefined} />
                       {/* Remove overlay on hover */}
                       <div className="absolute inset-0 bg-destructive/0 group-hover:bg-destructive/30 rounded-lg transition-colors flex items-center justify-center">
                         <span className="text-transparent group-hover:text-destructive-foreground text-xs font-bold">

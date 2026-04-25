@@ -703,6 +703,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           errorMessage={gameError}
           connectionStatus={connectionStatus}
           mayINotification={mayINotification}
+          suppressActionDrawers={Boolean(roundEndData || gameEndData)}
         />
         {/* Phase 3.6: May I Prompt Dialog */}
         {mayIPrompt && (

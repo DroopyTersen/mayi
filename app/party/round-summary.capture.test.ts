@@ -158,6 +158,37 @@ describe("captureRoundSummary", () => {
     expect(result.playerHands["loser"]).toHaveLength(1);
   });
 
+  it("uses the completed round winner when the captured snapshot was taken before the winning AI turn", () => {
+    const snapshot = createTestSnapshot({
+      currentRound: 1,
+      players: [
+        {
+          id: "player-0",
+          name: "Alice",
+          hand: [mockCard("a1", 9, "hearts")],
+          isDown: true,
+          totalScore: 34,
+        },
+        {
+          id: "player-1",
+          name: "AI Winner",
+          hand: [mockCard("w1", 3, "hearts")],
+          isDown: true,
+          totalScore: 0,
+        },
+      ],
+    });
+    const playerMappings: PlayerMapping[] = [
+      { lobbyId: "lobby-alice", engineId: "player-0", name: "Alice", isAI: false },
+      { lobbyId: "lobby-ai", engineId: "player-1", name: "AI Winner", isAI: true, aiModelId: "grok" },
+    ];
+
+    const result = captureRoundSummary(snapshot, playerMappings, "player-1");
+
+    expect(result.winnerId).toBe("lobby-ai");
+    expect(result.playerHands["lobby-ai"]).toEqual([]);
+  });
+
   it("captures multiple melds per player correctly", () => {
     const snapshot = createTestSnapshot({
       currentRound: 3,
@@ -184,10 +215,47 @@ describe("captureRoundSummary", () => {
 
     // All melds should be captured
     expect(result.tableMelds).toHaveLength(3);
-    // First two melds belong to player-0
-    expect(result.tableMelds.filter(m => m.ownerId === "player-0")).toHaveLength(2);
-    // Third meld belongs to player-1
-    expect(result.tableMelds.filter(m => m.ownerId === "player-1")).toHaveLength(1);
+    // First two melds belong to player-0, mapped to lobby ID
+    expect(result.tableMelds.filter(m => m.ownerId === "player-multi")).toHaveLength(2);
+    // Third meld belongs to player-1, mapped to lobby ID
+    expect(result.tableMelds.filter(m => m.ownerId === "player-single")).toHaveLength(1);
+  });
+
+  it("maps table meld owner IDs to lobby player IDs for summary display", () => {
+    const snapshot = createTestSnapshot({
+      table: [
+        mockMeld(
+          "winner-run",
+          "player-0",
+          [
+            mockCard("d5", 5, "diamonds"),
+            mockCard("d6", 6, "diamonds"),
+            mockCard("d7", 7, "diamonds"),
+            mockCard("d9", 9, "diamonds"),
+          ],
+          "run"
+        ),
+      ],
+      players: [
+        { id: "player-0", name: "Agent", hand: [], isDown: true, totalScore: 61 },
+        {
+          id: "player-1",
+          name: "Grok",
+          hand: [mockCard("g1", 8, "spades")],
+          isDown: false,
+          totalScore: 89,
+        },
+      ],
+    });
+    const playerMappings: PlayerMapping[] = [
+      { lobbyId: "lobby-agent", engineId: "player-0", name: "Agent", isAI: false },
+      { lobbyId: "lobby-grok", engineId: "player-1", name: "Grok", isAI: true },
+    ];
+
+    const result = captureRoundSummary(snapshot, playerMappings);
+
+    expect(result.tableMelds).toHaveLength(1);
+    expect(result.tableMelds[0]?.ownerId).toBe("lobby-agent");
   });
 
   it("handles player with 15+ remaining cards", () => {

@@ -37,6 +37,7 @@ interface GameViewProps {
   connectionStatus?: ConnectionStatus;
   /** May I notification shown to all players in table view */
   mayINotification?: MayINotificationState | null;
+  suppressActionDrawers?: boolean;
   className?: string;
 }
 
@@ -48,6 +49,7 @@ export function GameView({
   errorMessage,
   connectionStatus = "connected",
   mayINotification,
+  suppressActionDrawers = false,
   className,
 }: GameViewProps) {
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
@@ -200,6 +202,7 @@ export function GameView({
       {/* All Drawers */}
       <GameViewDrawers
         activeDrawer={state.activeDrawer}
+        drawersEnabled={!suppressActionDrawers}
         closeDrawer={state.closeDrawer}
         gameState={gameState}
         tablePlayers={derived.tablePlayers}
