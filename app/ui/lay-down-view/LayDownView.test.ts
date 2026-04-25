@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { Card } from "core/card/card.types";
-import { stageCardInMelds, type StagedMeld } from "./LayDownView";
+import { LayDownView, stageCardInMelds, type StagedMeld } from "./LayDownView";
 
 const card = (id: string, rank: Card["rank"], suit: Card["suit"]): Card => ({
   id,
@@ -63,5 +65,27 @@ describe("LayDownView staging", () => {
       "a-hearts",
     ]);
     expect(result.activeMeldIndex).toBe(1);
+  });
+
+  it("enables lay down for a staged run that the engine can normalize", () => {
+    const runCards = [
+      card("six-hearts", "6", "hearts"),
+      card("three-hearts", "3", "hearts"),
+      card("five-hearts", "5", "hearts"),
+      card("four-hearts", "4", "hearts"),
+    ];
+
+    const html = renderToStaticMarkup(
+      createElement(LayDownView, {
+        hand: runCards,
+        contract: { sets: 0, runs: 1 },
+        initialStagedMelds: [{ type: "run", cards: runCards }],
+        onLayDown: () => undefined,
+        onCancel: () => undefined,
+      })
+    );
+
+    expect(html).toContain(">Lay Down</button>");
+    expect(html).not.toContain("disabled=\"\"");
   });
 });

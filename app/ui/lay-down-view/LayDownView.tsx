@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
 import { isValidRun, isValidSet } from "core/meld/meld.validation";
+import { normalizeRunCards } from "core/meld/run.normalizer";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
@@ -56,7 +57,11 @@ function findNextIncompleteMeldIndex(
 }
 
 function isStagedMeldValid(meld: StagedMeld): boolean {
-  return meld.type === "set" ? isValidSet(meld.cards) : isValidRun(meld.cards);
+  if (meld.type === "set") {
+    return isValidSet(meld.cards);
+  }
+
+  return isValidRun(meld.cards) || normalizeRunCards(meld.cards).success;
 }
 
 export function stageCardInMelds({
