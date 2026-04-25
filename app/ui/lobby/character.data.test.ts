@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   ALL_CHARACTERS,
@@ -22,5 +22,35 @@ describe("character data", () => {
     expect(ALL_CHARACTERS.map((character) => character.id)).toContain("carter");
     expect(existsSync(join(process.cwd(), "public/avatars/carter.svg"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/avatars/carter.png"))).toBe(true);
+  });
+
+  it("uses self-contained SVG wrappers for generated PNG avatars", () => {
+    const avatarIds = ["carter", "maggie-theo"];
+
+    for (const avatarId of avatarIds) {
+      const svg = readFileSync(
+        join(process.cwd(), `public/avatars/${avatarId}.svg`),
+        "utf8"
+      );
+
+      expect(svg).toContain("data:image/png;base64,");
+      expect(svg).not.toContain(`href="${avatarId}.png"`);
+    }
+  });
+
+  it("includes Maggie & Theo as one selectable family character with avatar assets", () => {
+    const maggieTheo = getCharacterById("maggie-theo");
+
+    expect(maggieTheo).toEqual({
+      id: "maggie-theo",
+      name: "Maggie & Theo",
+      description: "Golden retriever duo keeping a close eye on the table",
+      category: "family",
+      avatarPath: "/avatars/maggie-theo.svg",
+    });
+    expect(FAMILY_CHARACTERS.map((character) => character.id)).toContain("maggie-theo");
+    expect(ALL_CHARACTERS.map((character) => character.id)).toContain("maggie-theo");
+    expect(existsSync(join(process.cwd(), "public/avatars/maggie-theo.svg"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/avatars/maggie-theo.png"))).toBe(true);
   });
 });
