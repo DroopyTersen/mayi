@@ -25,7 +25,7 @@ describe("character data", () => {
   });
 
   it("uses self-contained SVG wrappers for generated PNG avatars", () => {
-    const avatarIds = ["carter", "maggie-theo"];
+    const avatarIds = ["carter", "hannah", "maggie-theo"];
 
     for (const avatarId of avatarIds) {
       const svg = readFileSync(
@@ -52,5 +52,21 @@ describe("character data", () => {
     expect(ALL_CHARACTERS.map((character) => character.id)).toContain("maggie-theo");
     expect(existsSync(join(process.cwd(), "public/avatars/maggie-theo.svg"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/avatars/maggie-theo.png"))).toBe(true);
+  });
+
+  it("includes Hannah as a selectable family character with avatar assets", () => {
+    const hannah = getCharacterById("hannah");
+
+    expect(hannah).toEqual({
+      id: "hannah",
+      name: "Hannah",
+      description: "Warm-hearted player with a sharp eye for the table",
+      category: "family",
+      avatarPath: "/avatars/hannah.svg",
+    });
+    expect(FAMILY_CHARACTERS.map((character) => character.id)).toContain("hannah");
+    expect(ALL_CHARACTERS.map((character) => character.id)).toContain("hannah");
+    expect(existsSync(join(process.cwd(), "public/avatars/hannah.svg"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/avatars/hannah.png"))).toBe(true);
   });
 });

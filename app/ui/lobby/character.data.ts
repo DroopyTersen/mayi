@@ -52,6 +52,13 @@ export const FAMILY_CHARACTERS: Character[] = [
     avatarPath: "/avatars/carter.svg",
   },
   {
+    id: "hannah",
+    name: "Hannah",
+    description: "Warm-hearted player with a sharp eye for the table",
+    category: "family",
+    avatarPath: "/avatars/hannah.svg",
+  },
+  {
     id: "maggie-theo",
     name: "Maggie & Theo",
     description: "Golden retriever duo keeping a close eye on the table",
