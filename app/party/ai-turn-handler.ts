@@ -13,6 +13,7 @@ import { executeTurn, type ExecuteTurnResult } from "../../ai/mayIAgent";
 import { createWorkerAIModelAsync, type AIEnv } from "./ai-model-factory";
 import { isValidRun, isValidSet } from "../../core/meld/meld.validation";
 import { renderCard } from "../../cli/shared/cli.renderer";
+import type { GameAction } from "./protocol.types";
 
 /**
  * Adapter that makes PartyGameAdapter look like AIGameAdapter for AI agent
@@ -253,6 +254,172 @@ export class AIGameAdapterProxy implements AIGameAdapter {
       this.adapter.logMayIResolved(this.aiPlayerId, cardRendered, true);
     }
     return result;
+  }
+}
+
+export type QueuedAIGameActionResult =
+  | { ok: true; snapshot: GameSnapshot }
+  | { ok: false; snapshot: GameSnapshot; error: string };
+
+export interface QueuedAIGameActionExecutor {
+  getSnapshot: () => Promise<GameSnapshot>;
+  execute: (action: GameAction) => Promise<QueuedAIGameActionResult>;
+}
+
+export interface QueuedAIGameAdapterProxyOptions {
+  aiLobbyId: string;
+  aiEngineId: string;
+}
+
+/**
+ * AI adapter that executes every tool action through the room action queue.
+ *
+ * It keeps the LLM's position-based API, but position-to-card mapping happens
+ * against the latest persisted snapshot immediately before each action.
+ */
+export class QueuedAIGameAdapterProxy implements AIGameAdapter {
+  constructor(
+    private executor: QueuedAIGameActionExecutor,
+    private options: QueuedAIGameAdapterProxyOptions
+  ) {}
+
+  async getSnapshot(): Promise<GameSnapshot> {
+    return this.executor.getSnapshot();
+  }
+
+  async drawFromStock(): Promise<GameSnapshot> {
+    return this.execute({ type: "DRAW_FROM_STOCK" });
+  }
+
+  async drawFromDiscard(): Promise<GameSnapshot> {
+    return this.execute({ type: "DRAW_FROM_DISCARD" });
+  }
+
+  async skip(): Promise<GameSnapshot> {
+    return this.execute({ type: "SKIP" });
+  }
+
+  async layDown(meldGroups: number[][]): Promise<GameSnapshot> {
+    const snapshot = await this.getSnapshot();
+    const player = this.findAIPlayer(snapshot);
+    if (!player) {
+      return this.withError(snapshot, "AI player not found in latest snapshot");
+    }
+
+    const melds: MeldSpec[] = [];
+    for (const group of meldGroups) {
+      const cards = group.map((position) => player.hand[position - 1]);
+      if (cards.some((card) => card === undefined)) {
+        return this.withError(snapshot, "Card position out of range");
+      }
+
+      const concreteCards = cards.filter((card) => card !== undefined);
+      const canBeSet = isValidSet(concreteCards);
+      const canBeRun = isValidRun(concreteCards);
+      const type: "set" | "run" =
+        canBeSet && !canBeRun ? "set" : canBeRun && !canBeSet ? "run" : "set";
+
+      melds.push({ type, cardIds: concreteCards.map((card) => card.id) });
+    }
+
+    return this.execute({ type: "LAY_DOWN", melds });
+  }
+
+  async layOff(cardPosition: number, meldNumber: number): Promise<GameSnapshot> {
+    const snapshot = await this.getSnapshot();
+    const player = this.findAIPlayer(snapshot);
+    if (!player) {
+      return this.withError(snapshot, "AI player not found in latest snapshot");
+    }
+
+    const card = player.hand[cardPosition - 1];
+    if (!card) {
+      return this.withError(snapshot, "Card position out of range");
+    }
+
+    const meld = snapshot.table[meldNumber - 1];
+    if (!meld) {
+      return this.withError(snapshot, "Meld position out of range");
+    }
+
+    return this.execute({ type: "LAY_OFF", cardId: card.id, meldId: meld.id });
+  }
+
+  async swap(
+    meldNumber: number,
+    jokerPosition: number,
+    cardPosition: number
+  ): Promise<GameSnapshot> {
+    const snapshot = await this.getSnapshot();
+    const player = this.findAIPlayer(snapshot);
+    if (!player) {
+      return this.withError(snapshot, "AI player not found in latest snapshot");
+    }
+
+    const swapCard = player.hand[cardPosition - 1];
+    if (!swapCard) {
+      return this.withError(snapshot, "Card position out of range");
+    }
+
+    const meld = snapshot.table[meldNumber - 1];
+    if (!meld) {
+      return this.withError(snapshot, "Meld position out of range");
+    }
+
+    const jokerCard = meld.cards[jokerPosition - 1];
+    if (!jokerCard) {
+      return this.withError(snapshot, "Joker position out of range");
+    }
+
+    return this.execute({
+      type: "SWAP_JOKER",
+      meldId: meld.id,
+      jokerCardId: jokerCard.id,
+      swapCardId: swapCard.id,
+    });
+  }
+
+  async discardCard(position: number): Promise<GameSnapshot> {
+    const snapshot = await this.getSnapshot();
+    const player = this.findAIPlayer(snapshot);
+    if (!player) {
+      return this.withError(snapshot, "AI player not found in latest snapshot");
+    }
+
+    const card = player.hand[position - 1];
+    if (!card) {
+      return this.withError(snapshot, "Card position out of range");
+    }
+
+    return this.execute({ type: "DISCARD", cardId: card.id });
+  }
+
+  async allowMayI(_playerId: string): Promise<GameSnapshot> {
+    return this.execute({ type: "ALLOW_MAY_I" });
+  }
+
+  async claimMayI(_playerId: string): Promise<GameSnapshot> {
+    return this.execute({ type: "CLAIM_MAY_I" });
+  }
+
+  private findAIPlayer(snapshot: GameSnapshot): GameSnapshot["players"][number] | null {
+    return snapshot.players.find((player) => player.id === this.options.aiEngineId) ?? null;
+  }
+
+  private async execute(action: GameAction): Promise<GameSnapshot> {
+    const result = await this.executor.execute(action);
+    if (result.ok) {
+      return result.snapshot;
+    }
+
+    return this.withError(result.snapshot, result.error);
+  }
+
+  private withError(snapshot: GameSnapshot, error: string): GameSnapshot {
+    return {
+      ...snapshot,
+      lastError: error,
+    };
   }
 }
 
@@ -512,6 +679,161 @@ export async function executeFallbackTurn(
 }
 
 /**
+ * Execute fallback through the AI adapter interface.
+ *
+ * Queue-backed AI turns use this path so fallback actions are persisted one at
+ * a time through the same executor as model tool calls.
+ */
+export async function executeFallbackTurnWithAdapter(
+  game: AIGameAdapter,
+  playerId: string,
+  options: FallbackTurnOptions = {}
+): Promise<AITurnResult> {
+  const { abortSignal, onPersist, phaseDelayMs = 300 } = options;
+  const actions: string[] = [];
+  let snapshot = await game.getSnapshot();
+
+  if (snapshot.phase === "RESOLVING_MAY_I") {
+    const mayIContext = snapshot.mayIContext;
+    if (!mayIContext) {
+      return {
+        success: false,
+        actions: [],
+        error: "No May-I context in RESOLVING_MAY_I phase",
+        usedFallback: true,
+      };
+    }
+
+    if (mayIContext.playerBeingPrompted !== playerId) {
+      return {
+        success: false,
+        actions: [],
+        error: "Not the player being prompted for May-I response",
+        usedFallback: true,
+      };
+    }
+
+    const result = await game.allowMayI(playerId);
+    if (result.lastError) {
+      return {
+        success: false,
+        actions: [],
+        error: result.lastError,
+        usedFallback: true,
+      };
+    }
+
+    actions.push("allow_may_i");
+    if (onPersist) {
+      await onPersist();
+    }
+
+    return {
+      success: true,
+      actions,
+      usedFallback: true,
+    };
+  }
+
+  if (snapshot.awaitingPlayerId !== playerId) {
+    return {
+      success: false,
+      actions: [],
+      error: "Not this player's turn",
+      usedFallback: true,
+    };
+  }
+
+  try {
+    if (snapshot.turnPhase === "AWAITING_DRAW") {
+      const result = await game.drawFromStock();
+      if (result.lastError) {
+        return {
+          success: false,
+          actions,
+          error: result.lastError,
+          usedFallback: true,
+        };
+      }
+
+      actions.push("draw_from_stock");
+      snapshot = await game.getSnapshot();
+
+      if (onPersist) {
+        await onPersist();
+      }
+
+      await delayWithAbort(phaseDelayMs, abortSignal);
+    }
+
+    if (snapshot.turnPhase === "AWAITING_ACTION") {
+      const result = await game.skip();
+      if (result.lastError) {
+        return {
+          success: false,
+          actions,
+          error: result.lastError,
+          usedFallback: true,
+        };
+      }
+
+      actions.push("skip");
+      snapshot = await game.getSnapshot();
+
+      if (onPersist) {
+        await onPersist();
+      }
+
+      await delayWithAbort(phaseDelayMs, abortSignal);
+    }
+
+    if (snapshot.turnPhase === "AWAITING_DISCARD") {
+      const player = snapshot.players.find((p) => p.id === playerId);
+      if (!player || player.hand.length === 0) {
+        return {
+          success: false,
+          actions,
+          error: "No cards to discard",
+          usedFallback: true,
+        };
+      }
+
+      const result = await game.discardCard(1);
+      if (result.lastError) {
+        return {
+          success: false,
+          actions,
+          error: result.lastError,
+          usedFallback: true,
+        };
+      }
+
+      actions.push(`discard(${player.hand[0]!.id})`);
+
+      if (onPersist) {
+        await onPersist();
+      }
+    }
+
+    return {
+      success: true,
+      actions,
+      usedFallback: true,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      return {
+        success: true,
+        actions,
+        error: undefined,
+        usedFallback: true,
+      };
+    }
+    throw error;
+  }
+}
+
+/**
  * Configuration for AI turn execution
  */
 export interface ExecuteAITurnOptions {
@@ -535,6 +857,8 @@ export interface ExecuteAITurnOptions {
   abortSignal?: AbortSignal;
   /** Callback invoked after each tool execution to persist state immediately */
   onPersist?: () => Promise<void>;
+  /** Optional executor that applies AI actions through the room action queue */
+  queuedActionExecutor?: QueuedAIGameActionExecutor;
 }
 
 /**
@@ -555,6 +879,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     useFallbackOnError = true,
     abortSignal,
     onPersist,
+    queuedActionExecutor,
   } = options;
 
   // Check if it's this player's turn
@@ -579,12 +904,18 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     };
   }
 
+  // Create the proxy adapter for the AI agent. PartyKit rooms can provide a
+  // queued executor so each tool action applies to the latest stored state.
+  const proxy: AIGameAdapter = queuedActionExecutor
+    ? new QueuedAIGameAdapterProxy(queuedActionExecutor, {
+        aiLobbyId: aiPlayerId,
+        aiEngineId: mapping.engineId,
+      })
+    : new AIGameAdapterProxy(adapter, aiPlayerId);
+
   try {
     // Get the model using worker-compatible factory (with DevTools in local dev)
     const model = await createWorkerAIModelAsync(modelId, env);
-
-    // Create the proxy adapter for the AI agent
-    const proxy = new AIGameAdapterProxy(adapter, aiPlayerId);
 
     // Execute the turn using the AI agent
     // Note: The mayIAgent expects the engine player ID, not the lobby ID
@@ -597,7 +928,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
       debug,
       telemetry: false, // Disable telemetry for server-side execution
       abortSignal,
-      onPersist,
+      onPersist: queuedActionExecutor ? undefined : onPersist,
     });
 
     if (result.success) {
@@ -627,6 +958,9 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     if (useFallbackOnError) {
       if (debug) {
         console.log(`[AI] Agent failed: ${result.error}. Using fallback.`);
+      }
+      if (queuedActionExecutor) {
+        return await executeFallbackTurnWithAdapter(proxy, mapping.engineId, { abortSignal });
       }
       return await executeFallbackTurn(adapter, aiPlayerId, { abortSignal, onPersist });
     }
@@ -658,6 +992,9 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     if (useFallbackOnError) {
       if (debug) {
         console.log(`[AI] Agent error: ${errorMessage}. Using fallback.`);
+      }
+      if (queuedActionExecutor) {
+        return await executeFallbackTurnWithAdapter(proxy, mapping.engineId, { abortSignal });
       }
       return await executeFallbackTurn(adapter, aiPlayerId, { abortSignal, onPersist });
     }

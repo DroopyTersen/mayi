@@ -143,6 +143,72 @@ Use Option 3.
 
 The end state should be a clean command bus, but migrating AI one step at a time is safer. The key is to create the shared executor first and move callers onto it, not to keep adding logic to the stale snapshot merge.
 
+## Implementation Plan For Issue #79
+
+The current branch should implement the first production slice of Option 3:
+
+1. Keep `executeTurn` as the AI decision loop.
+2. Allow AI adapters to be async so an adapter method can enqueue an action and wait for the committed latest-state result.
+3. Add a queue-backed AI adapter for PartyKit rooms.
+4. Route AI tool actions and AI fallback actions through `executeStoredGameAction`.
+5. Reuse MayIRoom's existing side-effect handling after each queued AI action.
+6. Leave `mergeAIStatePreservingOtherPlayerHands` in place only for tests and as a removable fallback seam, not as the primary AI persistence path.
+
+This slice deliberately avoids rewriting prompts, tool schemas, or model selection. The AI still thinks in terms of the same tools and 1-indexed hand positions. The difference is that each tool now maps positions against the latest persisted snapshot immediately before it executes.
+
+### Target Code Shape
+
+```text
+mayIAgent tool call
+     |
+     v
+QueueBackedAIGameAdapterProxy
+     |
+     v
+MayIRoom.executeQueuedAIAction
+     |
+     v
+GameActionQueue
+     |
+     v
+executeStoredGameAction
+     |
+     v
+save latest StoredGameState + run side effects + broadcast
+```
+
+### Detailed Steps
+
+1. Update `AIGameAdapter` to allow `GameSnapshot | Promise<GameSnapshot>` return values.
+2. Update `mayIAgent` and `mayIAgent.tools` to `await` adapter calls.
+3. Add a queued AI adapter that:
+   - loads the latest snapshot before converting positions to card IDs;
+   - creates the same `GameAction` payloads humans send;
+   - returns the committed snapshot from `executeStoredGameAction`;
+   - returns a snapshot with `lastError` populated when an action is rejected.
+4. Add a room-level AI action executor in `MayIRoom` that:
+   - uses the existing `GameActionQueue`;
+   - calls `executeStoredGameAction` with the AI lobby id;
+   - processes the same side effects as `handleGameAction`;
+   - skips recursive `executeAITurnsIfNeeded` while the current AI loop is already running.
+5. Pass that executor from `AITurnCoordinator` into `executeAITurn`.
+6. Change normal AI turns and AI May-I responses to use the queued adapter whenever the executor is present.
+7. Keep existing merge tests green during this branch. A follow-up can delete merge code once production has run on queued AI actions and the stale adapter path is fully unused.
+
+### Tests To Add First
+
+- A queued AI adapter test where a human reorders after AI has planned by position, then the AI discard maps against the latest hand order.
+- A coordinator test that proves `onPersist` is no longer used when a queued AI executor is present.
+- A May-I response test that proves an AI `ALLOW_MAY_I` response is sent through the queued executor rather than merged from a stale adapter.
+
+### Acceptance Criteria For This Branch
+
+- AI tool actions no longer save a whole stale adapter snapshot in PartyKit room execution.
+- Human reorders and May-I calls made during AI thinking survive the next AI tool action without relying on merge surgery.
+- AI fallback draws, skips, discards, and May-I allow responses use the same queued executor.
+- Existing human action behavior, activity logs, broadcasts, and transition side effects remain unchanged.
+- `bun run typecheck`, `bun test`, `bun run build`, and CLI harness smoke commands pass.
+
 ## Coding Plan
 
 ### Phase 1: Add Failing Race Tests

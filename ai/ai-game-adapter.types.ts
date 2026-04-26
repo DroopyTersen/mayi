@@ -10,6 +10,8 @@
 
 import type { GameSnapshot } from "../core/engine/game-engine.types";
 
+export type MaybePromise<T> = T | Promise<T>;
+
 /**
  * Adapter interface for AI agent to interact with the game engine.
  *
@@ -18,30 +20,30 @@ import type { GameSnapshot } from "../core/engine/game-engine.types";
  */
 export interface AIGameAdapter {
   /** Get current game state */
-  getSnapshot(): GameSnapshot;
+  getSnapshot(): MaybePromise<GameSnapshot>;
 
   /** Draw from stock pile */
-  drawFromStock(): GameSnapshot;
+  drawFromStock(): MaybePromise<GameSnapshot>;
 
   /** Draw from discard pile (only allowed if not down) */
-  drawFromDiscard(): GameSnapshot;
+  drawFromDiscard(): MaybePromise<GameSnapshot>;
 
   /** Skip action phase (move to discard phase) */
-  skip(): GameSnapshot;
+  skip(): MaybePromise<GameSnapshot>;
 
   /**
    * Lay down melds to go down.
    * @param meldGroups - Array of position arrays, each representing a meld (1-indexed)
    * Example: [[1,2,3], [4,5,6]] for two melds
    */
-  layDown(meldGroups: number[][]): GameSnapshot;
+  layDown(meldGroups: number[][]): MaybePromise<GameSnapshot>;
 
   /**
    * Lay off a card onto an existing meld.
    * @param cardPosition - Position in hand (1-indexed)
    * @param meldNumber - Meld number on table (1-indexed)
    */
-  layOff(cardPosition: number, meldNumber: number): GameSnapshot;
+  layOff(cardPosition: number, meldNumber: number): MaybePromise<GameSnapshot>;
 
   /**
    * Swap a joker from a meld with a card from hand.
@@ -49,17 +51,21 @@ export interface AIGameAdapter {
    * @param jokerPosition - Position of joker in meld (1-indexed)
    * @param cardPosition - Position of card in hand (1-indexed)
    */
-  swap(meldNumber: number, jokerPosition: number, cardPosition: number): GameSnapshot;
+  swap(
+    meldNumber: number,
+    jokerPosition: number,
+    cardPosition: number
+  ): MaybePromise<GameSnapshot>;
 
   /**
    * Discard a card to end turn.
    * @param position - Position in hand (1-indexed)
    */
-  discardCard(position: number): GameSnapshot;
+  discardCard(position: number): MaybePromise<GameSnapshot>;
 
   /** Allow another player's May I (when prompted) */
-  allowMayI(playerId: string): GameSnapshot;
+  allowMayI(playerId: string): MaybePromise<GameSnapshot>;
 
   /** Claim May I for yourself (when prompted) */
-  claimMayI(playerId: string): GameSnapshot;
+  claimMayI(playerId: string): MaybePromise<GameSnapshot>;
 }

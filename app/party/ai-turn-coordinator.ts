@@ -20,8 +20,10 @@ import {
   isAIPlayerTurn as realIsAIPlayerTurn,
   type AITurnResult,
   type ExecuteAITurnOptions,
+  type QueuedAIGameActionResult,
 } from "./ai-turn-handler";
 import type { AIEnv } from "./ai-model-factory";
+import type { GameAction } from "./protocol.types";
 
 const MAX_CHAINED_TURNS = 8; // Safety limit to prevent infinite loops
 const DEFAULT_INTER_TURN_DELAY_MS = 300; // Delay between AI turns for UX
@@ -54,6 +56,12 @@ export interface AITurnCoordinatorDeps {
 
   /** Execute a single AI turn (injectable for testing) */
   executeAITurn: (options: ExecuteAITurnOptions) => Promise<AITurnResult>;
+
+  /** Execute one AI action through the room's serialized action pipeline */
+  executeQueuedAction?: (
+    playerId: string,
+    action: GameAction
+  ) => Promise<QueuedAIGameActionResult>;
 
   /** Check if it's an AI player's turn (injectable for testing) */
   isAIPlayerTurn?: (adapter: PartyGameAdapter) => PlayerMapping | null;
@@ -167,6 +175,19 @@ export class AITurnCoordinator {
         this.abortController = new AbortController();
 
         const modelToUse = aiPlayer.aiModelId ?? "default:grok";
+        const queuedActionExecutor = this.deps.executeQueuedAction
+          ? {
+              getSnapshot: async () => {
+                const latestState = await this.deps.getState();
+                if (!latestState) {
+                  throw new Error("Cannot get AI snapshot without stored game state");
+                }
+                return createAdapter(latestState).getSnapshot();
+              },
+              execute: (action: GameAction) =>
+                this.deps.executeQueuedAction!(aiPlayer.lobbyId, action),
+            }
+          : undefined;
 
         try {
           if (debug) {
@@ -183,7 +204,8 @@ export class AITurnCoordinator {
             debug,
             useFallbackOnError: true,
             abortSignal: this.abortController.signal,
-            onPersist: async () => {
+            queuedActionExecutor,
+            onPersist: queuedActionExecutor ? undefined : async () => {
               // Persist after each tool call
               // Use merge to preserve other players' hands (fixes race condition with reorders)
               const freshState = await this.deps.getState();
@@ -214,23 +236,32 @@ export class AITurnCoordinator {
           // Notify that AI is done thinking
           callbacks?.onAIDone?.(aiPlayer.lobbyId);
 
-          // Normal completion - save final state
-          // Use merge to preserve other players' hands (fixes race condition with reorders)
-          const freshStateAtEnd = await this.deps.getState();
-          const mergedStateAtEnd = mergeAIStatePreservingOtherPlayerHands(
-            freshStateAtEnd,
-            adapter.getStoredState(),
-            aiPlayer.engineId
-          );
-          await this.deps.setState(mergedStateAtEnd);
+          let phaseAfter = adapter.getSnapshot().phase;
 
-          // Check for round/game end transitions
-          if (callbacks?.onTransitionCheck) {
-            await callbacks.onTransitionCheck(adapter, phaseBefore, roundBefore, snapshotBefore);
+          if (queuedActionExecutor) {
+            const latestState = await this.deps.getState();
+            if (latestState) {
+              phaseAfter = createAdapter(latestState).getSnapshot().phase;
+            }
+          } else {
+            // Normal completion - save final state
+            // Use merge to preserve other players' hands (fixes race condition with reorders)
+            const freshStateAtEnd = await this.deps.getState();
+            const mergedStateAtEnd = mergeAIStatePreservingOtherPlayerHands(
+              freshStateAtEnd,
+              adapter.getStoredState(),
+              aiPlayer.engineId
+            );
+            await this.deps.setState(mergedStateAtEnd);
+
+            // Check for round/game end transitions
+            if (callbacks?.onTransitionCheck) {
+              await callbacks.onTransitionCheck(adapter, phaseBefore, roundBefore, snapshotBefore);
+            }
+
+            // Broadcast updated game state
+            await this.deps.broadcast();
           }
-
-          // Broadcast updated game state
-          await this.deps.broadcast();
 
           turnsExecuted++;
 
@@ -241,7 +272,6 @@ export class AITurnCoordinator {
           }
 
           // Exit if game ended
-          const phaseAfter = adapter.getSnapshot().phase;
           if (phaseAfter === "GAME_END") {
             return;
           }

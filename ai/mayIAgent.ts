@@ -120,7 +120,7 @@ export async function executeTurn(
   const actions: string[] = [];
 
   // Check if it's this player's turn
-  let currentState = game.getSnapshot();
+  let currentState = await game.getSnapshot();
   if (currentState.awaitingPlayerId !== playerId) {
     return {
       success: false,
@@ -143,7 +143,7 @@ export async function executeTurn(
     currentState.phase === "ROUND_ACTIVE" &&
     currentState.turnPhase === "AWAITING_DRAW"
   ) {
-    const drawResult = game.drawFromStock();
+    const drawResult = await game.drawFromStock();
     actions.push("draw_from_stock({})");
 
     if (debug) {
@@ -151,7 +151,7 @@ export async function executeTurn(
     }
 
     // Refresh state after auto-draw
-    currentState = game.getSnapshot();
+    currentState = await game.getSnapshot();
 
     // If the engine is no longer awaiting us (interrupted), return
     if (currentState.awaitingPlayerId !== playerId) {
@@ -180,7 +180,7 @@ export async function executeTurn(
       stopWhen: stopWhenTurnComplete(maxSteps),
       prepareStep: async () => {
         // Get current game state (may have changed since last step)
-        const currentState = game.getSnapshot();
+        const currentState = await game.getSnapshot();
         const currentPlayer = currentState.players.find((p) => p.id === playerId);
 
         // Get tools available for current snapshot

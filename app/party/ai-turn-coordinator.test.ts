@@ -8,6 +8,8 @@
 import { describe, it, expect } from "bun:test";
 import { AITurnCoordinator, type AITurnCoordinatorDeps } from "./ai-turn-coordinator";
 import type { StoredGameState, PlayerMapping } from "./party-game-adapter";
+import type { QueuedAIGameActionResult } from "./ai-turn-handler";
+import type { GameAction } from "./protocol.types";
 
 // Minimal fake adapter for testing
 interface FakeAdapter {
@@ -251,6 +253,70 @@ describe("AITurnCoordinator", () => {
 
       // 3 from onPersist + 1 final save
       expect(persistCallCount).toBe(4);
+    });
+
+    it("uses the queued AI action executor without stale onPersist or final merge saves", async () => {
+      let persistCallCount = 0;
+      const queuedActions: GameAction[] = [];
+
+      const { deps } = createFakeDeps({
+        isAITurn: true,
+        executeAITurnFn: async ({ onPersist, queuedActionExecutor }) => {
+          expect(onPersist).toBeUndefined();
+          expect(queuedActionExecutor).toBeDefined();
+
+          await queuedActionExecutor!.execute({ type: "DRAW_FROM_STOCK" });
+          return {
+            success: true,
+            actions: ["draw_from_stock"],
+            usedFallback: false,
+          };
+        },
+      });
+
+      deps.setState = async (state) => {
+        persistCallCount++;
+        await createFakeDeps().deps.setState(state);
+      };
+      deps.broadcast = async () => {};
+      deps.executeQueuedAction = async (_playerId, action): Promise<QueuedAIGameActionResult> => {
+        queuedActions.push(action);
+        return {
+          ok: true,
+          snapshot: {
+            version: "3.0",
+            phase: "ROUND_ACTIVE",
+            currentRound: 1,
+            contract: { roundNumber: 1, sets: 2, runs: 0 },
+            awaitingPlayerId: "player-0",
+            turnPhase: "AWAITING_ACTION",
+            gameId: "test-room",
+            players: [],
+            stock: [],
+            discard: [],
+            table: [],
+            currentPlayerIndex: 0,
+            dealerIndex: 2,
+            turnNumber: 1,
+            lastDiscardedByPlayerId: null,
+            discardClaimed: false,
+            roundHistory: [],
+            hasDrawn: true,
+            laidDownThisTurn: false,
+            tookActionThisTurn: false,
+            mayIContext: null,
+            lastError: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        };
+      };
+
+      const coordinator = new AITurnCoordinator(deps);
+      await coordinator.executeAITurnsIfNeeded();
+
+      expect(queuedActions).toEqual([{ type: "DRAW_FROM_STOCK" }]);
+      expect(persistCallCount).toBe(0);
     });
 
     it("should exit loop cleanly on abort without throwing", async () => {

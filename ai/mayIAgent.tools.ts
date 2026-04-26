@@ -8,7 +8,7 @@
 import { tool } from "ai";
 import { z } from "zod/v4";
 import type { GameSnapshot } from "../core/engine/game-engine.types";
-import type { AIGameAdapter } from "./ai-game-adapter.types";
+import type { AIGameAdapter, MaybePromise } from "./ai-game-adapter.types";
 import type { ToolExecutionResult } from "./mayIAgent.types";
 import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
 import { getAvailableActions } from "../core/engine/game-engine.availability";
@@ -29,9 +29,11 @@ export function createMayITools(
   playerId: string,
   options: CreateMayIToolsOptions = {}
 ) {
-  function executeAction(actionFn: () => GameSnapshot): ToolExecutionResult {
-    const after = actionFn();
-    const state = game.getSnapshot();
+  async function executeAction(
+    actionFn: () => MaybePromise<GameSnapshot>
+  ): Promise<ToolExecutionResult> {
+    const after = await actionFn();
+    const state = await game.getSnapshot();
     const gameState = outputGameStateForLLM(state, playerId, { actionLog: options.actionLog });
     const turnComplete = state.awaitingPlayerId !== playerId;
 
@@ -77,9 +79,9 @@ In Round 6, you must use ALL cards in your hand.`,
         position: z.number().int().min(1),
       }),
       execute: async ({ position }) => {
-        const snapshot = game.getSnapshot();
+        const snapshot = await game.getSnapshot();
         if (snapshot.phase === "ROUND_ACTIVE" && snapshot.turnPhase === "AWAITING_ACTION") {
-          game.skip();
+          await game.skip();
         }
         return executeAction(() => game.discardCard(position));
       },

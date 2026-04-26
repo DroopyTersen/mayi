@@ -25,6 +25,7 @@ import {
   handleRemoveAIPlayerMessage,
   handleStartGameMessage,
   handleSetStartingRoundMessage,
+  type GameActionSideEffect,
   type RoomPhase,
 } from "./mayi-room.message-handlers";
 import { executeStoredGameAction } from "./game-action-executor";
@@ -38,6 +39,7 @@ import {
   type InjectStateMessage,
   type AgentSetupMessage,
   type MayINotificationMessage,
+  type GameAction,
 } from "./protocol.types";
 
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
@@ -46,7 +48,6 @@ import { AI_MODEL_DISPLAY_NAMES } from "./ai-models";
 
 import {
   PartyGameAdapter,
-  mergeAIStatePreservingOtherPlayerHands,
   type StoredGameState,
 } from "./party-game-adapter";
 
@@ -57,6 +58,8 @@ import {
   executeAITurn,
   executeFallbackTurn,
   isAIPlayerTurn,
+  type QueuedAIGameActionExecutor,
+  type QueuedAIGameActionResult,
 } from "./ai-turn-handler";
 import { AITurnCoordinator } from "./ai-turn-coordinator";
 import type { AIEnv } from "./ai-model-factory";
@@ -107,6 +110,8 @@ export class MayIRoom extends Server {
         setState: (s) => this.setGameState(s),
         broadcast: () => this.broadcastGameState(),
         executeAITurn: (options) => executeAITurn(options),
+        executeQueuedAction: (playerId, action) =>
+          this.executeQueuedAIAction(playerId, action),
         env: this.env as AIEnv,
         // Debug mode: shows whether LLM or fallback is used
         debug: enableMayITestMode,
@@ -668,6 +673,137 @@ export class MayIRoom extends Server {
     this.log(`State injected for agent testing: round ${state.roundNumber}`);
   }
 
+  private createQueuedAIActionExecutor(
+    playerId: string,
+    options: { skipAITurnsIfNeeded?: boolean } = {}
+  ): QueuedAIGameActionExecutor {
+    return {
+      getSnapshot: async () => {
+        const gameState = await this.getGameState();
+        if (!gameState) {
+          throw new Error("Game state not found");
+        }
+        return PartyGameAdapter.fromStoredState(gameState).getSnapshot();
+      },
+      execute: (action) => this.executeQueuedAIAction(playerId, action, options),
+    };
+  }
+
+  private async executeQueuedAIAction(
+    playerId: string,
+    action: GameAction,
+    options: { skipAITurnsIfNeeded?: boolean } = {}
+  ): Promise<QueuedAIGameActionResult> {
+    const result = await this.gameActionQueue.enqueue(async () => {
+      const roomPhase = await this.getRoomPhase();
+      return executeStoredGameAction({
+        roomPhase,
+        callerPlayerId: playerId,
+        action,
+        getState: () => this.getGameState(),
+        setState: (state) => this.setGameState(state),
+      });
+    });
+
+    if (!result.ok) {
+      this.log(`AI action ${action.type} failed for ${playerId}: ${result.outboundMessages[0].error}`);
+      const latestState = await this.getGameState();
+      if (!latestState) {
+        throw new Error(result.outboundMessages[0].message);
+      }
+      const snapshot = PartyGameAdapter.fromStoredState(latestState).getSnapshot();
+      return {
+        ok: false,
+        snapshot: {
+          ...snapshot,
+          lastError: result.outboundMessages[0].error,
+        },
+        error: result.outboundMessages[0].error,
+      };
+    }
+
+    await this.processGameActionSideEffects(result.sideEffects, {
+      actionType: action.type,
+      skipAITurnsIfNeeded: options.skipAITurnsIfNeeded ?? true,
+    });
+
+    return {
+      ok: true,
+      snapshot: result.snapshot,
+    };
+  }
+
+  private async processGameActionSideEffects(
+    sideEffects: GameActionSideEffect[],
+    options: {
+      actionType: GameAction["type"];
+      skipAITurnsIfNeeded?: boolean;
+    }
+  ): Promise<void> {
+    const transitionEffect = sideEffects.find(
+      (effect) => effect.type === "detectAndBroadcastTransitions"
+    );
+    const mayIPhaseBefore =
+      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
+        ? transitionEffect.phaseBefore
+        : null;
+    const mayIPhaseAfter =
+      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
+        ? transitionEffect.adapter.getSnapshot().phase
+        : null;
+    if (transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions") {
+      const snapshotAfter = transitionEffect.adapter.getSnapshot();
+      const phaseAfter = snapshotAfter.phase;
+
+      if (options.actionType === "CALL_MAY_I") {
+        this.logMayI(`Phase transition: ${transitionEffect.phaseBefore} -> ${phaseAfter}`);
+        if (snapshotAfter.mayIContext) {
+          this.logMayI(
+            `May-I context: caller=${snapshotAfter.mayIContext.originalCaller}, prompted=${snapshotAfter.mayIContext.playerBeingPrompted}, card=${JSON.stringify(snapshotAfter.mayIContext.cardBeingClaimed)}`
+          );
+        } else {
+          this.logMayI(`WARNING: No May-I context after CALL_MAY_I!`);
+        }
+      }
+    }
+
+    for (const effect of sideEffects) {
+      if (effect.type === "setGameState") {
+        await this.setGameState(effect.state);
+      } else if (effect.type === "broadcastMayIPrompt") {
+        if (
+          mayIPhaseBefore === "RESOLVING_MAY_I" &&
+          mayIPhaseAfter === "RESOLVING_MAY_I"
+        ) {
+          this.logMayI(`Still in RESOLVING_MAY_I, prompting next player...`);
+        } else {
+          this.logMayI(`Entering RESOLVING_MAY_I phase, broadcasting prompt...`);
+          // Notify ALL players when someone first calls May I
+          await this.broadcastMayINotification(effect.adapter);
+        }
+        await this.broadcastMayIPrompt(effect.adapter);
+      } else if (effect.type === "executeAIMayIResponseIfNeeded") {
+        this.logMayI(`Checking if prompted player is AI...`);
+        await this.executeAIMayIResponseIfNeeded(effect.adapter);
+      } else if (effect.type === "broadcastMayIResolved") {
+        const phaseAfter = effect.adapter.getSnapshot().phase;
+        this.logMayI(`May-I resolved, new phase: ${phaseAfter}`);
+        await this.broadcastMayIResolved(effect.adapter);
+      } else if (effect.type === "detectAndBroadcastTransitions") {
+        await this.detectAndBroadcastTransitions(
+          effect.adapter,
+          effect.phaseBefore,
+          effect.roundBefore,
+          effect.snapshotBefore
+        );
+      } else if (effect.type === "broadcastGameState") {
+        await this.broadcastGameState();
+      } else if (effect.type === "executeAITurnsIfNeeded" && !options.skipAITurnsIfNeeded) {
+        await this.executeAITurnsIfNeeded();
+      }
+    }
+  }
+
   private async handleGameAction(
     conn: Connection<MayIRoomConnectionState>,
     msg: Extract<ClientMessage, { type: "GAME_ACTION" }>
@@ -699,68 +835,9 @@ export class MayIRoom extends Server {
       return;
     }
 
-    const transitionEffect = result.sideEffects.find(
-      (effect) => effect.type === "detectAndBroadcastTransitions"
-    );
-    const mayIPhaseBefore =
-      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
-        ? transitionEffect.phaseBefore
-        : null;
-    const mayIPhaseAfter =
-      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
-        ? transitionEffect.adapter.getSnapshot().phase
-        : null;
-    if (transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions") {
-      const snapshotAfter = transitionEffect.adapter.getSnapshot();
-      const phaseAfter = snapshotAfter.phase;
-
-      if (msg.action.type === "CALL_MAY_I") {
-        this.logMayI(`Phase transition: ${transitionEffect.phaseBefore} -> ${phaseAfter}`);
-        if (snapshotAfter.mayIContext) {
-          this.logMayI(
-            `May-I context: caller=${snapshotAfter.mayIContext.originalCaller}, prompted=${snapshotAfter.mayIContext.playerBeingPrompted}, card=${JSON.stringify(snapshotAfter.mayIContext.cardBeingClaimed)}`
-          );
-        } else {
-          this.logMayI(`WARNING: No May-I context after CALL_MAY_I!`);
-        }
-      }
-    }
-
-    for (const effect of result.sideEffects) {
-      if (effect.type === "setGameState") {
-        await this.setGameState(effect.state);
-      } else if (effect.type === "broadcastMayIPrompt") {
-        if (
-          mayIPhaseBefore === "RESOLVING_MAY_I" &&
-          mayIPhaseAfter === "RESOLVING_MAY_I"
-        ) {
-          this.logMayI(`Still in RESOLVING_MAY_I, prompting next player...`);
-        } else {
-          this.logMayI(`Entering RESOLVING_MAY_I phase, broadcasting prompt...`);
-          // Notify ALL players when someone first calls May I
-          await this.broadcastMayINotification(effect.adapter);
-        }
-        await this.broadcastMayIPrompt(effect.adapter);
-      } else if (effect.type === "executeAIMayIResponseIfNeeded") {
-        this.logMayI(`Checking if prompted player is AI...`);
-        await this.executeAIMayIResponseIfNeeded(effect.adapter);
-      } else if (effect.type === "broadcastMayIResolved") {
-        const phaseAfter = effect.adapter.getSnapshot().phase;
-        this.logMayI(`May-I resolved, new phase: ${phaseAfter}`);
-        await this.broadcastMayIResolved(effect.adapter);
-      } else if (effect.type === "detectAndBroadcastTransitions") {
-        await this.detectAndBroadcastTransitions(
-          effect.adapter,
-          effect.phaseBefore,
-          effect.roundBefore,
-          effect.snapshotBefore
-        );
-      } else if (effect.type === "broadcastGameState") {
-        await this.broadcastGameState();
-      } else if (effect.type === "executeAITurnsIfNeeded") {
-        await this.executeAITurnsIfNeeded();
-      }
-    }
+    await this.processGameActionSideEffects(result.sideEffects, {
+      actionType: msg.action.type,
+    });
   }
 
   override async onClose(
@@ -1153,52 +1230,15 @@ export class MayIRoom extends Server {
         maxSteps: 5, // May-I response is simple - allow or claim
         debug: true, // Enable debug for May-I responses
         useFallbackOnError: true, // Use fallback if AI fails - auto-allow
-        onPersist: async () => {
-          const freshState = await this.getGameState();
-          const mergedState = mergeAIStatePreservingOtherPlayerHands(
-            freshState,
-            adapter.getStoredState(),
-            promptedMapping.engineId
-          );
-          await this.setGameState(mergedState);
-          await this.broadcastGameState();
-        },
+        queuedActionExecutor: this.createQueuedAIActionExecutor(promptedMapping.lobbyId, {
+          skipAITurnsIfNeeded: false,
+        }),
       });
 
       this.broadcastAIDone(promptedMapping.lobbyId);
       this.logMayI(`AI May-I response result: success=${result.success}, actions=${result.actions.join(", ")}, error=${result.error || "none"}`);
 
-      if (result.success) {
-        // Save state after AI response
-        const freshState = await this.getGameState();
-        const mergedState = mergeAIStatePreservingOtherPlayerHands(
-          freshState,
-          adapter.getStoredState(),
-          promptedMapping.engineId
-        );
-        await this.setGameState(mergedState);
-
-        // Check new phase
-        const newSnapshot = adapter.getSnapshot();
-        const newPhase = newSnapshot.phase;
-        this.logMayI(`After AI May-I response, phase is: ${newPhase}`);
-
-        if (newPhase === "RESOLVING_MAY_I") {
-          // Still resolving - prompt next player (may trigger another AI)
-          this.logMayI(`Still resolving, prompting next player...`);
-          await this.broadcastMayIPrompt(adapter);
-          await this.executeAIMayIResponseIfNeeded(adapter);
-        } else if (newPhase === "ROUND_ACTIVE") {
-          // May-I resolved - broadcast and continue with turns
-          this.logMayI(`May-I fully resolved, continuing game`);
-          await this.broadcastMayIResolved(adapter);
-          await this.broadcastGameState();
-          // Continue with AI turns if needed
-          await this.executeAITurnsIfNeeded();
-        } else {
-          this.logMayI(`Unexpected phase after May-I response: ${newPhase}`);
-        }
-      } else {
+      if (!result.success) {
         this.logMayI(`AI May-I response FAILED for ${promptedMapping.name}: ${result.error}`);
         console.error(`[AI] May-I response failed for ${promptedMapping.name}: ${result.error}`);
         // AI failed to respond - human will need to handle via timeout or retry
