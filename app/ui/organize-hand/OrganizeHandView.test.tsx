@@ -45,4 +45,23 @@ describe("OrganizeHandView", () => {
     expect(html).toContain("justify-start");
     expect(html).toContain("w-max");
   });
+
+  it("renders a sortable drag hand while keeping arrow fallback controls", () => {
+    const html = renderToStaticMarkup(
+      <OrganizeHandView
+        hand={longHand.slice(0, 3)}
+        onSave={() => {}}
+        onCancel={() => {}}
+        showHeader={false}
+      />
+    );
+
+    expect(html).toContain('data-testid="organize-sortable-hand"');
+    expect(html).toContain(
+      'aria-label="Select J of spades at position 1 to move with arrow controls"'
+    );
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain(">Left<");
+    expect(html).toContain(">Right<");
+  });
 });

@@ -135,7 +135,7 @@ export function GameViewDrawers({
         open={effectiveActiveDrawer === "organize"}
         onOpenChange={(open) => !open && closeDrawer()}
         title="Organize Hand"
-        description="Select a card and use arrows to move, or sort automatically"
+        description="Drag cards to reorder, use arrows as a fallback, or sort automatically"
         className="sm:max-w-lg"
       >
         <OrganizeHandView

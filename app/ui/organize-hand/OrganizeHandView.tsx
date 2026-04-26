@@ -1,10 +1,14 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
 import { sortHandByRank, sortHandBySuit } from "core/engine/hand.reordering";
-import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import { OrganizeSortableHand } from "./OrganizeSortableHand";
+import {
+  reorderCardsAfterDrag,
+  type OrganizeDragReorderInput,
+} from "./organize-hand.drag-state";
 
 interface OrganizeHandViewProps {
   hand: Card[];
@@ -23,16 +27,16 @@ export function OrganizeHandView({
   className,
 }: OrganizeHandViewProps) {
   const [cards, setCards] = useState<Card[]>([...hand]);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const selectedIndex =
+    selectedCardId === null ? -1 : cards.findIndex((card) => card.id === selectedCardId);
 
   const handleCardClick = (cardId: string) => {
-    const index = cards.findIndex((c) => c.id === cardId);
-    if (index === -1) return;
-    setSelectedIndex(index === selectedIndex ? null : index);
+    setSelectedCardId((current) => (current === cardId ? null : cardId));
   };
 
   const moveCard = (direction: "left" | "right") => {
-    if (selectedIndex === null) return;
+    if (selectedIndex === -1) return;
 
     const newCards = [...cards];
     const newIndex = direction === "left" ? selectedIndex - 1 : selectedIndex + 1;
@@ -46,17 +50,20 @@ export function OrganizeHandView({
     newCards[selectedIndex] = swap;
     newCards[newIndex] = current;
     setCards(newCards);
-    setSelectedIndex(newIndex);
   };
 
   const handleSortByRank = () => {
     setCards(sortHandByRank(cards));
-    setSelectedIndex(null);
+    setSelectedCardId(null);
   };
 
   const handleSortBySuit = () => {
     setCards(sortHandBySuit(cards));
-    setSelectedIndex(null);
+    setSelectedCardId(null);
+  };
+
+  const handleDragReorder = (input: OrganizeDragReorderInput) => {
+    setCards((currentCards) => reorderCardsAfterDrag(currentCards, input));
   };
 
   const handleSave = () => {
@@ -69,7 +76,7 @@ export function OrganizeHandView({
         <div className="text-center">
           <h2 className="text-lg font-semibold">Organize Your Hand</h2>
           <p className="text-sm text-muted-foreground">
-            Select a card and use arrows to move, or sort automatically
+            Drag cards to reorder, use arrows as a fallback, or sort automatically
           </p>
         </div>
       )}
@@ -79,15 +86,11 @@ export function OrganizeHandView({
         className="overflow-x-auto overflow-y-visible overscroll-x-contain py-4 pb-5"
         data-testid="organize-hand-scroll"
       >
-        <HandDisplay
+        <OrganizeSortableHand
           cards={cards}
-          selectedIds={
-            selectedIndex !== null && cards[selectedIndex]
-              ? new Set([cards[selectedIndex]!.id])
-              : new Set()
-          }
+          selectedId={selectedCardId}
           onCardClick={handleCardClick}
-          size="auto"
+          onReorder={handleDragReorder}
           className="mx-auto w-max justify-start px-1"
         />
       </div>
@@ -98,7 +101,7 @@ export function OrganizeHandView({
           variant="outline"
           size="sm"
           onClick={() => moveCard("left")}
-          disabled={selectedIndex === null || selectedIndex === 0}
+          disabled={selectedIndex <= 0}
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Left
@@ -107,7 +110,7 @@ export function OrganizeHandView({
           variant="outline"
           size="sm"
           onClick={() => moveCard("right")}
-          disabled={selectedIndex === null || selectedIndex === cards.length - 1}
+          disabled={selectedIndex === -1 || selectedIndex >= cards.length - 1}
         >
           Right
           <ArrowRight className="w-4 h-4 ml-1" />
