@@ -207,6 +207,8 @@ function InteractiveDrawerExample({
               availableActions={availableActions}
               open={open}
               onOpenChange={setOpen}
+              turnStatus={turnStatus}
+              isYourTurn={isYourTurn}
               container={container}
             />
           )}

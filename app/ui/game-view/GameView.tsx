@@ -2,7 +2,6 @@ import type { PlayerView } from "~/party/protocol.types";
 import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
 import type { ActivityEntry } from "./game-view.types";
 import type { MayINotificationState } from "~/routes/game.$roomId";
-import { GameHeader } from "~/ui/game-status/GameHeader";
 import { HouseRulesButton } from "~/ui/game-status/HouseRulesButton";
 import { TableDisplay } from "~/ui/game-table/TableDisplay";
 import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
@@ -74,14 +73,6 @@ export function GameView({
       {/* Connection Status Banner - shown when disconnected/reconnecting */}
       <ConnectionBanner status={connectionStatus} />
 
-      {/* Header - mobile only; desktop tucks help into the right column */}
-      {isMobile && (
-        <GameHeader
-          turnStatus={derived.turnPhaseText}
-          isYourTurn={gameState.isYourTurn}
-        />
-      )}
-
       {/* Inactivity Hint */}
       {inactivityHint.isVisible && inactivityHint.message && (
         <div className="px-4 py-2">
@@ -145,9 +136,7 @@ export function GameView({
                 {gameState.contract.runs > 0 &&
                   `${gameState.contract.runs} run${gameState.contract.runs > 1 ? "s" : ""}`}
               </span>
-              {!isMobile && (
-                <HouseRulesButton className="absolute right-1 top-1/2 -translate-y-1/2" />
-              )}
+              <HouseRulesButton className="absolute right-1 top-1/2 -translate-y-1/2" />
             </div>
 
             {/* Players Table - full width, no padding */}
@@ -170,7 +159,7 @@ export function GameView({
         </div>
       </div>
 
-      {/* Mobile: Swipeable Hand Drawer */}
+      {/* Mobile: Hand Drawer (tap to open) */}
       {isMobile && (
         <HandDrawer
           hand={gameState.yourHand}
@@ -183,6 +172,8 @@ export function GameView({
           unavailabilityHints={gameState.unavailabilityHints}
           open={state.isHandDrawerOpen}
           onOpenChange={state.setIsHandDrawerOpen}
+          turnStatus={derived.turnPhaseText}
+          isYourTurn={gameState.isYourTurn}
         />
       )}
 
