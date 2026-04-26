@@ -1,6 +1,7 @@
 import type { Card } from "core/card/card.types";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { cn } from "~/shadcn/lib/utils";
+import { useNewCardIds } from "./useNewCardIds";
 
 type CardSize = "sm" | "md" | "lg";
 
@@ -62,6 +63,7 @@ export function HandDisplay({
   overlap = "stacked",
   className,
 }: HandDisplayProps) {
+  const newCardIds = useNewCardIds(cards);
   const supportsContainerQueries =
     typeof CSS !== "undefined" &&
     typeof CSS.supports === "function" &&
@@ -111,6 +113,7 @@ export function HandDisplay({
       <div className={cn("flex items-end", overlap === "none" && "flex-wrap gap-1", className)}>
         {cards.map((card, index) => {
           const isSelected = selectedIds.has(card.id);
+          const isNew = newCardIds.has(card.id);
           return (
             <div
               key={card.id}
@@ -119,7 +122,8 @@ export function HandDisplay({
                 "transition-transform",
                 HOVER_LIFT[size],
                 // Selected cards stay slightly lifted
-                isSelected && "-translate-y-1"
+                isSelected && "-translate-y-1",
+                isNew && "card-flash"
               )}
               style={{ zIndex: index }}
             >
@@ -155,6 +159,7 @@ export function HandDisplay({
       <div className={cn("flex items-end", overlap === "none" && "flex-wrap gap-1", className)}>
         {cards.map((card, index) => {
           const isSelected = selectedIds.has(card.id);
+          const isNew = newCardIds.has(card.id);
           return (
             <div
               key={card.id}
@@ -162,7 +167,8 @@ export function HandDisplay({
                 overlap === "stacked" && index > 0 && OVERLAP[fallbackSize],
                 "transition-transform",
                 HOVER_LIFT[fallbackSize],
-                isSelected && "-translate-y-1"
+                isSelected && "-translate-y-1",
+                isNew && "card-flash"
               )}
               style={{ zIndex: index }}
             >
@@ -187,6 +193,7 @@ export function HandDisplay({
       <div className={cn("flex items-end", overlap === "none" && "flex-wrap gap-1", className)}>
         {cards.map((card, index) => {
           const isSelected = selectedIds.has(card.id);
+          const isNew = newCardIds.has(card.id);
           return (
             <div
               key={card.id}
@@ -197,7 +204,8 @@ export function HandDisplay({
                 // Selected cards stay slightly lifted
                 isSelected && "-translate-y-1",
                 // Tier-based overlap that adjusts for both container size and card count
-                overlap === "stacked" && index > 0 && overlapClass
+                overlap === "stacked" && index > 0 && overlapClass,
+                isNew && "card-flash"
               )}
               style={{ zIndex: index }}
             >
