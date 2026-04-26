@@ -7,7 +7,6 @@ import { HouseRulesButton } from "~/ui/game-status/HouseRulesButton";
 import { TableDisplay } from "~/ui/game-table/TableDisplay";
 import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
-import { AIThinkingIndicator } from "./AIThinkingIndicator";
 import { InactivityHintBanner } from "./InactivityHintBanner";
 import { ConnectionBanner } from "~/ui/connection-status/ConnectionBanner";
 import {
@@ -26,8 +25,8 @@ import { getInactivityHintMessage } from "core/engine/game-engine.inactivity";
 
 interface GameViewProps {
   gameState: PlayerView;
-  /** Name of AI player currently thinking (if any) */
-  aiThinkingPlayerName?: string;
+  /** Id of AI player currently thinking (if any) */
+  aiThinkingPlayerId?: string;
   /** Activity log entries */
   activityLog?: ActivityEntry[];
   /** Called when player performs an action */
@@ -44,7 +43,7 @@ interface GameViewProps {
 
 export function GameView({
   gameState,
-  aiThinkingPlayerName,
+  aiThinkingPlayerId,
   activityLog = [],
   onAction,
   errorMessage,
@@ -90,13 +89,6 @@ export function GameView({
             message={inactivityHint.message}
             onDismiss={inactivityHint.dismiss}
           />
-        </div>
-      )}
-
-      {/* AI Thinking Indicator */}
-      {aiThinkingPlayerName && (
-        <div className="px-4 py-2">
-          <AIThinkingIndicator playerName={aiThinkingPlayerName} />
         </div>
       )}
 
@@ -163,6 +155,7 @@ export function GameView({
               players={derived.allPlayers}
               viewingPlayerId={gameState.viewingPlayerId}
               activePlayerId={gameState.awaitingPlayerId}
+              thinkingPlayerId={aiThinkingPlayerId}
               borderless
             />
 

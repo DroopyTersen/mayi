@@ -117,7 +117,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   const [gameState, setGameState] = useState<PlayerView | null>(null);
 
   // Phase 3.3: AI thinking indicator
-  const [aiThinkingPlayerName, setAiThinkingPlayerName] = useState<
+  const [aiThinkingPlayerId, setAiThinkingPlayerId] = useState<
     string | undefined
   >(undefined);
 
@@ -554,11 +554,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         }
         // Phase 3.3: AI thinking indicator
         case "AI_THINKING": {
-          setAiThinkingPlayerName(msg.playerName);
+          setAiThinkingPlayerId(msg.playerId);
           return;
         }
         case "AI_DONE": {
-          setAiThinkingPlayerName(undefined);
+          setAiThinkingPlayerId(undefined);
           return;
         }
         // Phase 3.6: May I messages
@@ -697,7 +697,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
       <>
         <GameView
           gameState={gameState}
-          aiThinkingPlayerName={aiThinkingPlayerName}
+          aiThinkingPlayerId={aiThinkingPlayerId}
           activityLog={formattedActivityLog}
           onAction={onGameAction}
           errorMessage={gameError}
