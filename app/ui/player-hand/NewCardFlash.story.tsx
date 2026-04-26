@@ -21,19 +21,19 @@ const RANKS: Card["rank"][] = [
 ];
 
 let drawCounter = 0;
-function makeCard(rank: Card["rank"], suit: Card["suit"]): Card {
+function makeCard(rank: Card["rank"], suit: NonNullable<Card["suit"]>): Card {
   drawCounter += 1;
   return { id: `flash-${drawCounter}`, rank, suit };
 }
 
 function makeJoker(): Card {
   drawCounter += 1;
-  return { id: `flash-${drawCounter}`, rank: "Joker", suit: "joker" };
+  return { id: `flash-${drawCounter}`, rank: "Joker", suit: null };
 }
 
 function randomCard(): Card {
-  const rank = RANKS[Math.floor(Math.random() * RANKS.length)]!;
-  const suit = SUITS[Math.floor(Math.random() * SUITS.length)]!;
+  const rank = RANKS[Math.floor(Math.random() * RANKS.length)] ?? "2";
+  const suit = SUITS[Math.floor(Math.random() * SUITS.length)] ?? "hearts";
   return makeCard(rank, suit);
 }
 
