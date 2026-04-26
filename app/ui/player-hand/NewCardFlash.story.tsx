@@ -20,36 +20,33 @@ const RANKS: Card["rank"][] = [
   "A",
 ];
 
-let drawCounter = 0;
-function makeCard(rank: Card["rank"], suit: NonNullable<Card["suit"]>): Card {
-  drawCounter += 1;
-  return { id: `flash-${drawCounter}`, rank, suit };
-}
-
-function makeJoker(): Card {
-  drawCounter += 1;
-  return { id: `flash-${drawCounter}`, rank: "Joker", suit: null };
+function nextId(): string {
+  return crypto.randomUUID();
 }
 
 function randomCard(): Card {
   const rank = RANKS[Math.floor(Math.random() * RANKS.length)] ?? "2";
   const suit = SUITS[Math.floor(Math.random() * SUITS.length)] ?? "hearts";
-  return makeCard(rank, suit);
+  return { id: nextId(), rank, suit };
+}
+
+function jokerCard(): Card {
+  return { id: nextId(), rank: "Joker", suit: null };
 }
 
 const STARTING_HAND: Card[] = [
-  makeCard("4", "hearts"),
-  makeCard("6", "spades"),
-  makeCard("10", "diamonds"),
-  makeCard("J", "clubs"),
-  makeCard("K", "hearts"),
+  { id: nextId(), rank: "4", suit: "hearts" },
+  { id: nextId(), rank: "6", suit: "spades" },
+  { id: nextId(), rank: "10", suit: "diamonds" },
+  { id: nextId(), rank: "J", suit: "clubs" },
+  { id: nextId(), rank: "K", suit: "hearts" },
 ];
 
 export function NewCardFlashStory() {
   const [hand, setHand] = useState<Card[]>(STARTING_HAND);
 
   const drawRandom = () => setHand((h) => [...h, randomCard()]);
-  const drawJoker = () => setHand((h) => [...h, makeJoker()]);
+  const drawJoker = () => setHand((h) => [...h, jokerCard()]);
   const drawTwo = () =>
     setHand((h) => [...h, randomCard(), randomCard()]);
   const drawFour = () =>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Card } from "core/card/card.types";
 
 export function diffCardIds(
@@ -22,35 +22,36 @@ interface UseNewCardIdsOptions {
 
 export function useNewCardIds(
   cards: Card[],
-  options: UseNewCardIdsOptions = {}
+  { durationMs = 1200, maxBatchSize = 3 }: UseNewCardIdsOptions = {}
 ): ReadonlySet<string> {
-  const { durationMs = 1200, maxBatchSize = 3 } = options;
-  const previousIdsRef = useRef<Set<string>>(new Set(cards.map((c) => c.id)));
-  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+  const idsKey = cards.map((c) => c.id).join("|");
+  const currentIds = useMemo(
+    () => new Set(idsKey ? idsKey.split("|") : []),
+    [idsKey]
+  );
+  const previousIdsRef = useRef<Set<string>>(currentIds);
+  const [highlighted, setHighlighted] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
 
   useEffect(() => {
-    const currentIds = new Set(cards.map((c) => c.id));
     const added = diffCardIds(previousIdsRef.current, currentIds);
     previousIdsRef.current = currentIds;
 
     if (added.size === 0 || added.size > maxBatchSize) return;
 
-    setHighlighted((prev) => {
-      const next = new Set(prev);
-      added.forEach((id) => next.add(id));
-      return next;
-    });
+    setHighlighted((prev) => new Set([...prev, ...added]));
 
     const timer = setTimeout(() => {
       setHighlighted((prev) => {
         const next = new Set(prev);
-        added.forEach((id) => next.delete(id));
+        for (const id of added) next.delete(id);
         return next;
       });
     }, durationMs);
 
     return () => clearTimeout(timer);
-  }, [cards, durationMs, maxBatchSize]);
+  }, [currentIds, durationMs, maxBatchSize]);
 
   return highlighted;
 }
