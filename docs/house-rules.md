@@ -139,6 +139,8 @@ Wilds are 2s and Jokers.
 
 **Important restriction:** You may only swap Jokers if you have not laid down yet this hand. Once you have laid down your contract, you lose the right to perform Joker swaps for the rest of that hand.
 
+Joker swapping is a turn action, so you must draw or pick up first. You cannot swap a Joker before your required draw.
+
 **Note:** Joker swapping is not possible in Hand 6 because there are no melds on the table until someone wins.
 
 ---
@@ -161,6 +163,7 @@ You can call May I? at any point during the current player's turn while a discar
 
 - BEFORE the current player draws — yes
 - AFTER the current player draws from stock — yes (the discard is still exposed)
+- AFTER the current player draws from stock and then lays down or lays off — yes, until the current player discards
 - AFTER the current player draws from discard — no (they claimed it)
 - AFTER the current player discards — no (that's a new turn with a new exposed card)
 
@@ -187,6 +190,10 @@ The system cycles through each player ahead of the caller:
 
 If no one ahead claims it, the original caller wins.
 
+After a May I? is settled, play returns to the interrupted current player's turn using the latest game state. For example, if the current player drew from stock before the May I? was called, they continue with their action/discard choices after the May I? resolves.
+
+If an automated player is prompted to allow or claim and cannot respond after retries, that non-response counts as allowing the May I? so the matter is still settled immediately.
+
 ### Example
 
 Turn order: Bob (current), Alice, Carol
@@ -205,9 +212,13 @@ Carol calls "May I?" for the Q♠.
 - Current player (drawing from discard): Gets the card as their normal draw — no penalty
 - Anyone else (via May I?): Gets the discard + 1 penalty card from stock
 
+If a May I? winner needs a penalty card and there is no stock and no discard reserve to reshuffle, the hand ends immediately and all players score what they hold. The penalty is not waived.
+
 **No limit** on May I? usage per hand.
 
 **Hand 6 note:** In Hand 6, since no one is ever "down" until they win, all players remain in line throughout the entire hand. However, May I? is extra risky in Hand 6 because each May I? adds 2 cards (discard + penalty) that must ALL be incorporated into your melds when you lay down.
+
+The normal current-player priority rule still applies in Hand 6: the current player is in line before drawing, but loses that spot after drawing from stock.
 
 ---
 

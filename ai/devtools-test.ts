@@ -10,6 +10,7 @@
 import { executeTurn } from "./mayIAgent";
 import { modelRegistry, withDevTools } from "./modelRegistry";
 import { CliGameAdapter } from "../cli/shared/cli-game-adapter";
+import { createCliAIActionRuntime } from "../cli/shared/cli-ai-action-runtime";
 
 async function main() {
   console.log("🔧 Running AI turn with devtools middleware...\n");
@@ -26,7 +27,7 @@ async function main() {
 
   const result = await executeTurn({
     model,
-    game,
+    runtime: createCliAIActionRuntime(game),
     playerId,
     playerName: "AI Bot",
     debug: true,

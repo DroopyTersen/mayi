@@ -6,10 +6,13 @@
  */
 
 import { describe, it, expect } from "bun:test";
-import { getAvailableToolNames } from "./mayIAgent.tools";
+import { createMayITools, getAvailableToolNames } from "./mayIAgent.tools";
 import type { GameSnapshot } from "../core/engine/game-engine.types";
 import type { Player } from "../core/engine/engine.types";
 import type { Meld } from "../core/meld/meld.types";
+import type { Card } from "../core/card/card.types";
+import type { AIActionRuntime, GameAction } from "./ai-action-runtime.types";
+import type { ToolExecutionResult } from "./mayIAgent.types";
 
 /**
  * Helper to create minimal snapshots for testing.
@@ -241,5 +244,149 @@ describe("getAvailableToolNames", () => {
 
       expect(tools).not.toContain("swap_joker");
     });
+  });
+});
+
+describe("createMayITools", () => {
+  function withHand(snapshot: GameSnapshot, hand: Card[]): GameSnapshot {
+    return {
+      ...snapshot,
+      players: snapshot.players.map((player) =>
+        player.id === "ai" ? { ...player, hand } : player
+      ),
+    };
+  }
+
+  function createRuntime(snapshot: GameSnapshot, actions: GameAction[]): AIActionRuntime {
+    return {
+      getSnapshot: async () => snapshot,
+      executeAction: async (action) => {
+        actions.push(action);
+        return {
+          ok: true,
+          snapshot,
+        };
+      },
+    };
+  }
+
+  it("maps discard positions from the latest runtime snapshot", async () => {
+    const staleCard: Card = { id: "stale-card", rank: "3", suit: "hearts" };
+    const latestCard: Card = { id: "latest-card", rank: "K", suit: "spades" };
+    const latestSnapshot = withHand(
+      makeSnapshot({ turnPhase: "AWAITING_ACTION" }),
+      [latestCard]
+    );
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const staleSnapshot = withHand(makeSnapshot({ turnPhase: "AWAITING_ACTION" }), [
+      staleCard,
+    ]);
+    expect(staleSnapshot.players[0]!.hand[0]!.id).toBe("stale-card");
+
+    const result = (await tools.discard.execute?.(
+      { position: 1 },
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(true);
+    expect(actions).toEqual([{ type: "DISCARD", cardId: "latest-card" }]);
+  });
+
+  it("emits a LAY_DOWN GameAction with card IDs from the latest hand", async () => {
+    const latestSnapshot = withHand(makeSnapshot({ turnPhase: "AWAITING_ACTION" }), [
+      { id: "a-hearts", rank: "A", suit: "hearts" },
+      { id: "a-clubs", rank: "A", suit: "clubs" },
+      { id: "a-diamonds", rank: "A", suit: "diamonds" },
+    ]);
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const result = (await tools.lay_down.execute?.(
+      { melds: [[1, 2, 3]] },
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(true);
+    expect(actions).toEqual([
+      {
+        type: "LAY_DOWN",
+        melds: [
+          {
+            type: "set",
+            cardIds: ["a-hearts", "a-clubs", "a-diamonds"],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("rejects lay down attempts that reuse a hand position across melds", async () => {
+    const latestSnapshot = withHand(makeSnapshot({ turnPhase: "AWAITING_ACTION" }), [
+      { id: "a-hearts", rank: "A", suit: "hearts" },
+      { id: "a-clubs", rank: "A", suit: "clubs" },
+      { id: "a-diamonds", rank: "A", suit: "diamonds" },
+      { id: "5-hearts", rank: "5", suit: "hearts" },
+      { id: "6-hearts", rank: "6", suit: "hearts" },
+      { id: "7-hearts", rank: "7", suit: "hearts" },
+      { id: "8-hearts", rank: "8", suit: "hearts" },
+    ]);
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const result = (await tools.lay_down.execute?.(
+      { melds: [[1, 2, 3], [3, 4, 5, 6]] },
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain("Each hand position can be used at most once");
+    expect(actions).toEqual([]);
+  });
+
+  it("rejects lay down melds that are neither a valid set nor a valid run", async () => {
+    const latestSnapshot = withHand(makeSnapshot({ turnPhase: "AWAITING_ACTION" }), [
+      { id: "a-hearts", rank: "A", suit: "hearts" },
+      { id: "k-clubs", rank: "K", suit: "clubs" },
+      { id: "8-diamonds", rank: "8", suit: "diamonds" },
+      { id: "5-hearts", rank: "5", suit: "hearts" },
+    ]);
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const result = (await tools.lay_down.execute?.(
+      { melds: [[1, 2, 3, 4]] },
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain("do not form a valid set or run");
+    expect(actions).toEqual([]);
+  });
+
+  it("includes layoff position when adding to the start of a run", async () => {
+    const layoffCard: Card = { id: "3-hearts", rank: "3", suit: "hearts" };
+    const latestSnapshot = withHand(
+      makeSnapshot({ turnPhase: "AWAITING_ACTION", isDown: true, tableMelds: 1 }),
+      [layoffCard]
+    );
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const result = (await tools.lay_off.execute?.(
+      { cardPosition: 1, meldNumber: 1, position: "start" } as never,
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(true);
+    expect(actions).toEqual([
+      {
+        type: "LAY_OFF",
+        cardId: "3-hearts",
+        meldId: "meld-0",
+        position: "start",
+      },
+    ]);
   });
 });

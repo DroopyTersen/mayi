@@ -313,7 +313,10 @@ describe("RoundMachine - May I Resolution", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "spades", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "spades", rank: "A" },
+            { id: "stock-2", suit: "hearts", rank: "A" },
+          ],
           discard: [discardCard],
           playerDownStatus: [false, false, false],
         },
@@ -384,7 +387,10 @@ describe("RoundMachine - May I Resolution", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "spades", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "spades", rank: "A" },
+            { id: "stock-2", suit: "hearts", rank: "A" },
+          ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false],
         },
@@ -475,7 +481,10 @@ describe("RoundMachine - May I Resolution", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [discardCard],
           playerDownStatus: [false, false, false],
         },
@@ -544,7 +553,10 @@ describe("RoundMachine - May I Resolution", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [discardCard],
           playerDownStatus: [false, false, false],
         },
@@ -599,7 +611,10 @@ describe("RoundMachine - May I Resolution", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false],
         },
@@ -648,7 +663,10 @@ describe("RoundMachine - May I Resolution", () => {
             ],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false],
         },
@@ -681,7 +699,10 @@ describe("RoundMachine - May I Resolution", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false],
         },
@@ -712,7 +733,10 @@ describe("RoundMachine - May I Resolution", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false],
         },
@@ -743,6 +767,7 @@ describe("RoundMachine - May I Resolution", () => {
           stock: [
             { id: "stock-1", suit: "hearts", rank: "A" },
             { id: "stock-2", suit: "hearts", rank: "2" },
+            { id: "stock-3", suit: "clubs", rank: "A" },
           ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false],
@@ -768,7 +793,7 @@ describe("RoundMachine - May I Resolution", () => {
 
 describe("RoundMachine - May I Edge Cases", () => {
   describe("Empty stock during penalty", () => {
-    it("handles empty stock when granting penalty card", () => {
+    it("ends the hand when a May-I penalty card cannot be paid from stock or discard reserve", () => {
       const input: RoundInput = {
         roundNumber: 1,
         players: createTestPlayers(3),
@@ -790,11 +815,16 @@ describe("RoundMachine - May I Edge Cases", () => {
       actor.send({ type: "CALL_MAY_I", playerId: "player-2" });
       actor.send({ type: "ALLOW_MAY_I", playerId: "player-1" });
 
-      // Winner gets the discard but no penalty card
-      const player2 = getContext(actor).players.find((p) => p.id === "player-2");
-      expect(player2?.hand.find((c) => c.id === "discard-K")).toBeDefined();
-      // Hand should only have original + discard (no penalty)
-      expect(player2?.hand.length).toBe(2); // 1 original + 1 discard
+      expect(actor.getSnapshot().value).toBe("scoring");
+      expect(actor.getSnapshot().status).toBe("done");
+
+      const output = actor.getSnapshot().output;
+      expect(output?.roundRecord.winnerId).toBe("");
+      expect(output?.roundRecord.scores).toEqual({
+        "player-0": 5,
+        "player-1": 5,
+        "player-2": 5,
+      });
     });
 
     it("replenishes stock from discard before granting penalty card", () => {
@@ -877,7 +907,10 @@ describe("RoundMachine - May I Edge Cases", () => {
             [{ id: "p1-1", suit: "diamonds", rank: "5" }],
             [{ id: "p2-1", suit: "clubs", rank: "5" }],
           ],
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false],
         },
@@ -938,7 +971,7 @@ describe("RoundMachine - May I Edge Cases", () => {
         dealerIndex: 0, // player-1 is current
         predefinedState: {
           hands: [[], [], []],
-          stock: [drawnCard, penaltyCard],
+          stock: [drawnCard, penaltyCard, { id: "stock-reserve", suit: "clubs", rank: "A" }],
           discard: [discardCard],
           playerDownStatus: [false, false, false],
         },
@@ -978,7 +1011,10 @@ describe("RoundMachine - May I Edge Cases", () => {
           hands: Array(5)
             .fill(null)
             .map((_, i) => [{ id: `p${i}-1`, suit: "hearts" as const, rank: "5" as const }]),
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [{ id: "discard-K", suit: "spades", rank: "K" }],
           playerDownStatus: [false, false, false, false, false],
         },
@@ -1005,7 +1041,10 @@ describe("RoundMachine - May I Edge Cases", () => {
           hands: Array(5)
             .fill(null)
             .map((_, i) => [{ id: `p${i}-1`, suit: "hearts" as const, rank: "5" as const }]),
-          stock: [{ id: "stock-1", suit: "hearts", rank: "A" }],
+          stock: [
+            { id: "stock-1", suit: "hearts", rank: "A" },
+            { id: "stock-2", suit: "diamonds", rank: "A" },
+          ],
           discard: [discardCard],
           playerDownStatus: [false, false, false, false, false],
         },

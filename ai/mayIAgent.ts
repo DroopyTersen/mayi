@@ -5,7 +5,7 @@
  */
 
 import { generateText, type LanguageModel, type StepResult } from "ai";
-import type { AIGameAdapter } from "./ai-game-adapter.types";
+import type { AIActionRuntime } from "./ai-action-runtime.types";
 import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
 import { buildSystemPrompt } from "./mayIAgent.prompt";
 import {
@@ -51,8 +51,8 @@ export interface ExecuteTurnConfig {
   /** The language model to use for decisions */
   model: LanguageModel;
 
-  /** The game adapter managing the game state */
-  game: AIGameAdapter;
+  /** Runtime that reads latest game state and executes queued game actions */
+  runtime: AIActionRuntime;
 
   /** The player ID this AI is controlling */
   playerId: string;
@@ -75,8 +75,8 @@ export interface ExecuteTurnConfig {
   /** AbortSignal to cancel the LLM call mid-turn (e.g., when May-I is called) */
   abortSignal?: AbortSignal;
 
-  /** Callback invoked after each tool execution to persist state immediately */
-  onPersist?: () => Promise<void>;
+  /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
+  maxRetries?: number;
 }
 
 /**
@@ -104,7 +104,7 @@ export async function executeTurn(
 ): Promise<ExecuteTurnResult> {
   const {
     model,
-    game,
+    runtime,
     playerId,
     playerName,
     maxSteps = 10,
@@ -112,15 +112,15 @@ export async function executeTurn(
     telemetry = true,
     actionLog,
     abortSignal,
-    onPersist,
+    maxRetries,
   } = config;
 
-  const tools = createMayITools(game, playerId, { actionLog });
+  const tools = createMayITools(runtime, playerId, { actionLog });
   const systemPrompt = buildSystemPrompt();
   const actions: string[] = [];
 
   // Check if it's this player's turn
-  let currentState = game.getSnapshot();
+  let currentState = await runtime.getSnapshot();
   if (currentState.awaitingPlayerId !== playerId) {
     return {
       success: false,
@@ -130,40 +130,12 @@ export async function executeTurn(
   }
 
   const currentPlayer = currentState.players.find((p) => p.id === playerId);
-  const isDown = currentPlayer?.isDown ?? false;
 
   if (debug) {
     console.log(`\n[AI] Starting turn for ${playerId}`);
     console.log(`[AI] Phase: ${currentState.phase} / ${currentState.turnPhase}`);
   }
 
-  // Auto-draw for down players (they can only draw from stock)
-  if (
-    isDown &&
-    currentState.phase === "ROUND_ACTIVE" &&
-    currentState.turnPhase === "AWAITING_DRAW"
-  ) {
-    const drawResult = game.drawFromStock();
-    actions.push("draw_from_stock({})");
-
-    if (debug) {
-      console.log(`[AI] Auto-draw (down player): ${drawResult.lastError ?? "OK"}`);
-    }
-
-    // Refresh state after auto-draw
-    currentState = game.getSnapshot();
-
-    // If the engine is no longer awaiting us (interrupted), return
-    if (currentState.awaitingPlayerId !== playerId) {
-      return {
-        success: true,
-        actions,
-        error: undefined,
-      };
-    }
-  }
-
-  // Get game state for the AI (after potential auto-draw)
   const initialGameState = outputGameStateForLLM(currentState, playerId, { actionLog });
 
   try {
@@ -177,11 +149,11 @@ export async function executeTurn(
       prompt: initialGameState,
       tools,
       abortSignal,
+      maxRetries,
       stopWhen: stopWhenTurnComplete(maxSteps),
       prepareStep: async () => {
         // Get current game state (may have changed since last step)
-        const currentState = game.getSnapshot();
-        const currentPlayer = currentState.players.find((p) => p.id === playerId);
+        const currentState = await runtime.getSnapshot();
 
         // Get tools available for current snapshot
         const activeToolNames = getAvailableToolNames(currentState, playerId) as (keyof MayITools)[];
@@ -234,12 +206,6 @@ export async function executeTurn(
               }
             }
           }
-
-          // Persist state immediately after tool execution
-          // This ensures partial progress (e.g., draw) is saved before abort
-          if (onPersist) {
-            await onPersist();
-          }
         }
       },
     });
@@ -278,8 +244,8 @@ export async function executeOneAction(
  * Configuration for executing an AI turn using the registry
  */
 export interface ExecuteAITurnConfig {
-  /** The game adapter managing the game state */
-  game: AIGameAdapter;
+  /** Runtime that reads latest game state and executes queued game actions */
+  runtime: AIActionRuntime;
 
   /** The player ID to execute turn for */
   playerId: string;
@@ -292,6 +258,9 @@ export interface ExecuteAITurnConfig {
 
   /** Enable debug logging. Default: false */
   debug?: boolean;
+
+  /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
+  maxRetries?: number;
 }
 
 /**
@@ -306,7 +275,7 @@ export interface ExecuteAITurnConfig {
 export async function executeAITurn(
   config: ExecuteAITurnConfig
 ): Promise<ExecuteTurnResult> {
-  const { game, playerId, registry, maxSteps, debug } = config;
+  const { runtime, playerId, registry, maxSteps, debug, maxRetries } = config;
 
   const model = registry.getModel(playerId);
   if (!model) {
@@ -321,10 +290,11 @@ export async function executeAITurn(
 
   return executeTurn({
     model,
-    game,
+    runtime,
     playerId,
     playerName,
     maxSteps,
     debug,
+    maxRetries,
   });
 }

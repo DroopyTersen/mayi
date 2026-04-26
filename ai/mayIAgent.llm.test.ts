@@ -14,6 +14,8 @@ import * as fs from "node:fs";
 import { executeTurn } from "./mayIAgent";
 import { modelRegistry } from "./modelRegistry";
 import { CliGameAdapter } from "../cli/shared/cli-game-adapter";
+import { createCliAIActionRuntime } from "../cli/shared/cli-ai-action-runtime";
+import type { GameAction } from "./ai-action-runtime.types";
 
 // Skip LLM tests by default - run with: RUN_INTEGRATION_TESTS=1 bun test ai/mayIAgent.llm.test.ts
 const skipLLM = !process.env.RUN_INTEGRATION_TESTS;
@@ -26,51 +28,11 @@ function cleanupGame(gameId: string): void {
 }
 
 class TrackedGame extends CliGameAdapter {
-  public calls: Array<{ method: string; args: unknown[] }> = [];
+  public actions: GameAction[] = [];
 
-  override drawFromStock() {
-    this.calls.push({ method: "drawFromStock", args: [] });
-    return super.drawFromStock();
-  }
-
-  override drawFromDiscard() {
-    this.calls.push({ method: "drawFromDiscard", args: [] });
-    return super.drawFromDiscard();
-  }
-
-  override layDown(meldGroups: number[][]) {
-    this.calls.push({ method: "layDown", args: [meldGroups] });
-    return super.layDown(meldGroups);
-  }
-
-  override skip() {
-    this.calls.push({ method: "skip", args: [] });
-    return super.skip();
-  }
-
-  override discardCard(position: number) {
-    this.calls.push({ method: "discardCard", args: [position] });
-    return super.discardCard(position);
-  }
-
-  override layOff(cardPos: number, meldNum: number) {
-    this.calls.push({ method: "layOff", args: [cardPos, meldNum] });
-    return super.layOff(cardPos, meldNum);
-  }
-
-  override callMayI(callerId: string) {
-    this.calls.push({ method: "callMayI", args: [callerId] });
-    return super.callMayI(callerId);
-  }
-
-  override allowMayI(playerId?: string) {
-    this.calls.push({ method: "allowMayI", args: [playerId] });
-    return super.allowMayI(playerId);
-  }
-
-  override claimMayI(playerId?: string) {
-    this.calls.push({ method: "claimMayI", args: [playerId] });
-    return super.claimMayI(playerId);
+  override executeGameAction(action: GameAction) {
+    this.actions.push(action);
+    return super.executeGameAction(action);
   }
 }
 
@@ -96,7 +58,7 @@ describe("AI Agent Error Handling", () => {
 
     const result = await executeTurn({
       model,
-      game,
+      runtime: createCliAIActionRuntime(game),
       playerId: wrongPlayerId,
       debug: false,
       telemetry: false,
@@ -104,7 +66,7 @@ describe("AI Agent Error Handling", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Not this player's turn");
-    expect(game.calls.length).toBe(0);
+    expect(game.actions.length).toBe(0);
   });
 });
 
@@ -130,14 +92,18 @@ describe.skipIf(skipLLM)("AWAITING_DRAW phase", () => {
 
     const result = await executeTurn({
       model,
-      game,
+      runtime: createCliAIActionRuntime(game),
       playerId: aiPlayerId,
       debug: false,
       telemetry: false,
     });
 
     expect(result.success).toBe(true);
-    expect(game.calls.some((c) => c.method === "drawFromStock" || c.method === "drawFromDiscard")).toBe(true);
+    expect(
+      game.actions.some(
+        (action) => action.type === "DRAW_FROM_STOCK" || action.type === "DRAW_FROM_DISCARD"
+      )
+    ).toBe(true);
   }, 30000);
 });
 
@@ -171,14 +137,17 @@ describe.skipIf(skipLLM)("RESOLVING_MAY_I phase", () => {
 
     const result = await executeTurn({
       model,
-      game,
+      runtime: createCliAIActionRuntime(game),
       playerId: promptedPlayerId,
       debug: false,
       telemetry: false,
     });
 
     expect(result.success).toBe(true);
-    expect(game.calls.some((c) => c.method === "allowMayI" || c.method === "claimMayI")).toBe(true);
+    expect(
+      game.actions.some(
+        (action) => action.type === "ALLOW_MAY_I" || action.type === "CLAIM_MAY_I"
+      )
+    ).toBe(true);
   }, 30000);
 });
-

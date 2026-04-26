@@ -133,7 +133,11 @@ Call draw_from_stock or draw_from_discard immediately. This is mandatory.
 - Otherwise draw from stock
 
 ### AWAITING_ACTION — Act or proceed to discard
-- If you can complete the contract: call lay_down with meld positions [[1,2,3], [4,5,6]]
+- If you can complete the contract: call lay_down with exact meld positions, e.g. [[1,2,3], [4,5,6]]
+- For lay_down, every hand position may appear only once across all melds
+- Do not guess at lay_down; each proposed meld must be a valid set or run for the current contract
+- If lay_down fails, re-check the error, contract shape, meld type, ranks, suits, wild ratio, and run order; do not repeat the same meld positions
+- Only retry lay_down when you can identify a corrected exact contract from the current hand
 - If down: call lay_off to add cards to table melds, or call discard to end turn
 - If you cannot act: call discard to end your turn
 

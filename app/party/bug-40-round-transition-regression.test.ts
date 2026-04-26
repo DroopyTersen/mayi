@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "bun:test";
 import { AITurnCoordinator, type AITurnCoordinatorDeps } from "./ai-turn-coordinator";
-import { executeFallbackTurn } from "./ai-turn-handler";
+import { executeStoredGameAction } from "./game-action-executor";
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import { PartyGameAdapter, type StoredGameState } from "./party-game-adapter";
 
@@ -64,16 +64,41 @@ describe("Bug #40 - round transition after AI goes out", () => {
 
     const deps: AITurnCoordinatorDeps = {
       getState: async () => storedState,
-      setState: async (state) => {
-        storedState = state;
-      },
-      broadcast: async () => {},
-      executeAITurn: async ({ adapter, aiPlayerId, abortSignal, onPersist }) => {
-        return await executeFallbackTurn(adapter, aiPlayerId, {
-          abortSignal,
-          onPersist,
-          phaseDelayMs: 0,
+      executeAIAction: async (playerId, action) => {
+        const result = await executeStoredGameAction({
+          roomPhase: "playing",
+          callerPlayerId: playerId,
+          action,
+          getState: async () => storedState,
+          setState: async (state) => {
+            storedState = state;
+          },
         });
+
+        if (!result.ok) {
+          const latestState = storedState;
+          if (!latestState) {
+            throw new Error(result.outboundMessages[0].message);
+          }
+          return {
+            ok: false,
+            snapshot: PartyGameAdapter.fromStoredState(latestState).getSnapshot(),
+            error: result.outboundMessages[0].error,
+          };
+        }
+
+        return {
+          ok: true,
+          snapshot: result.snapshot,
+        };
+      },
+      executeAITurn: async ({ runtime }) => {
+        const result = await runtime.executeAction({ type: "DISCARD", cardId: "c1" });
+        return {
+          success: result.ok,
+          actions: ["discard"],
+          error: result.ok ? undefined : result.error,
+        };
       },
       isAIPlayerTurn: (adapter) => {
         if (aiTurnChecks++ > 0) return null;

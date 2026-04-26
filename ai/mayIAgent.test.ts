@@ -5,8 +5,12 @@
  * when to stop the agent loop.
  */
 
+import { APICallError } from "@ai-sdk/provider";
 import { describe, it, expect } from "bun:test";
-import { stopWhenTurnComplete } from "./mayIAgent";
+import type { LanguageModel } from "ai";
+import type { AIActionRuntime } from "./ai-action-runtime.types";
+import { executeTurn, stopWhenTurnComplete } from "./mayIAgent";
+import type { GameSnapshot } from "../core/engine/game-engine.types";
 
 /**
  * Helper to create a minimal step with optional turnComplete in tool result
@@ -118,5 +122,121 @@ describe("stopWhenTurnComplete", () => {
       ];
       expect(shouldStop({ steps } as never)).toBe(true);
     });
+  });
+});
+
+function createRetryableFailureModel(options: {
+  attempts: { count: number };
+  failuresBeforeSuccess: number;
+}): LanguageModel {
+  return {
+    specificationVersion: "v3",
+    provider: "test-provider",
+    modelId: "retryable-failure-model",
+    supportedUrls: {},
+    doGenerate: async () => {
+      options.attempts.count++;
+      if (options.attempts.count <= options.failuresBeforeSuccess) {
+        throw new APICallError({
+          message: "retryable failure",
+          url: "https://example.test/ai",
+          requestBodyValues: {},
+          statusCode: 500,
+          responseHeaders: { "retry-after-ms": "0" },
+        });
+      }
+
+      return {
+        content: [{ type: "text", text: "done" }],
+        finishReason: { unified: "stop", raw: "stop" },
+        usage: {
+          inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 1, text: 1, reasoning: 0 },
+        },
+        warnings: [],
+      };
+    },
+    doStream: async () => {
+      throw new Error("streaming is not used by executeTurn");
+    },
+  };
+}
+
+function createAISnapshot(): GameSnapshot {
+  return {
+    version: "3.0",
+    gameId: "test-game",
+    lastError: null,
+    phase: "ROUND_ACTIVE",
+    turnPhase: "AWAITING_DRAW",
+    turnNumber: 1,
+    lastDiscardedByPlayerId: null,
+    discardClaimed: false,
+    currentRound: 1,
+    contract: { roundNumber: 1, sets: 2, runs: 0 },
+    players: [
+      {
+        id: "ai",
+        name: "AI",
+        hand: [],
+        isDown: false,
+        totalScore: 0,
+      },
+    ],
+    dealerIndex: 0,
+    currentPlayerIndex: 0,
+    awaitingPlayerId: "ai",
+    stock: [],
+    discard: [],
+    table: [],
+    hasDrawn: false,
+    laidDownThisTurn: false,
+    tookActionThisTurn: false,
+    mayIContext: null,
+    roundHistory: [],
+    createdAt: "2026-04-26T00:00:00.000Z",
+    updatedAt: "2026-04-26T00:00:00.000Z",
+  };
+}
+
+function createRuntime(snapshot: GameSnapshot): AIActionRuntime {
+  return {
+    getSnapshot: async () => snapshot,
+    executeAction: async () => ({ ok: true, snapshot }),
+  };
+}
+
+describe("executeTurn retry settings", () => {
+  it("passes maxRetries through to the AI SDK", async () => {
+    const attempts = { count: 0 };
+
+    const result = await executeTurn({
+      model: createRetryableFailureModel({ attempts, failuresBeforeSuccess: 1 }),
+      runtime: createRuntime(createAISnapshot()),
+      playerId: "ai",
+      maxSteps: 1,
+      maxRetries: 0,
+      telemetry: false,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("retryable failure");
+    expect(attempts.count).toBe(1);
+  });
+
+  it("lets the AI SDK retry retryable provider failures", async () => {
+    const attempts = { count: 0 };
+
+    const result = await executeTurn({
+      model: createRetryableFailureModel({ attempts, failuresBeforeSuccess: 2 }),
+      runtime: createRuntime(createAISnapshot()),
+      playerId: "ai",
+      maxSteps: 1,
+      maxRetries: 2,
+      telemetry: false,
+    });
+
+    expect(result.success).toBe(true);
+    expect(attempts.count).toBe(3);
   });
 });

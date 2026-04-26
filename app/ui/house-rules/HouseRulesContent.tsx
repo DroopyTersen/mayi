@@ -337,6 +337,9 @@ export function HouseRulesContent() {
               Important: You may only swap Jokers if you have not laid down yet
               this hand.
             </li>
+            <li>
+              Joker swapping is a turn action, so you must draw or pick up first.
+            </li>
             <li className="italic">
               Note: Joker swapping is not possible in Hand 6 because there are no
               melds on the table until someone wins.
@@ -370,6 +373,9 @@ export function HouseRulesContent() {
           </li>
           <li className="text-green-600 dark:text-green-400">
             &#10003; AFTER the current player draws from stock - yes (discard still exposed)
+          </li>
+          <li className="text-green-600 dark:text-green-400">
+            &#10003; AFTER the current player draws from stock and lays down or lays off - yes
           </li>
           <li className="text-destructive">
             &#10007; AFTER the current player draws from discard - no (they claimed it)
@@ -415,6 +421,14 @@ export function HouseRulesContent() {
         <p className="text-muted-foreground mb-4">
           If no one ahead claims it, the original caller wins.
         </p>
+        <p className="text-muted-foreground mb-4">
+          After May I? is settled, play returns to the interrupted current player&apos;s
+          turn using the latest game state.
+        </p>
+        <p className="text-muted-foreground mb-4">
+          If an automated player is prompted and cannot respond after retries, that
+          non-response counts as allowing the May I? so resolution continues.
+        </p>
 
         <h4 className="font-medium mb-2">What claiming costs</h4>
         <ul className="list-disc list-inside text-muted-foreground mb-4 ml-2">
@@ -427,6 +441,11 @@ export function HouseRulesContent() {
             May I?): Gets the discard + 1 penalty card from stock
           </li>
         </ul>
+        <p className="text-muted-foreground mb-4">
+          If a May I? winner needs a penalty card and there is no stock or discard
+          reserve to reshuffle, the hand ends immediately and everyone scores what
+          they hold.
+        </p>
 
         <p className="text-muted-foreground">
           <span className="font-medium text-foreground">No limit</span> on May I?
@@ -587,6 +606,9 @@ export function HouseRulesContent() {
             <ul className="list-disc list-inside ml-4 mt-1">
               <li>Each May I? gives you 2 extra cards (discard + penalty).</li>
               <li>If you May I? once, you now have 14 cards that must ALL be used.</li>
+              <li>
+                The current player still loses their spot after drawing from stock.
+              </li>
               <li>All these cards must fit into your 1 set + 2 runs.</li>
             </ul>
           </li>

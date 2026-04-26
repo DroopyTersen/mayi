@@ -8,6 +8,7 @@
 
 import * as readline from "readline";
 import { CliGameAdapter } from "../shared/cli-game-adapter";
+import { createCliAIActionRuntime } from "../shared/cli-ai-action-runtime";
 import { renderCard, renderHand, renderNumberedHand, renderHandGroupedBySuit } from "../shared/cli.renderer";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import type { Player, RoundNumber } from "../../core/engine/engine.types";
@@ -660,21 +661,21 @@ async function resolveMayIIfNeeded(): Promise<void> {
 
     if (aiRegistry.isAI(awaitingPlayer.id)) {
       const result = await executeAITurn({
-        game,
+        runtime: createCliAIActionRuntime(game),
         playerId: awaitingPlayer.id,
         registry: aiRegistry,
         debug: false,
       });
 
       if (!result.success) {
-        // Conservative fallback: allow
-        game.allowMayI(awaitingPlayer.id);
+        console.log(`AI May-I response error: ${result.error}`);
+        return;
       }
       continue;
     }
 
-    // Non-AI fallback: allow
-    game.allowMayI(awaitingPlayer.id);
+    console.log(`No AI registered for ${awaitingPlayer.name}; May-I resolution is paused.`);
+    return;
   }
 }
 
@@ -758,7 +759,7 @@ async function handleAITurn(state: GameSnapshot): Promise<void> {
   // Use the real AI agent if this player is registered
   if (aiRegistry.isAI(currentPlayer.id)) {
     const result = await executeAITurn({
-      game,
+      runtime: createCliAIActionRuntime(game),
       playerId: currentPlayer.id,
       registry: aiRegistry,
       debug: false,
@@ -766,8 +767,6 @@ async function handleAITurn(state: GameSnapshot): Promise<void> {
 
     if (!result.success) {
       console.log(`AI error: ${result.error}`);
-      // Fallback to simple behavior
-      await handleSimpleAITurn(state);
       return;
     }
 
@@ -779,33 +778,7 @@ async function handleAITurn(state: GameSnapshot): Promise<void> {
 
     await resolveMayIIfNeeded();
   } else {
-    // Fallback for non-AI players (shouldn't happen normally)
-    await handleSimpleAITurn(state);
-  }
-}
-
-/**
- * Simple fallback AI behavior (draw, skip, discard first card)
- */
-async function handleSimpleAITurn(state: GameSnapshot): Promise<void> {
-  const currentPlayer = state.players[state.currentPlayerIndex]!;
-
-  if (getDecisionPhase(state) === "AWAITING_DRAW") {
-    game.drawFromStock();
-    await resolveMayIIfNeeded();
-  }
-
-  const afterDraw = game.getSnapshot();
-  if (getDecisionPhase(afterDraw) === "AWAITING_ACTION") {
-    game.skip();
-  }
-
-  const afterSkip = game.getSnapshot();
-  if (getDecisionPhase(afterSkip) === "AWAITING_DISCARD") {
-    const player = afterSkip.players[afterSkip.currentPlayerIndex]!;
-    const discardedCard = player.hand[0]!;
-    game.discardCard(1);
-    console.log(`${currentPlayer.name} drew from stock. Discarded ${renderCard(discardedCard)}.`);
+    console.log(`No AI registered for ${currentPlayer.name}; turn is paused.`);
   }
 }
 

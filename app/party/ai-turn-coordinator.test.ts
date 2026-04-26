@@ -1,47 +1,52 @@
-/**
- * Unit tests for AITurnCoordinator
- *
- * Tests the abort/persist coordination logic without PartyKit.
- * Uses dependency injection with simple fake implementations.
- */
+import { describe, expect, it } from "bun:test";
 
-import { describe, it, expect } from "bun:test";
 import { AITurnCoordinator, type AITurnCoordinatorDeps } from "./ai-turn-coordinator";
-import type { StoredGameState, PlayerMapping } from "./party-game-adapter";
+import type { GameSnapshot } from "../../core/engine/game-engine.types";
+import type { PlayerMapping, StoredGameState } from "./party-game-adapter";
+import type { GameAction } from "./protocol.types";
+import type { PartyGameAdapter } from "./party-game-adapter";
 
-// Minimal fake adapter for testing
-interface FakeAdapter {
-  getSnapshot: () => { phase: string };
-  getStoredState: () => StoredGameState;
+function createSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot {
+  return {
+    version: "3.0",
+    gameId: "test-room",
+    phase: "ROUND_ACTIVE",
+    turnPhase: "AWAITING_DRAW",
+    awaitingPlayerId: "player-0",
+    currentRound: 1,
+    contract: { roundNumber: 1, sets: 2, runs: 0 },
+    players: [],
+    dealerIndex: 2,
+    currentPlayerIndex: 0,
+    table: [],
+    stock: [],
+    discard: [],
+    turnNumber: 1,
+    hasDrawn: false,
+    laidDownThisTurn: false,
+    tookActionThisTurn: false,
+    lastDiscardedByPlayerId: null,
+    discardClaimed: false,
+    mayIContext: null,
+    roundHistory: [],
+    lastError: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
 }
 
-// Test helper to create a minimal stored game state
-function createTestGameState(): StoredGameState {
+function createStoredState(label = "initial"): StoredGameState {
   return {
     roomId: "test-room",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     activityLog: [],
-    playerMappings: [
-      {
-        lobbyId: "ai-player-1",
-        engineId: "player-0",
-        name: "AI 1",
-        isAI: true,
-        aiModelId: "default:grok",
-      },
-      {
-        lobbyId: "human-player-1",
-        engineId: "player-1",
-        name: "Human 1",
-        isAI: false,
-      },
-    ],
-    engineSnapshot: "{}",
+    playerMappings: [],
+    engineSnapshot: JSON.stringify({ label }),
   };
 }
 
-// Create a fake PlayerMapping for AI player
 function createAIPlayerMapping(): PlayerMapping {
   return {
     lobbyId: "ai-player-1",
@@ -52,352 +57,217 @@ function createAIPlayerMapping(): PlayerMapping {
   };
 }
 
-// Simple fake deps for testing
-function createFakeDeps(options: Partial<{
-  isAITurn: boolean;
-  executeAITurnFn: AITurnCoordinatorDeps["executeAITurn"];
-  isAIPlayerTurnSequence: (boolean | null)[];
+function createDeps(options: Partial<{
+  aiTurnSequence: boolean[];
+  executeAITurn: AITurnCoordinatorDeps["executeAITurn"];
+  snapshotForState: (state: StoredGameState) => GameSnapshot;
 }> = {}): {
   deps: AITurnCoordinatorDeps;
   state: { current: StoredGameState };
-  persistCount: { value: number };
-  broadcastCount: { value: number };
+  executedActions: GameAction[];
 } {
-  const state = { current: createTestGameState() };
-  const persistCount = { value: 0 };
-  const broadcastCount = { value: 0 };
-
-  const defaultExecuteAITurn: AITurnCoordinatorDeps["executeAITurn"] = async () => ({
-    success: true,
-    actions: ["draw", "discard"],
-    usedFallback: false,
-  });
-
-  // Track calls to isAIPlayerTurn for sequence-based testing
-  let isAITurnCallCount = 0;
-  const isAITurnSequence = options.isAIPlayerTurnSequence ?? (options.isAITurn ? [true, false] : [false]);
+  const state = { current: createStoredState() };
+  const executedActions: GameAction[] = [];
+  const aiTurnSequence = options.aiTurnSequence ?? [true, false];
+  let aiTurnCallCount = 0;
 
   const deps: AITurnCoordinatorDeps = {
     getState: async () => state.current,
-    setState: async (s) => {
-      state.current = s;
-      persistCount.value++;
+    executeAIAction: async (_playerId, action) => {
+      executedActions.push(action);
+      return {
+        ok: true,
+        snapshot: createSnapshot({ turnPhase: "AWAITING_ACTION", hasDrawn: true }),
+      };
     },
-    broadcast: async () => {
-      broadcastCount.value++;
-    },
-    executeAITurn: options.executeAITurnFn ?? defaultExecuteAITurn,
+    executeAITurn:
+      options.executeAITurn ??
+      (async () => ({
+        success: true,
+        actions: ["draw_from_stock"],
+      })),
     env: {} as AITurnCoordinatorDeps["env"],
-    // Inject fake isAIPlayerTurn that returns based on sequence
     isAIPlayerTurn: () => {
-      const result = isAITurnSequence[isAITurnCallCount];
-      isAITurnCallCount++;
-      return result ? createAIPlayerMapping() : null;
+      const isAITurn = aiTurnSequence[aiTurnCallCount] ?? false;
+      aiTurnCallCount++;
+      return isAITurn ? createAIPlayerMapping() : null;
     },
-    // Inject fake createAdapter that returns a minimal adapter
-    createAdapter: (s: StoredGameState) =>
+    createAdapter: (storedState) =>
       ({
-        getSnapshot: () => ({ phase: "ROUND_ACTIVE" }),
-        getStoredState: () => s,
-      }) as unknown as ReturnType<AITurnCoordinatorDeps["createAdapter"] & {}>,
-    // Disable delays for fast tests
+        getSnapshot: () =>
+          options.snapshotForState?.(storedState) ?? createSnapshot(),
+      }) as PartyGameAdapter,
     thinkingDelayMs: 0,
     interTurnDelayMs: 0,
+    toolDelayMs: 0,
   };
 
-  return { deps, state, persistCount, broadcastCount };
+  return { deps, state, executedActions };
 }
 
 describe("AITurnCoordinator", () => {
-  describe("executeAITurnsIfNeeded", () => {
-    it("should exit immediately if it's not an AI's turn", async () => {
-      const { deps, persistCount } = createFakeDeps({
-        isAITurn: false,
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      expect(coordinator.isRunning()).toBe(false);
-      expect(persistCount.value).toBe(0); // No AI turn executed
+  it("exits immediately when the latest state is not awaiting an AI", async () => {
+    let executed = false;
+    const { deps } = createDeps({
+      aiTurnSequence: [false],
+      executeAITurn: async () => {
+        executed = true;
+        return { success: true, actions: [] };
+      },
     });
 
-    it("should exit when game state is missing", async () => {
-      let executeCalled = false;
-      const { deps } = createFakeDeps({
-        isAITurn: true,
-        executeAITurnFn: async () => {
-          executeCalled = true;
-          return {
-            success: true,
-            actions: ["draw"],
-            usedFallback: false,
-          };
-        },
-      });
-      deps.getState = async () => null;
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
 
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      expect(executeCalled).toBe(false);
-      expect(coordinator.isRunning()).toBe(false);
-    });
-
-    it("should execute AI turn when it's an AI's turn", async () => {
-      let aiTurnExecuted = false;
-      const { deps } = createFakeDeps({
-        isAITurn: true,
-        executeAITurnFn: async () => {
-          aiTurnExecuted = true;
-          return {
-            success: true,
-            actions: ["draw", "discard"],
-            usedFallback: false,
-          };
-        },
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      expect(aiTurnExecuted).toBe(true);
-      expect(coordinator.isRunning()).toBe(false); // Cleaned up after completion
-    });
-
-    it("should call onAIDone when abort interrupts a turn", async () => {
-      const { deps } = createFakeDeps({
-        isAITurn: true,
-        executeAITurnFn: async ({ abortSignal }) => {
-          return new Promise((_, reject) => {
-            abortSignal?.addEventListener("abort", () => {
-              reject(new DOMException("Aborted", "AbortError"));
-            });
-          });
-        },
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-      const doneCalls: string[] = [];
-
-      const turnPromise = coordinator.executeAITurnsIfNeeded({
-        onAIDone: (playerId) => {
-          doneCalls.push(playerId);
-        },
-      });
-      await new Promise((r) => setTimeout(r, 10));
-      coordinator.abortCurrentTurn();
-      await turnPromise;
-
-      expect(doneCalls).toEqual(["ai-player-1"]);
-    });
-
-    it("should abort when abortCurrentTurn is called mid-turn", async () => {
-      const { deps, persistCount } = createFakeDeps({
-        isAITurn: true,
-        executeAITurnFn: async ({ abortSignal, onPersist }) => {
-          // Simulate: persist after draw
-          if (onPersist) await onPersist();
-
-          // Simulate LLM thinking (where abort happens)
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(resolve, 1000);
-            abortSignal?.addEventListener("abort", () => {
-              clearTimeout(timeout);
-              reject(new DOMException("Aborted", "AbortError"));
-            });
-          });
-
-          return { success: true, actions: ["draw", "discard"], usedFallback: false };
-        },
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-
-      // Start turn, abort after 50ms
-      const turnPromise = coordinator.executeAITurnsIfNeeded();
-      await new Promise((r) => setTimeout(r, 50));
-      coordinator.abortCurrentTurn();
-      await turnPromise;
-
-      expect(persistCount.value).toBeGreaterThan(0); // Draw was persisted before abort
-      expect(coordinator.isRunning()).toBe(false); // Cleaned up
-    });
-
-    it("should call onPersist after each tool execution", async () => {
-      let persistCallCount = 0;
-
-      const { deps } = createFakeDeps({
-        isAITurn: true,
-        executeAITurnFn: async ({ onPersist }) => {
-          if (onPersist) {
-            await onPersist(); // After draw
-            await onPersist(); // After skip
-            await onPersist(); // After discard
-          }
-          return { success: true, actions: ["draw", "skip", "discard"], usedFallback: false };
-        },
-      });
-
-      // Track persist calls
-      const originalSetState = deps.setState;
-      deps.setState = async (s) => {
-        persistCallCount++;
-        await originalSetState(s);
-      };
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      // 3 from onPersist + 1 final save
-      expect(persistCallCount).toBe(4);
-    });
-
-    it("should exit loop cleanly on abort without throwing", async () => {
-      const { deps } = createFakeDeps({
-        isAITurn: true,
-        executeAITurnFn: async ({ abortSignal }) => {
-          return new Promise((_, reject) => {
-            abortSignal?.addEventListener("abort", () => {
-              reject(new DOMException("Aborted", "AbortError"));
-            });
-          });
-        },
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-
-      const turnPromise = coordinator.executeAITurnsIfNeeded();
-      // Give it a tick to start the AI turn (delays are 0 in tests)
-      await new Promise((r) => setTimeout(r, 10));
-      coordinator.abortCurrentTurn();
-
-      // Should resolve without throwing
-      await expect(turnPromise).resolves.toBeUndefined();
-    });
-
-    it("should clean up AbortController on normal completion", async () => {
-      const { deps } = createFakeDeps({
-        isAITurn: false, // Not AI's turn - exit immediately
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      expect(coordinator.isRunning()).toBe(false);
-    });
-
-    it("should broadcast after each persist", async () => {
-      let broadcastCount = 0;
-
-      const { deps } = createFakeDeps({
-        isAITurn: true,
-        executeAITurnFn: async ({ onPersist }) => {
-          if (onPersist) await onPersist();
-          return { success: true, actions: ["draw"], usedFallback: false };
-        },
-      });
-
-      deps.broadcast = async () => {
-        broadcastCount++;
-      };
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      expect(broadcastCount).toBeGreaterThanOrEqual(1);
-    });
-
-    it("should handle chained AI turns", async () => {
-      let aiTurnCount = 0;
-
-      const { deps } = createFakeDeps({
-        // 3 AI turns, then human turn
-        isAIPlayerTurnSequence: [true, true, true, false],
-        executeAITurnFn: async () => {
-          aiTurnCount++;
-          return { success: true, actions: ["draw", "discard"], usedFallback: false };
-        },
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      expect(aiTurnCount).toBe(3);
-    });
-
-    it("should stop chaining when game ends after an AI turn", async () => {
-      let phase = "ROUND_ACTIVE";
-      let aiTurnCount = 0;
-      let state = createTestGameState();
-
-      const deps: AITurnCoordinatorDeps = {
-        getState: async () => state,
-        setState: async (next) => {
-          state = next;
-        },
-        broadcast: async () => {},
-        executeAITurn: async () => {
-          aiTurnCount++;
-          phase = "GAME_END";
-          return { success: true, actions: ["draw"], usedFallback: false };
-        },
-        env: {} as AITurnCoordinatorDeps["env"],
-        isAIPlayerTurn: () => createAIPlayerMapping(),
-        createAdapter: (s) =>
-          ({
-            getSnapshot: () => ({ phase, currentRound: 1 }),
-            getStoredState: () => s,
-          }) as unknown as ReturnType<AITurnCoordinatorDeps["createAdapter"] & {}>,
-        thinkingDelayMs: 0,
-        interTurnDelayMs: 0,
-      };
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      expect(aiTurnCount).toBe(1);
-    });
-
-    it("should respect MAX_CHAINED_TURNS limit", async () => {
-      let aiTurnCount = 0;
-
-      const { deps } = createFakeDeps({
-        // Always AI turn (would loop forever without limit)
-        isAIPlayerTurnSequence: Array(20).fill(true),
-        executeAITurnFn: async () => {
-          aiTurnCount++;
-          return { success: true, actions: ["draw", "discard"], usedFallback: false };
-        },
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-      await coordinator.executeAITurnsIfNeeded();
-
-      // Should stop at MAX_CHAINED_TURNS (8)
-      expect(aiTurnCount).toBe(8);
-    });
+    expect(executed).toBe(false);
+    expect(coordinator.isRunning()).toBe(false);
   });
 
-  describe("abortCurrentTurn", () => {
-    it("should be safe to call when no turn is running", () => {
-      const { deps } = createFakeDeps({
-        isAITurn: false,
-      });
-
-      const coordinator = new AITurnCoordinator(deps);
-
-      // Should not throw
-      expect(() => coordinator.abortCurrentTurn()).not.toThrow();
+  it("passes an AIActionRuntime that executes normal game actions", async () => {
+    const { deps, executedActions } = createDeps({
+      executeAITurn: async ({ runtime }) => {
+        const result = await runtime.executeAction({ type: "DRAW_FROM_STOCK" });
+        expect(result.ok).toBe(true);
+        return { success: true, actions: ["draw_from_stock"] };
+      },
     });
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+
+    expect(executedActions).toEqual([{ type: "DRAW_FROM_STOCK" }]);
   });
 
-  describe("isRunning", () => {
-    it("should return false when no turn is running", () => {
-      const { deps } = createFakeDeps();
-      const coordinator = new AITurnCoordinator(deps);
-
-      expect(coordinator.isRunning()).toBe(false);
+  it("runtime snapshots are read from the latest stored state", async () => {
+    const { deps, state } = createDeps({
+      snapshotForState: (storedState) =>
+        createSnapshot({
+          turnPhase:
+            storedState.engineSnapshot.includes("latest")
+              ? "AWAITING_DISCARD"
+              : "AWAITING_DRAW",
+        }),
+      executeAITurn: async ({ runtime }) => {
+        state.current = createStoredState("latest");
+        const snapshot = await runtime.getSnapshot();
+        expect(snapshot.turnPhase).toBe("AWAITING_DISCARD");
+        return { success: true, actions: [] };
+      },
     });
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+  });
+
+  it("does not run stale final persistence after runtime actions", async () => {
+    let executeTurnCompleted = false;
+    const { deps, executedActions } = createDeps({
+      executeAITurn: async ({ runtime }) => {
+        await runtime.executeAction({ type: "DISCARD", cardId: "card-1" });
+        executeTurnCompleted = true;
+        return { success: true, actions: ["discard"] };
+      },
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+
+    expect(executeTurnCompleted).toBe(true);
+    expect(executedActions).toEqual([{ type: "DISCARD", cardId: "card-1" }]);
+  });
+
+  it("calls done and exits cleanly when a turn is aborted", async () => {
+    const { deps } = createDeps({
+      executeAITurn: async ({ abortSignal }) =>
+        new Promise((_, reject) => {
+          abortSignal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        }),
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    const doneCalls: string[] = [];
+
+    const promise = coordinator.executeAITurnsIfNeeded({
+      onAIDone: (playerId) => {
+        doneCalls.push(playerId);
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    coordinator.abortCurrentTurn();
+    await promise;
+
+    expect(doneCalls).toEqual(["ai-player-1"]);
+    expect(coordinator.isRunning()).toBe(false);
+  });
+
+  it("stops chaining when executeAITurn reports an abort", async () => {
+    let turns = 0;
+    const { deps } = createDeps({
+      aiTurnSequence: [true, true],
+      executeAITurn: async () => {
+        turns++;
+        return { success: true, actions: [], aborted: true };
+      },
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+
+    expect(turns).toBe(1);
+  });
+
+  it("runs a deferred AI pass after an interrupted turn releases the coordinator", async () => {
+    let turns = 0;
+    let releaseFirstTurn!: () => void;
+    const firstTurnCanFinish = new Promise<void>((resolve) => {
+      releaseFirstTurn = resolve;
+    });
+    const { deps } = createDeps({
+      aiTurnSequence: [true, true, false],
+      executeAITurn: async () => {
+        turns++;
+        if (turns === 1) {
+          await firstTurnCanFinish;
+          return { success: true, actions: [], aborted: true };
+        }
+        return { success: true, actions: ["resumed"] };
+      },
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    const firstRun = coordinator.executeAITurnsIfNeeded();
+    await Promise.resolve();
+    const deferredRun = coordinator.executeAITurnsIfNeeded();
+
+    releaseFirstTurn();
+    await Promise.all([firstRun, deferredRun]);
+
+    expect(turns).toBe(2);
+  });
+
+  it("handles chained AI turns with the safety limit", async () => {
+    let turns = 0;
+    const { deps } = createDeps({
+      aiTurnSequence: Array(20).fill(true),
+      executeAITurn: async () => {
+        turns++;
+        return { success: true, actions: ["draw", "discard"] };
+      },
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+
+    expect(turns).toBe(8);
+  });
+
+  it("is safe to abort when no turn is running", () => {
+    const { deps } = createDeps({ aiTurnSequence: [false] });
+    const coordinator = new AITurnCoordinator(deps);
+
+    expect(() => coordinator.abortCurrentTurn()).not.toThrow();
+    expect(coordinator.isRunning()).toBe(false);
   });
 });
