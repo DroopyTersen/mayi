@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { resolveGameViewAction } from "./useGameViewState";
+import {
+  createReorderHandPayload,
+  resolveGameViewAction,
+} from "./useGameViewState";
 
 describe("resolveGameViewAction", () => {
   it("uses the single selected card as an immediate discard", () => {
@@ -24,5 +27,17 @@ describe("resolveGameViewAction", () => {
       kind: "openDrawer",
       drawer: "discard",
     });
+  });
+});
+
+describe("createReorderHandPayload", () => {
+  it("keeps card ids in the dropped order", () => {
+    expect(
+      createReorderHandPayload([
+        { id: "card-c" },
+        { id: "card-a" },
+        { id: "card-b" },
+      ])
+    ).toEqual({ cardIds: ["card-c", "card-a", "card-b"] });
   });
 });

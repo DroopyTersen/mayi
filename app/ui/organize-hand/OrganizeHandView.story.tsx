@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { OrganizeHandView } from "./OrganizeHandView";
 import type { Card } from "core/card/card.types";
 import {
@@ -44,15 +45,59 @@ const LONG_HAND: Card[] = [
   { id: "long-23", rank: "Joker", suit: null },
 ];
 
-export function OrganizeHandViewStory() {
-  const handleSave = (newOrder: Card[]) => {
-    alert(`Saved new order: ${newOrder.map((c) => c.rank).join(", ")}`);
-  };
+const DUPLICATE_HAND: Card[] = [
+  { id: "seven-diamonds-a", rank: "7", suit: "diamonds" },
+  { id: "seven-diamonds-b", rank: "7", suit: "diamonds" },
+  { id: "seven-diamonds-c", rank: "7", suit: "diamonds" },
+  { id: "9-hearts", rank: "9", suit: "hearts" },
+  { id: "9-spades", rank: "9", suit: "spades" },
+  { id: "joker-a", rank: "Joker", suit: null },
+];
+
+function OrganizeHandHarness({
+  hand,
+  showHeader = true,
+  testId,
+}: {
+  hand: Card[];
+  showHeader?: boolean;
+  testId?: string;
+}) {
+  const [savedOrder, setSavedOrder] = useState<Card[]>(hand);
+  const [cancelCount, setCancelCount] = useState(0);
 
   const handleCancel = () => {
-    alert("Cancelled");
+    setCancelCount((current) => current + 1);
   };
 
+  return (
+    <div className="space-y-3" data-testid={testId}>
+      <OrganizeHandView
+        hand={hand}
+        showHeader={showHeader}
+        onSave={setSavedOrder}
+        onCancel={handleCancel}
+      />
+      <div className="rounded-md border bg-muted/40 p-3 text-xs">
+        <div className="font-medium">Saved card ids</div>
+        <div
+          data-testid="organize-story-saved-order"
+          className="mt-1 break-all font-mono text-muted-foreground"
+        >
+          {savedOrder.map((card) => card.id).join(" ")}
+        </div>
+        <div
+          data-testid="organize-story-cancel-count"
+          className="mt-2 text-muted-foreground"
+        >
+          Cancel count: {cancelCount}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function OrganizeHandViewStory() {
   return (
     <div className="space-y-10">
       <header>
@@ -67,26 +112,59 @@ export function OrganizeHandViewStory() {
         <h2 className="text-lg font-semibold mb-3">Interactive (Switch Viewport)</h2>
         <ViewportSimulator defaultViewport="tablet">
           <div className="p-4">
-            <OrganizeHandView
+            <OrganizeHandHarness
               hand={SAMPLE_HAND}
-              onSave={handleSave}
-              onCancel={handleCancel}
+              testId="organize-story-interactive-tablet"
             />
           </div>
         </ViewportSimulator>
-        <p className="text-xs text-muted-foreground mt-2">
-          Click a card to select, use arrows to move left/right, or use sort buttons.
-        </p>
       </section>
 
       {/* Desktop dialog-width regression */}
       <section>
         <h2 className="text-lg font-semibold mb-3">Desktop Dialog Width (23 Cards)</h2>
         <div className="max-w-lg rounded-lg border bg-background p-6 shadow-sm">
-          <OrganizeHandView
+          <OrganizeHandHarness
             hand={LONG_HAND}
-            onSave={handleSave}
-            onCancel={handleCancel}
+            testId="organize-story-desktop-dialog"
+          />
+        </div>
+      </section>
+
+      {/* Duplicate rank/suit identity regression */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Duplicate Identity</h2>
+        <ViewportSimulator defaultViewport="tablet">
+          <div className="p-4">
+            <OrganizeHandHarness
+              hand={DUPLICATE_HAND}
+              testId="organize-story-duplicate-identity"
+            />
+          </div>
+        </ViewportSimulator>
+      </section>
+
+      {/* Long hand touch/scroll stress */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Long Hand Scroll Stress</h2>
+        <ViewportSimulator defaultViewport="tablet">
+          <div className="p-4">
+            <OrganizeHandHarness
+              hand={LONG_HAND}
+              testId="organize-story-long-hand-scroll"
+            />
+          </div>
+        </ViewportSimulator>
+      </section>
+
+      {/* Compact drawer body regression */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Drawer Body Without Header</h2>
+        <div className="max-w-lg rounded-lg border bg-background p-6 shadow-sm">
+          <OrganizeHandHarness
+            hand={SAMPLE_HAND}
+            showHeader={false}
+            testId="organize-story-drawer-body"
           />
         </div>
       </section>
@@ -96,11 +174,7 @@ export function OrganizeHandViewStory() {
         <h2 className="text-lg font-semibold mb-3">Viewport Comparison</h2>
         <ViewportComparison viewports={["phone", "tablet", "desktop"]}>
           <div className="p-4">
-            <OrganizeHandView
-              hand={SAMPLE_HAND}
-              onSave={handleSave}
-              onCancel={handleCancel}
-            />
+            <OrganizeHandHarness hand={SAMPLE_HAND} />
           </div>
         </ViewportComparison>
       </section>

@@ -23,12 +23,14 @@ import { LobbyViewStory } from "~/ui/lobby/LobbyView.story";
 import { CharacterPickerStory } from "~/ui/lobby/CharacterPicker.story";
 import { GameViewStory } from "~/ui/game-view/GameView.story";
 import { HandDrawerStory, HandDrawerFullscreenTest } from "~/ui/hand-drawer/HandDrawer.story";
+import { HandPeekMockupStory } from "~/ui/hand-drawer/HandPeekMockup.story";
 import { HouseRulesDrawerStory } from "~/ui/house-rules/HouseRulesDrawer.story";
 
 const STORIES: Array<{ path: string; label: string; component: React.ComponentType; fullscreen?: boolean }> = [
   { path: "game-view", label: "GameView (Layout)", component: GameViewStory },
   { path: "hand-drawer", label: "HandDrawer (Mobile)", component: HandDrawerStory },
   { path: "hand-drawer-fullscreen", label: "HandDrawer (Fullscreen)", component: HandDrawerFullscreenTest, fullscreen: true },
+  { path: "hand-peek-mockup", label: "HandPeek (Mockup)", component: HandPeekMockupStory },
   { path: "lobby-view", label: "LobbyView", component: LobbyViewStory },
   { path: "character-picker", label: "CharacterPicker", component: CharacterPickerStory },
   { path: "playing-card", label: "PlayingCard", component: PlayingCardStory },

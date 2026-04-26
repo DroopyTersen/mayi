@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import { Drawer } from "vaul";
+import { ChevronUp } from "lucide-react";
 import type { Card } from "core/card/card.types";
 import type {
   ActionAvailabilityState,
@@ -36,6 +37,14 @@ interface HandDrawerProps {
   open: boolean;
   /** Called when the drawer opens/closes */
   onOpenChange: (open: boolean) => void;
+  /** Turn status text shown in the peek (e.g., "Your turn — Draw a card") */
+  turnStatus?: string;
+  /**
+   * Whether it's the viewing player's turn — drives status text styling and
+   * stock-pile visibility. Falls back to a derivation from `availableActions`
+   * when omitted.
+   */
+  isYourTurn?: boolean;
   /** Optional container element for Portal (useful for storybook/testing) */
   container?: HTMLElement | null;
 }
@@ -55,21 +64,17 @@ export function HandDrawer({
   unavailabilityHints = [],
   open,
   onOpenChange,
+  turnStatus,
+  isYourTurn: isYourTurnProp,
   container,
 }: HandDrawerProps) {
-  const peekHandleGesture = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    triggered: boolean;
-  } | null>(null);
-
-  // Derive turn state from available actions
+  // Fall back to deriving from available actions when the explicit prop isn't set.
   const isYourTurn =
-    availableActions.canDrawFromStock ||
-    availableActions.canLayDown ||
-    availableActions.canDiscard ||
-    availableActions.canLayOff;
+    isYourTurnProp ??
+    (availableActions.canDrawFromStock ||
+      availableActions.canLayDown ||
+      availableActions.canDiscard ||
+      availableActions.canLayOff);
 
   // Interactive label for discard pile
   const discardInteractiveLabel = useMemo(
@@ -93,59 +98,6 @@ export function HandDrawer({
     }
   }, [availableActions.canDrawFromStock, onAction]);
 
-  const handlePeekHandlePointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.pointerType !== "touch") return;
-
-      peekHandleGesture.current = {
-        pointerId: e.pointerId,
-        startX: e.clientX,
-        startY: e.clientY,
-        triggered: false,
-      };
-
-      e.currentTarget.setPointerCapture(e.pointerId);
-    },
-    []
-  );
-
-  const handlePeekHandlePointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const gesture = peekHandleGesture.current;
-      if (!gesture) return;
-      if (gesture.pointerId !== e.pointerId) return;
-      if (gesture.triggered) return;
-
-      const dx = e.clientX - gesture.startX;
-      const dy = e.clientY - gesture.startY;
-
-      // Open on an intentional upward swipe. Keep thresholds forgiving.
-      const SWIPE_OPEN_THRESHOLD_PX = 24;
-      const HORIZONTAL_TOLERANCE_PX = 80;
-      const isMostlyVertical = Math.abs(dy) > Math.abs(dx);
-      const isUpSwipe =
-        dy <= -SWIPE_OPEN_THRESHOLD_PX &&
-        Math.abs(dx) <= HORIZONTAL_TOLERANCE_PX &&
-        isMostlyVertical;
-
-      if (isUpSwipe) {
-        gesture.triggered = true;
-        onOpenChange(true);
-      }
-    },
-    [onOpenChange]
-  );
-
-  const handlePeekHandlePointerUpOrCancel = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const gesture = peekHandleGesture.current;
-      if (!gesture) return;
-      if (gesture.pointerId !== e.pointerId) return;
-      peekHandleGesture.current = null;
-    },
-    []
-  );
-
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange} handleOnly>
       {!open && (
@@ -155,27 +107,37 @@ export function HandDrawer({
             aria-label="Open hand"
             className={cn(
               "inset-x-0 bottom-0 z-30",
-              "border-t bg-background/95 backdrop-blur",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "rounded-t-2xl bg-background",
+              "shadow-[0_-8px_24px_-8px_rgb(0_0_0/0.18),0_-2px_6px_-2px_rgb(0_0_0/0.08)]",
+              "hover:bg-muted transition-colors",
+              "outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "[-webkit-tap-highlight-color:transparent]",
               container ? "absolute" : "fixed"
             )}
             style={{
               height: `calc(${MOBILE_HAND_PEEK_HEIGHT_PX}px + env(safe-area-inset-bottom))`,
+              paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >
-            <div className="max-w-6xl mx-auto px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
-              <div
-                className="flex justify-center py-2"
-                style={{ touchAction: "none" }}
-                onPointerDown={handlePeekHandlePointerDown}
-                onPointerMove={handlePeekHandlePointerMove}
-                onPointerUp={handlePeekHandlePointerUpOrCancel}
-                onPointerCancel={handlePeekHandlePointerUpOrCancel}
-              >
-                <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
+            <div className="max-w-6xl mx-auto">
+              <div className="relative flex items-center justify-center px-4 pt-1 pb-3">
+                {turnStatus && (
+                  <span
+                    className={cn(
+                      "block text-center text-sm font-medium",
+                      isYourTurn ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    {turnStatus}
+                  </span>
+                )}
+                <ChevronUp
+                  className="absolute right-4 top-[calc(50%-4px)] -translate-y-1/2 size-4 text-muted-foreground"
+                  aria-hidden
+                />
               </div>
 
-              <div className="h-[48px] overflow-hidden">
+              <div className="h-[48px] overflow-hidden px-3 pb-2">
                 <HandDisplay
                   cards={hand}
                   size="sm"

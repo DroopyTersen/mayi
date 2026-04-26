@@ -45,4 +45,36 @@ describe("OrganizeHandView", () => {
     expect(html).toContain("justify-start");
     expect(html).toContain("w-max");
   });
+
+  it("renders a sortable drag hand while keeping arrow fallback controls", () => {
+    const html = renderToStaticMarkup(
+      <OrganizeHandView
+        hand={longHand.slice(0, 3)}
+        onSave={() => {}}
+        onCancel={() => {}}
+        showHeader={false}
+      />
+    );
+
+    expect(html).toContain('data-testid="sortable-hand-display"');
+    expect(html).toContain('aria-label="Select J');
+    expect(html).toContain("at position 1");
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain(">Left<");
+    expect(html).toContain(">Right<");
+  });
+
+  it("uses stacked overlap spacing for long sortable hands", () => {
+    const html = renderToStaticMarkup(
+      <OrganizeHandView
+        hand={longHand}
+        onSave={() => {}}
+        onCancel={() => {}}
+        showHeader={false}
+      />
+    );
+
+    expect(html).toContain("-ml-7");
+    expect(html).toContain("@[550px]:-ml-[72px]");
+  });
 });

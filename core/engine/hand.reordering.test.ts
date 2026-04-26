@@ -76,6 +76,22 @@ describe("REORDER_HAND command", () => {
         expect(uniqueIds.size).toBe(ids.length);
       }
     });
+
+    it("preserves exact card identity for duplicate rank and suit cards", () => {
+      const sevenA: Card = { id: "seven-a", rank: "7", suit: "diamonds" };
+      const sevenB: Card = { id: "seven-b", rank: "7", suit: "diamonds" };
+      const king: Card = { id: "king", rank: "K", suit: "spades" };
+      const hand = [sevenA, sevenB, king];
+
+      const result = reorderHand(hand, [sevenB.id, sevenA.id, king.id]);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.hand[0]).toBe(sevenB);
+        expect(result.hand[1]).toBe(sevenA);
+        expect(result.hand.map((c) => c.id)).toEqual(["seven-b", "seven-a", "king"]);
+      }
+    });
   });
 
   describe("valid in any turn state", () => {
