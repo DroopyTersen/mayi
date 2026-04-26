@@ -174,7 +174,7 @@ export function ActionBar({
           onClick={
             drawStockState.disabled ? undefined : () => onAction("drawStock")
           }
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={drawStockState.disabled}
         >
@@ -200,7 +200,7 @@ export function ActionBar({
       {layDownState.shouldRender && (
         <Button
           onClick={layDownState.disabled ? undefined : () => onAction("layDown")}
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={layDownState.disabled}
         >
@@ -212,7 +212,7 @@ export function ActionBar({
       {layOffState.shouldRender && (
         <Button
           onClick={layOffState.disabled ? undefined : () => onAction("layOff")}
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={layOffState.disabled}
         >
@@ -240,7 +240,7 @@ export function ActionBar({
           onClick={
             discardState.disabled ? undefined : () => onAction("discard")
           }
-          variant="outline"
+          variant="default"
           size={buttonSize}
           className={cn(shouldAnimateDiscard && "animate-pulse")}
           disabled={discardState.disabled}
@@ -253,7 +253,7 @@ export function ActionBar({
       {mayIState.shouldRender && (
         <Button
           onClick={mayIState.disabled ? undefined : () => onAction("mayI")}
-          variant="secondary"
+          variant="outline"
           size={buttonSize}
           disabled={mayIState.disabled}
         >
@@ -286,7 +286,7 @@ export function ActionBar({
           onClick={
             claimMayIState.disabled ? undefined : () => onAction("claimMayI")
           }
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={claimMayIState.disabled}
         >

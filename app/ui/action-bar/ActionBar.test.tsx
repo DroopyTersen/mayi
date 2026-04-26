@@ -21,6 +21,13 @@ const baseActions: AvailableActions = {
   shouldNudgeDiscard: false,
 };
 
+function expectButtonVariant(html: string, label: string, variant: string) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  expect(html).toMatch(
+    new RegExp(`data-variant="${variant}"[^>]*>${escapedLabel}</button>`)
+  );
+}
+
 describe("ActionBar touch-optimized mode", () => {
   it("marks content as no-drag and uses mobile-sized buttons", () => {
     const html = renderToStaticMarkup(
@@ -38,6 +45,50 @@ describe("ActionBar touch-optimized mode", () => {
 });
 
 describe("ActionBar action state rendering", () => {
+  it("renders the enabled discard action as a primary button", () => {
+    const html = renderToStaticMarkup(
+      <ActionBar
+        availableActions={{ ...baseActions, canLayOff: true, canDiscard: true }}
+        onAction={() => {}}
+      />
+    );
+
+    expect(html).toMatch(/data-variant="default"[^>]*>Discard<\/button>/);
+    expect(html).not.toMatch(/data-variant="outline"[^>]*>Discard<\/button>/);
+  });
+
+  it("renders non-discard actions as outline buttons and organize as ghost", () => {
+    const html = renderToStaticMarkup(
+      <ActionBar
+        availableActions={{
+          ...baseActions,
+          canDrawFromStock: true,
+          canDrawFromDiscard: true,
+          canLayDown: true,
+          canLayOff: true,
+          canSwapJoker: true,
+          canDiscard: true,
+          canMayI: true,
+          canAllowMayI: true,
+          canClaimMayI: true,
+          canReorderHand: true,
+        }}
+        onAction={() => {}}
+      />
+    );
+
+    expectButtonVariant(html, "Draw Card", "outline");
+    expectButtonVariant(html, "Pick Up Discard", "outline");
+    expectButtonVariant(html, "Lay Down", "outline");
+    expectButtonVariant(html, "Lay Off", "outline");
+    expectButtonVariant(html, "Swap Joker", "outline");
+    expectButtonVariant(html, "Discard", "default");
+    expectButtonVariant(html, "May I?", "outline");
+    expectButtonVariant(html, "Allow", "outline");
+    expectButtonVariant(html, "Claim", "outline");
+    expectButtonVariant(html, "Organize", "ghost");
+  });
+
   it("hides unavailable actions when action states are provided", () => {
     const actionStates: ActionAvailabilityState[] = [
       { id: "drawStock", label: "Draw Card", status: "available" },
