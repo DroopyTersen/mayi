@@ -218,6 +218,35 @@ describe("AITurnCoordinator", () => {
     expect(turns).toBe(1);
   });
 
+  it("runs a deferred AI pass after an interrupted turn releases the coordinator", async () => {
+    let turns = 0;
+    let releaseFirstTurn!: () => void;
+    const firstTurnCanFinish = new Promise<void>((resolve) => {
+      releaseFirstTurn = resolve;
+    });
+    const { deps } = createDeps({
+      aiTurnSequence: [true, true, false],
+      executeAITurn: async () => {
+        turns++;
+        if (turns === 1) {
+          await firstTurnCanFinish;
+          return { success: true, actions: [], aborted: true };
+        }
+        return { success: true, actions: ["resumed"] };
+      },
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    const firstRun = coordinator.executeAITurnsIfNeeded();
+    await Promise.resolve();
+    const deferredRun = coordinator.executeAITurnsIfNeeded();
+
+    releaseFirstTurn();
+    await Promise.all([firstRun, deferredRun]);
+
+    expect(turns).toBe(2);
+  });
+
   it("handles chained AI turns with the safety limit", async () => {
     let turns = 0;
     const { deps } = createDeps({

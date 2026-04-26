@@ -137,12 +137,13 @@ In Round 6, you must use ALL cards in your hand.`,
 
     lay_off: tool({
       description:
-        "Add a card from your hand to an existing meld on the table. Provide hand position and meld number (both 1-indexed).",
+        "Add a card from your hand to an existing meld on the table. Provide hand position and meld number (both 1-indexed). For runs, use position=start when adding to the low end.",
       inputSchema: z.object({
         cardPosition: z.number().int().min(1),
         meldNumber: z.number().int().min(1),
+        position: z.enum(["start", "end"]).optional(),
       }),
-      execute: async ({ cardPosition, meldNumber }) => {
+      execute: async ({ cardPosition, meldNumber, position }) => {
         const snapshot = await runtime.getSnapshot();
         const player = getPlayer(snapshot);
         if (!player) {
@@ -159,7 +160,12 @@ In Round 6, you must use ALL cards in your hand.`,
           return toolFailure(snapshot, "Meld position out of range");
         }
 
-        return executeAction({ type: "LAY_OFF", cardId: card.id, meldId: meld.id });
+        return executeAction({
+          type: "LAY_OFF",
+          cardId: card.id,
+          meldId: meld.id,
+          ...(position ? { position } : {}),
+        });
       },
     }),
 

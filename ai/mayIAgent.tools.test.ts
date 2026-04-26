@@ -321,4 +321,29 @@ describe("createMayITools", () => {
       },
     ]);
   });
+
+  it("includes layoff position when adding to the start of a run", async () => {
+    const layoffCard: Card = { id: "3-hearts", rank: "3", suit: "hearts" };
+    const latestSnapshot = withHand(
+      makeSnapshot({ turnPhase: "AWAITING_ACTION", isDown: true, tableMelds: 1 }),
+      [layoffCard]
+    );
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const result = (await tools.lay_off.execute?.(
+      { cardPosition: 1, meldNumber: 1, position: "start" } as never,
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(true);
+    expect(actions).toEqual([
+      {
+        type: "LAY_OFF",
+        cardId: "3-hearts",
+        meldId: "meld-0",
+        position: "start",
+      },
+    ]);
+  });
 });

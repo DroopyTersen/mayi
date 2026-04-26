@@ -48,6 +48,16 @@ export interface ExecuteAITurnOptions {
   debug?: boolean;
   /** AbortSignal to cancel the LLM call mid-turn. */
   abortSignal?: AbortSignal;
+  /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
+  maxRetries?: number;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 /**
@@ -64,6 +74,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     maxSteps = 10,
     debug = false,
     abortSignal,
+    maxRetries,
   } = options;
 
   const mapping = adapter.getPlayerMapping(aiPlayerId);
@@ -95,6 +106,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
       debug,
       telemetry: false,
       abortSignal,
+      maxRetries,
     });
 
     if (result.success) {
@@ -121,7 +133,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
       error: result.error,
     };
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (isAbortError(error)) {
       if (debug) {
         console.log("[AI] Turn aborted");
       }
@@ -135,7 +147,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     return {
       success: false,
       actions: [],
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     };
   }
 }

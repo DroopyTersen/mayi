@@ -57,6 +57,7 @@ import type { RoundSummaryPayload } from "./round-summary.types";
 import {
   executeAITurn,
 } from "./ai-turn-handler";
+import { settleAIMayIResponse } from "./ai-may-i-response";
 import { AITurnCoordinator } from "./ai-turn-coordinator";
 import type { AIEnv } from "./ai-model-factory";
 import type {
@@ -1212,30 +1213,42 @@ export class MayIRoom extends Server {
     const modelToUse = promptedMapping.aiModelId ?? "default:grok";
     this.logMayI(`Executing AI May-I response with model ${modelToUse}`);
 
-    try {
-      // Execute AI turn - the AI will use allowMayI or claimMayI tools
-      // Note: May-I responses are short and don't need abort support
-      // (they happen after the main turn was already aborted)
-      const result = await executeAITurn({
-        adapter,
-        aiPlayerId: promptedMapping.lobbyId,
-        modelId: modelToUse,
-        env: this.env as AIEnv,
-        runtime: this.createAIActionRuntime(promptedMapping.lobbyId, {
-          skipAITurnsIfNeeded: false,
-        }),
-        playerName: promptedMapping.name,
-        maxSteps: 5, // May-I response is simple - allow or claim
-        debug: true, // Enable debug for May-I responses
-      });
+    const runtime = this.createAIActionRuntime(promptedMapping.lobbyId, {
+      skipAITurnsIfNeeded: false,
+    });
 
+    try {
+      const settled = await settleAIMayIResponse({
+        promptedEngineId,
+        runtime,
+        executeResponse: () =>
+          executeAITurn({
+            adapter,
+            aiPlayerId: promptedMapping.lobbyId,
+            modelId: modelToUse,
+            env: this.env as AIEnv,
+            runtime,
+            playerName: promptedMapping.name,
+            maxSteps: 5, // May-I response is simple - allow or claim
+            debug: true, // Enable debug for May-I responses
+          }),
+      });
+      const result = settled.turnResult;
       this.broadcastAIDone(promptedMapping.lobbyId);
       this.logMayI(`AI May-I response result: success=${result.success}, actions=${result.actions.join(", ")}, error=${result.error || "none"}`);
+
+      if (settled.defaultAllowed && settled.defaultAllowResult) {
+        const allowStatus = settled.defaultAllowResult.ok
+          ? "OK"
+          : settled.defaultAllowResult.error;
+        this.logMayI(
+          `AI May-I response defaulted to allow for ${promptedMapping.name}: ${allowStatus}`
+        );
+      }
 
       if (!result.success) {
         this.logMayI(`AI May-I response FAILED for ${promptedMapping.name}: ${result.error}`);
         console.error(`[AI] May-I response failed for ${promptedMapping.name}: ${result.error}`);
-        // AI failed to respond - human will need to handle via timeout or retry
       }
     } catch (error) {
       this.broadcastAIDone(promptedMapping.lobbyId);

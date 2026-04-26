@@ -31,7 +31,10 @@ describe("House Rules (docs/house-rules.md)", () => {
         [], // current player will go out
         [joker("p2-joker"), card("A", "spades", "p2-A-S"), card("K", "clubs", "p2-K-C")], // 50+15+10
       ],
-      stock: [card("3", "hearts", "stock-draw-3-H")],
+      stock: [
+        card("3", "hearts", "stock-draw-3-H"),
+        card("5", "clubs", "stock-reserve-5-C"),
+      ],
       discard: [card("4", "diamonds", "discard-top-4-D")],
     };
 
@@ -95,4 +98,3 @@ describe("House Rules (docs/house-rules.md)", () => {
     expect(new Set(ctx.stock.map((c) => c.id))).toEqual(new Set(["discard-10-S", "discard-J-H"]));
   });
 });
-

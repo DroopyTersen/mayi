@@ -85,6 +85,7 @@ export interface AITurnEventCallbacks {
 export class AITurnCoordinator {
   private abortController: AbortController | null = null;
   private running = false;
+  private rerunRequested = false;
 
   constructor(private deps: AITurnCoordinatorDeps) {}
 
@@ -92,7 +93,10 @@ export class AITurnCoordinator {
    * Execute AI turns while the latest committed state is awaiting an AI player.
    */
   async executeAITurnsIfNeeded(callbacks?: AITurnEventCallbacks): Promise<void> {
-    if (this.running) return;
+    if (this.running) {
+      this.rerunRequested = true;
+      return;
+    }
     this.running = true;
 
     try {
@@ -189,6 +193,10 @@ export class AITurnCoordinator {
     } finally {
       this.abortController = null;
       this.running = false;
+      if (this.rerunRequested) {
+        this.rerunRequested = false;
+        await this.executeAITurnsIfNeeded(callbacks);
+      }
     }
   }
 

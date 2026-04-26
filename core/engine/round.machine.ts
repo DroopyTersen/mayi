@@ -106,6 +106,8 @@ export interface RoundContext {
   discardClaimed: boolean;
   /** Whether the current player has drawn from stock (loses May I priority) */
   currentPlayerHasDrawnFromStock: boolean;
+  /** True when the hand must score immediately because no penalty stock card can be paid. */
+  endRoundDueToStockExhaustion: boolean;
 }
 
 /**
@@ -263,6 +265,9 @@ export const roundMachine = setup({
       const result = reorderHandUtil(player.hand, event.newOrder);
       return result.success;
     },
+
+    shouldEndRoundDueToStockExhaustion: ({ context }) =>
+      context.endRoundDueToStockExhaustion,
   },
   actions: {
     dealCards: assign(({ context }) => {
@@ -353,6 +358,8 @@ export const roundMachine = setup({
         ),
         stock: replenished.stock,
         discard: replenished.discard,
+        endRoundDueToStockExhaustion:
+          replenished.stock.length === 0 && replenished.discard.length <= 1,
       };
     }),
 
@@ -696,6 +703,12 @@ export const roundMachine = setup({
         ({ stock, discard } = replenishStockIfEmpty(stock, discard));
 
         penaltyCard = stock[0] ?? null;
+        if (!penaltyCard) {
+          return {
+            endRoundDueToStockExhaustion: true,
+          };
+        }
+
         if (penaltyCard) {
           stock = stock.slice(1);
           // If that was the last stock card, auto-replenish again
@@ -706,6 +719,8 @@ export const roundMachine = setup({
       const cardsToAdd: Card[] = isCurrentPlayerClaim
         ? [cardBeingClaimed]
         : [cardBeingClaimed, ...(penaltyCard ? [penaltyCard] : [])];
+      const stockExhaustedAfterPenalty =
+        !isCurrentPlayerClaim && stock.length === 0 && discard.length <= 1;
 
       return {
         players: context.players.map((player) => {
@@ -717,6 +732,7 @@ export const roundMachine = setup({
         stock,
         discard,
         discardClaimed: true,
+        endRoundDueToStockExhaustion: stockExhaustedAfterPenalty,
       };
     }),
 
@@ -782,6 +798,7 @@ export const roundMachine = setup({
     mayIResolution: null,
     discardClaimed: false,
     currentPlayerHasDrawnFromStock: false,
+    endRoundDueToStockExhaustion: false,
   }),
   output: ({ context }) => ({
     roundRecord: {
@@ -885,6 +902,10 @@ export const roundMachine = setup({
       },
       states: {
         playing: {
+          always: {
+            guard: "shouldEndRoundDueToStockExhaustion",
+            target: "#round.scoring",
+          },
           on: {
             // May I is now handled at round level
             CALL_MAY_I: {

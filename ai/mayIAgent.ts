@@ -74,6 +74,9 @@ export interface ExecuteTurnConfig {
 
   /** AbortSignal to cancel the LLM call mid-turn (e.g., when May-I is called) */
   abortSignal?: AbortSignal;
+
+  /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
+  maxRetries?: number;
 }
 
 /**
@@ -109,6 +112,7 @@ export async function executeTurn(
     telemetry = true,
     actionLog,
     abortSignal,
+    maxRetries,
   } = config;
 
   const tools = createMayITools(runtime, playerId, { actionLog });
@@ -145,6 +149,7 @@ export async function executeTurn(
       prompt: initialGameState,
       tools,
       abortSignal,
+      maxRetries,
       stopWhen: stopWhenTurnComplete(maxSteps),
       prepareStep: async () => {
         // Get current game state (may have changed since last step)
@@ -253,6 +258,9 @@ export interface ExecuteAITurnConfig {
 
   /** Enable debug logging. Default: false */
   debug?: boolean;
+
+  /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
+  maxRetries?: number;
 }
 
 /**
@@ -267,7 +275,7 @@ export interface ExecuteAITurnConfig {
 export async function executeAITurn(
   config: ExecuteAITurnConfig
 ): Promise<ExecuteTurnResult> {
-  const { runtime, playerId, registry, maxSteps, debug } = config;
+  const { runtime, playerId, registry, maxSteps, debug, maxRetries } = config;
 
   const model = registry.getModel(playerId);
   if (!model) {
@@ -287,5 +295,6 @@ export async function executeAITurn(
     playerName,
     maxSteps,
     debug,
+    maxRetries,
   });
 }
