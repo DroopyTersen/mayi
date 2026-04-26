@@ -1,5 +1,5 @@
 import { cn } from "~/shadcn/lib/utils";
-import { Check, Minus } from "lucide-react";
+import { Check, Loader2, Minus } from "lucide-react";
 
 interface PlayerStatus {
   id: string;
@@ -16,6 +16,8 @@ interface PlayersTableDisplayProps {
   viewingPlayerId?: string;
   /** The player whose turn it is (highlighted row) */
   activePlayerId?: string;
+  /** AI player currently computing — shows a spinner next to their name */
+  thinkingPlayerId?: string;
   /** Hide the outer border (useful when embedded in a container) */
   borderless?: boolean;
   className?: string;
@@ -25,6 +27,7 @@ export function PlayersTableDisplay({
   players,
   viewingPlayerId,
   activePlayerId,
+  thinkingPlayerId,
   borderless = false,
   className,
 }: PlayersTableDisplayProps) {
@@ -43,6 +46,7 @@ export function PlayersTableDisplay({
           {players.map((player) => {
             const isViewingPlayer = player.id === viewingPlayerId;
             const isActivePlayer = player.id === activePlayerId;
+            const isThinking = player.id === thinkingPlayerId;
             return (
               <tr
                 key={player.id}
@@ -64,6 +68,12 @@ export function PlayersTableDisplay({
                       <span className="text-xs text-muted-foreground">
                         (you)
                       </span>
+                    )}
+                    {isThinking && (
+                      <Loader2
+                        className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0"
+                        aria-label={`${player.name} is thinking`}
+                      />
                     )}
                   </div>
                 </td>

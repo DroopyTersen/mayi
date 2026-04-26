@@ -75,7 +75,10 @@ export function OrganizeHandView({
       )}
 
       {/* Hand display */}
-      <div className="py-4">
+      <div
+        className="overflow-x-auto overflow-y-visible overscroll-x-contain py-4 pb-5"
+        data-testid="organize-hand-scroll"
+      >
         <HandDisplay
           cards={cards}
           selectedIds={
@@ -85,7 +88,7 @@ export function OrganizeHandView({
           }
           onCardClick={handleCardClick}
           size="auto"
-          className="justify-center"
+          className="mx-auto w-max justify-start px-1"
         />
       </div>
 

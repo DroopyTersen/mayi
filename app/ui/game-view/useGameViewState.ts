@@ -14,6 +14,68 @@ interface UseGameViewStateOptions {
   onAction?: (action: string, payload?: unknown) => void;
 }
 
+type ActionDrawer = Exclude<ActiveDrawer, null>;
+
+export type GameViewActionResolution =
+  | {
+      kind: "openDrawer";
+      drawer: ActionDrawer;
+    }
+  | {
+      kind: "sendAction";
+      action: string;
+      payload?: { selectedCardIds: string[] };
+    };
+
+const ACTION_DRAWERS: ReadonlySet<ActionDrawer> = new Set([
+  "layDown",
+  "layOff",
+  "discard",
+  "swapJoker",
+  "organize",
+]);
+
+function isActionDrawer(action: string): action is ActionDrawer {
+  return ACTION_DRAWERS.has(action as ActionDrawer);
+}
+
+function getOnlySelectedCardId(
+  selectedCardIds: ReadonlySet<string>
+): string | null {
+  if (selectedCardIds.size !== 1) {
+    return null;
+  }
+
+  const result = selectedCardIds.values().next();
+  return result.done ? null : result.value;
+}
+
+export function resolveGameViewAction(
+  action: string,
+  selectedCardIds: ReadonlySet<string>
+): GameViewActionResolution {
+  if (action === "discard") {
+    const cardId = getOnlySelectedCardId(selectedCardIds);
+    if (cardId) {
+      return {
+        kind: "sendAction",
+        action: "discard",
+        payload: { selectedCardIds: [cardId] },
+      };
+    }
+  }
+
+  if (isActionDrawer(action)) {
+    return { kind: "openDrawer", drawer: action };
+  }
+
+  return {
+    kind: "sendAction",
+    action,
+    payload: { selectedCardIds: Array.from(selectedCardIds) },
+  };
+}
+
 export interface UseGameViewStateReturn {
   // Selection state
   selectedCardIds: Set<string>;
@@ -98,20 +160,20 @@ export function useGameViewState({
   const handleAction = useCallback(
     (action: string) => {
       registerActivity();
-      // Open drawer for view-based actions
-      if (
-        action === "layDown" ||
-        action === "layOff" ||
-        action === "discard" ||
-        action === "swapJoker" ||
-        action === "organize"
-      ) {
+      const resolution = resolveGameViewAction(action, selectedCardIds);
+
+      if (resolution.kind === "openDrawer") {
         setIsHandDrawerOpen(false);
-        setActiveDrawer(action);
+        setActiveDrawer(resolution.drawer);
         return;
       }
-      // Pass through other actions (drawStock, pickUpDiscard, mayI, skip)
-      onAction?.(action, { selectedCardIds: Array.from(selectedCardIds) });
+
+      if (action === "discard") {
+        setIsHandDrawerOpen(false);
+        setActiveDrawer(null);
+      }
+
+      onAction?.(resolution.action, resolution.payload);
     },
     [onAction, registerActivity, selectedCardIds]
   );

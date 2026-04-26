@@ -62,7 +62,8 @@ Create a new GitHub issue and add it to the project.
 **Step 1: Create the issue with body content**
 ```bash
 # Write body to a temp file first (inline --body can fail silently)
-cat > /tmp/claude/issue-body.md << 'EOF'
+mkdir -p /tmp/agentflow
+cat > /tmp/agentflow/issue-body.md << 'EOF'
 ## Type
 {feature | bug | refactor}
 
@@ -83,7 +84,7 @@ EOF
 # Create issue with body from file
 gh issue create \
   --title "{title}" \
-  --body-file /tmp/claude/issue-body.md \
+  --body-file /tmp/agentflow/issue-body.md \
   --label "{type_label}"
 # Returns: https://github.com/OWNER/REPO/issues/NUMBER
 ```
@@ -377,8 +378,12 @@ Work on a specific card regardless of priority.
 2. Get project item status (current column)
 3. Check for `needs-feedback` or `blocked` labels — if present, explain what's needed and stop
 4. Read project context: `.agentflow/PROJECT_LOOP_PROMPT.md`
-5. Read column instructions: `.agentflow/columns/{column}.md`
-6. Execute phase based on column (see column docs for full details)
+5. Read the matching column instructions from the installed `agentflow` skill:
+   - `approved`: `references/columns/01b_approved.md`
+   - `refinement`: `references/columns/02_refinement.md`
+   - `tech-design`: `references/columns/03_tech-design.md`
+   - `implementation`: `references/columns/04_implementation.md`
+6. Execute phase based on column (see the installed skill reference for full details)
 
 ### If column = `approved`:
 ```
@@ -400,9 +405,9 @@ Work on a specific card regardless of priority.
 ### If column = `tech-design`:
 ```
 1. Read refinement findings from issue body
-2. Invoke Agent("code-architect") for design options
-3. Present approaches, add needs-feedback for human selection
-4. Once approved: finalize design, create spec commit
+2. Use Codex only for the technical design; do not invoke Claude/code-architect agents
+3. Present the Codex recommendation or options, add needs-feedback for human selection when needed
+4. Once approved or clear: finalize design, create spec commit
 5. Use /af context to append Tech Design section
 6. Use /af move to transition to implementation
 ```
@@ -411,7 +416,7 @@ Work on a specific card regardless of priority.
 ```
 1. Read tech design from issue body
 2. Write tests, implement solution
-3. Run verification, invoke Agent("code-reviewer")
+3. Run verification, then run Codex review
 4. If score >= 70: commit, move to final-review
 5. Use /af context to append Implementation and Code Review sections
 ```
@@ -529,18 +534,20 @@ Status: Partially blocked (1 predecessor not in main)
 
 ## `/af loop` — Continuous Work Mode (External Script)
 
-**Important:** The loop runs via an external bash script, not within Claude.
+**Important:** The loop runs via an external bash script. Codex is the default engine.
 
 **To start the loop, run in your terminal:**
 ```bash
-.agentflow/loop.sh              # Default: 20 iterations max
-.agentflow/loop.sh 50           # Custom: 50 iterations max
+.agentflow/loop.sh              # Default: Codex, 20 iterations max
+.agentflow/loop.sh 50           # Codex, 50 iterations max
+.agentflow/loop.sh --codex      # Codex, 20 iterations max (explicit)
+.agentflow/loop.sh --codex 50   # Codex, 50 iterations max (explicit)
 ```
 
 The script:
-1. Pipes `.agentflow/RALPH_LOOP_PROMPT.md` to Claude Code
-2. Claude runs `/af list --workable`, selects a card, executes one phase
-3. Claude updates the card via `/af` commands, then exits
+1. Pipes `.agentflow/RALPH_LOOP_PROMPT.md` to Codex by default
+2. The agent uses the installed `agentflow` and `github-projects` skills to list workable cards, select one card, and execute one phase
+3. The agent updates the card via AgentFlow operations, then exits
 4. Script checks for completion or continues to next iteration
 
 **Exit conditions:**
@@ -552,12 +559,12 @@ The script:
 
 ## `/af review <id>` — Run Code Review
 
-Invoke code-reviewer agent on a card's implementation.
+Run Codex review on a card's implementation.
 
 **Process:**
 1. Get issue, verify Status is Implementation or Final Review
 2. Read issue body for implementation details and tech design
-3. Invoke Agent("code-reviewer") with context
+3. Run `codex exec` with context
 4. Output review markdown directly
 
 ---
@@ -586,12 +593,11 @@ Agent("code-explorer")
 > {task description and context from issue body}
 
 # Technical design (Tech Design phase)
-Agent("code-architect")
-> {task + refinement findings from issue body}
+# Use Codex only. Do not invoke Claude/code-architect agents for tech design.
+codex exec "Design the implementation approach for {card}: {task + refinement findings}" --full-auto --sandbox read-only
 
 # Code review (Implementation phase)
-Agent("code-reviewer")
-> {implementation summary + tech design from issue body}
+codex exec "Review this implementation: {implementation summary + tech design from issue body}" --full-auto --sandbox read-only
 ```
 
 ---

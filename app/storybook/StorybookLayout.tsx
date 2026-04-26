@@ -2,6 +2,7 @@ import { useParams, Link } from "react-router";
 
 import { PlayingCardStory } from "~/ui/playing-card/PlayingCard.story";
 import { HandDisplayStory } from "~/ui/player-hand/HandDisplay.story";
+import { NewCardFlashStory } from "~/ui/player-hand/NewCardFlash.story";
 import { MeldDisplayStory } from "~/ui/game-table/MeldDisplay.story";
 import { DiscardPileDisplayStory } from "~/ui/game-table/DiscardPileDisplay.story";
 import { PlayerMeldsDisplayStory } from "~/ui/game-table/PlayerMeldsDisplay.story";
@@ -32,6 +33,7 @@ const STORIES: Array<{ path: string; label: string; component: React.ComponentTy
   { path: "character-picker", label: "CharacterPicker", component: CharacterPickerStory },
   { path: "playing-card", label: "PlayingCard", component: PlayingCardStory },
   { path: "hand-display", label: "HandDisplay", component: HandDisplayStory },
+  { path: "new-card-flash", label: "New Card Flash", component: NewCardFlashStory },
   { path: "meld-display", label: "MeldDisplay", component: MeldDisplayStory },
   { path: "discard-pile", label: "DiscardPileDisplay", component: DiscardPileDisplayStory },
   { path: "player-melds", label: "PlayerMeldsDisplay", component: PlayerMeldsDisplayStory },

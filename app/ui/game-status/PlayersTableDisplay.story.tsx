@@ -56,6 +56,20 @@ export function PlayersTableDisplayStory() {
         </p>
       </section>
 
+      {/* AI Thinking */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">AI Thinking</h2>
+        <PlayersTableDisplay
+          players={SAMPLE_PLAYERS}
+          activePlayerId="p2"
+          thinkingPlayerId="p2"
+          viewingPlayerId="p1"
+        />
+        <p className="text-xs text-muted-foreground mt-2">
+          Bob is the active AI player and a small spinner appears next to his name while he's computing.
+        </p>
+      </section>
+
       {/* Early Game */}
       <section>
         <h2 className="text-lg font-semibold mb-3">Early Game</h2>

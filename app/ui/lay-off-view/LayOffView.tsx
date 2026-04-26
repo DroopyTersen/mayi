@@ -125,6 +125,9 @@ export function LayOffView({
     return player.id === viewingPlayerId ? `${player.name} (You)` : player.name;
   };
 
+  const getMeldTargetLabel = (player: Player, meld: Meld) =>
+    `Lay off selected card to ${getPlayerDisplayName(player)} ${meld.type}`;
+
   // Overlap for meld cards (matching MeldDisplay)
   const OVERLAP = { sm: "-ml-4", md: "-ml-5" } as const;
 
@@ -139,6 +142,7 @@ export function LayOffView({
             selectedIds={selectedCardId ? new Set([selectedCardId]) : new Set()}
             onCardClick={handleCardClick}
             size="sm"
+            overlap="none"
           />
         </div>
 
@@ -203,6 +207,10 @@ export function LayOffView({
                     return (
                       <div
                         key={meld.id}
+                        role="button"
+                        tabIndex={selectedCardId && !positionPrompt ? 0 : -1}
+                        aria-disabled={selectedCardId && !positionPrompt ? false : true}
+                        aria-label={getMeldTargetLabel(player, meld)}
                         className={cn(
                           "p-1.5 rounded-md border transition-colors",
                           selectedCardId && !positionPrompt
@@ -210,6 +218,13 @@ export function LayOffView({
                             : "border-transparent"
                         )}
                         onClick={() => !positionPrompt && handleMeldClick(meld.id)}
+                        onKeyDown={(event) => {
+                          if (positionPrompt || !selectedCardId) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleMeldClick(meld.id);
+                          }
+                        }}
                       >
                         {/* Meld label */}
                         <div className="text-xs text-muted-foreground mb-1 font-medium">

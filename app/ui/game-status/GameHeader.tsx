@@ -1,9 +1,6 @@
-import { useState } from "react";
 import { Link } from "react-router";
-import { HelpCircle } from "lucide-react";
 import { cn } from "~/shadcn/lib/utils";
-import { Button } from "~/shadcn/components/ui/button";
-import { HouseRulesDrawer } from "~/ui/house-rules/HouseRulesDrawer";
+import { HouseRulesButton } from "./HouseRulesButton";
 
 interface Contract {
   sets: number;
@@ -40,8 +37,6 @@ export function GameHeader({
   isYourTurn,
   className,
 }: GameHeaderProps) {
-  const [rulesOpen, setRulesOpen] = useState(false);
-
   return (
     <header
       className={cn(
@@ -50,17 +45,7 @@ export function GameHeader({
         className
       )}
     >
-      {/* Help icon - positioned in top right */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
-        onClick={() => setRulesOpen(true)}
-      >
-        <HelpCircle className="h-5 w-5" />
-        <span className="sr-only">View house rules</span>
-      </Button>
-      <HouseRulesDrawer open={rulesOpen} onOpenChange={setRulesOpen} />
+      <HouseRulesButton className="absolute right-2 top-1/2 -translate-y-1/2" />
 
       {/* Main header row */}
       <div className="flex items-center justify-center gap-3">

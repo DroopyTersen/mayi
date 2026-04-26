@@ -23,23 +23,34 @@ import type { RoundSummaryPayload } from "./round-summary.types";
  */
 export function captureRoundSummary(
   snapshot: GameSnapshot,
-  playerMappings: PlayerMapping[]
+  playerMappings: PlayerMapping[],
+  completedRoundWinnerEngineId?: string
 ): RoundSummaryPayload {
   // Find the winner (player with empty hand who went out)
   const winnerEnginePlayer = snapshot.players.find((p) => p.hand.length === 0);
+  const winnerEngineId = winnerEnginePlayer?.id ?? completedRoundWinnerEngineId;
   const winnerMapping = playerMappings.find(
-    (m) => m.engineId === winnerEnginePlayer?.id
+    (m) => m.engineId === winnerEngineId
   );
   const winnerId = winnerMapping?.lobbyId ?? "";
 
-  // Capture table melds as-is (they already have ownerIds)
-  const tableMelds = [...snapshot.table];
+  const lobbyIdByEngineId = new Map(
+    playerMappings.map((mapping) => [mapping.engineId, mapping.lobbyId])
+  );
+
+  // Capture table melds with lobby owner IDs because the summary UI receives
+  // lobby players, not engine players.
+  const tableMelds = snapshot.table.map((meld) => ({
+    ...meld,
+    ownerId: lobbyIdByEngineId.get(meld.ownerId) ?? meld.ownerId,
+  }));
 
   // Build player hands map (lobbyId -> cards)
   const playerHands: Record<string, typeof snapshot.players[0]["hand"]> = {};
   for (const mapping of playerMappings) {
     const player = snapshot.players.find((p) => p.id === mapping.engineId);
-    playerHands[mapping.lobbyId] = player?.hand ?? [];
+    playerHands[mapping.lobbyId] =
+      mapping.engineId === completedRoundWinnerEngineId ? [] : player?.hand ?? [];
   }
 
   // Build scores map (lobbyId -> totalScore)

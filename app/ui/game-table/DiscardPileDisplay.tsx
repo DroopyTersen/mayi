@@ -77,7 +77,7 @@ export function DiscardPileDisplay({
             />
           </div>
 
-          {/* Interactive ring indicator (for pickup/may-i) */}
+          {/* Interactive ring + label overlay (for pickup/may-i) */}
           {hasInteractiveLabel && interactiveLabel && (
             <div
               className="absolute pointer-events-none"
@@ -90,23 +90,21 @@ export function DiscardPileDisplay({
                   interactiveLabel === "may-i" ? "ring-amber-500" : "ring-blue-500"
                 )}
               />
+              {/* Label tab overlaid on the bottom of the card so it doesn't
+                  add to component height (keeps discard pile aligned with the hand row) */}
+              <span
+                className={cn(
+                  "absolute left-1/2 -translate-x-1/2 -bottom-2 px-2 py-0.5 text-xs font-bold rounded shadow-sm whitespace-nowrap",
+                  interactiveLabel === "may-i"
+                    ? "bg-amber-500 text-white"
+                    : "bg-blue-500 text-white"
+                )}
+              >
+                {LABEL_TEXT[interactiveLabel]}
+              </span>
             </div>
           )}
         </div>
-      )}
-
-      {/* Interactive label below the card (not covering it) */}
-      {hasInteractiveLabel && interactiveLabel && (
-        <span
-          className={cn(
-            "px-2 py-0.5 text-xs font-bold rounded shadow-sm",
-            interactiveLabel === "may-i"
-              ? "bg-amber-500 text-white"
-              : "bg-blue-500 text-white"
-          )}
-        >
-          {LABEL_TEXT[interactiveLabel]}
-        </span>
       )}
     </div>
   );

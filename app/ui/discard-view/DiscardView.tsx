@@ -52,6 +52,7 @@ export function DiscardView({
           selectedIds={selectedCardId ? new Set([selectedCardId]) : new Set()}
           onCardClick={handleCardClick}
           size="auto"
+          overlap="none"
           className="justify-center"
         />
       </div>

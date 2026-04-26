@@ -964,7 +964,14 @@ export class MayIRoom extends Server {
   ): Promise<void> {
     // Capture round summary from the snapshot BEFORE round transition
     // This ensures we have the actual hands at round end, not new dealt cards
-    const summary = captureRoundSummary(snapshotBefore, adapter.getAllPlayerMappings());
+    const latestRoundRecord = adapter
+      .getSnapshot()
+      .roundHistory.find((record) => record.roundNumber === completedRoundNumber);
+    const summary = captureRoundSummary(
+      snapshotBefore,
+      adapter.getAllPlayerMappings(),
+      latestRoundRecord?.winnerId
+    );
 
     // Use current snapshot for updated scores (after points were added)
     const snapshotAfter = adapter.getSnapshot();

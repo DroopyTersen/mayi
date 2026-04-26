@@ -15,6 +15,7 @@ interface MeldSubmission {
 
 interface GameViewDrawersProps {
   activeDrawer: ActiveDrawer;
+  drawersEnabled?: boolean;
   closeDrawer: () => void;
   gameState: PlayerView;
   tablePlayers: TablePlayerInfo[];
@@ -34,12 +35,20 @@ interface GameViewDrawersProps {
   onOrganize: (newOrder: Array<{ id: string }>) => void;
 }
 
+export function getEffectiveActiveDrawer(
+  activeDrawer: ActiveDrawer,
+  drawersEnabled: boolean
+): ActiveDrawer {
+  return drawersEnabled ? activeDrawer : null;
+}
+
 /**
  * Groups all action drawers (layDown, layOff, discard, swapJoker, organize).
  * Each drawer is controlled by the activeDrawer state.
  */
 export function GameViewDrawers({
   activeDrawer,
+  drawersEnabled = true,
   closeDrawer,
   gameState,
   tablePlayers,
@@ -50,11 +59,16 @@ export function GameViewDrawers({
   onSwapJoker,
   onOrganize,
 }: GameViewDrawersProps) {
+  const effectiveActiveDrawer = getEffectiveActiveDrawer(
+    activeDrawer,
+    drawersEnabled
+  );
+
   return (
     <>
       {/* Lay Down Drawer */}
       <LayDownDrawer
-        open={activeDrawer === "layDown"}
+        open={effectiveActiveDrawer === "layDown"}
         onOpenChange={(open) => !open && closeDrawer()}
         hand={gameState.yourHand}
         contract={gameState.contract}
@@ -64,7 +78,7 @@ export function GameViewDrawers({
 
       {/* Lay Off Drawer */}
       <ResponsiveDrawer
-        open={activeDrawer === "layOff"}
+        open={effectiveActiveDrawer === "layOff"}
         onOpenChange={(open) => !open && closeDrawer()}
         title="Lay Off"
         description="Add cards to existing melds"
@@ -83,7 +97,7 @@ export function GameViewDrawers({
 
       {/* Discard Drawer */}
       <ResponsiveDrawer
-        open={activeDrawer === "discard"}
+        open={effectiveActiveDrawer === "discard"}
         onOpenChange={(open) => !open && closeDrawer()}
         title="Discard"
         description="Tap a card to select it, then confirm"
@@ -99,7 +113,7 @@ export function GameViewDrawers({
 
       {/* Swap Joker Drawer */}
       <ResponsiveDrawer
-        open={activeDrawer === "swapJoker"}
+        open={effectiveActiveDrawer === "swapJoker"}
         onOpenChange={(open) => !open && closeDrawer()}
         title="Swap Joker"
         description="Replace a joker with a natural card"
@@ -118,7 +132,7 @@ export function GameViewDrawers({
 
       {/* Organize Hand Drawer */}
       <ResponsiveDrawer
-        open={activeDrawer === "organize"}
+        open={effectiveActiveDrawer === "organize"}
         onOpenChange={(open) => !open && closeDrawer()}
         title="Organize Hand"
         description="Select a card and use arrows to move, or sort automatically"

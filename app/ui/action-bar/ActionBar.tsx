@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import type {
@@ -19,6 +19,8 @@ interface ActionBarProps {
   onAction: (action: string) => void;
   /** Improves tap reliability in touch contexts like drawers */
   touchOptimized?: boolean;
+  /** Optional content rendered at the leading edge (e.g. turn status text on desktop) */
+  leadingSlot?: ReactNode;
   className?: string;
 }
 
@@ -34,6 +36,7 @@ export function ActionBar({
   unavailabilityHints = [],
   onAction,
   touchOptimized = false,
+  leadingSlot,
   className,
 }: ActionBarProps) {
   type ButtonSize = ComponentProps<typeof Button>["size"];
@@ -162,19 +165,25 @@ export function ActionBar({
   return (
     <div
       className={cn(
-        "flex items-center justify-center gap-2 p-3 bg-muted/50 border-t",
+        "relative flex items-center justify-center gap-2 p-3 bg-muted/50 border-t",
         touchOptimized && "touch-manipulation",
         className
       )}
       data-vaul-no-drag={touchOptimized ? "" : undefined}
     >
+      {leadingSlot && (
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">
+          {leadingSlot}
+        </div>
+      )}
+
       {/* Draw Phase */}
       {drawStockState.shouldRender && (
         <Button
           onClick={
             drawStockState.disabled ? undefined : () => onAction("drawStock")
           }
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={drawStockState.disabled}
         >
@@ -200,7 +209,7 @@ export function ActionBar({
       {layDownState.shouldRender && (
         <Button
           onClick={layDownState.disabled ? undefined : () => onAction("layDown")}
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={layDownState.disabled}
         >
@@ -212,7 +221,7 @@ export function ActionBar({
       {layOffState.shouldRender && (
         <Button
           onClick={layOffState.disabled ? undefined : () => onAction("layOff")}
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={layOffState.disabled}
         >
@@ -240,7 +249,7 @@ export function ActionBar({
           onClick={
             discardState.disabled ? undefined : () => onAction("discard")
           }
-          variant="outline"
+          variant="default"
           size={buttonSize}
           className={cn(shouldAnimateDiscard && "animate-pulse")}
           disabled={discardState.disabled}
@@ -253,7 +262,7 @@ export function ActionBar({
       {mayIState.shouldRender && (
         <Button
           onClick={mayIState.disabled ? undefined : () => onAction("mayI")}
-          variant="secondary"
+          variant="outline"
           size={buttonSize}
           disabled={mayIState.disabled}
         >
@@ -286,7 +295,7 @@ export function ActionBar({
           onClick={
             claimMayIState.disabled ? undefined : () => onAction("claimMayI")
           }
-          variant="default"
+          variant="outline"
           size={buttonSize}
           disabled={claimMayIState.disabled}
         >
