@@ -82,6 +82,11 @@ export function createMayITools(
 Example for Round 1 (2 sets): [[1,2,3], [4,5,6]]
 Example for Round 2 (1 set + 1 run): [[1,2,3], [4,5,6,7]]
 
+Rules:
+- Use each hand position at most once across all melds.
+- Each meld must already be a valid set or run.
+- If a lay_down attempt fails, read the error and do not repeat the same meld positions.
+
 In Round 6, you must use ALL cards in your hand.`,
       inputSchema: z.object({
         melds: z.array(z.array(z.number().int().min(1))).min(1),
@@ -94,7 +99,19 @@ In Round 6, you must use ALL cards in your hand.`,
         }
 
         const meldSpecs: MeldSpec[] = [];
+        const usedPositions = new Set<number>();
+
         for (const group of melds) {
+          for (const position of group) {
+            if (usedPositions.has(position)) {
+              return toolFailure(
+                snapshot,
+                "Each hand position can be used at most once when laying down. Re-check the contract before retrying with corrected meld positions."
+              );
+            }
+            usedPositions.add(position);
+          }
+
           const cards = group.map((position) => player.hand[position - 1]);
           if (cards.some((card) => card === undefined)) {
             return toolFailure(snapshot, "Card position out of range");
@@ -103,6 +120,13 @@ In Round 6, you must use ALL cards in your hand.`,
           const concreteCards = cards.filter((card) => card !== undefined);
           const canBeSet = isValidSet(concreteCards);
           const canBeRun = isValidRun(concreteCards);
+          if (!canBeSet && !canBeRun) {
+            return toolFailure(
+              snapshot,
+              `Meld positions [${group.join(", ")}] do not form a valid set or run. Re-check ranks, suits, wild ratio, and run order before retrying.`
+            );
+          }
+
           const type: "set" | "run" =
             canBeSet && !canBeRun ? "set" : canBeRun && !canBeSet ? "run" : "set";
 
