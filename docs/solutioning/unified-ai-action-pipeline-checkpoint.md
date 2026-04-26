@@ -231,6 +231,56 @@ No new persisted game phase like `AI_THINKING` should be added. AI thinking/canc
 - `app/party/bug-80-may-i-ai-merge-rollback.test.ts`
 - `app/party/ai-turn-coordinator*.test.ts`
 
-## Resume Point
+## Final Refactor Status
 
-The next implementation step is to introduce the `AIActionRuntime` contract and rewrite `mayIAgent.tools.ts` around `GameAction` emission. After that, delete the adapter/fallback code from `app/party/ai-turn-handler.ts` and repair tests around the single action pipeline.
+Completed in the current working tree:
+
+- Added `AIActionRuntime` / `AIActionResult`.
+- Rewrote `mayIAgent.tools.ts` so tools emit normal `GameAction`s.
+- Updated CLI AI execution to use a CLI `AIActionRuntime`.
+- Replaced `app/party/ai-turn-handler.ts` with a thin model+runtime executor.
+- Replaced `app/party/ai-turn-coordinator.ts` with single-flight orchestration only.
+- Updated `MayIRoom` AI wiring to execute AI actions through the serialized game action queue.
+- Removed `mergeAIStatePreservingOtherPlayerHands` and its support helpers from `PartyGameAdapter`.
+- Deleted the old AI adapter interface and proxy/fallback/merge-specific tests.
+- Rewrote race regression tests so they assert the new action-runtime behavior:
+  - human reorder during AI thinking is preserved;
+  - stale adapter-local mutations are ignored;
+  - AI round-ending discard persists the new round;
+  - runtime snapshots are read from latest storage;
+  - AI actions execute through normal `GameAction`s.
+  - externally aborted Party AI turns are reported distinctly from normal success.
+
+There are no remaining source/test references to:
+
+- `AIGameAdapter`
+- `AIGameAdapterProxy`
+- `QueuedAIGameAdapterProxy`
+- `executeFallbackTurn`
+- `executeFallbackTurnWithAdapter`
+- `onPersist`
+- `usedFallback`
+- `mergeAIStatePreservingOtherPlayerHands`
+
+## Verification On Final Working Tree
+
+- `bun run typecheck`
+- Focused AI/Party tests:
+  - `bun test ai/mayIAgent.tools.test.ts app/party/ai-turn-handler.turn.test.ts app/party/ai-turn-coordinator.test.ts app/party/ai-turn-coordinator.reorder-race.test.ts app/party/ai-turn-coordinator.may-i-cards-disappear.test.ts app/party/bug-40-round-transition-regression.test.ts`
+- `bun test`
+  - Final full run passed: 2486 pass, 6 skip.
+- `bun run build`
+- `RUN_INTEGRATION_TESTS=1 bun test ai/`
+  - 44 pass.
+- `bun run check`
+  - Includes typecheck, build, and Wrangler dry-run.
+- CLI harness smoke:
+  - `bun cli/play.ts new`
+  - `bun cli/play.ts list`
+  - `bun cli/play.ts WXLNCF status --json`
+  - `bun cli/play.ts WXLNCF draw stock`
+  - `bun cli/play.ts WXLNCF skip`
+  - `bun cli/play.ts WXLNCF discard 5`
+  - `bun cli/play.ts WXLNCF mayi player-0`
+  - `bun cli/play.ts WXLNCF allow`
+  - `bun cli/play.ts WXLNCF status --json`

@@ -19,6 +19,7 @@ import type { ActionLogEntry, CliGameSave } from "./cli.types";
 import { appendActionLog, generateGameId, loadGameSave, saveGameSave } from "./cli.persistence";
 import { getNumberedMelds } from "./cli-meld-numbering";
 import { renderCard } from "./cli.renderer";
+import type { GameAction } from "../../app/party/protocol.types";
 
 type EnginePersistedSnapshot = ReturnType<GameEngine["getPersistedSnapshot"]>;
 
@@ -60,6 +61,47 @@ export class CliGameAdapter {
 
   getSnapshot(): GameSnapshot {
     return this.requireEngine().getSnapshot();
+  }
+
+  executeGameAction(action: GameAction): GameSnapshot {
+    switch (action.type) {
+      case "DRAW_FROM_STOCK":
+        return this.drawFromStock();
+
+      case "DRAW_FROM_DISCARD":
+        return this.drawFromDiscard();
+
+      case "SKIP":
+        return this.skip();
+
+      case "DISCARD":
+        return this.discardCardById(action.cardId);
+
+      case "LAY_DOWN":
+        return this.layDownBySpec(action.melds);
+
+      case "LAY_OFF":
+        return this.layOffByIds(action.cardId, action.meldId, action.position);
+
+      case "SWAP_JOKER":
+        return this.swapByIds(action.meldId, action.jokerCardId, action.swapCardId);
+
+      case "CALL_MAY_I": {
+        const caller = this.getSnapshot().awaitingPlayerId;
+        return this.callMayI(caller);
+      }
+
+      case "ALLOW_MAY_I":
+        return this.allowMayI();
+
+      case "CLAIM_MAY_I":
+        return this.claimMayI();
+
+      case "REORDER_HAND": {
+        const playerId = this.getSnapshot().awaitingPlayerId;
+        return this.reorderHand(playerId, action.cardIds);
+      }
+    }
   }
 
   drawFromStock(): GameSnapshot {
@@ -258,6 +300,128 @@ export class CliGameAdapter {
         this.logAction(before, playerId, "went out", `Round ${before.currentRound} complete`);
       }
     }
+    return after;
+  }
+
+  private discardCardById(cardId: string): GameSnapshot {
+    const engine = this.requireEngine();
+    const before = engine.getSnapshot();
+    const playerId = before.awaitingPlayerId;
+    const player = before.players.find((p) => p.id === playerId);
+    if (!player) {
+      throw new Error(`Player not found: ${playerId}`);
+    }
+
+    const card = player.hand.find((candidate) => candidate.id === cardId);
+    if (!card) {
+      throw new Error(`Card not found in hand: ${cardId}`);
+    }
+
+    const after = engine.discard(playerId, card.id);
+    this.persist();
+
+    const cardInDiscard = after.discard.some((candidate) => candidate.id === card.id);
+    const roundEnded = after.currentRound !== before.currentRound || after.phase === "GAME_END";
+
+    if (cardInDiscard || roundEnded) {
+      this.logAction(before, playerId, "discarded", renderCard(card));
+      if (roundEnded && player.hand.length === 1) {
+        this.logAction(before, playerId, "went out", `Round ${before.currentRound} complete`);
+      }
+    }
+
+    return after;
+  }
+
+  private layDownBySpec(melds: MeldSpec[]): GameSnapshot {
+    const engine = this.requireEngine();
+    const before = engine.getSnapshot();
+    const playerId = before.awaitingPlayerId;
+    const player = before.players.find((p) => p.id === playerId);
+    if (!player) {
+      throw new Error(`Player not found: ${playerId}`);
+    }
+
+    const after = engine.layDown(playerId, melds);
+    this.persist();
+
+    const beforePlayer = before.players.find((p) => p.id === playerId);
+    const afterPlayer = after.players.find((p) => p.id === playerId);
+    if (beforePlayer && afterPlayer && !beforePlayer.isDown && afterPlayer.isDown) {
+      const cardsById = new Map(player.hand.map((card) => [card.id, card]));
+      const details = melds
+        .map((meld) => {
+          const label = meld.type === "set" ? "Set" : "Run";
+          const cards = meld.cardIds
+            .map((cardId) => cardsById.get(cardId))
+            .filter((card): card is NonNullable<typeof card> => Boolean(card))
+            .map(renderCard)
+            .join(" ");
+          return `${label}: ${cards}`;
+        })
+        .join(" | ");
+      this.logAction(before, playerId, "laid down", details || undefined);
+    }
+
+    return after;
+  }
+
+  private layOffByIds(
+    cardId: string,
+    meldId: string,
+    position?: "start" | "end"
+  ): GameSnapshot {
+    const engine = this.requireEngine();
+    const before = engine.getSnapshot();
+    const playerId = before.awaitingPlayerId;
+    const player = before.players.find((p) => p.id === playerId);
+    if (!player) {
+      throw new Error(`Player not found: ${playerId}`);
+    }
+
+    const card = player.hand.find((candidate) => candidate.id === cardId);
+    if (!card) {
+      throw new Error(`Card not found in hand: ${cardId}`);
+    }
+
+    const after = engine.layOff(playerId, cardId, meldId, position);
+    this.persist();
+
+    const afterPlayer = after.players.find((p) => p.id === playerId);
+    if (afterPlayer && afterPlayer.hand.length === player.hand.length - 1) {
+      const positionText = position === "start" ? " at start" : "";
+      this.logAction(before, playerId, `laid off${positionText}`, renderCard(card));
+    }
+
+    return after;
+  }
+
+  private swapByIds(
+    meldId: string,
+    jokerCardId: string,
+    swapCardId: string
+  ): GameSnapshot {
+    const engine = this.requireEngine();
+    const before = engine.getSnapshot();
+    const playerId = before.awaitingPlayerId;
+    const player = before.players.find((p) => p.id === playerId);
+    if (!player) {
+      throw new Error(`Player not found: ${playerId}`);
+    }
+
+    const swapCard = player.hand.find((candidate) => candidate.id === swapCardId);
+    if (!swapCard) {
+      throw new Error(`Card not found in hand: ${swapCardId}`);
+    }
+
+    const after = engine.swap(playerId, meldId, jokerCardId, swapCardId);
+    this.persist();
+
+    const afterPlayer = after.players.find((p) => p.id === playerId);
+    if (afterPlayer && afterPlayer.hand.length === player.hand.length) {
+      this.logAction(before, playerId, "swapped Joker", `${renderCard(swapCard)} ↔ Joker`);
+    }
+
     return after;
   }
 

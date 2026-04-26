@@ -6,10 +6,13 @@
  */
 
 import { describe, it, expect } from "bun:test";
-import { getAvailableToolNames } from "./mayIAgent.tools";
+import { createMayITools, getAvailableToolNames } from "./mayIAgent.tools";
 import type { GameSnapshot } from "../core/engine/game-engine.types";
 import type { Player } from "../core/engine/engine.types";
 import type { Meld } from "../core/meld/meld.types";
+import type { Card } from "../core/card/card.types";
+import type { AIActionRuntime, GameAction } from "./ai-action-runtime.types";
+import type { ToolExecutionResult } from "./mayIAgent.types";
 
 /**
  * Helper to create minimal snapshots for testing.
@@ -241,5 +244,81 @@ describe("getAvailableToolNames", () => {
 
       expect(tools).not.toContain("swap_joker");
     });
+  });
+});
+
+describe("createMayITools", () => {
+  function withHand(snapshot: GameSnapshot, hand: Card[]): GameSnapshot {
+    return {
+      ...snapshot,
+      players: snapshot.players.map((player) =>
+        player.id === "ai" ? { ...player, hand } : player
+      ),
+    };
+  }
+
+  function createRuntime(snapshot: GameSnapshot, actions: GameAction[]): AIActionRuntime {
+    return {
+      getSnapshot: async () => snapshot,
+      executeAction: async (action) => {
+        actions.push(action);
+        return {
+          ok: true,
+          snapshot,
+        };
+      },
+    };
+  }
+
+  it("maps discard positions from the latest runtime snapshot", async () => {
+    const staleCard: Card = { id: "stale-card", rank: "3", suit: "hearts" };
+    const latestCard: Card = { id: "latest-card", rank: "K", suit: "spades" };
+    const latestSnapshot = withHand(
+      makeSnapshot({ turnPhase: "AWAITING_ACTION" }),
+      [latestCard]
+    );
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const staleSnapshot = withHand(makeSnapshot({ turnPhase: "AWAITING_ACTION" }), [
+      staleCard,
+    ]);
+    expect(staleSnapshot.players[0]!.hand[0]!.id).toBe("stale-card");
+
+    const result = (await tools.discard.execute?.(
+      { position: 1 },
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(true);
+    expect(actions).toEqual([{ type: "DISCARD", cardId: "latest-card" }]);
+  });
+
+  it("emits a LAY_DOWN GameAction with card IDs from the latest hand", async () => {
+    const latestSnapshot = withHand(makeSnapshot({ turnPhase: "AWAITING_ACTION" }), [
+      { id: "a-hearts", rank: "A", suit: "hearts" },
+      { id: "a-clubs", rank: "A", suit: "clubs" },
+      { id: "a-diamonds", rank: "A", suit: "diamonds" },
+    ]);
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const result = (await tools.lay_down.execute?.(
+      { melds: [[1, 2, 3]] },
+      {} as never
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(true);
+    expect(actions).toEqual([
+      {
+        type: "LAY_DOWN",
+        melds: [
+          {
+            type: "set",
+            cardIds: ["a-hearts", "a-clubs", "a-diamonds"],
+          },
+        ],
+      },
+    ]);
   });
 });

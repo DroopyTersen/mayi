@@ -56,16 +56,15 @@ import type { RoundSummaryPayload } from "./round-summary.types";
 
 import {
   executeAITurn,
-  executeFallbackTurn,
-  isAIPlayerTurn,
-  type QueuedAIGameActionExecutor,
-  type QueuedAIGameActionResult,
 } from "./ai-turn-handler";
 import { AITurnCoordinator } from "./ai-turn-coordinator";
 import type { AIEnv } from "./ai-model-factory";
+import type {
+  AIActionResult,
+  AIActionRuntime,
+} from "../../ai/ai-action-runtime.types";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
-const AUTO_PLAY_TIMEOUT_MS = 30 * 1000; // 30 seconds before auto-play for disconnected
 const LOBBY_STATE_KEY = "lobby:state";
 const GAME_STATE_KEY = "game:state";
 const ROOM_PHASE_KEY = "room:phase";
@@ -107,16 +106,12 @@ export class MayIRoom extends Server {
 
       this.aiCoordinator = new AITurnCoordinator({
         getState: () => this.getGameState(),
-        setState: (s) => this.setGameState(s),
-        broadcast: () => this.broadcastGameState(),
         executeAITurn: (options) => executeAITurn(options),
-        executeQueuedAction: (playerId, action) =>
-          this.executeQueuedAIAction(playerId, action),
+        executeAIAction: (playerId, action) => this.executeAIAction(playerId, action),
         env: this.env as AIEnv,
-        // Debug mode: shows whether LLM or fallback is used
+        // Debug mode: shows AI actions and deliberate May-I test delays.
         debug: enableMayITestMode,
         // Add 2 second delay after each tool execution to give time for May-I clicks
-        // This is critical for testing - without it, AI turns complete too fast
         toolDelayMs: enableMayITestMode ? 2000 : 0,
       });
     }
@@ -673,10 +668,10 @@ export class MayIRoom extends Server {
     this.log(`State injected for agent testing: round ${state.roundNumber}`);
   }
 
-  private createQueuedAIActionExecutor(
+  private createAIActionRuntime(
     playerId: string,
     options: { skipAITurnsIfNeeded?: boolean } = {}
-  ): QueuedAIGameActionExecutor {
+  ): AIActionRuntime {
     return {
       getSnapshot: async () => {
         const gameState = await this.getGameState();
@@ -685,15 +680,15 @@ export class MayIRoom extends Server {
         }
         return PartyGameAdapter.fromStoredState(gameState).getSnapshot();
       },
-      execute: (action) => this.executeQueuedAIAction(playerId, action, options),
+      executeAction: (action) => this.executeAIAction(playerId, action, options),
     };
   }
 
-  private async executeQueuedAIAction(
+  private async executeAIAction(
     playerId: string,
     action: GameAction,
     options: { skipAITurnsIfNeeded?: boolean } = {}
-  ): Promise<QueuedAIGameActionResult> {
+  ): Promise<AIActionResult> {
     const result = await this.gameActionQueue.enqueue(async () => {
       const roomPhase = await this.getRoomPhase();
       return executeStoredGameAction({
@@ -1226,13 +1221,12 @@ export class MayIRoom extends Server {
         aiPlayerId: promptedMapping.lobbyId,
         modelId: modelToUse,
         env: this.env as AIEnv,
+        runtime: this.createAIActionRuntime(promptedMapping.lobbyId, {
+          skipAITurnsIfNeeded: false,
+        }),
         playerName: promptedMapping.name,
         maxSteps: 5, // May-I response is simple - allow or claim
         debug: true, // Enable debug for May-I responses
-        useFallbackOnError: true, // Use fallback if AI fails - auto-allow
-        queuedActionExecutor: this.createQueuedAIActionExecutor(promptedMapping.lobbyId, {
-          skipAITurnsIfNeeded: false,
-        }),
       });
 
       this.broadcastAIDone(promptedMapping.lobbyId);
@@ -1301,7 +1295,7 @@ export class MayIRoom extends Server {
    *
    * Delegates to AITurnCoordinator which handles:
    * - AbortController lifecycle for interrupting AI turns (e.g., when May-I is called)
-   * - Immediate state persistence via onPersist callbacks
+   * - Tool actions through the serialized GameAction queue
    * - Chained AI turns with safety limits
    */
   private async executeAITurnsIfNeeded(): Promise<void> {
@@ -1312,57 +1306,6 @@ export class MayIRoom extends Server {
       onAIDone: (playerId) => {
         this.broadcastAIDone(playerId);
       },
-      onTransitionCheck: async (adapter, phaseBefore, roundBefore, snapshotBefore) => {
-        await this.detectAndBroadcastTransitions(adapter, phaseBefore, roundBefore, snapshotBefore);
-      },
     });
-  }
-
-  /**
-   * Check if a disconnected human player needs auto-play and execute it
-   *
-   * This is called after AI turns to handle the case where a human player
-   * has been disconnected for more than AUTO_PLAY_TIMEOUT_MS.
-   */
-  private async executeAutoPlayIfNeeded(): Promise<boolean> {
-    const gameState = await this.getGameState();
-    if (!gameState) return false;
-
-    const adapter = PartyGameAdapter.fromStoredState(gameState);
-    const awaitingId = adapter.getAwaitingLobbyPlayerId();
-    if (!awaitingId) return false;
-
-    // Check if it's an AI player's turn (AI is handled separately)
-    const aiPlayer = isAIPlayerTurn(adapter);
-    if (aiPlayer) return false;
-
-    // Check if the player is a human
-    const mapping = adapter.getPlayerMapping(awaitingId);
-    if (!mapping || mapping.isAI) return false;
-
-    // Check if the player is disconnected
-    const storedPlayer = await this.ctx.storage.get<StoredPlayer>(`player:${awaitingId}`);
-    if (!storedPlayer || !storedPlayer.disconnectedAt) return false;
-
-    // Check if they've been disconnected long enough
-    const now = Date.now();
-    const disconnectedDuration = now - storedPlayer.disconnectedAt;
-    if (disconnectedDuration < AUTO_PLAY_TIMEOUT_MS) return false;
-
-    // Execute auto-play for the disconnected player
-    console.log(
-      `[Auto-play] Executing fallback for disconnected player ${mapping.name} (${awaitingId})`
-    );
-
-    const result = await executeFallbackTurn(adapter, awaitingId);
-
-    if (result.success) {
-      // Save updated state
-      await this.setGameState(adapter.getStoredState());
-      // Broadcast updated game state
-      await this.broadcastGameState();
-    }
-
-    return result.success;
   }
 }

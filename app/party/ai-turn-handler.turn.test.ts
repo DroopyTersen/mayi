@@ -5,6 +5,7 @@ import { PartyGameAdapter } from "./party-game-adapter";
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import type { AgentTestState } from "./agent-state.types";
 import { createTestCard, createTestHand } from "../../core/engine/test.fixtures";
+import type { AIActionRuntime } from "../../ai/ai-action-runtime.types";
 
 function createAdapterFromState(state: AgentTestState): PartyGameAdapter {
   const stored = convertAgentTestStateToStoredState(state, "test-room");
@@ -90,17 +91,49 @@ function createAIOnlyState(): AgentTestState {
 describe("executeAITurn", () => {
   it("returns early when it is not the AI's turn", async () => {
     const adapter = createAdapterFromState(createAIOnlyState());
+    const runtime: AIActionRuntime = {
+      getSnapshot: async () => adapter.getSnapshot(),
+      executeAction: async () => ({
+        ok: true,
+        snapshot: adapter.getSnapshot(),
+      }),
+    };
 
     const result = await executeAITurn({
       adapter,
       aiPlayerId: "ai-1",
       modelId: "default:grok",
       env: {},
+      runtime,
     });
 
     expect(result.success).toBe(false);
-    expect(result.usedFallback).toBe(false);
     expect(result.error).toContain("Not this player's turn");
+  });
+
+  it("marks an externally aborted turn as aborted", async () => {
+    const adapter = createAdapterFromState(createAIOnlyState());
+    const runtime: AIActionRuntime = {
+      getSnapshot: async () => adapter.getSnapshot(),
+      executeAction: async () => ({
+        ok: true,
+        snapshot: adapter.getSnapshot(),
+      }),
+    };
+    const abortController = new AbortController();
+    abortController.abort();
+
+    const result = await executeAITurn({
+      adapter,
+      aiPlayerId: "ai-0",
+      modelId: "default:grok",
+      env: {},
+      runtime,
+      abortSignal: abortController.signal,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.aborted).toBe(true);
   });
 });
 
