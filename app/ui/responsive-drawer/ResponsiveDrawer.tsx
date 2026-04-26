@@ -33,6 +33,13 @@ interface ResponsiveDrawerProps {
   footer?: React.ReactNode;
   /** Custom class for the content container */
   className?: string;
+  /**
+   * When true, the children container does not scroll; children are expected to
+   * manage their own scroll/footer layout (e.g. a sticky footer inside a flex
+   * column). The wrapper still applies padding and is a flex column so a child
+   * with `flex-1 min-h-0` can fill the available height.
+   */
+  bare?: boolean;
 }
 
 /**
@@ -48,6 +55,7 @@ export function ResponsiveDrawer({
   trigger,
   footer,
   className,
+  bare = false,
 }: ResponsiveDrawerProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
@@ -62,7 +70,14 @@ export function ResponsiveDrawer({
               <DialogDescription>{description}</DialogDescription>
             )}
           </DialogHeader>
-          <div className="py-4 flex-1 min-h-0 overflow-y-auto">{children}</div>
+          <div
+            className={cn(
+              "py-4 flex-1 min-h-0",
+              bare ? "flex flex-col" : "overflow-y-auto"
+            )}
+          >
+            {children}
+          </div>
           {footer && <DialogFooter className="flex-shrink-0">{footer}</DialogFooter>}
         </DialogContent>
       </Dialog>
@@ -79,7 +94,14 @@ export function ResponsiveDrawer({
             <DrawerDescription>{description}</DrawerDescription>
           )}
         </DrawerHeader>
-        <div className="px-4 pb-4 flex-1 min-h-0 overflow-y-auto">{children}</div>
+        <div
+          className={cn(
+            "px-4 pb-4 flex-1 min-h-0",
+            bare ? "flex flex-col" : "overflow-y-auto"
+          )}
+        >
+          {children}
+        </div>
         {footer && <DrawerFooter className="pt-2 flex-shrink-0">{footer}</DrawerFooter>}
       </DrawerContent>
     </Drawer>

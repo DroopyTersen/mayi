@@ -83,6 +83,7 @@ export function GameViewDrawers({
         title="Lay Off"
         description="Add cards to existing melds"
         className="sm:max-w-lg"
+        bare
       >
         <LayOffView
           hand={gameState.yourHand}

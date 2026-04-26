@@ -148,6 +148,7 @@ function LayOffDrawerDemo({ melds, hand }: { melds: Meld[]; hand: Card[] }) {
         title="Lay Off"
         description="Add cards to existing melds"
         className="sm:max-w-lg"
+        bare
       >
         <LayOffView
           hand={hand}
@@ -190,7 +191,10 @@ export function LayOffViewStory() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Interactive Dialog (Many Melds)</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Click the button to open the lay off dialog with many melds. Tests scrolling behavior with 4 players and 9 total melds.
+          Click the button to open the lay off dialog with many melds. Tests
+          scrolling behavior with 4 players and 9 total melds — the
+          <strong> Cancel/Done footer should stay pinned to the bottom</strong>
+          {" "}while the melds list scrolls between hand and footer.
         </p>
         <LayOffDrawerDemo melds={MANY_MELDS} hand={SAMPLE_HAND} />
       </section>

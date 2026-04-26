@@ -163,7 +163,10 @@ export function HandDrawer({
             "bg-background border-t rounded-t-xl",
             "outline-none",
             // Keep the drawer compact; let content determine height (with a sane max).
-            "max-h-[70vh] overflow-y-auto",
+            // Scroll lives on the inner cards/piles area so the action bar at the
+            // bottom isn't inside an overflow-y-auto container — taps on its
+            // buttons (esp. Organize on the right edge) stay unambiguous.
+            "max-h-[70vh]",
             container ? "absolute" : "fixed"
           )}
         >
@@ -172,7 +175,7 @@ export function HandDrawer({
             <Drawer.Handle className="!h-1.5 !w-12 !bg-muted-foreground/40 !opacity-100" />
           </div>
 
-          <div className="px-4 pb-3">
+          <div className="px-4 pb-3 overflow-y-auto flex-1 min-h-0">
             <HandDisplay
               cards={hand}
               selectedIds={selectedCardIds}
