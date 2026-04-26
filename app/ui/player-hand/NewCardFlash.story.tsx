@@ -3,7 +3,12 @@ import type { Card } from "core/card/card.types";
 import { HandDisplay } from "./HandDisplay";
 import { Button } from "~/shadcn/components/ui/button";
 
-const SUITS = ["hearts", "diamonds", "clubs", "spades"] as const satisfies readonly NonNullable<Card["suit"]>[];
+const SUITS = [
+  "hearts",
+  "diamonds",
+  "clubs",
+  "spades",
+] as const satisfies readonly NonNullable<Card["suit"]>[];
 const RANKS: Card["rank"][] = [
   "2",
   "3",
@@ -20,30 +25,24 @@ const RANKS: Card["rank"][] = [
   "A",
 ];
 
-function nextId(): string {
-  return crypto.randomUUID();
-}
-
-function randomCard(): Card {
-  const rank = RANKS[Math.floor(Math.random() * RANKS.length)] ?? "2";
-  const suit = SUITS[Math.floor(Math.random() * SUITS.length)] ?? "hearts";
-  return { id: nextId(), rank, suit };
-}
-
-function jokerCard(): Card {
-  return { id: nextId(), rank: "Joker", suit: null };
-}
-
 const STARTING_HAND: Card[] = [
-  { id: nextId(), rank: "4", suit: "hearts" },
-  { id: nextId(), rank: "6", suit: "spades" },
-  { id: nextId(), rank: "10", suit: "diamonds" },
-  { id: nextId(), rank: "J", suit: "clubs" },
-  { id: nextId(), rank: "K", suit: "hearts" },
+  { id: "new-card-flash-start-1", rank: "4", suit: "hearts" },
+  { id: "new-card-flash-start-2", rank: "6", suit: "spades" },
+  { id: "new-card-flash-start-3", rank: "10", suit: "diamonds" },
+  { id: "new-card-flash-start-4", rank: "J", suit: "clubs" },
+  { id: "new-card-flash-start-5", rank: "K", suit: "hearts" },
 ];
 
 export function NewCardFlashStory() {
   const [hand, setHand] = useState<Card[]>(STARTING_HAND);
+
+  const nextId = (): string => crypto.randomUUID();
+  const randomCard = (): Card => {
+    const rank = RANKS[Math.floor(Math.random() * RANKS.length)] ?? "2";
+    const suit = SUITS[Math.floor(Math.random() * SUITS.length)] ?? "hearts";
+    return { id: nextId(), rank, suit };
+  };
+  const jokerCard = (): Card => ({ id: nextId(), rank: "Joker", suit: null });
 
   const drawRandom = () => setHand((h) => [...h, randomCard()]);
   const drawJoker = () => setHand((h) => [...h, jokerCard()]);
