@@ -56,10 +56,9 @@ describe("OrganizeHandView", () => {
       />
     );
 
-    expect(html).toContain('data-testid="organize-sortable-hand"');
-    expect(html).toContain(
-      'aria-label="Select J of spades at position 1 to move with arrow controls"'
-    );
+    expect(html).toContain('data-testid="sortable-hand-display"');
+    expect(html).toContain('aria-label="Select J');
+    expect(html).toContain("at position 1");
     expect(html).toContain('aria-pressed="false"');
     expect(html).toContain(">Left<");
     expect(html).toContain(">Right<");

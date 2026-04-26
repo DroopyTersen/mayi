@@ -1,5 +1,6 @@
 import type { PlayerView } from "~/party/protocol.types";
-import { HandDisplay } from "~/ui/player-hand/HandDisplay";
+import type { Card } from "core/card/card.types";
+import { SortableHandDisplay } from "~/ui/player-hand/SortableHandDisplay";
 import { ActionBar } from "~/ui/action-bar/ActionBar";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
 import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
@@ -11,6 +12,7 @@ interface GameViewDesktopFooterProps {
   turnPhaseText: string;
   discardInteractiveLabel: "pickup" | "may-i" | undefined;
   onCardClick: (cardId: string) => void;
+  onReorderHand: (newOrder: Card[]) => void;
   onAction: (action: string) => void;
 }
 
@@ -23,6 +25,7 @@ export function GameViewDesktopFooter({
   turnPhaseText,
   discardInteractiveLabel,
   onCardClick,
+  onReorderHand,
   onAction,
 }: GameViewDesktopFooterProps) {
   return (
@@ -59,11 +62,12 @@ export function GameViewDesktopFooter({
 
           {/* Hand Display - flexible, centered */}
           <div className="flex-1 min-w-0 basis-48">
-            <HandDisplay
+            <SortableHandDisplay
               cards={gameState.yourHand}
               selectedIds={selectedCardIds}
               onCardClick={onCardClick}
-              size="auto"
+              onReorder={onReorderHand}
+              reorderEnabled={gameState.availableActions.canReorderHand}
               className="justify-center"
             />
           </div>

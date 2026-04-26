@@ -76,6 +76,12 @@ export function resolveGameViewAction(
   };
 }
 
+export function createReorderHandPayload(
+  newOrder: Array<{ id: string }>
+) {
+  return { cardIds: newOrder.map((card) => card.id) };
+}
+
 export interface UseGameViewStateReturn {
   // Selection state
   selectedCardIds: Set<string>;
@@ -106,6 +112,7 @@ export interface UseGameViewStateReturn {
     swapCardId: string
   ) => void;
   handleOrganize: (newOrder: Array<{ id: string }>) => void;
+  handleReorderHand: (newOrder: Card[]) => void;
   closeDrawer: () => void;
 }
 
@@ -233,8 +240,16 @@ export function useGameViewState({
   const handleOrganize = useCallback(
     (newOrder: Array<{ id: string }>) => {
       registerActivity();
-      onAction?.("reorderHand", { cardIds: newOrder.map((c) => c.id) });
+      onAction?.("reorderHand", createReorderHandPayload(newOrder));
       setActiveDrawer(null);
+    },
+    [onAction, registerActivity]
+  );
+
+  const handleReorderHand = useCallback(
+    (newOrder: Card[]) => {
+      registerActivity();
+      onAction?.("reorderHand", createReorderHandPayload(newOrder));
     },
     [onAction, registerActivity]
   );
@@ -260,6 +275,7 @@ export function useGameViewState({
     handleDiscard,
     handleSwapJoker,
     handleOrganize,
+    handleReorderHand,
     closeDrawer,
   };
 }

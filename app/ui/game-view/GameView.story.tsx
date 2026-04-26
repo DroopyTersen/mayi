@@ -3,6 +3,7 @@ import { GameView } from "./GameView";
 import type { PlayerView } from "~/party/protocol.types";
 import type { Meld } from "core/meld/meld.types";
 import type { Card } from "core/card/card.types";
+import { reorderHand } from "core/engine/hand.reordering";
 import { ViewportSimulator, ViewportComparison } from "~/storybook/ViewportSimulator";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
 import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
@@ -179,6 +180,18 @@ const MOCK_GAME_STATE: PlayerView = {
   turnOrder: ["p1", "p2", "p3", "p4"],
 };
 
+function getReorderCardIds(payload: unknown): string[] | null {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    "cardIds" in payload &&
+    Array.isArray(payload.cardIds) &&
+    payload.cardIds.every((cardId) => typeof cardId === "string")
+  )
+    ? payload.cardIds
+    : null;
+}
+
 // Activity log for realistic display
 const MOCK_ACTIVITY = [
   { id: "1", message: "Alice: drew from the draw pile" },
@@ -190,7 +203,20 @@ const MOCK_ACTIVITY = [
 ];
 
 export function GameViewStory() {
-  const [selectedState] = useState<PlayerView>(MOCK_GAME_STATE);
+  const [selectedState, setSelectedState] =
+    useState<PlayerView>(MOCK_GAME_STATE);
+
+  const handleStoryAction = (action: string, payload?: unknown) => {
+    const cardIds = action === "reorderHand" ? getReorderCardIds(payload) : null;
+    if (!cardIds) {
+      return;
+    }
+
+    setSelectedState((current) => {
+      const result = reorderHand(current.yourHand, cardIds);
+      return result.success ? { ...current, yourHand: result.hand } : current;
+    });
+  };
 
   return (
     <div className="space-y-10">
@@ -216,7 +242,7 @@ export function GameViewStory() {
           <GameView
             gameState={selectedState}
             activityLog={MOCK_ACTIVITY}
-            onAction={(action) => console.log("Action:", action)}
+            onAction={handleStoryAction}
           />
         </div>
       </section>
@@ -232,7 +258,7 @@ export function GameViewStory() {
             <GameView
               gameState={selectedState}
               activityLog={MOCK_ACTIVITY}
-              onAction={(action) => console.log("Action:", action)}
+              onAction={handleStoryAction}
             />
           </div>
         </ViewportComparison>
@@ -246,7 +272,7 @@ export function GameViewStory() {
             <GameView
               gameState={selectedState}
               activityLog={MOCK_ACTIVITY}
-              onAction={(action) => console.log("Action:", action)}
+              onAction={handleStoryAction}
             />
           </div>
         </ViewportSimulator>

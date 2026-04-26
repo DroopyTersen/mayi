@@ -5,20 +5,25 @@ import {
 import type { KeyboardEvent } from "react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import type { Card } from "core/card/card.types";
+import { formatCardText } from "core/card/card-text.utils";
 import { cn } from "~/shadcn/lib/utils";
+import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { PlayerHandResponsiveCard } from "~/ui/player-hand/PlayerHandResponsiveCard";
 import {
   getStackedHandOverlapClass,
   STACKED_HAND_AUTO_HOVER_LIFT,
 } from "~/ui/player-hand/player-hand.layout";
-import { ORGANIZE_HAND_DRAG_SENSORS } from "./organize-hand.drag-sensors";
-import type { OrganizeDragReorderInput } from "./organize-hand.drag-state";
+import {
+  reorderCardsAfterDrag,
+  SORTABLE_HAND_DRAG_SENSORS,
+} from "./sortable-hand.drag-reorder";
 
-interface OrganizeSortableHandProps {
+interface SortableHandDisplayProps {
   cards: Card[];
-  selectedId: string | null;
+  selectedIds: ReadonlySet<string>;
   onCardClick: (cardId: string) => void;
-  onReorder: (input: OrganizeDragReorderInput) => void;
+  onReorder: (newOrder: Card[]) => void;
+  reorderEnabled?: boolean;
   className?: string;
 }
 
@@ -27,14 +32,6 @@ const CARD_TRANSITION = {
   easing: "cubic-bezier(0.2, 0, 0, 1)",
   idle: true,
 };
-
-function getCardLabel(card: Card): string {
-  if (card.rank === "Joker") {
-    return "Joker";
-  }
-
-  return `${card.rank} of ${card.suit ?? "unknown suit"}`;
-}
 
 function SortableCard({
   card,
@@ -49,14 +46,13 @@ function SortableCard({
   selected: boolean;
   onCardClick: (cardId: string) => void;
 }) {
-  const { ref, isDragging, isDropping, isDragSource, isDropTarget } = useSortable({
+  const { ref, isDragging, isDropping, isDragSource, isDropTarget } =
+    useSortable({
     id: card.id,
     index,
-    group: "organize-hand",
+    group: "sortable-hand",
     transition: CARD_TRANSITION,
-    data: { cardId: card.id },
   });
-  const label = getCardLabel(card);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" && event.key !== " ") {
@@ -72,9 +68,9 @@ function SortableCard({
       ref={ref}
       role="button"
       tabIndex={0}
-      aria-label={`Select ${label} at position ${index + 1} to move with arrow controls`}
+      aria-label={`Select ${formatCardText(card)} at position ${index + 1}`}
       aria-pressed={selected}
-      data-testid={`organize-sortable-card-${card.id}`}
+      data-testid={`sortable-hand-card-${card.id}`}
       data-card-id={card.id}
       onClick={() => onCardClick(card.id)}
       onKeyDown={handleKeyDown}
@@ -97,13 +93,32 @@ function SortableCard({
   );
 }
 
-export function OrganizeSortableHand({
+export function SortableHandDisplay({
   cards,
-  selectedId,
+  selectedIds,
   onCardClick,
   onReorder,
+  reorderEnabled = true,
   className,
-}: OrganizeSortableHandProps) {
+}: SortableHandDisplayProps) {
+  if (!reorderEnabled) {
+    return (
+      <div
+        data-testid="sortable-hand-display"
+        data-reorder-enabled="false"
+        data-sortable-disabled="true"
+      >
+        <HandDisplay
+          cards={cards}
+          selectedIds={selectedIds}
+          onCardClick={onCardClick}
+          size="auto"
+          className={className}
+        />
+      </div>
+    );
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { source } = event.operation;
 
@@ -111,22 +126,30 @@ export function OrganizeSortableHand({
       return;
     }
 
-    onReorder({
-      initialIndex: source.initialIndex,
-      targetIndex: source.index,
-      canceled: event.canceled,
-    });
+    const nextCards = reorderCardsAfterDrag(
+      cards,
+      {
+        initialIndex: source.initialIndex,
+        targetIndex: source.index,
+        canceled: event.canceled,
+      }
+    );
+
+    if (nextCards !== cards) {
+      onReorder(nextCards);
+    }
   };
   const overlapClass = getStackedHandOverlapClass(cards.length);
 
   return (
     <DragDropProvider
-      sensors={ORGANIZE_HAND_DRAG_SENSORS}
+      sensors={SORTABLE_HAND_DRAG_SENSORS}
       onDragEnd={handleDragEnd}
     >
       <div className="@container" style={{ containerType: "inline-size" }}>
         <div
-          data-testid="organize-sortable-hand"
+          data-testid="sortable-hand-display"
+          data-reorder-enabled="true"
           className={cn("flex w-max items-end justify-start px-1", className)}
         >
           {cards.map((card, index) => (
@@ -135,7 +158,7 @@ export function OrganizeSortableHand({
               card={card}
               index={index}
               overlapClass={overlapClass}
-              selected={selectedId === card.id}
+              selected={selectedIds.has(card.id)}
               onCardClick={onCardClick}
             />
           ))}

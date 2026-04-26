@@ -14,7 +14,7 @@ import {
 
 interface HandDisplayProps {
   cards: Card[];
-  selectedIds?: Set<string>;
+  selectedIds?: ReadonlySet<string>;
   onCardClick?: (cardId: string) => void;
   /** Card size - "auto" uses container queries to pick size based on available width */
   size?: CardSize | "auto";
@@ -77,7 +77,7 @@ function HandRow({
   renderCard,
 }: {
   cards: Card[];
-  selectedIds: Set<string>;
+  selectedIds: ReadonlySet<string>;
   newCardIds: ReadonlySet<string>;
   overlap: "stacked" | "none";
   overlapClass: string;

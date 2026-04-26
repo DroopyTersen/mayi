@@ -194,6 +194,7 @@ export function GameView({
           turnPhaseText={derived.turnPhaseText}
           discardInteractiveLabel={derived.discardInteractiveLabel}
           onCardClick={state.handleCardClick}
+          onReorderHand={state.handleReorderHand}
           onAction={state.handleAction}
         />
       )}

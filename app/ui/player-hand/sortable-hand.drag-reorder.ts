@@ -1,10 +1,13 @@
+import { PointerSensor } from "@dnd-kit/react";
 import type { Card } from "core/card/card.types";
 
-export interface OrganizeDragReorderInput {
+export interface SortableDragReorderInput {
   initialIndex: number;
   targetIndex: number;
   canceled?: boolean;
 }
+
+export const SORTABLE_HAND_DRAG_SENSORS = [PointerSensor];
 
 function isValidIndex(cards: Card[], index: number): boolean {
   return Number.isInteger(index) && index >= 0 && index < cards.length;
@@ -12,7 +15,7 @@ function isValidIndex(cards: Card[], index: number): boolean {
 
 export function reorderCardsAfterDrag(
   cards: Card[],
-  { initialIndex, targetIndex, canceled = false }: OrganizeDragReorderInput
+  { initialIndex, targetIndex, canceled = false }: SortableDragReorderInput
 ): Card[] {
   if (canceled || initialIndex === targetIndex) {
     return cards;

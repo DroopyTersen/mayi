@@ -4,11 +4,7 @@ import { sortHandByRank, sortHandBySuit } from "core/engine/hand.reordering";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { OrganizeSortableHand } from "./OrganizeSortableHand";
-import {
-  reorderCardsAfterDrag,
-  type OrganizeDragReorderInput,
-} from "./organize-hand.drag-state";
+import { SortableHandDisplay } from "~/ui/player-hand/SortableHandDisplay";
 
 interface OrganizeHandViewProps {
   hand: Card[];
@@ -28,6 +24,9 @@ export function OrganizeHandView({
 }: OrganizeHandViewProps) {
   const [cards, setCards] = useState<Card[]>([...hand]);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const selectedIds = selectedCardId === null
+    ? new Set<string>()
+    : new Set([selectedCardId]);
   const selectedIndex =
     selectedCardId === null ? -1 : cards.findIndex((card) => card.id === selectedCardId);
 
@@ -62,10 +61,6 @@ export function OrganizeHandView({
     setSelectedCardId(null);
   };
 
-  const handleDragReorder = (input: OrganizeDragReorderInput) => {
-    setCards((currentCards) => reorderCardsAfterDrag(currentCards, input));
-  };
-
   const handleSave = () => {
     onSave(cards);
   };
@@ -86,11 +81,11 @@ export function OrganizeHandView({
         className="overflow-x-auto overflow-y-visible overscroll-x-contain py-4 pb-5"
         data-testid="organize-hand-scroll"
       >
-        <OrganizeSortableHand
+        <SortableHandDisplay
           cards={cards}
-          selectedId={selectedCardId}
+          selectedIds={selectedIds}
           onCardClick={handleCardClick}
-          onReorder={handleDragReorder}
+          onReorder={setCards}
           className="mx-auto w-max justify-start px-1"
         />
       </div>
