@@ -3,6 +3,7 @@ import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
 import type { ActivityEntry } from "./game-view.types";
 import type { MayINotificationState } from "~/routes/game.$roomId";
 import { GameHeader } from "~/ui/game-status/GameHeader";
+import { HouseRulesButton } from "~/ui/game-status/HouseRulesButton";
 import { TableDisplay } from "~/ui/game-table/TableDisplay";
 import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
@@ -74,11 +75,13 @@ export function GameView({
       {/* Connection Status Banner - shown when disconnected/reconnecting */}
       <ConnectionBanner status={connectionStatus} />
 
-      {/* Header - includes turn status on mobile */}
-      <GameHeader
-        turnStatus={isMobile ? derived.turnPhaseText : undefined}
-        isYourTurn={isMobile ? gameState.isYourTurn : undefined}
-      />
+      {/* Header - mobile only; desktop tucks help into the right column */}
+      {isMobile && (
+        <GameHeader
+          turnStatus={derived.turnPhaseText}
+          isYourTurn={gameState.isYourTurn}
+        />
+      )}
 
       {/* Inactivity Hint */}
       {inactivityHint.isVisible && inactivityHint.message && (
@@ -139,7 +142,7 @@ export function GameView({
           {/* Right Column: Players & Activity in single container */}
           <div className="rounded-lg border bg-card overflow-hidden">
             {/* Round & Contract Info */}
-            <div className="px-4 py-2 bg-muted/30 text-center text-sm text-muted-foreground">
+            <div className="relative px-4 py-2 bg-muted/30 text-center text-sm text-muted-foreground">
               Round {gameState.currentRound} of 6 ·{" "}
               <span className="font-medium text-foreground">
                 {gameState.contract.sets > 0 &&
@@ -150,6 +153,9 @@ export function GameView({
                 {gameState.contract.runs > 0 &&
                   `${gameState.contract.runs} run${gameState.contract.runs > 1 ? "s" : ""}`}
               </span>
+              {!isMobile && (
+                <HouseRulesButton className="absolute right-1 top-1/2 -translate-y-1/2" />
+              )}
             </div>
 
             {/* Players Table - full width, no padding */}

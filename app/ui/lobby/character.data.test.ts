@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -35,6 +36,27 @@ describe("character data", () => {
 
       expect(svg).toContain("data:image/png;base64,");
       expect(svg).not.toContain(`href="${avatarId}.png"`);
+    }
+  });
+
+  it("keeps generated SVG wrappers in sync with their PNG avatars", () => {
+    const avatarIds = ["carter", "hannah", "maggie-theo"];
+
+    for (const avatarId of avatarIds) {
+      const png = readFileSync(join(process.cwd(), `public/avatars/${avatarId}.png`));
+      const svg = readFileSync(
+        join(process.cwd(), `public/avatars/${avatarId}.svg`),
+        "utf8"
+      );
+      const embeddedPngBase64 = svg.match(/data:image\/png;base64,([^"]+)/)?.[1];
+
+      expect(embeddedPngBase64).toBeDefined();
+      const pngHash = createHash("sha256").update(png).digest("hex");
+      const embeddedPngHash = createHash("sha256")
+        .update(Buffer.from(embeddedPngBase64 ?? "", "base64"))
+        .digest("hex");
+
+      expect(embeddedPngHash).toBe(pngHash);
     }
   });
 

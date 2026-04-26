@@ -271,7 +271,10 @@ export function GameViewStory() {
           This frees up vertical space in the Table section for melds.
         </p>
 
-        <div className="border rounded-lg bg-background">
+        <div
+          className="border rounded-lg bg-background overflow-y-auto"
+          style={{ height: 500 }}
+        >
           {/* Simulated Table Section WITHOUT piles */}
           <div className="p-4 border-b">
             <div className="text-xs text-muted-foreground mb-2 font-medium">Table (melds only - no piles)</div>
@@ -284,7 +287,7 @@ export function GameViewStory() {
           </div>
 
           {/* Bottom section with piles + hand */}
-          <div className="sticky bottom-0 bg-background border-t p-4">
+          <div className="sticky bottom-0 z-10 bg-background border-t p-4">
             <div className="text-xs text-muted-foreground mb-2 font-medium">Your Hand + Piles (desktop layout)</div>
             <div className="flex items-end gap-6">
               {/* Piles on the left */}

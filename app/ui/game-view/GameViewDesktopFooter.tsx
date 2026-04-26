@@ -26,26 +26,8 @@ export function GameViewDesktopFooter({
   onAction,
 }: GameViewDesktopFooterProps) {
   return (
-    <div className="sticky bottom-0 z-10 bg-background">
-      <div className="max-w-6xl mx-auto p-4 space-y-3">
-        {/* Turn status indicator */}
-        <div className="text-sm text-center">
-          <span
-            className={cn(
-              "font-medium",
-              gameState.isYourTurn ? "text-primary" : "text-muted-foreground"
-            )}
-          >
-            {turnPhaseText}
-          </span>
-          {selectedCardIds.size > 0 && (
-            <span className="text-muted-foreground ml-3">
-              · {selectedCardIds.size} card
-              {selectedCardIds.size !== 1 && "s"} selected
-            </span>
-          )}
-        </div>
-
+    <div className="sticky bottom-0 z-10 bg-background border-t">
+      <div className="max-w-6xl mx-auto px-4 py-3">
         {/* Piles + Hand - Flexible layout */}
         <div className="flex flex-wrap items-end justify-center gap-4 lg:gap-6">
           {/* Discard and Stock piles - sized to match hand cards */}
@@ -88,12 +70,32 @@ export function GameViewDesktopFooter({
         </div>
       </div>
 
-      {/* Action Bar */}
+      {/* Action Bar - turn status piped in via leadingSlot */}
       <ActionBar
         availableActions={gameState.availableActions}
         actionStates={gameState.actionStates}
         unavailabilityHints={gameState.unavailabilityHints}
         onAction={onAction}
+        leadingSlot={
+          <>
+            <span
+              className={cn(
+                "font-medium",
+                gameState.isYourTurn
+                  ? "text-primary"
+                  : "text-muted-foreground"
+              )}
+            >
+              {turnPhaseText}
+            </span>
+            {selectedCardIds.size > 0 && (
+              <span className="text-muted-foreground ml-2">
+                · {selectedCardIds.size} card
+                {selectedCardIds.size !== 1 && "s"} selected
+              </span>
+            )}
+          </>
+        }
       />
     </div>
   );

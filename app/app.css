@@ -135,3 +135,26 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes new-card-flash {
+  0% {
+    box-shadow:
+      0 0 0 3px rgb(245 158 11 / 0.95),
+      0 0 18px 6px rgb(245 158 11 / 0.55);
+  }
+  60% {
+    box-shadow:
+      0 0 0 2px rgb(245 158 11 / 0.6),
+      0 0 14px 5px rgb(245 158 11 / 0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgb(245 158 11 / 0),
+      0 0 0 0 rgb(245 158 11 / 0);
+  }
+}
+
+.card-flash {
+  animation: new-card-flash 1.2s ease-out;
+  border-radius: 0.5rem;
+}
