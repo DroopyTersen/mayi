@@ -112,6 +112,77 @@ function uniqueCardsById(values: unknown[]): Card[] {
   return [...cardsById.values()];
 }
 
+function revisionOf(state: StoredGameState): number {
+  return state.revision ?? 0;
+}
+
+function activityLogKey(entry: ActivityLogEntry): string {
+  return JSON.stringify([
+    entry.timestamp,
+    entry.roundNumber,
+    entry.turnNumber,
+    entry.playerId,
+    entry.playerName,
+    entry.action,
+    entry.details ?? null,
+  ]);
+}
+
+function uniquifyActivityLogIds(entries: ActivityLogEntry[]): ActivityLogEntry[] {
+  const usedIds = new Set<string>();
+  let nextGeneratedId = entries.length + 1;
+
+  return entries.map((entry) => {
+    if (!usedIds.has(entry.id)) {
+      usedIds.add(entry.id);
+      return entry;
+    }
+
+    let candidate = `log-${nextGeneratedId++}`;
+    while (usedIds.has(candidate)) {
+      candidate = `log-${nextGeneratedId++}`;
+    }
+    usedIds.add(candidate);
+    return { ...entry, id: candidate };
+  });
+}
+
+function mergeActivityLogs(
+  freshLog: ActivityLogEntry[],
+  aiLog: ActivityLogEntry[]
+): ActivityLogEntry[] {
+  const seen = new Set<string>();
+  const entriesWithOrder: Array<{ entry: ActivityLogEntry; order: number }> = [];
+
+  const pushEntry = (entry: ActivityLogEntry) => {
+    const key = activityLogKey(entry);
+    if (seen.has(key)) return;
+    seen.add(key);
+    entriesWithOrder.push({
+      entry: { ...entry },
+      order: entriesWithOrder.length,
+    });
+  };
+
+  for (const entry of freshLog) {
+    pushEntry(entry);
+  }
+  for (const entry of aiLog) {
+    pushEntry(entry);
+  }
+
+  entriesWithOrder.sort((left, right) => {
+    const leftTime = Date.parse(left.entry.timestamp);
+    const rightTime = Date.parse(right.entry.timestamp);
+    if (Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+    return left.order - right.order;
+  });
+
+  return uniquifyActivityLogIds(entriesWithOrder.map(({ entry }) => entry));
+}
+
 function tableCardsFromContext(context: unknown): Card[] {
   const table = (context as { table?: unknown } | null)?.table;
   if (!Array.isArray(table)) return [];
@@ -336,6 +407,8 @@ export function mergeAIStatePreservingOtherPlayerHands(
 
   return {
     ...aiState,
+    activityLog: mergeActivityLogs(freshState.activityLog, aiState.activityLog),
+    revision: Math.max(revisionOf(freshState), revisionOf(aiState)),
     engineSnapshot: JSON.stringify(mergedSnapshot),
   };
 }
