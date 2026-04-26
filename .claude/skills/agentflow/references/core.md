@@ -1,6 +1,6 @@
 # AgentFlow Core Concepts
 
-Shared concepts for all backends. Backend-specific implementation is in `github/` or `json/` directories.
+Shared concepts for all backends. Backend-specific implementation is in `azure-devops/`, `github/`, or `json/` directories.
 
 ## Commands Overview
 
@@ -104,7 +104,7 @@ Agent("code-explorer")
 
 When working a card, read:
 1. `.agentflow/PROJECT_LOOP_PROMPT.md` — Project-specific context
-2. `.agentflow/columns/{column}.md` — Detailed phase instructions
+2. The matching column reference in the installed `agentflow` skill under `references/columns/`
 3. Card context (issue body or `.agentflow/cards/{id}.md`)
 
 The column docs contain full phase workflows.
@@ -141,8 +141,9 @@ Cards have two content areas with different purposes:
 
 | Backend | Body | Discussion |
 |---------|------|------------|
+| Azure DevOps | Work Item Description (HTML) | Work Item Discussion (HTML) |
 | GitHub | Issue body | Issue comments |
-| JSON | `cards/{id}.md` | `cards/{id}/discussion.md` |
+| JSON | `cards/{id}.md` | `## Conversation Log` inside `cards/{id}.md` |
 
 See backend-specific docs for implementation details.
 
@@ -150,7 +151,7 @@ See backend-specific docs for implementation details.
 
 | Condition | Response |
 |-----------|----------|
-| No backend config | "No AgentFlow backend configured. Check for `.agentflow/github.json` or `.agentflow/board.json`" |
+| No backend config | "No AgentFlow backend configured. Check for `.agentflow/azure-devops.json`, `.agentflow/github.json`, or `.agentflow/board.json`" |
 | Card not found | "Card {id} not found" |
 | Invalid column | "Unknown column: {col}. Valid: new, approved, refinement, tech-design, implementation, final-review, done" |
 | Has needs-feedback | "Card {id} is waiting for feedback. Use `/af feedback {id}` to respond." |

@@ -8,10 +8,10 @@ This project is a web application that enforces TDD development. When a bug is e
 
 If we make changes to the game engine we should verify them via new tests and running old tests, as well as playing through the game with the [Agent Game Harness](../docs/agent-game-harness.md). It's the MayI Harness skill.
 
-If we make changes to the UI and presentation layer we should try to first imeplment them in our diy StorybookLayout.tsx and verifying they look good by taking screenshots with the Claude Chrome extensions.
+If we make changes to the UI and presentation layer we should try to first implement them in our DIY StorybookLayout.tsx and verify they look good by taking browser screenshots.
 
 VERIFICATION IS CRITICAL!!
-always run tests, typecheck, and build before and after each change. YOu should typically also try to play through the game with the web app or agent harness.
+Always run tests, typecheck, and build before and after each change. You should typically also try to play through the game with the web app or agent harness.
 
 ## How to begin
 

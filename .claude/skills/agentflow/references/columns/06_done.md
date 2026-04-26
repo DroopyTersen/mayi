@@ -22,7 +22,7 @@ N/A - This is the terminal state.
 
 ## What Happens
 
-Card arrives from Human Review after approval.
+Card arrives from Final Review after approval.
 
 - Work item is complete
 - Card context contains the full history
@@ -132,7 +132,7 @@ This helps dependent cards know when they can proceed or rebase onto main.
 
 ---
 
-## Human Review
+## Final Review
 **Date:** {date}
 **Reviewer:** {name}
 **Decision:** Approved
@@ -173,7 +173,7 @@ This helps dependent cards know when they can proceed or rebase onto main.
 | {date} | Implementation | Agent | Tests written, code complete |
 | {date} | Implementation | Agent | Code review: {score}/100 |
 | {date} | Implementation | Agent | Verification passed, committed |
-| {date} | Human Review | Human | Approved |
+| {date} | Final Review | Human | Approved |
 | {date} | Done | - | Complete |
 ```
 
@@ -197,7 +197,7 @@ The card serves as permanent documentation of:
 
 ## Entry Criteria
 
-- Human Review approved
+- Final Review approved
 
 ---
 
@@ -219,4 +219,4 @@ None (terminal state)
 
 ## Previous Column
 
-< **Human Review** (arrives after approval)
+< **Final Review** (arrives after approval)

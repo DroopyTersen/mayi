@@ -83,9 +83,9 @@ bun test
 # More tests = implementation added test coverage
 ```
 
-#### 4c. Dual Code Review (Claude + Codex)
+#### 4c. Codex Code Review
 
-Run both Claude's code-reviewer agent and OpenAI Codex in parallel. Two independent reviewers catch more issues than one.
+Run OpenAI Codex for review. Do not run Claude review by default unless the human explicitly asks for it.
 
 **First, get the diff context:**
 ```bash
@@ -94,8 +94,6 @@ FILES_CHANGED=$(git diff --name-only main..HEAD | tr '\n' ', ')
 echo "Branch: $BRANCH"
 echo "Files: $FILES_CHANGED"
 ```
-
-**Start Codex review (runs in background):**
 
 ```bash
 codex exec "You are a senior code reviewer. Review the changes on branch '$BRANCH' compared to main.
@@ -121,57 +119,32 @@ For each issue provide:
 Skip style preferences and speculative suggestions." \
   --full-auto \
   --output-last-message .agentflow/codex-review.txt \
-  --sandbox read-only &
-
-CODEX_PID=$!
-echo "Codex review started (PID: $CODEX_PID)"
+  --sandbox read-only
 ```
 
-**Run Claude code-reviewer agent:**
-
-```
-Task(subagent_type="feature-dev:code-reviewer")
-> Review the changes on this branch compared to main.
-> Branch: {branch}
-> Files changed: {files}
-> Card: #{issue_number} - {title}
-```
-
-**Wait for Codex to complete:**
+**Post review to GitHub issue:**
 
 ```bash
-wait $CODEX_PID
-echo "Codex review complete"
-```
-
-**Post both reviews to GitHub issue:**
-
-```bash
-# Post Claude's review
-gh issue comment <NUMBER> --body "## 🟣 Claude Code Review
-
-{Claude's review output}"
-
 # Post Codex's review
-gh issue comment <NUMBER> --body "## 🟢 Codex Code Review
+gh issue comment <NUMBER> --body "## Codex Code Review
 
 $(cat .agentflow/codex-review.txt)"
 ```
 
 **Synthesize suggestions:**
 
-Evaluate each suggestion from both reviewers:
+Evaluate each Codex suggestion:
 
 | Signal | Action |
 |--------|--------|
-| Both reviewers found it | High confidence - note it |
 | Clear bug/security issue | Valid regardless of source |
+| Concrete, reproducible issue | Fix or document |
 | Style preference only | Skip |
 | Speculative/low-confidence | Skip |
 
 Document synthesis in your verification comment.
 
-#### 4d. UI Testing with Claude Chrome
+#### 4d. UI Testing with Browser Tooling
 
 **Get browser context:**
 ```
@@ -205,9 +178,8 @@ gh issue comment <NUMBER> --body "**Agent Verification ($(date +%Y-%m-%d)):**
 
 ## Verification Results
 
-### Dual Code Review (Claude + Codex)
-- 🟣 Claude: [X suggestions - see comment above]
-- 🟢 Codex: [Y suggestions - see comment above]
+### Codex Code Review
+- Codex: [X suggestions - see comment above]
 - **Synthesis:** [N high-confidence issues found / No significant issues]
 
 ### Test Results
