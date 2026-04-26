@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { getHandSizeTier } from "./HandDisplay";
+import { getHandSizeTier } from "./player-hand.layout";
 
 describe("getHandSizeTier", () => {
   it("returns 'normal' for 1-14 cards", () => {

@@ -1,13 +1,17 @@
 import {
   DragDropProvider,
-  PointerSensor,
   type DragEndEvent,
 } from "@dnd-kit/react";
 import type { KeyboardEvent } from "react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import type { Card } from "core/card/card.types";
 import { cn } from "~/shadcn/lib/utils";
-import { PlayingCard } from "~/ui/playing-card/PlayingCard";
+import { PlayerHandResponsiveCard } from "~/ui/player-hand/PlayerHandResponsiveCard";
+import {
+  getStackedHandOverlapClass,
+  STACKED_HAND_AUTO_HOVER_LIFT,
+} from "~/ui/player-hand/player-hand.layout";
+import { ORGANIZE_HAND_DRAG_SENSORS } from "./organize-hand.drag-sensors";
 import type { OrganizeDragReorderInput } from "./organize-hand.drag-state";
 
 interface OrganizeSortableHandProps {
@@ -24,8 +28,6 @@ const CARD_TRANSITION = {
   idle: true,
 };
 
-export const ORGANIZE_HAND_DRAG_SENSORS = [PointerSensor];
-
 function getCardLabel(card: Card): string {
   if (card.rank === "Joker") {
     return "Joker";
@@ -34,36 +36,16 @@ function getCardLabel(card: Card): string {
   return `${card.rank} of ${card.suit ?? "unknown suit"}`;
 }
 
-function ResponsiveOrganizeCard({
-  card,
-  selected,
-}: {
-  card: Card;
-  selected: boolean;
-}) {
-  return (
-    <>
-      <div className="@[400px]:hidden block">
-        <PlayingCard card={card} size="sm" selected={selected} />
-      </div>
-      <div className="hidden @[400px]:block @[550px]:hidden">
-        <PlayingCard card={card} size="md" selected={selected} />
-      </div>
-      <div className="hidden @[550px]:block">
-        <PlayingCard card={card} size="lg" selected={selected} />
-      </div>
-    </>
-  );
-}
-
 function SortableCard({
   card,
   index,
+  overlapClass,
   selected,
   onCardClick,
 }: {
   card: Card;
   index: number;
+  overlapClass: string;
   selected: boolean;
   onCardClick: (cardId: string) => void;
 }) {
@@ -100,6 +82,9 @@ function SortableCard({
         "relative shrink-0 cursor-grab touch-manipulation select-none rounded-lg outline-none",
         "transition-[transform,opacity,filter] duration-150 ease-out",
         "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        index > 0 && overlapClass,
+        STACKED_HAND_AUTO_HOVER_LIFT,
+        selected && "-translate-y-1",
         isDragSource && "z-50 scale-[1.04] cursor-grabbing opacity-95 drop-shadow-xl",
         isDragging && !isDragSource && "opacity-35",
         isDropping && "scale-[0.99]",
@@ -107,7 +92,7 @@ function SortableCard({
       )}
       style={{ zIndex: isDragSource ? 100 : index }}
     >
-      <ResponsiveOrganizeCard card={card} selected={selected} />
+      <PlayerHandResponsiveCard card={card} selected={selected} />
     </div>
   );
 }
@@ -132,6 +117,7 @@ export function OrganizeSortableHand({
       canceled: event.canceled,
     });
   };
+  const overlapClass = getStackedHandOverlapClass(cards.length);
 
   return (
     <DragDropProvider
@@ -141,13 +127,14 @@ export function OrganizeSortableHand({
       <div className="@container" style={{ containerType: "inline-size" }}>
         <div
           data-testid="organize-sortable-hand"
-          className={cn("flex w-max items-end justify-start gap-1 px-1", className)}
+          className={cn("flex w-max items-end justify-start px-1", className)}
         >
           {cards.map((card, index) => (
             <SortableCard
               key={card.id}
               card={card}
               index={index}
+              overlapClass={overlapClass}
               selected={selectedId === card.id}
               onCardClick={onCardClick}
             />

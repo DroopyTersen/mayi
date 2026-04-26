@@ -64,4 +64,18 @@ describe("OrganizeHandView", () => {
     expect(html).toContain(">Left<");
     expect(html).toContain(">Right<");
   });
+
+  it("uses stacked overlap spacing for long sortable hands", () => {
+    const html = renderToStaticMarkup(
+      <OrganizeHandView
+        hand={longHand}
+        onSave={() => {}}
+        onCancel={() => {}}
+        showHeader={false}
+      />
+    );
+
+    expect(html).toContain("-ml-7");
+    expect(html).toContain("@[550px]:-ml-[72px]");
+  });
 });

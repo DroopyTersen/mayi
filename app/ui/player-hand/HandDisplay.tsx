@@ -3,8 +3,14 @@ import type { Card } from "core/card/card.types";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { cn } from "~/shadcn/lib/utils";
 import { useNewCardIds } from "./useNewCardIds";
-
-type CardSize = "sm" | "md" | "lg";
+import { PlayerHandResponsiveCard } from "./PlayerHandResponsiveCard";
+import {
+  getStackedHandOverlapClass,
+  STACKED_HAND_AUTO_HOVER_LIFT,
+  STACKED_HAND_FIXED_HOVER_LIFT,
+  STACKED_HAND_FIXED_OVERLAP,
+  type CardSize,
+} from "./player-hand.layout";
 
 interface HandDisplayProps {
   cards: Card[];
@@ -16,47 +22,6 @@ interface HandDisplayProps {
   overlap?: "stacked" | "none";
   className?: string;
 }
-
-// Overlap amounts for each fixed size (negative margin)
-const OVERLAP: Record<CardSize, string> = {
-  sm: "-ml-6",
-  md: "-ml-8",
-  lg: "-ml-10",
-};
-
-// Hover lift amounts proportional to card size
-const HOVER_LIFT: Record<CardSize, string> = {
-  sm: "hover:-translate-y-1.5",
-  md: "hover:-translate-y-2",
-  lg: "hover:-translate-y-3",
-};
-
-// Hover lift used in auto/container-query mode (scales with container width).
-const AUTO_HOVER_LIFT =
-  "hover:-translate-y-1.5 @[400px]:hover:-translate-y-2 @[550px]:hover:-translate-y-3";
-
-// Hand size tiers based on card count
-type HandSizeTier = "normal" | "large" | "huge";
-
-export function getHandSizeTier(cardCount: number): HandSizeTier {
-  if (cardCount > 20) return "huge";
-  if (cardCount > 14) return "large";
-  return "normal";
-}
-
-// Tier-based overlap matrix for auto mode. Tighter overlap as card count and
-// container width grow.
-//
-// | Container Width | Normal (1-14) | Large (15-20) | Huge (21+)    |
-// |-----------------|---------------|---------------|---------------|
-// | < 400px (sm)    | -ml-5 (20px)  | -ml-6 (24px)  | -ml-7 (28px)  |
-// | 400-550px (md)  | -ml-8 (32px)  | -ml-8 (32px)  | -ml-10 (40px) |
-// | >= 550px (lg)   | -ml-10 (40px) | -ml-14 (56px) | -ml-[72px]    |
-const OVERLAP_TIERS: Record<HandSizeTier, string> = {
-  normal: "-ml-5 @[400px]:ml-0 @[400px]:-ml-8 @[550px]:ml-0 @[550px]:-ml-10",
-  large: "-ml-6 @[400px]:ml-0 @[400px]:-ml-8 @[550px]:ml-0 @[550px]:-ml-14",
-  huge: "-ml-7 @[400px]:ml-0 @[400px]:-ml-10 @[550px]:ml-0 @[550px]:-ml-[72px]",
-};
 
 const supportsContainerQueries =
   typeof CSS !== "undefined" &&
@@ -203,8 +168,8 @@ export function HandDisplay({
         selectedIds={selectedIds}
         newCardIds={newCardIds}
         overlap={overlap}
-        overlapClass={OVERLAP[fixedSize]}
-        hoverLiftClass={HOVER_LIFT[fixedSize]}
+        overlapClass={STACKED_HAND_FIXED_OVERLAP[fixedSize]}
+        hoverLiftClass={STACKED_HAND_FIXED_HOVER_LIFT[fixedSize]}
         className={className}
         renderCard={(card, isSelected) => (
           <PlayingCard
@@ -219,7 +184,7 @@ export function HandDisplay({
   }
 
   // Auto + container queries supported - render three sizes, show via @container.
-  const overlapClass = OVERLAP_TIERS[getHandSizeTier(cards.length)];
+  const overlapClass = getStackedHandOverlapClass(cards.length);
 
   return (
     <div className="@container" style={{ containerType: "inline-size" }}>
@@ -229,40 +194,16 @@ export function HandDisplay({
         newCardIds={newCardIds}
         overlap={overlap}
         overlapClass={overlapClass}
-        hoverLiftClass={AUTO_HOVER_LIFT}
+        hoverLiftClass={STACKED_HAND_AUTO_HOVER_LIFT}
         className={className}
         renderCard={(card, isSelected) => (
-          <ResponsivePlayingCard
+          <PlayerHandResponsiveCard
             card={card}
-            isSelected={isSelected}
+            selected={isSelected}
             onClick={onCardClick ? () => onCardClick(card.id) : undefined}
           />
         )}
       />
     </div>
-  );
-}
-
-function ResponsivePlayingCard({
-  card,
-  isSelected,
-  onClick,
-}: {
-  card: Card;
-  isSelected: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <>
-      <div className="@[400px]:hidden block">
-        <PlayingCard card={card} size="sm" selected={isSelected} onClick={onClick} />
-      </div>
-      <div className="hidden @[400px]:block @[550px]:hidden">
-        <PlayingCard card={card} size="md" selected={isSelected} onClick={onClick} />
-      </div>
-      <div className="hidden @[550px]:block">
-        <PlayingCard card={card} size="lg" selected={isSelected} onClick={onClick} />
-      </div>
-    </>
   );
 }
