@@ -1,16 +1,18 @@
 import { TableDisplay } from "./TableDisplay";
+import { MeldDisplay } from "./MeldDisplay";
 import type { Meld } from "core/meld/meld.types";
 import { ViewportComparison } from "~/storybook/ViewportSimulator";
+import { InlineLayOffMeldTarget } from "~/ui/game-view/InlineLayOffMeldTarget";
 
 const PLAYERS = [
-  { id: "p1", name: "Alice", avatarId: "alice" },
-  { id: "p2", name: "Bob", avatarId: "bob" },
-  { id: "p3", name: "Charlie", avatarId: "charlie" },
-  { id: "p4", name: "Diana", avatarId: "diana" },
+  { id: "p1", name: "Curt", avatarId: "curt" },
+  { id: "p2", name: "Kate", avatarId: "kate" },
+  { id: "p3", name: "Andrew", avatarId: "andrew" },
+  { id: "p4", name: "Natalie", avatarId: "natalie" },
 ];
 
 const MELDS_ON_TABLE: Meld[] = [
-  // Alice's melds
+  // Curt's melds
   {
     id: "meld-1",
     type: "set",
@@ -31,7 +33,7 @@ const MELDS_ON_TABLE: Meld[] = [
       { id: "6", rank: "7", suit: "spades" },
     ],
   },
-  // Bob's meld
+  // Kate's meld
   {
     id: "meld-3",
     type: "set",
@@ -42,8 +44,8 @@ const MELDS_ON_TABLE: Meld[] = [
       { id: "9", rank: "K", suit: "diamonds" },
     ],
   },
-  // Charlie has no melds
-  // Diana's meld
+  // Andrew has no melds
+  // Natalie's meld
   {
     id: "meld-4",
     type: "run",
@@ -58,6 +60,9 @@ const MELDS_ON_TABLE: Meld[] = [
 ];
 
 export function TableDisplayStory() {
+  const viewerPlayerId = "p2";
+  const canLayOffInline = true;
+
   return (
     <div className="space-y-10">
       <header>
@@ -72,7 +77,7 @@ export function TableDisplayStory() {
         <h2 className="text-lg font-semibold mb-3">Default</h2>
         <TableDisplay melds={MELDS_ON_TABLE} players={PLAYERS} />
         <p className="text-xs text-muted-foreground mt-2">
-          All players are shown. Charlie hasn't laid down yet and shows a placeholder.
+          All players are shown. Andrew hasn't laid down yet and shows a placeholder.
         </p>
       </section>
 
@@ -85,7 +90,7 @@ export function TableDisplayStory() {
           currentPlayerId="p1"
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Alice is the current player, shown with highlighted border.
+          Curt is the current player, shown with highlighted border.
         </p>
       </section>
 
@@ -107,7 +112,34 @@ export function TableDisplayStory() {
           currentPlayerId="p2"
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Only Bob has laid down. Others show placeholder text.
+          Only Kate has laid down. Others show placeholder text.
+        </p>
+      </section>
+
+      {/* Inline Lay Off Targets */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Inline Lay Off Targets</h2>
+        <TableDisplay
+          melds={MELDS_ON_TABLE}
+          players={PLAYERS}
+          currentPlayerId={viewerPlayerId}
+          viewingPlayerId={viewerPlayerId}
+          renderMeld={({ meld, player }) => (
+            <InlineLayOffMeldTarget
+              enabled={canLayOffInline}
+              label={`Lay off selected card to ${player.name}'s ${meld.type}`}
+              isPending={meld.id === "meld-2"}
+              onSelect={() => undefined}
+              testId={`inline-layoff-target-${meld.id}`}
+            >
+              <MeldDisplay meld={meld} size="sm" />
+            </InlineLayOffMeldTarget>
+          )}
+        />
+        <p className="text-xs text-muted-foreground mt-2">
+          Kate is viewing, down, has drawn, has a selected card, and can lay
+          off. TableDisplay owns grouping/layout while the caller wraps each
+          meld with inline lay-off target behavior.
         </p>
       </section>
 

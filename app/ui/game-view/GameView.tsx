@@ -4,6 +4,7 @@ import type { ActivityEntry } from "./game-view.types";
 import type { MayINotificationState } from "~/routes/game.$roomId";
 import { HouseRulesButton } from "~/ui/game-status/HouseRulesButton";
 import { TableDisplay } from "~/ui/game-table/TableDisplay";
+import { MeldDisplay } from "~/ui/game-table/MeldDisplay";
 import { PlayersTableDisplay } from "~/ui/game-status/PlayersTableDisplay";
 import { ActivityLog } from "~/ui/game-status/ActivityLog";
 import { InactivityHintBanner } from "./InactivityHintBanner";
@@ -20,6 +21,9 @@ import { useGameViewDerived } from "./useGameViewDerived";
 import { GameViewDesktopFooter } from "./GameViewDesktopFooter";
 import { GameViewDrawers } from "./GameViewDrawers";
 import { useInactivityHint } from "./useInactivityHint";
+import { useInlineLayOff } from "./useInlineLayOff";
+import { InlineLayOffMeldTarget } from "./InlineLayOffMeldTarget";
+import { LayOffPositionPrompt } from "~/ui/lay-off-view/LayOffPositionPrompt";
 import { getInactivityHintMessage } from "core/engine/game-engine.inactivity";
 
 interface GameViewProps {
@@ -67,6 +71,15 @@ export function GameView({
     message: inactivityMessage,
     activityKey: state.activityCounter,
   });
+  const inlineLayOff = useInlineLayOff({
+    enabled:
+      !isMobile &&
+      gameState.youAreDown &&
+      gameState.availableActions.canLayOff,
+    selectedCardId: state.selectedCardId,
+    hand: gameState.yourHand,
+    onLayOff: state.handleLayOff,
+  });
 
   return (
     <div className={cn("flex flex-col min-h-screen", className)}>
@@ -111,12 +124,25 @@ export function GameView({
             <div className="rounded-lg flex flex-col min-h-0 flex-1">
               {/* Melds on table - scrollable */}
               <div className="overflow-y-auto flex-1 min-h-0">
+                {inlineLayOff.prompt && (
+                  <LayOffPositionPrompt
+                    className="mb-3"
+                    {...inlineLayOff.promptProps}
+                  />
+                )}
                 <TableDisplay
                   melds={gameState.table}
                   players={derived.tablePlayers}
                   currentPlayerId={derived.currentPlayerId}
                   viewingPlayerId={gameState.viewingPlayerId}
                   mayINotification={mayINotification}
+                  renderMeld={({ meld, player }) => (
+                    <InlineLayOffMeldTarget
+                      {...inlineLayOff.getMeldTargetProps(meld, player)}
+                    >
+                      <MeldDisplay meld={meld} size="sm" />
+                    </InlineLayOffMeldTarget>
+                  )}
                 />
               </div>
             </div>

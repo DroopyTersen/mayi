@@ -1,6 +1,6 @@
 import type { Meld } from "core/meld/meld.types";
 import type { MayINotificationState } from "~/routes/game.$roomId";
-import { PlayerMeldsDisplay } from "./PlayerMeldsDisplay";
+import { PlayerMeldsDisplay, type RenderMeld } from "./PlayerMeldsDisplay";
 import { cn } from "~/shadcn/lib/utils";
 
 interface Player {
@@ -18,6 +18,7 @@ interface TableDisplayProps {
   viewingPlayerId?: string;
   /** May I notification to display for the calling player */
   mayINotification?: MayINotificationState | null;
+  renderMeld?: RenderMeld;
   className?: string;
 }
 
@@ -27,6 +28,7 @@ export function TableDisplay({
   currentPlayerId,
   viewingPlayerId,
   mayINotification,
+  renderMeld,
   className,
 }: TableDisplayProps) {
   // Group melds by player
@@ -48,12 +50,14 @@ export function TableDisplay({
         return (
           <PlayerMeldsDisplay
             key={player.id}
+            playerId={player.id}
             playerName={player.name}
             playerAvatarId={player.avatarId}
             melds={meldsByPlayer.get(player.id) ?? []}
             isActiveTurn={player.id === currentPlayerId}
             isViewingPlayer={player.id === viewingPlayerId}
             mayINotification={playerNotification}
+            renderMeld={renderMeld}
           />
         );
       })}

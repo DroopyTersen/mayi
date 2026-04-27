@@ -13,11 +13,7 @@ import { useState, useCallback } from "react";
 import type { Card } from "core/card/card.types";
 import type { Meld } from "core/meld/meld.types";
 import { getEffectiveMeld, type StagedLayOff } from "core/meld/meld.projection";
-import {
-  needsPositionChoice,
-  getRunInsertPosition,
-} from "core/engine/layoff";
-import { isWild } from "core/card/card.utils";
+import { getLayOffPositionDecision } from "./lay-off-position";
 
 export type { StagedLayOff };
 
@@ -95,35 +91,13 @@ export function stageCard(
     };
   }
 
-  // For sets, position doesn't matter
-  if (effectiveMeld.type === "set") {
-    return {
-      staged: { cardId, meldId, position: undefined },
-      needsPositionPrompt: false,
-    };
-  }
-
-  // For runs, check if position choice is needed using effective meld
-  if (needsPositionChoice(card, effectiveMeld)) {
-    // Wild card can fit at both ends - user must choose
+  const decision = getLayOffPositionDecision(card, effectiveMeld);
+  if (decision.kind === "needsPosition") {
     return { staged: null, needsPositionPrompt: true };
   }
 
-  // Natural card or wild with only one valid end - auto-determine position
-  let position: "start" | "end" | undefined;
-  if (effectiveMeld.type === "run") {
-    const insertPos = getRunInsertPosition(card, effectiveMeld);
-    if (insertPos === "low") {
-      position = "start";
-    } else if (insertPos === "high") {
-      position = "end";
-    }
-    // Note: if insertPos is null, card doesn't fit - but we let it through
-    // since validation happens elsewhere
-  }
-
   return {
-    staged: { cardId, meldId, position },
+    staged: { cardId, meldId, position: decision.position },
     needsPositionPrompt: false,
   };
 }

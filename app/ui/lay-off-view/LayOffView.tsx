@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Card } from "core/card/card.types";
 import type { Meld } from "core/meld/meld.types";
 import { useStagedLayOffs, type StagedLayOff } from "./useStagedLayOffs";
+import { LayOffPositionPrompt } from "./LayOffPositionPrompt";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
@@ -148,34 +149,11 @@ export function LayOffView({
 
         {/* Position selection dialog */}
         {positionPrompt && (
-          <div className="mt-3 p-3 rounded-lg border border-primary bg-primary/5">
-            <p className="text-sm text-center mb-2">
-              Where should this wild card go?
-            </p>
-            <div className="flex justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePositionSelect("start")}
-              >
-                Start
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePositionSelect("end")}
-              >
-                End
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCancelPosition}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
+          <LayOffPositionPrompt
+            className="mt-3"
+            onSelect={handlePositionSelect}
+            onCancel={handleCancelPosition}
+          />
         )}
       </div>
 

@@ -39,7 +39,7 @@ function isActionDrawer(action: string): action is ActionDrawer {
   return ACTION_DRAWERS.has(action as ActionDrawer);
 }
 
-function getOnlySelectedCardId(
+export function getOnlySelectedCardId(
   selectedCardIds: ReadonlySet<string>
 ): string | null {
   if (selectedCardIds.size !== 1) {
@@ -48,6 +48,17 @@ function getOnlySelectedCardId(
 
   const result = selectedCardIds.values().next();
   return result.done ? null : result.value;
+}
+
+export function toggleSingleSelectedCard(
+  selectedCardIds: ReadonlySet<string>,
+  cardId: string
+): Set<string> {
+  if (selectedCardIds.has(cardId)) {
+    return new Set();
+  }
+
+  return new Set([cardId]);
 }
 
 export function resolveGameViewAction(
@@ -85,6 +96,7 @@ export function createReorderHandPayload(
 export interface UseGameViewStateReturn {
   // Selection state
   selectedCardIds: Set<string>;
+  selectedCardId: string | null;
 
   // Drawer state
   activeDrawer: ActiveDrawer;
@@ -149,18 +161,10 @@ export function useGameViewState({
     });
   }, [hand]);
 
-  // Toggle card selection
+  // Toggle single-card selection
   const handleCardClick = useCallback((cardId: string) => {
     registerActivity();
-    setSelectedCardIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(cardId)) {
-        next.delete(cardId);
-      } else {
-        next.add(cardId);
-      }
-      return next;
-    });
+    setSelectedCardIds((prev) => toggleSingleSelectedCard(prev, cardId));
   }, [registerActivity]);
 
   // Handle actions from ActionBar
@@ -264,6 +268,7 @@ export function useGameViewState({
 
   return {
     selectedCardIds,
+    selectedCardId: getOnlySelectedCardId(selectedCardIds),
     activeDrawer,
     isHandDrawerOpen,
     setIsHandDrawerOpen: setHandDrawerOpen,

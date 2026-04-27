@@ -26,7 +26,7 @@ export function MeldDisplay({
   return (
     <div className={cn("inline-block", className)}>
       {/* Label */}
-      <div className="text-xs text-muted-foreground mb-1 font-medium">
+      <div className="mb-1.5 pl-0.5 text-xs font-semibold leading-none text-muted-foreground/80">
         {displayLabel}
       </div>
 

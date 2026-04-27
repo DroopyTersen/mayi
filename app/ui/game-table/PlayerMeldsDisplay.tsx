@@ -1,9 +1,24 @@
+import { Fragment, type ReactNode } from "react";
 import type { Meld } from "core/meld/meld.types";
 import type { MayINotificationState } from "~/routes/game.$roomId";
 import { MeldDisplay } from "./MeldDisplay";
 import { cn } from "~/shadcn/lib/utils";
 
+export interface MeldRenderPlayer {
+  id: string;
+  name: string;
+  avatarId?: string;
+}
+
+export interface MeldRenderContext {
+  meld: Meld;
+  player: MeldRenderPlayer;
+}
+
+export type RenderMeld = (context: MeldRenderContext) => ReactNode;
+
 interface PlayerMeldsDisplayProps {
+  playerId?: string;
   playerName: string;
   playerAvatarId?: string;
   melds: Meld[];
@@ -13,22 +28,37 @@ interface PlayerMeldsDisplayProps {
   isViewingPlayer?: boolean;
   /** May I notification for this player (when they called May I) */
   mayINotification?: MayINotificationState | null;
+  renderMeld?: RenderMeld;
   className?: string;
 }
 
 export function PlayerMeldsDisplay({
+  playerId,
   playerName,
   playerAvatarId,
   melds,
   isActiveTurn = false,
   isViewingPlayer = false,
   mayINotification,
+  renderMeld,
   className,
 }: PlayerMeldsDisplayProps) {
   // Compute status message: May I notification takes priority over "hasn't laid down yet"
   const statusMessage = mayINotification
     ? getMayIStatusMessage(mayINotification)
     : null;
+  const player: MeldRenderPlayer = {
+    id: playerId ?? playerName,
+    name: playerName,
+    avatarId: playerAvatarId,
+  };
+  const renderMeldContent = (meld: Meld) =>
+    renderMeld ? (
+      renderMeld({ meld, player })
+    ) : (
+      <MeldDisplay meld={meld} size="sm" />
+    );
+
   return (
     <div
       className={cn(
@@ -81,7 +111,7 @@ export function PlayerMeldsDisplay({
           ) : (
             <div className="flex flex-wrap gap-4">
               {melds.map((meld) => (
-                <MeldDisplay key={meld.id} meld={meld} size="sm" />
+                <Fragment key={meld.id}>{renderMeldContent(meld)}</Fragment>
               ))}
             </div>
           )}
@@ -127,7 +157,7 @@ export function PlayerMeldsDisplay({
         ) : (
           <div className="flex flex-wrap gap-4">
             {melds.map((meld) => (
-              <MeldDisplay key={meld.id} meld={meld} size="sm" />
+              <Fragment key={meld.id}>{renderMeldContent(meld)}</Fragment>
             ))}
           </div>
         )}
