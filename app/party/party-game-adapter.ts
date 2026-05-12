@@ -617,6 +617,55 @@ export class PartyGameAdapter {
   }
 
   /**
+   * Log a joker swap after verifying the table and hand actually changed.
+   */
+  logSwapJoker(
+    lobbyPlayerId: string,
+    meldId: string,
+    jokerCardId: string,
+    swapCardId: string,
+    before: GameSnapshot,
+    after: GameSnapshot
+  ): void {
+    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
+    if (!mapping) return;
+
+    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
+    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
+    const beforeMeld = before.table.find((meld) => meld.id === meldId);
+    const afterMeld = after.table.find((meld) => meld.id === meldId);
+    if (!beforePlayer || !afterPlayer || !beforeMeld || !afterMeld) return;
+
+    const swapCard = beforePlayer.hand.find((card) => card.id === swapCardId);
+    if (!swapCard) return;
+
+    const hadJokerInMeld = beforeMeld.cards.some((card) => card.id === jokerCardId);
+    const hasSwapInMeld = afterMeld.cards.some((card) => card.id === swapCardId);
+    const lostJokerFromMeld = !afterMeld.cards.some((card) => card.id === jokerCardId);
+    const gainedJokerInHand = afterPlayer.hand.some((card) => card.id === jokerCardId);
+    const lostSwapFromHand = !afterPlayer.hand.some((card) => card.id === swapCardId);
+
+    if (
+      !hadJokerInMeld ||
+      !hasSwapInMeld ||
+      !lostJokerFromMeld ||
+      !gainedJokerInHand ||
+      !lostSwapFromHand
+    ) {
+      return;
+    }
+
+    const owner = this.playerMappings.find(
+      (player) => player.engineId === afterMeld.ownerId || player.lobbyId === afterMeld.ownerId
+    );
+    const targetLabel = owner
+      ? `${owner.name}'s ${afterMeld.type}`
+      : `${afterMeld.type} ${afterMeld.id}`;
+
+    this.logAction(lobbyPlayerId, "swapped Joker", `${renderCard(swapCard)} into ${targetLabel}`);
+  }
+
+  /**
    * Log a May I call
    */
   logMayICall(lobbyPlayerId: string, cardId: string, before: GameSnapshot): void {

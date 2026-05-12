@@ -557,6 +557,17 @@ describe("executeGameAction", () => {
 
       expect(result.success).toBe(true);
       expect(result.snapshot?.table[0]?.cards[1]?.id).toBe("p0-6-S");
+
+      const activity = adapter.getRecentActivityLog();
+      const swapEntry = activity.find((entry) => entry.action === "swapped Joker");
+
+      expect(swapEntry).toMatchObject({
+        playerId: "human-1",
+        playerName: "Alice",
+        action: "swapped Joker",
+      });
+      expect(swapEntry?.details).toContain("6♠");
+      expect(swapEntry?.details).toContain("Bob's run");
     });
   });
 

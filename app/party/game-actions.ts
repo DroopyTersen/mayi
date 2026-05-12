@@ -309,6 +309,17 @@ function logSuccessfulAction(
       adapter.logLayOff(lobbyPlayerId, action.cardId, before, after, action.position);
       break;
 
+    case "SWAP_JOKER":
+      adapter.logSwapJoker(
+        lobbyPlayerId,
+        action.meldId,
+        action.jokerCardId,
+        action.swapCardId,
+        before,
+        after
+      );
+      break;
+
     case "CALL_MAY_I": {
       const cardId = before.discard[0]?.id;
       if (cardId) {
@@ -347,6 +358,6 @@ function logSuccessfulAction(
       break;
     }
 
-    // SKIP, REORDER_HAND, SWAP_JOKER are not logged (too verbose)
+    // SKIP and REORDER_HAND are not logged (too verbose)
   }
 }
