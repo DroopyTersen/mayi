@@ -2,6 +2,17 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { cn } from "~/shadcn/lib/utils";
 
+interface LayOffTargetFrameProps {
+  isActive: boolean;
+  ariaLabel: string;
+  children: ReactNode;
+  onClick: () => void;
+  onKeyActivate?: () => void;
+  className: string;
+  testId?: string;
+  showAriaDisabled?: boolean;
+}
+
 interface LayOffMeldTargetProps {
   isActive: boolean;
   ariaLabel: string;
@@ -10,13 +21,16 @@ interface LayOffMeldTargetProps {
   onKeyActivate: () => void;
 }
 
-export function LayOffMeldTarget({
+export function LayOffTargetFrame({
   isActive,
   ariaLabel,
   children,
   onClick,
-  onKeyActivate,
-}: LayOffMeldTargetProps) {
+  onKeyActivate = onClick,
+  className,
+  testId,
+  showAriaDisabled = false,
+}: LayOffTargetFrameProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!isActive) return;
     if (event.key === "Enter" || event.key === " ") {
@@ -29,16 +43,38 @@ export function LayOffMeldTarget({
     <div
       role="button"
       tabIndex={isActive ? 0 : -1}
-      aria-disabled={!isActive}
+      aria-disabled={showAriaDisabled ? !isActive : undefined}
       aria-label={ariaLabel}
+      data-testid={testId}
+      className={className}
+      onClick={onClick}
+      onKeyDown={handleKeyDown}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function LayOffMeldTarget({
+  isActive,
+  ariaLabel,
+  children,
+  onClick,
+  onKeyActivate,
+}: LayOffMeldTargetProps) {
+  return (
+    <LayOffTargetFrame
+      isActive={isActive}
+      ariaLabel={ariaLabel}
+      onClick={onClick}
+      onKeyActivate={onKeyActivate}
+      showAriaDisabled
       className={cn(
         "p-1.5 rounded-md border transition-colors",
         isActive
           ? "border-primary/50 hover:border-primary hover:bg-primary/5 cursor-pointer"
           : "border-transparent"
       )}
-      onClick={onClick}
-      onKeyDown={handleKeyDown}
     >
       {children}
       {isActive && (
@@ -51,6 +87,6 @@ export function LayOffMeldTarget({
           <Plus className="h-4 w-4" />
         </div>
       )}
-    </div>
+    </LayOffTargetFrame>
   );
 }

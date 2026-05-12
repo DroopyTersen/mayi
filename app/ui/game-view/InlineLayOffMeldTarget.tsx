@@ -1,5 +1,6 @@
-import type { KeyboardEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "~/shadcn/lib/utils";
+import { LayOffTargetFrame } from "~/ui/lay-off-view/LayOffMeldTarget";
 
 interface InlineLayOffMeldTargetProps {
   enabled: boolean;
@@ -22,23 +23,12 @@ export function InlineLayOffMeldTarget({
     return <>{children}</>;
   }
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Enter" && event.key !== " ") {
-      return;
-    }
-
-    event.preventDefault();
-    onSelect();
-  };
-
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={label}
-      data-testid={testId}
+    <LayOffTargetFrame
+      isActive
+      ariaLabel={label}
       onClick={onSelect}
-      onKeyDown={handleKeyDown}
+      testId={testId}
       className={cn(
         "inline-block -m-1.5 rounded-md border border-dashed border-muted-foreground/30 p-1.5",
         "cursor-pointer bg-background/50 transition-[background-color,border-color,box-shadow]",
@@ -48,6 +38,6 @@ export function InlineLayOffMeldTarget({
       )}
     >
       {children}
-    </div>
+    </LayOffTargetFrame>
   );
 }
