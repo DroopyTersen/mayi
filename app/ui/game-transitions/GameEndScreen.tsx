@@ -8,6 +8,7 @@ interface GameEndScreenProps {
   winnerId: string;
   playerNames: Record<string, string>;
   currentPlayerId: string;
+  newGameHref?: string;
   onNewGame?: () => void;
   onLeave?: () => void;
   className?: string;
@@ -18,6 +19,7 @@ export function GameEndScreen({
   winnerId,
   playerNames,
   currentPlayerId,
+  newGameHref,
   onNewGame,
   onLeave,
   className,
@@ -98,9 +100,13 @@ export function GameEndScreen({
           </div>
         </CardContent>
         <CardFooter className="flex gap-3 justify-center">
-          {onNewGame && (
+          {newGameHref ? (
+            <Button asChild>
+              <a href={newGameHref}>Play Again</a>
+            </Button>
+          ) : onNewGame ? (
             <Button onClick={onNewGame}>Play Again</Button>
-          )}
+          ) : null}
           {onLeave && (
             <Button variant="outline" onClick={onLeave}>
               Leave Game

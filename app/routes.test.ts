@@ -3,6 +3,19 @@ import { describe, expect, it } from "bun:test";
 import routeConfig from "./routes";
 
 describe("route config", () => {
+  it("matches the fresh game route before dynamic room IDs", () => {
+    const gameNewIndex = routeConfig.findIndex(
+      (route) => "path" in route && route.path === "game/new"
+    );
+    const gameRoomIndex = routeConfig.findIndex(
+      (route) => "path" in route && route.path === "game/:roomId"
+    );
+
+    expect(gameNewIndex).toBeGreaterThan(-1);
+    expect(gameRoomIndex).toBeGreaterThan(-1);
+    expect(gameNewIndex).toBeLessThan(gameRoomIndex);
+  });
+
   it("includes storybook routes in all builds", () => {
     expect(JSON.stringify(routeConfig)).toContain("storybook/*");
   });

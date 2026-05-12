@@ -15,7 +15,7 @@ import { NamePromptDialog } from "./NamePromptDialog";
 import { AddAIPlayerDialog } from "./AddAIPlayerDialog";
 import { StartingRoundSelector } from "./StartingRoundSelector";
 import { StartGameButton } from "./StartGameButton";
-import { UserPlus, Pencil, ChevronDown, ChevronUp } from "lucide-react";
+import { UserPlus, Pencil, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useState } from "react";
 import type {
   ConnectionStatus,
@@ -107,7 +107,15 @@ export function LobbyView({
             Waiting for players to join...
           </p>
         </div>
-        <ConnectionStatusIndicator status={connectionStatus} />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href="/game/new">
+              <Plus className="h-4 w-4" />
+              New Game
+            </a>
+          </Button>
+          <ConnectionStatusIndicator status={connectionStatus} />
+        </div>
       </div>
 
       {/* Join/Change Name button - prominent CTA */}
