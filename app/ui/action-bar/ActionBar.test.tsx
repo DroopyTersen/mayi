@@ -28,6 +28,15 @@ function expectButtonVariant(html: string, label: string, variant: string) {
   );
 }
 
+function getButtonLabels(html: string): string[] {
+  const labels: string[] = [];
+  for (const match of html.matchAll(/<button\b[^>]*>(.*?)<\/button>/g)) {
+    const [, label = ""] = match;
+    labels.push(label.replace(/<[^>]+>/g, ""));
+  }
+  return labels;
+}
+
 describe("ActionBar touch-optimized mode", () => {
   it("marks content as no-drag and uses mobile-sized buttons", () => {
     const html = renderToStaticMarkup(
@@ -86,6 +95,44 @@ describe("ActionBar action state rendering", () => {
     expectButtonVariant(html, "May I?", "outline");
     expectButtonVariant(html, "Allow", "outline");
     expectButtonVariant(html, "Claim", "outline");
+    expectButtonVariant(html, "Organize", "ghost");
+  });
+
+  it("preserves action order with pending May I and organize last", () => {
+    const html = renderToStaticMarkup(
+      <ActionBar
+        availableActions={{
+          ...baseActions,
+          canDrawFromStock: true,
+          canDrawFromDiscard: true,
+          canLayDown: true,
+          canLayOff: true,
+          canSwapJoker: true,
+          canDiscard: true,
+          canMayI: true,
+          canAllowMayI: true,
+          canClaimMayI: true,
+          canReorderHand: true,
+          hasPendingMayIRequest: true,
+        }}
+        onAction={() => {}}
+      />
+    );
+
+    expect(getButtonLabels(html)).toEqual([
+      "Draw Card",
+      "Pick Up Discard",
+      "Lay Down",
+      "Lay Off",
+      "Swap Joker",
+      "Discard",
+      "May I?",
+      "Waiting...",
+      "Allow",
+      "Claim",
+      "Organize",
+    ]);
+    expectButtonVariant(html, "Waiting...", "secondary");
     expectButtonVariant(html, "Organize", "ghost");
   });
 

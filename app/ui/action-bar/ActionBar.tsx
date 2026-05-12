@@ -24,6 +24,144 @@ interface ActionBarProps {
   className?: string;
 }
 
+type ActionId = ActionAvailabilityState["id"];
+type ButtonSize = ComponentProps<typeof Button>["size"];
+type ButtonVariant = ComponentProps<typeof Button>["variant"];
+type ActionDisplayState = {
+  shouldRender: boolean;
+  label: string;
+  status: ActionAvailabilityState["status"];
+};
+type ActionDisplayConfig = {
+  id: ActionId;
+  action: string;
+  availableFlag: AvailableActionFlag;
+  label: string;
+  variant: ButtonVariant;
+};
+type ActionDisplay = ActionDisplayConfig & {
+  size: ButtonSize;
+  className?: string;
+  state: ActionDisplayState;
+};
+type AvailableActionFlag = keyof Pick<
+  AvailableActions,
+  | "canDrawFromStock"
+  | "canDrawFromDiscard"
+  | "canLayDown"
+  | "canLayOff"
+  | "canSwapJoker"
+  | "canDiscard"
+  | "canMayI"
+  | "canAllowMayI"
+  | "canClaimMayI"
+  | "canReorderHand"
+>;
+
+const MAIN_ACTION_DEFINITIONS: ActionDisplayConfig[] = [
+  {
+    id: "drawStock",
+    action: "drawStock",
+    availableFlag: "canDrawFromStock",
+    label: "Draw Card",
+    variant: "outline",
+  },
+  {
+    id: "pickUpDiscard",
+    action: "pickUpDiscard",
+    availableFlag: "canDrawFromDiscard",
+    label: "Pick Up Discard",
+    variant: "outline",
+  },
+  {
+    id: "layDown",
+    action: "layDown",
+    availableFlag: "canLayDown",
+    label: "Lay Down",
+    variant: "outline",
+  },
+  {
+    id: "layOff",
+    action: "layOff",
+    availableFlag: "canLayOff",
+    label: "Lay Off",
+    variant: "outline",
+  },
+  {
+    id: "swapJoker",
+    action: "swapJoker",
+    availableFlag: "canSwapJoker",
+    label: "Swap Joker",
+    variant: "outline",
+  },
+  {
+    id: "discard",
+    action: "discard",
+    availableFlag: "canDiscard",
+    label: "Discard",
+    variant: "default",
+  },
+  {
+    id: "mayI",
+    action: "mayI",
+    availableFlag: "canMayI",
+    label: "May I?",
+    variant: "outline",
+  },
+];
+
+const MAY_I_RESOLUTION_ACTION_DEFINITIONS: ActionDisplayConfig[] = [
+  {
+    id: "allowMayI",
+    action: "allowMayI",
+    availableFlag: "canAllowMayI",
+    label: "Allow",
+    variant: "outline",
+  },
+  {
+    id: "claimMayI",
+    action: "claimMayI",
+    availableFlag: "canClaimMayI",
+    label: "Claim",
+    variant: "outline",
+  },
+];
+
+const TURN_ACTION_DEFINITIONS = [
+  ...MAIN_ACTION_DEFINITIONS,
+  ...MAY_I_RESOLUTION_ACTION_DEFINITIONS,
+];
+
+const REORDER_HAND_ACTION_DEFINITION: ActionDisplayConfig = {
+  id: "reorderHand",
+  action: "organize",
+  availableFlag: "canReorderHand",
+  label: "Organize",
+  variant: "ghost",
+};
+
+function getActionDisplayState(
+  actionStateMap: Map<ActionId, ActionAvailabilityState> | null,
+  actionId: ActionId,
+  fallbackAvailable: boolean,
+  fallbackLabel: string
+): ActionDisplayState {
+  const state = actionStateMap?.get(actionId);
+  if (!state) {
+    return {
+      shouldRender: fallbackAvailable,
+      label: fallbackLabel,
+      status: fallbackAvailable ? "available" : "hidden",
+    };
+  }
+
+  return {
+    shouldRender: state.status === "available",
+    label: state.label,
+    status: state.status,
+  };
+}
+
 /**
  * Action bar showing available game actions based on centralized game logic.
  *
@@ -39,31 +177,9 @@ export function ActionBar({
   leadingSlot,
   className,
 }: ActionBarProps) {
-  type ButtonSize = ComponentProps<typeof Button>["size"];
   const buttonSize: ButtonSize = touchOptimized ? "mobile" : undefined;
   const organizeButtonSize: ButtonSize = touchOptimized ? "mobile" : "sm";
-  const {
-    canDrawFromStock,
-    canDrawFromDiscard,
-    canLayDown,
-    canLayOff,
-    canSwapJoker,
-    canDiscard,
-    canMayI,
-    canAllowMayI,
-    canClaimMayI,
-    canReorderHand,
-    hasPendingMayIRequest,
-    shouldNudgeDiscard,
-  } = availableActions;
-
-  type ActionId = ActionAvailabilityState["id"];
-  type ActionDisplayState = {
-    shouldRender: boolean;
-    disabled: boolean;
-    label: string;
-    status: ActionAvailabilityState["status"];
-  };
+  const { hasPendingMayIRequest, shouldNudgeDiscard } = availableActions;
 
   const actionStateMap = actionStates
     ? new Map<ActionId, ActionAvailabilityState>(
@@ -71,48 +187,54 @@ export function ActionBar({
       )
     : null;
 
-  const getActionDisplayState = (
-    actionId: ActionId,
-    fallbackAvailable: boolean,
-    fallbackLabel: string
-  ): ActionDisplayState => {
-    const state = actionStateMap?.get(actionId);
-    if (!state) {
-      return {
-        shouldRender: fallbackAvailable,
-        disabled: false,
-        label: fallbackLabel,
-        status: fallbackAvailable ? "available" : "hidden",
-      };
+  const makeActionDisplay = ({
+    definition,
+    size,
+    className,
+  }: {
+    definition: ActionDisplayConfig;
+    size: ButtonSize;
+    className?: string;
+  }): ActionDisplay => ({
+    ...definition,
+    ...(className ? { className } : {}),
+    size,
+    state: getActionDisplayState(
+      actionStateMap,
+      definition.id,
+      availableActions[definition.availableFlag],
+      definition.label
+    ),
+  });
+
+  const renderActionButton = (display: ActionDisplay) => {
+    if (!display.state.shouldRender) {
+      return null;
     }
 
-    if (state.status === "hidden") {
-      return {
-        shouldRender: false,
-        disabled: false,
-        label: state.label,
-        status: state.status,
-      };
-    }
-
-    return {
-      shouldRender: state.status === "available",
-      disabled: false,
-      label: state.label,
-      status: state.status,
-    };
+    return (
+      <Button
+        key={display.id}
+        onClick={() => onAction(display.action)}
+        variant={display.variant}
+        size={display.size}
+        className={cn(
+          display.className,
+          display.id === "discard" &&
+            display.state.status === "available" &&
+            shouldNudgeDiscard &&
+            "animate-pulse"
+        )}
+      >
+        {display.state.label}
+      </Button>
+    );
   };
 
   const hasAnyActionFromFlags =
-    canDrawFromStock ||
-    canDrawFromDiscard ||
-    canLayDown ||
-    canLayOff ||
-    canSwapJoker ||
-    canDiscard ||
-    canMayI ||
-    canAllowMayI ||
-    canClaimMayI ||
+    TURN_ACTION_DEFINITIONS.some(
+      (definition) => availableActions[definition.availableFlag]
+    ) ||
     hasPendingMayIRequest;
 
   const hasAnyAction = actionStates
@@ -120,47 +242,17 @@ export function ActionBar({
       hasPendingMayIRequest
     : hasAnyActionFromFlags;
 
-  const drawStockState = getActionDisplayState(
-    "drawStock",
-    canDrawFromStock,
-    "Draw Card"
+  const mainActions = MAIN_ACTION_DEFINITIONS.map((definition) =>
+    makeActionDisplay({ definition, size: buttonSize })
   );
-  const pickUpDiscardState = getActionDisplayState(
-    "pickUpDiscard",
-    canDrawFromDiscard,
-    "Pick Up Discard"
+  const mayIResolutionActions = MAY_I_RESOLUTION_ACTION_DEFINITIONS.map(
+    (definition) => makeActionDisplay({ definition, size: buttonSize })
   );
-  const layDownState = getActionDisplayState("layDown", canLayDown, "Lay Down");
-  const layOffState = getActionDisplayState("layOff", canLayOff, "Lay Off");
-  const swapJokerState = getActionDisplayState(
-    "swapJoker",
-    canSwapJoker,
-    "Swap Joker"
-  );
-  const discardState = getActionDisplayState(
-    "discard",
-    canDiscard,
-    "Discard"
-  );
-  const mayIState = getActionDisplayState("mayI", canMayI, "May I?");
-  const allowMayIState = getActionDisplayState(
-    "allowMayI",
-    canAllowMayI,
-    "Allow"
-  );
-  const claimMayIState = getActionDisplayState(
-    "claimMayI",
-    canClaimMayI,
-    "Claim"
-  );
-  const reorderHandState = getActionDisplayState(
-    "reorderHand",
-    canReorderHand,
-    "Organize"
-  );
-
-  const shouldAnimateDiscard =
-    discardState.status === "available" && shouldNudgeDiscard;
+  const reorderHandAction = makeActionDisplay({
+    definition: REORDER_HAND_ACTION_DEFINITION,
+    size: organizeButtonSize,
+    className: "ml-2",
+  });
 
   return (
     <div
@@ -177,98 +269,7 @@ export function ActionBar({
         </div>
       )}
 
-      {/* Draw Phase */}
-      {drawStockState.shouldRender && (
-        <Button
-          onClick={
-            drawStockState.disabled ? undefined : () => onAction("drawStock")
-          }
-          variant="outline"
-          size={buttonSize}
-          disabled={drawStockState.disabled}
-        >
-          {drawStockState.label}
-        </Button>
-      )}
-      {pickUpDiscardState.shouldRender && (
-        <Button
-          onClick={
-            pickUpDiscardState.disabled
-              ? undefined
-              : () => onAction("pickUpDiscard")
-          }
-          variant="outline"
-          size={buttonSize}
-          disabled={pickUpDiscardState.disabled}
-        >
-          {pickUpDiscardState.label}
-        </Button>
-      )}
-
-      {/* Action Phase - Lay Down */}
-      {layDownState.shouldRender && (
-        <Button
-          onClick={layDownState.disabled ? undefined : () => onAction("layDown")}
-          variant="outline"
-          size={buttonSize}
-          disabled={layDownState.disabled}
-        >
-          {layDownState.label}
-        </Button>
-      )}
-
-      {/* Action Phase - Lay Off (only when down) */}
-      {layOffState.shouldRender && (
-        <Button
-          onClick={layOffState.disabled ? undefined : () => onAction("layOff")}
-          variant="outline"
-          size={buttonSize}
-          disabled={layOffState.disabled}
-        >
-          {layOffState.label}
-        </Button>
-      )}
-
-      {/* Action Phase - Swap Joker (only when not down, runs with jokers exist) */}
-      {swapJokerState.shouldRender && (
-        <Button
-          onClick={
-            swapJokerState.disabled ? undefined : () => onAction("swapJoker")
-          }
-          variant="outline"
-          size={buttonSize}
-          disabled={swapJokerState.disabled}
-        >
-          {swapJokerState.label}
-        </Button>
-      )}
-
-      {/* Discard - with nudge animation when player took an action and needs to discard */}
-      {discardState.shouldRender && (
-        <Button
-          onClick={
-            discardState.disabled ? undefined : () => onAction("discard")
-          }
-          variant="default"
-          size={buttonSize}
-          className={cn(shouldAnimateDiscard && "animate-pulse")}
-          disabled={discardState.disabled}
-        >
-          {discardState.label}
-        </Button>
-      )}
-
-      {/* May I - when not your turn */}
-      {mayIState.shouldRender && (
-        <Button
-          onClick={mayIState.disabled ? undefined : () => onAction("mayI")}
-          variant="outline"
-          size={buttonSize}
-          disabled={mayIState.disabled}
-        >
-          {mayIState.label}
-        </Button>
-      )}
+      {mainActions.map(renderActionButton)}
 
       {/* May I pending - waiting for resolution */}
       {hasPendingMayIRequest && (
@@ -277,31 +278,7 @@ export function ActionBar({
         </Button>
       )}
 
-      {/* May I Resolution - Allow/Claim */}
-      {allowMayIState.shouldRender && (
-        <Button
-          onClick={
-            allowMayIState.disabled ? undefined : () => onAction("allowMayI")
-          }
-          variant="outline"
-          size={buttonSize}
-          disabled={allowMayIState.disabled}
-        >
-          {allowMayIState.label}
-        </Button>
-      )}
-      {claimMayIState.shouldRender && (
-        <Button
-          onClick={
-            claimMayIState.disabled ? undefined : () => onAction("claimMayI")
-          }
-          variant="outline"
-          size={buttonSize}
-          disabled={claimMayIState.disabled}
-        >
-          {claimMayIState.label}
-        </Button>
-      )}
+      {mayIResolutionActions.map(renderActionButton)}
 
       {/* Waiting message when no actions available and not your turn */}
       {!hasAnyAction && (
@@ -313,20 +290,7 @@ export function ActionBar({
       {/* Info button for unavailability hints */}
       <ActionInfoButton hints={unavailabilityHints} />
 
-      {/* Organize available during round for any player (free action) */}
-      {reorderHandState.shouldRender && (
-        <Button
-          onClick={
-            reorderHandState.disabled ? undefined : () => onAction("organize")
-          }
-          variant="ghost"
-          size={organizeButtonSize}
-          className="ml-2"
-          disabled={reorderHandState.disabled}
-        >
-          {reorderHandState.label}
-        </Button>
-      )}
+      {renderActionButton(reorderHandAction)}
     </div>
   );
 }
