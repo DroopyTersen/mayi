@@ -48,7 +48,7 @@ Jokers are powerful but brutal if they are stuck in your hand at the end of a ha
 
 ### Definitions
 
-- **Set (group):** 3 or more cards of the same rank, any suits. Duplicate suits are allowed since this is a multi-deck game (e.g., 7♠ 7♠ 7♦ is a valid set).
+- **Set (group):** 3 or more cards of the same rank, any suits. Duplicate suits are allowed since this is a multi-deck game (e.g., 7♠ 7♠ 7♦ is a valid set). Six matching cards may be played as two separate 3-card sets if the cards are split into two distinct melds and no physical card is reused.
 - **Run (sequence):** 4 or more cards of the same suit in consecutive order
 
 ### Same-suit run gap rule

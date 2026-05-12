@@ -426,6 +426,22 @@ describe("validateContractMelds", () => {
       const result = validateContractMelds(CONTRACTS[1], [set1, set2]);
       expect(result.valid).toBe(true);
     });
+
+    it("allows six matching cards as two separate sets when no physical card is reused", () => {
+      const fives: Card[] = [
+        { id: "5H-deck1", rank: "5", suit: "hearts" },
+        { id: "5D-deck1", rank: "5", suit: "diamonds" },
+        { id: "5C-deck1", rank: "5", suit: "clubs" },
+        { id: "5S-deck1", rank: "5", suit: "spades" },
+        { id: "5H-deck2", rank: "5", suit: "hearts" },
+        { id: "5D-deck2", rank: "5", suit: "diamonds" },
+      ];
+      const set1 = meldWithCards("set", fives.slice(0, 3));
+      const set2 = meldWithCards("set", fives.slice(3, 6));
+
+      const result = validateContractMelds(CONTRACTS[1], [set1, set2]);
+      expect(result.valid).toBe(true);
+    });
   });
 
   describe("same-suit run gap rule", () => {

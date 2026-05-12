@@ -112,7 +112,9 @@ export function HouseRulesContent() {
             <span className="font-medium">Set (group):</span>{" "}
             <span className="text-muted-foreground">
               3 or more cards of the same rank, any suits. Duplicate suits are
-              allowed (e.g., 7&#9824; 7&#9824; 7&#9830; is valid).
+              allowed (e.g., 7&#9824; 7&#9824; 7&#9830; is valid). Six matching
+              cards may be played as two separate sets if no physical card is
+              reused.
             </span>
           </li>
           <li>
