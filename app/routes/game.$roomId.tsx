@@ -46,6 +46,7 @@ import { formatCardText } from "core/card/card-text.utils";
 import { normalizeRoomId } from "core/room/room-id.utils";
 import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
 import { sendGameActionIfConnected } from "./game/game-action.sender";
+import { applyOptimisticMayIPending } from "./game/optimistic-may-i";
 
 /**
  * State for May I notification shown to ALL players in the table view
@@ -122,6 +123,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   const [roomPhase, setRoomPhase] = useState<RoomPhase>("lobby");
   const roomPhaseRef = useRef<RoomPhase>("lobby");
   const [gameState, setGameState] = useState<PlayerView | null>(null);
+  const [hasOptimisticMayIPending, setHasOptimisticMayIPending] = useState(false);
 
   // Phase 3.3: AI thinking indicator
   const [aiThinkingPlayerId, setAiThinkingPlayerId] = useState<
@@ -389,6 +391,10 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         });
         if (!result.sent) {
           setTransientGameError("Connection lost. Retrying...");
+          return;
+        }
+        if (gameAction.type === "CALL_MAY_I") {
+          setHasOptimisticMayIPending(true);
         }
       } else {
         console.log("[onGameAction] No game action to send (gameAction is null)");
@@ -503,6 +509,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           return;
         }
         case "ERROR": {
+          setHasOptimisticMayIPending(false);
           if (msg.error === "AVATAR_TAKEN") {
             clearStoredAvatarId();
             setStoredAvatarId(null);
@@ -548,6 +555,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           setIsStartingGame(false);
           setRoomPhase("playing");
           setGameState(msg.state);
+          setHasOptimisticMayIPending(false);
           setActivityLog(msg.activityLog ?? []);
 
           agentHarness.stripAgentParams();
@@ -556,6 +564,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         // Phase 3.4: Game state updates
         case "GAME_STATE": {
           setGameState(msg.state);
+          setHasOptimisticMayIPending(false);
           setActivityLog(msg.activityLog ?? []);
           return;
         }
@@ -589,6 +598,7 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         }
         case "MAY_I_RESOLVED": {
           setMayIPrompt(null);
+          setHasOptimisticMayIPending(false);
           // Update notification to show outcome, then fade after 5 seconds
           setMayINotification((prev) => {
             if (!prev) return null;
@@ -698,12 +708,20 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     });
   }, [activityLog]);
 
+  const displayGameState = useMemo(
+    () =>
+      gameState
+        ? applyOptimisticMayIPending(gameState, hasOptimisticMayIPending)
+        : null,
+    [gameState, hasOptimisticMayIPending]
+  );
+
   // Phase 3.3: Render lobby or game based on room phase
-  if (roomPhase === "playing" && gameState) {
+  if (roomPhase === "playing" && displayGameState) {
     return (
       <>
         <GameView
-          gameState={gameState}
+          gameState={displayGameState}
           aiThinkingPlayerId={aiThinkingPlayerId}
           activityLog={formattedActivityLog}
           onAction={onGameAction}
