@@ -20,6 +20,10 @@ import { useGameViewState } from "./useGameViewState";
 import { useGameViewDerived } from "./useGameViewDerived";
 import { GameViewDesktopFooter } from "./GameViewDesktopFooter";
 import { GameViewDrawers } from "./GameViewDrawers";
+import {
+  GameViewMobileDiscardContext,
+  shouldShowMobileDiscardContext,
+} from "./GameViewMobileDiscardContext";
 import { useInactivityHint } from "./useInactivityHint";
 import { useInlineLayOff } from "./useInlineLayOff";
 import { InlineLayOffMeldTarget } from "./InlineLayOffMeldTarget";
@@ -120,6 +124,14 @@ export function GameView({
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Left Column: Game Table Area - scroll container on desktop */}
           <div className="lg:col-span-2 flex flex-col min-h-0">
+            {isMobile && shouldShowMobileDiscardContext(gameState) && (
+              <GameViewMobileDiscardContext
+                topDiscard={gameState.topDiscard}
+                interactiveLabel={derived.discardInteractiveLabel}
+                onAction={state.handleAction}
+              />
+            )}
+
             {/* Table - Melds only (piles moved to bottom section) */}
             <div className="rounded-lg flex flex-col min-h-0 flex-1">
               {/* Melds on table - scrollable */}

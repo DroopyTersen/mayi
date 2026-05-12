@@ -12,6 +12,8 @@ interface DiscardPileDisplayProps {
   size?: CardSize;
   /** Shows a targeting overlay with label for touch interaction */
   interactiveLabel?: InteractiveLabel;
+  /** Keep the card visually readable when it is shown for context only. */
+  dimWhenDisabled?: boolean;
   className?: string;
 }
 
@@ -26,6 +28,7 @@ export function DiscardPileDisplay({
   isClickable = false,
   size = "md",
   interactiveLabel,
+  dimWhenDisabled = true,
   className,
 }: DiscardPileDisplayProps) {
   const { width, height } = CARD_DIMENSIONS[size];
@@ -51,7 +54,7 @@ export function DiscardPileDisplay({
           style={{
             width: width + 4,
             height: height + 4,
-            filter: isDisabled ? "saturate(0.3)" : undefined,
+            filter: isDisabled && dimWhenDisabled ? "saturate(0.3)" : undefined,
             cursor: isDisabled ? "not-allowed" : undefined,
           }}
         >
