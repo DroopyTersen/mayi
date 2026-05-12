@@ -925,6 +925,58 @@ describe("TurnMachine - LAY_DOWN command", () => {
       expect(actor.getSnapshot().context.isDown).toBe(true);
     });
 
+    it("accepts a 3-card set, a 5-card run, and a 4-card run using all 12 cards", () => {
+      const sevenS = card("7", "spades");
+      const sevenD = card("7", "diamonds");
+      const sevenC = card("7", "clubs");
+      const fourH = card("4", "hearts");
+      const fiveH = card("5", "hearts");
+      const sixH = card("6", "hearts");
+      const sevenH = card("7", "hearts");
+      const eightH = card("8", "hearts");
+      const nineC = card("9", "clubs");
+      const tenC = card("10", "clubs");
+      const jackC = card("J", "clubs");
+      const queenC = card("Q", "clubs");
+
+      const input = {
+        playerId: "player-1",
+        roundNumber: 6 as const,
+        hand: [
+          sevenS,
+          sevenD,
+          sevenC,
+          fourH,
+          fiveH,
+          sixH,
+          sevenH,
+          eightH,
+          nineC,
+          tenC,
+          jackC,
+        ],
+        stock: [queenC],
+        discard: [card("5", "clubs")],
+        isDown: false,
+        table: [],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [sevenS.id, sevenD.id, sevenC.id] },
+          { type: "run" as const, cardIds: [fourH.id, fiveH.id, sixH.id, sevenH.id, eightH.id] },
+          { type: "run" as const, cardIds: [nineC.id, tenC.id, jackC.id, queenC.id] },
+        ],
+      });
+
+      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().context.hand.length).toBe(0);
+    });
+
     it("rejects partial laydown in Round 6 - must use ALL cards", () => {
       const threeC = card("3", "clubs");
       const threeD = card("3", "diamonds");
