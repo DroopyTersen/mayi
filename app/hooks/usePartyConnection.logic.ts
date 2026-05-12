@@ -42,6 +42,12 @@ export const DEFAULT_HEARTBEAT_CONFIG: HeartbeatConfig = {
   reconnectDelayMs: 2000,   // 2 seconds before reconnect attempt
 };
 
+export function shouldRunHeartbeatForVisibility(
+  visibilityState: DocumentVisibilityState | undefined
+): boolean {
+  return visibilityState !== "hidden";
+}
+
 /** Connection state machine for managing WebSocket connection health */
 export interface ConnectionStateMachine {
   /** Get current state */

@@ -14,6 +14,7 @@ import type { ServerMessage, ClientMessage } from "~/party/protocol.types";
 import {
   createConnectionStateMachine,
   DEFAULT_HEARTBEAT_CONFIG,
+  shouldRunHeartbeatForVisibility,
   type ConnectionStateMachine,
   type HeartbeatConfig,
 } from "./usePartyConnection.logic";
@@ -70,6 +71,11 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     pongTimeoutRef.current = null;
   }, []);
 
+  const canRunHeartbeat = useCallback(() => {
+    if (typeof document === "undefined") return true;
+    return shouldRunHeartbeatForVisibility(document.visibilityState);
+  }, []);
+
   // Stop heartbeat (used on close/error/forced reconnect)
   const stopHeartbeat = useCallback(() => {
     if (pingIntervalRef.current) {
@@ -77,6 +83,7 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       pingIntervalRef.current = null;
     }
     clearPongTimeout();
+    machineRef.current.setAwaitingPongSince(null);
   }, [clearPongTimeout]);
 
   // Force reconnect
@@ -103,13 +110,14 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
   // Send PING message (and arm PONG timeout)
   const sendPing = useCallback(() => {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    if (!canRunHeartbeat()) return;
     // If we're already waiting on a PONG, don't send additional pings; the
     // outstanding timeout will force a reconnect if needed.
     if (pongTimeoutRef.current) return;
     socket.send(JSON.stringify({ type: "PING" } as ClientMessage));
     machineRef.current.onPing();
     armPongTimeout();
-  }, [armPongTimeout, socket]);
+  }, [armPongTimeout, canRunHeartbeat, socket]);
 
   // Start heartbeat
   const startHeartbeat = useCallback(() => {
@@ -119,11 +127,16 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     }
     clearPongTimeout();
 
+    if (!canRunHeartbeat()) {
+      pingIntervalRef.current = null;
+      return;
+    }
+
     // Send pings at regular intervals
     pingIntervalRef.current = setInterval(() => {
       sendPing();
     }, config.pingIntervalMs);
-  }, [clearPongTimeout, config.pingIntervalMs, sendPing]);
+  }, [canRunHeartbeat, clearPongTimeout, config.pingIntervalMs, sendPing]);
 
   // Handle incoming messages (looking for PONG)
   const handleMessage = useCallback((event: MessageEvent) => {
@@ -228,6 +241,7 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     const maybeProbe = () => {
       if (!socket) return;
       if (socket.readyState === WebSocket.OPEN) {
+        startHeartbeat();
         sendPing();
         return;
       }
@@ -237,6 +251,10 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     };
 
     const onVisibilityChange = () => {
+      if (!canRunHeartbeat()) {
+        stopHeartbeat();
+        return;
+      }
       if (document.visibilityState === "visible") {
         maybeProbe();
       }
@@ -251,7 +269,15 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       window.removeEventListener("online", maybeProbe);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [connectionStatus, forceReconnect, sendPing, socket]);
+  }, [
+    canRunHeartbeat,
+    connectionStatus,
+    forceReconnect,
+    sendPing,
+    socket,
+    startHeartbeat,
+    stopHeartbeat,
+  ]);
 
   return {
     connectionStatus,

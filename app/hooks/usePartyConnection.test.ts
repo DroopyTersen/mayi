@@ -14,7 +14,10 @@ import { describe, it, expect, beforeEach, afterEach, mock, jest } from "bun:tes
 
 // Test the state machine logic without React
 import type { ConnectionState, HeartbeatConfig } from "./usePartyConnection.logic";
-import { createConnectionStateMachine } from "./usePartyConnection.logic";
+import {
+  createConnectionStateMachine,
+  shouldRunHeartbeatForVisibility,
+} from "./usePartyConnection.logic";
 
 describe("ConnectionStateMachine", () => {
   describe("initial state", () => {
@@ -176,5 +179,19 @@ describe("HeartbeatConfig", () => {
 
     expect(defaultConfig.pongTimeoutMs).toBeLessThan(defaultConfig.pingIntervalMs);
     expect(defaultConfig.reconnectDelayMs).toBeGreaterThan(0);
+  });
+});
+
+describe("shouldRunHeartbeatForVisibility", () => {
+  it("keeps heartbeat active for visible pages", () => {
+    expect(shouldRunHeartbeatForVisibility("visible")).toBe(true);
+  });
+
+  it("pauses heartbeat for hidden pages", () => {
+    expect(shouldRunHeartbeatForVisibility("hidden")).toBe(false);
+  });
+
+  it("keeps heartbeat active when visibility is unknown", () => {
+    expect(shouldRunHeartbeatForVisibility(undefined)).toBe(true);
   });
 });
