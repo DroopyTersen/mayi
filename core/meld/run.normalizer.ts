@@ -15,6 +15,7 @@
 
 import type { Card, Suit } from "../card/card.types";
 import { isWild, getRankValue } from "../card/card.utils";
+import { isValidRun } from "./meld.validation";
 
 /**
  * Result of run normalization attempt
@@ -48,6 +49,13 @@ export function normalizeRunCards(cards: Card[]): RunNormalizationResult {
       success: false,
       cards,
       reason: "Run requires at least 4 cards",
+    };
+  }
+
+  if (isValidRun(cards)) {
+    return {
+      success: true,
+      cards,
     };
   }
 

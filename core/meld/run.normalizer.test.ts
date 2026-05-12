@@ -153,6 +153,18 @@ describe("normalizeRunCards", () => {
     });
 
     describe("multiple wilds", () => {
+      it("preserves already-valid leading wild positions", () => {
+        const fiveWild = card("2", "clubs");
+        const sixWild = joker();
+        const sevenH = card("7", "hearts");
+        const eightH = card("8", "hearts");
+        const cards = [fiveWild, sixWild, sevenH, eightH];
+        const result = normalizeRunCards(cards);
+
+        expect(result.success).toBe(true);
+        expect(result.cards).toEqual(cards);
+      });
+
       it("places two wilds to fill two gaps: (5, Joker, 2, 8) where naturals are 5,8", () => {
         const cards = [card("5", "spades"), joker(), card("2", "clubs"), card("8", "spades")];
         const result = normalizeRunCards(cards);

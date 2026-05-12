@@ -625,6 +625,46 @@ describe("layDownMelds action", () => {
       expect(cards[3]!.rank).toBe("10");
     });
 
+    it("preserves already-valid leading wild positions in a two-wild run", () => {
+      // The player-selected order is the only representation of what each wild
+      // is acting as. If the order is already valid, do not infer a different
+      // valid run such as 7, 8, wild, wild.
+      const fiveWild = card("2", "hearts");
+      const sixWild = card("2", "clubs");
+      const sevenH = card("7", "hearts");
+      const eightH = card("8", "hearts");
+      const nineC = card("9", "clubs");
+      const nineD = card("9", "diamonds");
+      const nineS = card("9", "spades");
+      const extra = card("A", "spades");
+
+      const input = createTurnInput(
+        [fiveWild, sixWild, sevenH, eightH, nineC, nineD, nineS, extra],
+        2
+      );
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set" as const, cardIds: [nineC.id, nineD.id, nineS.id] },
+          { type: "run" as const, cardIds: [fiveWild.id, sixWild.id, sevenH.id, eightH.id] },
+        ],
+      });
+
+      const table = actor.getSnapshot().context.table;
+      const runMeld = table.find((m) => m.type === "run");
+      expect(runMeld).toBeDefined();
+      expect(runMeld!.cards.map((c) => c.id)).toEqual([
+        fiveWild.id,
+        sixWild.id,
+        sevenH.id,
+        eightH.id,
+      ]);
+    });
+
     it("does not affect set meld card order", () => {
       // Sets should keep their original order (order doesn't matter for sets)
       const nineC = card("9", "clubs");
