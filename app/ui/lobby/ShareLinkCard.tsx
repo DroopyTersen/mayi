@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Check, Copy, Hash, Link, Share2 } from "lucide-react";
 import {
   Card,
@@ -16,17 +16,28 @@ interface ShareLinkCardProps {
   className?: string;
 }
 
+export function canUseNativeShare(
+  navigatorLike: Pick<Navigator, "share"> | undefined
+): boolean {
+  return typeof navigatorLike?.share === "function";
+}
+
 export function ShareLinkCard({
   roomId,
   shareUrl,
   className,
 }: ShareLinkCardProps) {
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
+  const [canNativeShare, setCanNativeShare] = useState(false);
 
   // Use provided URL or construct from roomId
   const url = shareUrl ?? `/game/${roomId}`;
-  const canNativeShare =
-    typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  useEffect(() => {
+    setCanNativeShare(
+      canUseNativeShare(typeof navigator === "undefined" ? undefined : navigator)
+    );
+  }, []);
 
   const copyText = useCallback(
     async (text: string, copiedType: "link" | "code") => {

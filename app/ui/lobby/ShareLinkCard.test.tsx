@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ShareLinkCard } from "./ShareLinkCard";
+import { canUseNativeShare, ShareLinkCard } from "./ShareLinkCard";
 
 const originalNavigator = globalThis.navigator;
 
@@ -22,7 +22,7 @@ describe("ShareLinkCard", () => {
     expect(html).toContain("HNPXR6");
   });
 
-  it("only renders native sharing when the browser supports it", () => {
+  it("omits native sharing from static markup to avoid hydration mismatch", () => {
     const withoutNativeShare = renderToStaticMarkup(
       <ShareLinkCard roomId="HNPXR6" shareUrl="https://mayi.test/game/HNPXR6" />
     );
@@ -41,6 +41,13 @@ describe("ShareLinkCard", () => {
       <ShareLinkCard roomId="HNPXR6" shareUrl="https://mayi.test/game/HNPXR6" />
     );
 
-    expect(withNativeShare).toContain("Share Link");
+    expect(withNativeShare).not.toContain("Share Link");
+  });
+});
+
+describe("canUseNativeShare", () => {
+  it("detects native share support from a navigator-like object", () => {
+    expect(canUseNativeShare({ share: async () => undefined })).toBe(true);
+    expect(canUseNativeShare(undefined)).toBe(false);
   });
 });
