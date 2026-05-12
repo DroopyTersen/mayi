@@ -48,6 +48,34 @@ export function shouldRunHeartbeatForVisibility(
   return visibilityState !== "hidden";
 }
 
+export type HeartbeatResumeAction = "none" | "restart-and-ping" | "force-reconnect";
+
+export interface HeartbeatResumeContext {
+  connectionStatus: ConnectionStatus;
+  readyState: number;
+  visibilityState: DocumentVisibilityState | undefined;
+}
+
+export function getHeartbeatResumeAction(context: HeartbeatResumeContext): HeartbeatResumeAction {
+  if (!shouldRunHeartbeatForVisibility(context.visibilityState)) {
+    return "none";
+  }
+
+  if (context.readyState === WebSocket.OPEN) {
+    return "restart-and-ping";
+  }
+
+  if (context.connectionStatus === "disconnected") {
+    return "force-reconnect";
+  }
+
+  return "none";
+}
+
+export function shouldForceReconnectAfterPongTimeout(readyState: number | undefined): boolean {
+  return readyState === WebSocket.OPEN;
+}
+
 /** Connection state machine for managing WebSocket connection health */
 export interface ConnectionStateMachine {
   /** Get current state */

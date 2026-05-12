@@ -14,6 +14,8 @@ import type { ServerMessage, ClientMessage } from "~/party/protocol.types";
 import {
   createConnectionStateMachine,
   DEFAULT_HEARTBEAT_CONFIG,
+  getHeartbeatResumeAction,
+  shouldForceReconnectAfterPongTimeout,
   shouldRunHeartbeatForVisibility,
   type ConnectionStateMachine,
   type HeartbeatConfig,
@@ -58,12 +60,17 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
   const pongTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasConnectedRef = useRef(false);
   const lastSocketRef = useRef<PartySocket | null>(null);
+  const onStatusChangeRef = useRef(onStatusChange);
+  const onReconnectRef = useRef(onReconnect);
+
+  onStatusChangeRef.current = onStatusChange;
+  onReconnectRef.current = onReconnect;
 
   // Update status and notify callback
   const updateStatus = useCallback((status: ConnectionStatus) => {
     setConnectionStatus(status);
-    onStatusChange?.(status);
-  }, [onStatusChange]);
+    onStatusChangeRef.current?.(status);
+  }, []);
 
   const clearPongTimeout = useCallback(() => {
     if (!pongTimeoutRef.current) return;
@@ -100,7 +107,7 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     pongTimeoutRef.current = setTimeout(() => {
       pongTimeoutRef.current = null;
       // If we're still open but not receiving PONGs, treat it as zombie.
-      if (socket?.readyState === WebSocket.OPEN) {
+      if (shouldForceReconnectAfterPongTimeout(socket?.readyState)) {
         console.log("[usePartyConnection] PONG timeout - forcing reconnect");
         forceReconnect();
       }
@@ -153,6 +160,16 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
     }
   }, [clearPongTimeout]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.addEventListener("message", handleMessage);
+
+    return () => {
+      socket.removeEventListener("message", handleMessage);
+    };
+  }, [socket, handleMessage]);
+
   // Main effect: attach listeners to socket
   useEffect(() => {
     // If the PartySocket instance changes (e.g. room changes), treat it as a
@@ -177,7 +194,7 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       // If we were previously connected, this is a reconnect
       if (wasConnectedRef.current) {
         console.log("[usePartyConnection] Reconnected - triggering state resync");
-        onReconnect?.();
+        onReconnectRef.current?.();
       }
       wasConnectedRef.current = true;
 
@@ -209,11 +226,10 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       stopHeartbeat();
     };
 
-    // Attach listeners
+    // Attach lifecycle listeners
     socket.addEventListener("open", handleOpen);
     socket.addEventListener("close", handleClose);
     socket.addEventListener("error", handleError);
-    socket.addEventListener("message", handleMessage);
 
     // Check current state in case socket is already open
     if (socket.readyState === WebSocket.OPEN) {
@@ -228,10 +244,9 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
       socket.removeEventListener("open", handleOpen);
       socket.removeEventListener("close", handleClose);
       socket.removeEventListener("error", handleError);
-      socket.removeEventListener("message", handleMessage);
       stopHeartbeat();
     };
-  }, [socket, updateStatus, onReconnect, startHeartbeat, stopHeartbeat, sendPing, handleMessage, config.reconnectDelayMs]);
+  }, [socket, updateStatus, startHeartbeat, stopHeartbeat, sendPing, config.reconnectDelayMs]);
 
   // Proactive liveness checks to reduce "stale but looks connected" windows,
   // especially when returning from background or after network transitions.
@@ -240,13 +255,23 @@ export function usePartyConnection(options: UsePartyConnectionOptions): UseParty
 
     const maybeProbe = () => {
       if (!socket) return;
-      if (socket.readyState === WebSocket.OPEN) {
-        startHeartbeat();
-        sendPing();
-        return;
-      }
-      if (connectionStatus === "disconnected") {
-        forceReconnect();
+
+      const action = getHeartbeatResumeAction({
+        connectionStatus,
+        readyState: socket.readyState,
+        visibilityState: document.visibilityState,
+      });
+
+      switch (action) {
+        case "restart-and-ping":
+          startHeartbeat();
+          sendPing();
+          return;
+        case "force-reconnect":
+          forceReconnect();
+          return;
+        case "none":
+          return;
       }
     };
 

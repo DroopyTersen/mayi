@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, mock, jest } from "bun:test";
+import { describe, it, expect } from "bun:test";
 
 /**
  * Tests for usePartyConnection hook
@@ -13,9 +13,11 @@ import { describe, it, expect, beforeEach, afterEach, mock, jest } from "bun:tes
  */
 
 // Test the state machine logic without React
-import type { ConnectionState, HeartbeatConfig } from "./usePartyConnection.logic";
+import type { HeartbeatConfig } from "./usePartyConnection.logic";
 import {
   createConnectionStateMachine,
+  getHeartbeatResumeAction,
+  shouldForceReconnectAfterPongTimeout,
   shouldRunHeartbeatForVisibility,
 } from "./usePartyConnection.logic";
 
@@ -193,5 +195,39 @@ describe("shouldRunHeartbeatForVisibility", () => {
 
   it("keeps heartbeat active when visibility is unknown", () => {
     expect(shouldRunHeartbeatForVisibility(undefined)).toBe(true);
+  });
+});
+
+describe("getHeartbeatResumeAction", () => {
+  it("restarts heartbeat and probes when an open socket resumes while visible", () => {
+    expect(getHeartbeatResumeAction({
+      connectionStatus: "connected",
+      readyState: WebSocket.OPEN,
+      visibilityState: "visible",
+    })).toBe("restart-and-ping");
+  });
+
+  it("forces reconnect when a disconnected socket resumes while visible", () => {
+    expect(getHeartbeatResumeAction({
+      connectionStatus: "disconnected",
+      readyState: WebSocket.CLOSED,
+      visibilityState: "visible",
+    })).toBe("force-reconnect");
+  });
+
+  it("does nothing while hidden", () => {
+    expect(getHeartbeatResumeAction({
+      connectionStatus: "connected",
+      readyState: WebSocket.OPEN,
+      visibilityState: "hidden",
+    })).toBe("none");
+  });
+});
+
+describe("shouldForceReconnectAfterPongTimeout", () => {
+  it("forces reconnect only while the socket is still open", () => {
+    expect(shouldForceReconnectAfterPongTimeout(WebSocket.OPEN)).toBe(true);
+    expect(shouldForceReconnectAfterPongTimeout(WebSocket.CONNECTING)).toBe(false);
+    expect(shouldForceReconnectAfterPongTimeout(WebSocket.CLOSED)).toBe(false);
   });
 });
