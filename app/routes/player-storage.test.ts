@@ -1,5 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import {
+  getPlayerIdKey,
+  getPlayerNameKey,
   getStoredPlayerName,
   storePlayerName,
   getOrCreatePlayerId,
@@ -127,8 +129,22 @@ describe("player-storage", () => {
       getOrCreatePlayerId("room-2");
 
       // Check that room-specific keys are used
-      expect(mockSessionStorage.getItem("mayi:room:room-1:playerId")).toBeDefined();
-      expect(mockSessionStorage.getItem("mayi:room:room-2:playerId")).toBeDefined();
+      expect(mockSessionStorage.getItem("mayi:room:ROOM-1:playerId")).toBeDefined();
+      expect(mockSessionStorage.getItem("mayi:room:ROOM-2:playerId")).toBeDefined();
+    });
+
+    it("uses the same player ID for room codes with different casing", () => {
+      const lowerCase = getOrCreatePlayerId("hnpxr6");
+      const mixedCase = getOrCreatePlayerId("HnPxR6");
+      const upperCase = getOrCreatePlayerId("HNPXR6");
+
+      expect(lowerCase).toBe(mixedCase);
+      expect(mixedCase).toBe(upperCase);
+    });
+
+    it("normalizes room-specific storage keys", () => {
+      expect(getPlayerIdKey("hnpxr6")).toBe("mayi:room:HNPXR6:playerId");
+      expect(getPlayerNameKey("HnPxR6")).toBe("mayi:room:HNPXR6:playerName");
     });
   });
 

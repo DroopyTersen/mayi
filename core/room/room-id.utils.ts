@@ -20,3 +20,10 @@ const roomIdGenerator = customAlphabet(ROOM_ID_ALPHABET, ROOM_ID_LENGTH);
 export function generateRoomId(): string {
   return roomIdGenerator();
 }
+
+/**
+ * Canonicalizes room IDs so typed room codes are case-insensitive.
+ */
+export function normalizeRoomId(roomId: string): string {
+  return roomId.trim().toUpperCase();
+}

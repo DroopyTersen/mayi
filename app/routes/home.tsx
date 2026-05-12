@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Form, redirect } from "react-router";
 import { BookOpen } from "lucide-react";
 import type { Route } from "./+types/home";
-import { generateRoomId } from "../../core/room/room-id.utils";
+import { generateRoomId, normalizeRoomId } from "../../core/room/room-id.utils";
 import { Button } from "~/shadcn/components/ui/button";
 import { Input } from "~/shadcn/components/ui/input";
 import {
@@ -29,7 +29,10 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "join") {
     const roomId = formData.get("roomId");
     if (roomId && typeof roomId === "string") {
-      return redirect(`/game/${roomId}`);
+      const normalizedRoomId = normalizeRoomId(roomId);
+      if (normalizedRoomId) {
+        return redirect(`/game/${normalizedRoomId}`);
+      }
     }
   }
   return null;

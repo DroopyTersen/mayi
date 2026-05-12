@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import {
   generateRoomId,
+  normalizeRoomId,
   ROOM_ID_ALPHABET,
   ROOM_ID_LENGTH,
 } from "./room-id.utils";
@@ -62,5 +63,17 @@ describe("ROOM_ID_ALPHABET", () => {
 describe("ROOM_ID_LENGTH", () => {
   it("is 6 characters", () => {
     expect(ROOM_ID_LENGTH).toBe(6);
+  });
+});
+
+describe("normalizeRoomId", () => {
+  it("normalizes room IDs to uppercase", () => {
+    expect(normalizeRoomId("hnpxr6")).toBe("HNPXR6");
+    expect(normalizeRoomId("HnPxR6")).toBe("HNPXR6");
+    expect(normalizeRoomId("HNPXR6")).toBe("HNPXR6");
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(normalizeRoomId("  hnpxr6\t")).toBe("HNPXR6");
   });
 });

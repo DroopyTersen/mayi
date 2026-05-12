@@ -1,5 +1,6 @@
 import type { Route } from "./+types/game.$roomId";
 import PartySocket from "partysocket";
+import { redirect } from "react-router";
 import {
   useCallback,
   useEffect,
@@ -42,6 +43,7 @@ import type {
 import type { RoundSummaryPayload } from "~/party/round-summary.types";
 import type { Card } from "core/card/card.types";
 import { formatCardText } from "core/card/card-text.utils";
+import { normalizeRoomId } from "core/room/room-id.utils";
 import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
 import { sendGameActionIfConnected } from "./game/game-action.sender";
 
@@ -69,11 +71,16 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   // Check for agent test state in query params
   const url = new URL(request.url);
+  const canonicalRoomId = normalizeRoomId(params.roomId);
+  if (params.roomId !== canonicalRoomId) {
+    return redirect(`/game/${canonicalRoomId}${url.search}`);
+  }
+
   const agentStateParam = url.searchParams.get("agentState");
   const agentQuickStartParam = url.searchParams.get("agent");
 
   return {
-    roomId: params.roomId,
+    roomId: canonicalRoomId,
     agentState: agentStateParam,
     agentQuickStart: agentQuickStartParam === "true" || agentQuickStartParam === "",
   };

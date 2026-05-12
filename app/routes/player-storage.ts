@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { normalizeRoomId } from "../../core/room/room-id.utils";
 
 // Global keys - persist across all rooms
 const PLAYER_NAME_KEY = "mayi:playerName";
@@ -6,12 +7,12 @@ const PLAYER_AVATAR_KEY = "mayi:avatarId";
 
 // Room-specific key for player ID - each room has its own identity
 export function getPlayerIdKey(roomId: string): string {
-  return `mayi:room:${roomId}:playerId`;
+  return `mayi:room:${normalizeRoomId(roomId)}:playerId`;
 }
 
 // Room-specific key for player name override (used by agent harness)
 export function getPlayerNameKey(roomId: string): string {
-  return `mayi:room:${roomId}:playerName`;
+  return `mayi:room:${normalizeRoomId(roomId)}:playerName`;
 }
 
 /**
