@@ -577,6 +577,23 @@ describe("PartyGameAdapter", () => {
       const log3 = adapter3.getRecentActivityLog(10);
       expect(log3.length).toBe(3);
     });
+
+    it("logs May I resolution without requiring caller-side resolution context", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      adapter.logMayIResolved("human-1", "Q♠");
+
+      const log = adapter.getRecentActivityLog(10);
+      const entry = log.find((item) => item.action === "took the May I card");
+      expect(entry).toBeDefined();
+      expect(entry?.playerId).toBe("human-1");
+      expect(entry?.details).toBe("Q♠");
+    });
   });
 
   describe("May-I resolution", () => {

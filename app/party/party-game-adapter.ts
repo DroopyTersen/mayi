@@ -692,11 +692,7 @@ export class PartyGameAdapter {
   /**
    * Log May I resolution - who took the card
    */
-  logMayIResolved(winnerLobbyId: string, cardRendered: string, wasBlocked: boolean): void {
-    if (wasBlocked) {
-      this.logAction(winnerLobbyId, "took the May I card", cardRendered);
-    } else {
-      this.logAction(winnerLobbyId, "took the May I card", cardRendered);
-    }
+  logMayIResolved(winnerLobbyId: string, cardRendered: string): void {
+    this.logAction(winnerLobbyId, "took the May I card", cardRendered);
   }
 }

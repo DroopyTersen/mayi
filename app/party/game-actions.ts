@@ -340,7 +340,7 @@ function logSuccessfulAction(
             (m) => m.engineId === winnerEngineId
           );
           if (winnerMapping) {
-            adapter.logMayIResolved(winnerMapping.lobbyId, cardRendered, false);
+            adapter.logMayIResolved(winnerMapping.lobbyId, cardRendered);
           }
         }
       }
@@ -353,7 +353,7 @@ function logSuccessfulAction(
         const cardRendered = renderCard(mayIContext.cardBeingClaimed);
         adapter.logMayIClaim(lobbyPlayerId, cardRendered);
         // Claimer is this player, they took the card
-        adapter.logMayIResolved(lobbyPlayerId, cardRendered, true);
+        adapter.logMayIResolved(lobbyPlayerId, cardRendered);
       }
       break;
     }
