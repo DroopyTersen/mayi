@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Check, Copy, Hash, Link, Share2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,47 +21,62 @@ export function ShareLinkCard({
   shareUrl,
   className,
 }: ShareLinkCardProps) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"link" | "code" | null>(null);
 
   // Use provided URL or construct from roomId
   const url = shareUrl ?? `/game/${roomId}`;
+  const canNativeShare =
+    typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  const handleCopy = useCallback(async () => {
-    try {
-      // Try clipboard API first
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback: select the input for manual copy
-      const input = document.querySelector<HTMLInputElement>(
-        '[data-share-link-input]'
-      );
-      if (input) {
-        input.select();
-        document.execCommand('copy');
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+  const copyText = useCallback(
+    async (text: string, copiedType: "link" | "code") => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(copiedType);
+        setTimeout(() => setCopied(null), 2000);
+      } catch {
+        if (typeof document === "undefined") return;
+
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+        setCopied(copiedType);
+        setTimeout(() => setCopied(null), 2000);
       }
+    },
+    []
+  );
+
+  const handleCopyLink = useCallback(() => copyText(url, "link"), [copyText, url]);
+  const handleCopyCode = useCallback(
+    () => copyText(roomId, "code"),
+    [copyText, roomId]
+  );
+
+  const handleNativeShare = useCallback(async () => {
+    if (!canNativeShare) return;
+
+    try {
+      await navigator.share({
+        title: "May I game",
+        text: `Join my May I game with room code ${roomId}`,
+        url,
+      });
+    } catch {
+      // Share cancellation does not need to surface in the lobby.
     }
-  }, [url]);
+  }, [canNativeShare, roomId, url]);
 
   return (
     <Card className={cn("", className)}>
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
-          <svg
-            className="w-5 h-5 text-primary"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-          </svg>
+          <Link className="w-5 h-5 text-primary" />
           Share Game Link
         </CardTitle>
       </CardHeader>
@@ -68,7 +84,7 @@ export function ShareLinkCard({
         <p className="text-sm text-muted-foreground mb-3">
           Send this link to friends to invite them to the game.
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             data-share-link-input
             value={url}
@@ -76,45 +92,53 @@ export function ShareLinkCard({
             className="font-mono text-xs bg-muted min-w-0"
           />
           <Button
-            variant={copied ? "secondary" : "default"}
-            onClick={handleCopy}
+            variant={copied === "link" ? "secondary" : "default"}
+            onClick={handleCopyLink}
             className="shrink-0"
           >
-            {copied ? (
+            {copied === "link" ? (
               <>
-                <svg
-                  className="w-4 h-4 mr-1"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                <Check className="w-4 h-4 mr-1" />
                 Copied!
               </>
             ) : (
               <>
-                <svg
-                  className="w-4 h-4 mr-1"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                Copy
+                <Copy className="w-4 h-4 mr-1" />
+                Copy Link
               </>
             )}
           </Button>
         </div>
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t">
-          <span className="text-sm text-muted-foreground">Room ID:</span>
-          <code className="bg-muted px-2 py-0.5 rounded font-mono text-sm font-medium">
-            {roomId}
-          </code>
+        <div className="flex flex-col gap-2 mt-3 pt-3 border-t sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <Hash className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-sm text-muted-foreground shrink-0">
+              Room Code:
+            </span>
+            <code className="bg-muted px-2 py-0.5 rounded font-mono text-sm font-medium">
+              {roomId}
+            </code>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:ml-auto">
+            <Button
+              variant={copied === "code" ? "secondary" : "outline"}
+              onClick={handleCopyCode}
+              size="sm"
+            >
+              {copied === "code" ? (
+                <Check className="w-4 h-4 mr-1" />
+              ) : (
+                <Copy className="w-4 h-4 mr-1" />
+              )}
+              {copied === "code" ? "Copied!" : "Copy Code"}
+            </Button>
+            {canNativeShare && (
+              <Button variant="outline" onClick={handleNativeShare} size="sm">
+                <Share2 className="w-4 h-4 mr-1" />
+                Share Link
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
