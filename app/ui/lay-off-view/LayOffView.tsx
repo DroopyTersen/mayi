@@ -3,6 +3,7 @@ import type { Card } from "core/card/card.types";
 import type { Meld } from "core/meld/meld.types";
 import { useStagedLayOffs, type StagedLayOff } from "./useStagedLayOffs";
 import { LayOffPositionPrompt } from "./LayOffPositionPrompt";
+import { LayOffMeldTarget } from "./LayOffMeldTarget";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
@@ -182,27 +183,15 @@ export function LayOffView({
                     const startStaged = stagedForThisMeld.filter((s) => s.position === "start");
                     const endStaged = stagedForThisMeld.filter((s) => s.position !== "start");
 
+                    const isTargetActive = Boolean(selectedCardId && !positionPrompt);
+
                     return (
-                      <div
+                      <LayOffMeldTarget
                         key={meld.id}
-                        role="button"
-                        tabIndex={selectedCardId && !positionPrompt ? 0 : -1}
-                        aria-disabled={selectedCardId && !positionPrompt ? false : true}
-                        aria-label={getMeldTargetLabel(player, meld)}
-                        className={cn(
-                          "p-1.5 rounded-md border transition-colors",
-                          selectedCardId && !positionPrompt
-                            ? "border-primary/50 hover:border-primary hover:bg-primary/5 cursor-pointer"
-                            : "border-transparent"
-                        )}
+                        isActive={isTargetActive}
+                        ariaLabel={getMeldTargetLabel(player, meld)}
                         onClick={() => !positionPrompt && handleMeldClick(meld.id)}
-                        onKeyDown={(event) => {
-                          if (positionPrompt || !selectedCardId) return;
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleMeldClick(meld.id);
-                          }
-                        }}
+                        onKeyActivate={() => handleMeldClick(meld.id)}
                       >
                         {/* Meld label */}
                         <div className="text-xs text-muted-foreground mb-1 font-medium">
@@ -259,7 +248,7 @@ export function LayOffView({
                             </div>
                           ))}
                         </div>
-                      </div>
+                      </LayOffMeldTarget>
                     );
                   })}
                 </div>
