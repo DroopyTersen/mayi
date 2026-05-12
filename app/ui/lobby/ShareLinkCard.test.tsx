@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { canUseNativeShare, ShareLinkCard } from "./ShareLinkCard";
+import {
+  canUseNativeShare,
+  ShareLinkCard,
+  ShareLinkCardView,
+} from "./ShareLinkCard";
 
 const originalNavigator = globalThis.navigator;
 
@@ -42,6 +46,38 @@ describe("ShareLinkCard", () => {
     );
 
     expect(withNativeShare).not.toContain("Share Link");
+  });
+});
+
+describe("ShareLinkCardView", () => {
+  it("renders the native share control only when presentation props allow it", () => {
+    const withoutNativeShare = renderToStaticMarkup(
+      <ShareLinkCardView
+        roomId="HNPXR6"
+        url="https://mayi.test/game/HNPXR6"
+        copied={null}
+        canNativeShare={false}
+        onCopyLink={() => {}}
+        onCopyCode={() => {}}
+        onNativeShare={() => {}}
+      />
+    );
+
+    expect(withoutNativeShare).not.toContain("Share Link");
+
+    const withNativeShare = renderToStaticMarkup(
+      <ShareLinkCardView
+        roomId="HNPXR6"
+        url="https://mayi.test/game/HNPXR6"
+        copied={null}
+        canNativeShare={true}
+        onCopyLink={() => {}}
+        onCopyCode={() => {}}
+        onNativeShare={() => {}}
+      />
+    );
+
+    expect(withNativeShare).toContain("Share Link");
   });
 });
 

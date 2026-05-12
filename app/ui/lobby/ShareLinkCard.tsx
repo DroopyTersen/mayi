@@ -16,33 +16,39 @@ interface ShareLinkCardProps {
   className?: string;
 }
 
+interface ShareLinkCardViewProps {
+  roomId: string;
+  url: string;
+  copied: "link" | "code" | null;
+  canNativeShare: boolean;
+  className?: string;
+  onCopyLink: () => void;
+  onCopyCode: () => void;
+  onNativeShare: () => void;
+}
+
 export function canUseNativeShare(
   navigatorLike: Pick<Navigator, "share"> | undefined
 ): boolean {
   return typeof navigatorLike?.share === "function";
 }
 
-export function ShareLinkCard({
-  roomId,
-  shareUrl,
-  className,
-}: ShareLinkCardProps) {
+function getNavigator(): Navigator | undefined {
+  return typeof navigator === "undefined" ? undefined : navigator;
+}
+
+function useShareInvitationBrowserActions(roomId: string, url: string) {
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
   const [canNativeShare, setCanNativeShare] = useState(false);
 
-  // Use provided URL or construct from roomId
-  const url = shareUrl ?? `/game/${roomId}`;
-
   useEffect(() => {
-    setCanNativeShare(
-      canUseNativeShare(typeof navigator === "undefined" ? undefined : navigator)
-    );
+    setCanNativeShare(canUseNativeShare(getNavigator()));
   }, []);
 
   const copyText = useCallback(
     async (text: string, copiedType: "link" | "code") => {
       try {
-        await navigator.clipboard.writeText(text);
+        await getNavigator()?.clipboard.writeText(text);
         setCopied(copiedType);
         setTimeout(() => setCopied(null), 2000);
       } catch {
@@ -73,7 +79,7 @@ export function ShareLinkCard({
     if (!canNativeShare) return;
 
     try {
-      await navigator.share({
+      await getNavigator()?.share({
         title: "May I game",
         text: `Join my May I game with room code ${roomId}`,
         url,
@@ -83,6 +89,53 @@ export function ShareLinkCard({
     }
   }, [canNativeShare, roomId, url]);
 
+  return {
+    copied,
+    canNativeShare,
+    handleCopyLink,
+    handleCopyCode,
+    handleNativeShare,
+  };
+}
+
+export function ShareLinkCard({
+  roomId,
+  shareUrl,
+  className,
+}: ShareLinkCardProps) {
+  const url = shareUrl ?? `/game/${roomId}`;
+  const {
+    copied,
+    canNativeShare,
+    handleCopyLink,
+    handleCopyCode,
+    handleNativeShare,
+  } = useShareInvitationBrowserActions(roomId, url);
+
+  return (
+    <ShareLinkCardView
+      roomId={roomId}
+      url={url}
+      copied={copied}
+      canNativeShare={canNativeShare}
+      className={className}
+      onCopyLink={handleCopyLink}
+      onCopyCode={handleCopyCode}
+      onNativeShare={handleNativeShare}
+    />
+  );
+}
+
+export function ShareLinkCardView({
+  roomId,
+  url,
+  copied,
+  canNativeShare,
+  className,
+  onCopyLink,
+  onCopyCode,
+  onNativeShare,
+}: ShareLinkCardViewProps) {
   return (
     <Card className={cn("", className)}>
       <CardHeader className="pb-2">
@@ -104,7 +157,7 @@ export function ShareLinkCard({
           />
           <Button
             variant={copied === "link" ? "secondary" : "default"}
-            onClick={handleCopyLink}
+            onClick={onCopyLink}
             className="shrink-0"
           >
             {copied === "link" ? (
@@ -133,7 +186,7 @@ export function ShareLinkCard({
           <div className="flex flex-wrap gap-2 sm:ml-auto">
             <Button
               variant={copied === "code" ? "secondary" : "outline"}
-              onClick={handleCopyCode}
+              onClick={onCopyCode}
               size="sm"
             >
               {copied === "code" ? (
@@ -144,7 +197,7 @@ export function ShareLinkCard({
               {copied === "code" ? "Copied!" : "Copy Code"}
             </Button>
             {canNativeShare && (
-              <Button variant="outline" onClick={handleNativeShare} size="sm">
+              <Button variant="outline" onClick={onNativeShare} size="sm">
                 <Share2 className="w-4 h-4 mr-1" />
                 Share Link
               </Button>
