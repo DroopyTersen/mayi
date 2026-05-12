@@ -42,22 +42,16 @@ import type {
 } from "~/party/protocol.types";
 import type { RoundSummaryPayload } from "~/party/round-summary.types";
 import type { Card } from "core/card/card.types";
-import { formatCardText } from "core/card/card-text.utils";
 import { normalizeRoomId } from "core/room/room-id.utils";
 import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
 import { sendGameActionIfConnected } from "./game/game-action.sender";
 import { applyOptimisticMayIPending } from "./game/optimistic-may-i";
-
-/**
- * State for May I notification shown to ALL players in the table view
- */
-export interface MayINotificationState {
-  callerId: string;
-  callerName: string;
-  cardText: string;  // Pre-formatted: "Q♠"
-  outcome?: "allowed" | "blocked";  // Set when resolved
-  expiresAt: number | null;  // null = stays until resolved, number = timestamp to clear
-}
+import {
+  createMayINotification,
+  formatActivityLogEntries,
+  resolveMayINotification,
+} from "./game/game-room-session.logic";
+import type { MayINotificationState } from "./game/game-room-session.types";
 
 type RoomPhase = "lobby" | "playing";
 
@@ -588,31 +582,16 @@ export default function Game({ loaderData }: Route.ComponentProps) {
         }
         case "MAY_I_NOTIFICATION": {
           // Broadcast to ALL players - show notification in table view
-          setMayINotification({
-            callerId: msg.callerId,
-            callerName: msg.callerName,
-            cardText: formatCardText(msg.card),
-            expiresAt: null,  // Stays visible until resolved
-          });
+          setMayINotification(createMayINotification(msg));
           return;
         }
         case "MAY_I_RESOLVED": {
           setMayIPrompt(null);
           setHasOptimisticMayIPending(false);
           // Update notification to show outcome, then fade after 5 seconds
-          setMayINotification((prev) => {
-            if (!prev) return null;
-            // Server sends outcome="resolved" when May I completed
-            // This means someone got the card (allowed)
-            // Note: winnerId is currently always null (server TODO), so we use outcome field
-            const outcome: "allowed" | "blocked" =
-              msg.outcome === "resolved" ? "allowed" : "blocked";
-            return {
-              ...prev,
-              outcome,
-              expiresAt: Date.now() + 5000,  // Clear in 5 seconds
-            };
-          });
+          setMayINotification((prev) =>
+            resolveMayINotification(prev, msg, Date.now())
+          );
           return;
         }
         // Phase 3.8: Round/game end messages
@@ -694,19 +673,10 @@ export default function Game({ loaderData }: Route.ComponentProps) {
   }, []);
 
   // Format activity log for GameView
-  const formattedActivityLog = useMemo(() => {
-    return activityLog.map((entry) => {
-      // Format: "PlayerName: action details"
-      const message = entry.details
-        ? `${entry.playerName}: ${entry.action} ${entry.details}`
-        : `${entry.playerName}: ${entry.action}`;
-      return {
-        id: entry.id,
-        message,
-        // Don't include timestamp - it clutters the UI
-      };
-    });
-  }, [activityLog]);
+  const formattedActivityLog = useMemo(
+    () => formatActivityLogEntries(activityLog),
+    [activityLog]
+  );
 
   const displayGameState = useMemo(
     () =>

@@ -1,5 +1,5 @@
 import type { Meld } from "core/meld/meld.types";
-import type { MayINotificationState } from "~/routes/game.$roomId";
+import type { MayINotificationState } from "~/routes/game/game-room-session.types";
 import { PlayerMeldsDisplay, type RenderMeld } from "./PlayerMeldsDisplay";
 import { cn } from "~/shadcn/lib/utils";
 

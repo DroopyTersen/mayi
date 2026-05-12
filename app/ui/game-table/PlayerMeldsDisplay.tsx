@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import type { Meld } from "core/meld/meld.types";
-import type { MayINotificationState } from "~/routes/game.$roomId";
+import type { MayINotificationState } from "~/routes/game/game-room-session.types";
 import { MeldDisplay } from "./MeldDisplay";
 import { cn } from "~/shadcn/lib/utils";
 

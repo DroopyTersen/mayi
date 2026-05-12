@@ -1,7 +1,7 @@
 import type { PlayerView } from "~/party/protocol.types";
 import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
 import type { ActivityEntry } from "./game-view.types";
-import type { MayINotificationState } from "~/routes/game.$roomId";
+import type { MayINotificationState } from "~/routes/game/game-room-session.types";
 import { HouseRulesButton } from "~/ui/game-status/HouseRulesButton";
 import { TableDisplay } from "~/ui/game-table/TableDisplay";
 import { MeldDisplay } from "~/ui/game-table/MeldDisplay";
