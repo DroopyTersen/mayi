@@ -2168,6 +2168,38 @@ describe("TurnMachine - invalid LAY_DOWN scenarios", () => {
       expect(actor.getSnapshot().context.lastError).toContain("meld 1");
       expect(actor.getSnapshot().context.lastError).toContain("valid set");
     });
+
+    it("explains the same-suit run gap rule when two runs are too close", () => {
+      const threeS = card("3", "spades");
+      const fourS = card("4", "spades");
+      const fiveS = card("5", "spades");
+      const sixS = card("6", "spades");
+      const eightS = card("8", "spades");
+      const nineS = card("9", "spades");
+      const tenS = card("10", "spades");
+      const jackS = card("J", "spades");
+
+      const input = {
+        ...createTurnInput(),
+        roundNumber: 3 as const,
+        hand: [threeS, fourS, fiveS, sixS, eightS, nineS, tenS, jackS],
+      };
+      const actor = createActor(turnMachine, { input });
+      actor.start();
+      actor.send({ type: "DRAW_FROM_STOCK" });
+
+      actor.send({
+        type: "LAY_DOWN",
+        melds: [
+          { type: "run" as const, cardIds: [threeS.id, fourS.id, fiveS.id, sixS.id] },
+          { type: "run" as const, cardIds: [eightS.id, nineS.id, tenS.id, jackS.id] },
+        ],
+      });
+
+      const error = actor.getSnapshot().context.lastError;
+      expect(error).toContain("gap");
+      expect(error?.toLowerCase()).toContain("same-suit");
+    });
   });
 
   describe("card not in hand", () => {

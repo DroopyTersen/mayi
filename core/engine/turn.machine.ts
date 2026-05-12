@@ -12,7 +12,7 @@ import { setup, assign } from "xstate";
 import type { Card } from "../card/card.types";
 import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
-import { CONTRACTS } from "./contracts";
+import { CONTRACTS, validateContractMelds } from "./contracts";
 import { isValidSet, isValidRun } from "../meld/meld.validation";
 import { shuffle } from "../card/card.deck";
 import {
@@ -361,6 +361,13 @@ export const turnMachine = setup({
           }
           if (proposal.type === "run" && !isValidRun(cards)) {
             return `meld ${i + 1} is not a valid run`;
+          }
+        }
+        const melds = buildMeldsFromProposals(event.melds, context.hand, context.playerId);
+        if (melds) {
+          const result = validateContractMelds(contract, melds);
+          if (!result.valid && result.error) {
+            return result.error;
           }
         }
         return "invalid melds";
