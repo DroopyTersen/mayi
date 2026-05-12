@@ -297,6 +297,17 @@ export function HandDrawerStory() {
         />
       </section>
 
+      <section>
+        <h2 className="text-lg font-semibold mb-2">Small Hand Peek</h2>
+        <InteractiveDrawerExample
+          hand={SMALL_HAND}
+          title="Waiting - Small Hand With Discard Context"
+          availableActions={WAITING_ACTIONS}
+          turnStatus="Alice's turn"
+          isYourTurn={false}
+        />
+      </section>
+
       {/* Design Notes */}
       <section className="mt-10 p-6 bg-muted/50 rounded-lg">
         <h2 className="text-lg font-semibold mb-3">Design Notes</h2>

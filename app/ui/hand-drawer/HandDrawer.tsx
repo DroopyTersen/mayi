@@ -15,6 +15,7 @@ import { getDiscardInteractiveLabel } from "~/ui/game-view/game-view.utils";
 import { cn } from "~/shadcn/lib/utils";
 
 export const MOBILE_HAND_PEEK_HEIGHT_PX = 104;
+export const MOBILE_PEEK_DISCARD_HAND_THRESHOLD = 5;
 
 interface HandDrawerProps {
   /** Cards in the player's hand */
@@ -75,6 +76,8 @@ export function HandDrawer({
       availableActions.canLayDown ||
       availableActions.canDiscard ||
       availableActions.canLayOff);
+  const shouldShowPeekDiscard =
+    topDiscard !== null && hand.length < MOBILE_PEEK_DISCARD_HAND_THRESHOLD;
 
   // Interactive label for discard pile
   const discardInteractiveLabel = useMemo(
@@ -137,7 +140,24 @@ export function HandDrawer({
                 />
               </div>
 
-              <div className="h-[48px] overflow-hidden px-3 pb-2">
+              <div
+                className={cn(
+                  "relative h-[48px] overflow-hidden px-3 pb-2",
+                  shouldShowPeekDiscard && "px-20"
+                )}
+              >
+                {shouldShowPeekDiscard && (
+                  <div
+                    data-testid="mobile-hand-peek-discard"
+                    className="pointer-events-none absolute left-4 top-0 -translate-y-5"
+                  >
+                    <DiscardPileDisplay
+                      topCard={topDiscard}
+                      size="sm"
+                      dimWhenDisabled={false}
+                    />
+                  </div>
+                )}
                 <HandDisplay
                   cards={hand}
                   size="sm"
