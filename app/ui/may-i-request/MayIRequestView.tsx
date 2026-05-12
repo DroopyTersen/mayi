@@ -26,8 +26,10 @@ export function MayIRequestView({
   className,
 }: MayIRequestViewProps) {
   // Current player takes their normal turn (picking up discard), not doing a "May I"
-  // Non-current players do a "May I Instead" to claim the card
-  const actionButtonText = isCurrentPlayer ? "Pick Up" : "May I Instead!";
+  // Non-current players claim instead and take the penalty card.
+  const actionButtonText = isCurrentPlayer
+    ? "Pick Up Discard"
+    : "Claim Instead (+ penalty)";
   return (
     <div
       className={cn(
@@ -56,9 +58,9 @@ export function MayIRequestView({
       )}
 
       {/* Actions */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         <Button variant="outline" onClick={onAllow}>
-          Allow
+          Allow May I
         </Button>
         {canMayIInstead && (
           <Button onClick={onMayIInstead}>{actionButtonText}</Button>
@@ -67,7 +69,7 @@ export function MayIRequestView({
 
       {!canMayIInstead && (
         <p className="text-xs text-muted-foreground">
-          You've already used your May I this round
+          You cannot claim this discard right now
         </p>
       )}
     </div>

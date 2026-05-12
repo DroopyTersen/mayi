@@ -12,7 +12,7 @@ export function MayIRequestViewStory() {
   };
 
   const handleMayIInstead = () => {
-    alert("May I Instead!");
+    alert("Claimed Instead");
   };
 
   return (

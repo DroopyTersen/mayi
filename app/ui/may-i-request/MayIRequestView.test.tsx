@@ -19,43 +19,48 @@ describe("MayIRequestView", () => {
   };
 
   describe("button text based on isCurrentPlayer", () => {
-    it("should show 'Pick Up' when isCurrentPlayer=true", () => {
+    it("shows a normal discard pickup label when isCurrentPlayer=true", () => {
       const html = renderToStaticMarkup(
         <MayIRequestView {...defaultProps} isCurrentPlayer={true} />
       );
 
-      expect(html).toContain("Pick Up");
-      expect(html).not.toContain("May I Instead!");
+      expect(html).toContain("Pick Up Discard");
+      expect(html).not.toContain("Claim Instead");
     });
 
-    it("should show 'May I Instead!' when isCurrentPlayer=false", () => {
+    it("shows a claim label with penalty when isCurrentPlayer=false", () => {
       const html = renderToStaticMarkup(
         <MayIRequestView {...defaultProps} isCurrentPlayer={false} />
       );
 
-      expect(html).toContain("May I Instead!");
-      expect(html).not.toContain("Pick Up");
+      expect(html).toContain("Claim Instead (+ penalty)");
+      expect(html).not.toContain("Pick Up Discard");
     });
 
-    it("should default to 'May I Instead!' when isCurrentPlayer is undefined (backward compatible)", () => {
+    it("defaults to the non-current claim label", () => {
       const html = renderToStaticMarkup(<MayIRequestView {...defaultProps} />);
 
-      expect(html).toContain("May I Instead!");
-      expect(html).not.toContain("Pick Up");
+      expect(html).toContain("Claim Instead (+ penalty)");
+      expect(html).not.toContain("Pick Up Discard");
+    });
+
+    it("uses a clear allow label", () => {
+      const html = renderToStaticMarkup(<MayIRequestView {...defaultProps} />);
+
+      expect(html).toContain("Allow May I");
     });
   });
 
   describe("canMayIInstead=false hides the action button entirely", () => {
-    it("should not show Pick Up or May I Instead when canMayIInstead=false", () => {
+    it("does not mention a May I usage limit", () => {
       const html = renderToStaticMarkup(
         <MayIRequestView {...defaultProps} canMayIInstead={false} />
       );
 
-      // Neither button should appear
-      expect(html).not.toContain("Pick Up");
-      expect(html).not.toContain("May I Instead!");
-      // But the "used your May I" message should appear
-      expect(html).toContain("already used your May I");
+      expect(html).not.toContain("Pick Up Discard");
+      expect(html).not.toContain("Claim Instead");
+      expect(html).not.toContain("already used your May I");
+      expect(html).toContain("You cannot claim this discard right now");
     });
   });
 });
