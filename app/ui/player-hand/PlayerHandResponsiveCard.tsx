@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Card } from "core/card/card.types";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 
@@ -7,7 +8,7 @@ interface PlayerHandResponsiveCardProps {
   onClick?: () => void;
 }
 
-export function PlayerHandResponsiveCard({
+function PlayerHandResponsiveCardComponent({
   card,
   selected,
   onClick,
@@ -26,3 +27,21 @@ export function PlayerHandResponsiveCard({
     </>
   );
 }
+
+function arePlayerHandResponsiveCardPropsEqual(
+  previous: PlayerHandResponsiveCardProps,
+  next: PlayerHandResponsiveCardProps
+) {
+  return (
+    previous.card.id === next.card.id &&
+    previous.card.rank === next.card.rank &&
+    previous.card.suit === next.card.suit &&
+    previous.selected === next.selected &&
+    previous.onClick === next.onClick
+  );
+}
+
+export const PlayerHandResponsiveCard = memo(
+  PlayerHandResponsiveCardComponent,
+  arePlayerHandResponsiveCardPropsEqual
+);

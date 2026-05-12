@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Card } from "core/card/card.types";
 import { cn } from "~/shadcn/lib/utils";
 
@@ -72,7 +73,24 @@ interface PlayingCardProps {
   className?: string;
 }
 
-export function PlayingCard({
+interface CornerContentProps {
+  rank: Card["rank"];
+  size: keyof typeof SIZE_CLASSES;
+  suitSymbol: string;
+}
+
+function CornerContent({ rank, size, suitSymbol }: CornerContentProps) {
+  return (
+    <div className="flex flex-col items-center leading-none">
+      <span className="font-bold">{rank}</span>
+      <span style={{ fontSize: SUIT_FONT_SIZE[size], lineHeight: 1 }}>
+        {suitSymbol}
+      </span>
+    </div>
+  );
+}
+
+function PlayingCardComponent({
   card,
   size = "md",
   selected = false,
@@ -84,16 +102,8 @@ export function PlayingCard({
   const isJoker = card.rank === "Joker";
   const isWild = isJoker || card.rank === "2";
 
-  const suitSymbol = card.suit ? SUIT_SYMBOLS[card.suit] : "";
+  const suitSymbol = card.suit ? (SUIT_SYMBOLS[card.suit] ?? "") : "";
   const displayRank = card.rank;
-
-  // Corner content for non-joker cards
-  const CornerContent = () => (
-    <div className="flex flex-col items-center leading-none">
-      <span className="font-bold">{displayRank}</span>
-      <span style={{ fontSize: SUIT_FONT_SIZE[size], lineHeight: 1 }}>{suitSymbol}</span>
-    </div>
-  );
 
   // Data attributes for testability and automation
   const dataAttrs = {
@@ -128,7 +138,7 @@ export function PlayingCard({
         <div className="absolute inset-2 rounded border border-blue-400/30" />
         {/* Center diamond emblem */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-4 h-4 bg-blue-500/40 rotate-45 rounded-sm border border-blue-400/50" />
+          <div className="size-4 bg-blue-500/40 rotate-45 rounded-sm border border-blue-400/50" />
         </div>
       </button>
     );
@@ -166,9 +176,9 @@ export function PlayingCard({
         <>
           {/* Vertical JOKER text on left */}
           <div className="absolute left-1 top-1 bottom-1 flex flex-col justify-center">
-            {"JOKER".split("").map((letter, i) => (
+            {"JOKER".split("").map((letter) => (
               <span
-                key={i}
+                key={letter}
                 className="text-[8px] font-bold leading-[1.1] text-purple-600"
               >
                 {letter}
@@ -184,11 +194,19 @@ export function PlayingCard({
         <>
           {/* Top-left corner */}
           <div className="absolute top-1 left-1">
-            <CornerContent />
+            <CornerContent
+              rank={displayRank}
+              size={size}
+              suitSymbol={suitSymbol}
+            />
           </div>
           {/* Bottom-right corner (rotated 180°) */}
           <div className="absolute bottom-1 right-1 rotate-180">
-            <CornerContent />
+            <CornerContent
+              rank={displayRank}
+              size={size}
+              suitSymbol={suitSymbol}
+            />
           </div>
           {/* Center pip for large cards */}
           {size === "lg" && (
@@ -201,3 +219,21 @@ export function PlayingCard({
     </button>
   );
 }
+
+function arePlayingCardPropsEqual(
+  previous: PlayingCardProps,
+  next: PlayingCardProps
+) {
+  return (
+    previous.card.id === next.card.id &&
+    previous.card.rank === next.card.rank &&
+    previous.card.suit === next.card.suit &&
+    previous.size === next.size &&
+    previous.selected === next.selected &&
+    previous.faceDown === next.faceDown &&
+    previous.onClick === next.onClick &&
+    previous.className === next.className
+  );
+}
+
+export const PlayingCard = memo(PlayingCardComponent, arePlayingCardPropsEqual);
