@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import type { Snapshot } from "xstate";
+import { createActor, type Snapshot } from "xstate";
 import type { Card } from "../card/card.types";
+import type { Meld } from "../meld/meld.types";
+import type { Player } from "./engine.types";
 import { GameEngine } from "./game-engine";
+import { roundMachine } from "./round.machine";
+import type { TurnOutput } from "./turn.machine";
 
 function card(id: string, rank: Card["rank"], suit: Card["suit"]): Card {
   return { id, rank, suit };
@@ -431,5 +435,126 @@ describe("RoundMachine card ownership", () => {
     expect(currentPlayer?.hand.map((card) => card.id)).not.toContain(drawnCard.id);
 
     restored.stop();
+  });
+
+  it("does not replace round-owned card zones from turn completion output", () => {
+    const keepCard = card("round-keep", "5", "hearts");
+    const discardCard = card("round-discard", "6", "hearts");
+    const stockCard = card("round-stock", "7", "hearts");
+    const discardTop = card("round-discard-top", "8", "hearts");
+    const tableMeld: Meld = {
+      id: "round-meld",
+      type: "set",
+      cards: [
+        card("round-set-3-hearts", "3", "hearts"),
+        card("round-set-3-diamonds", "3", "diamonds"),
+        card("round-set-3-clubs", "3", "clubs"),
+      ],
+      ownerId: "player-0",
+    };
+    const staleMeld: Meld = {
+      id: "stale-meld",
+      type: "set",
+      cards: [
+        card("stale-set-4-hearts", "4", "hearts"),
+        card("stale-set-4-diamonds", "4", "diamonds"),
+        card("stale-set-4-clubs", "4", "clubs"),
+      ],
+      ownerId: "player-1",
+    };
+    const players: Player[] = [
+      { id: "player-0", name: "Alice", hand: [], isDown: false, totalScore: 0 },
+      { id: "player-1", name: "Bob", hand: [], isDown: false, totalScore: 0 },
+      { id: "player-2", name: "Carol", hand: [], isDown: false, totalScore: 0 },
+    ];
+
+    const actor = createActor(roundMachine, {
+      input: {
+        roundNumber: 1,
+        players,
+        dealerIndex: 0,
+        predefinedState: {
+          hands: [[], [keepCard, discardCard], []],
+          stock: [stockCard],
+          discard: [discardTop],
+          table: [tableMeld],
+        },
+      },
+    });
+    actor.start();
+
+    const staleOutput: TurnOutput = {
+      playerId: "player-1",
+      hand: [card("stale-hand", "9", "clubs")],
+      stock: [card("stale-stock", "10", "clubs")],
+      discard: [card("stale-discard", "J", "clubs")],
+      table: [staleMeld],
+      isDown: true,
+      wentOut: false,
+    };
+
+    actor.send({
+      type: "xstate.done.actor.turn",
+      output: staleOutput,
+    } as never);
+
+    const context = actor.getSnapshot().context;
+    const completedPlayer = context.players.find((player) => player.id === "player-1");
+
+    expect(completedPlayer?.hand.map((handCard) => handCard.id)).toEqual([
+      keepCard.id,
+      discardCard.id,
+    ]);
+    expect(completedPlayer?.isDown).toBe(false);
+    expect(context.stock.map((stock) => stock.id)).toEqual([stockCard.id]);
+    expect(context.discard.map((discard) => discard.id)).toEqual([discardTop.id]);
+    expect(context.table.map((meld) => meld.id)).toEqual([tableMeld.id]);
+    expect(context.lastDiscardedByPlayerId).toBe("player-1");
+
+    actor.stop();
+  });
+
+  it("does not score the round from a turn completion output when the round hand is not empty", () => {
+    const keepCard = card("round-keep", "5", "hearts");
+    const discardCard = card("round-discard", "6", "hearts");
+    const players: Player[] = [
+      { id: "player-0", name: "Alice", hand: [], isDown: false, totalScore: 0 },
+      { id: "player-1", name: "Bob", hand: [], isDown: false, totalScore: 0 },
+      { id: "player-2", name: "Carol", hand: [], isDown: false, totalScore: 0 },
+    ];
+    const actor = createActor(roundMachine, {
+      input: {
+        roundNumber: 1,
+        players,
+        dealerIndex: 0,
+        predefinedState: {
+          hands: [[], [keepCard, discardCard], []],
+          stock: [card("round-stock", "7", "hearts")],
+          discard: [card("round-discard-top", "8", "hearts")],
+        },
+      },
+    });
+    actor.start();
+
+    const staleOutput: TurnOutput = {
+      playerId: "player-1",
+      hand: [],
+      stock: [],
+      discard: [],
+      table: [],
+      isDown: false,
+      wentOut: true,
+    };
+
+    actor.send({
+      type: "xstate.done.actor.turn",
+      output: staleOutput,
+    } as never);
+
+    expect(actor.getSnapshot().value).toEqual({ active: "playing" });
+    expect(actor.getSnapshot().context.winnerPlayerId).toBeNull();
+    expect(actor.getSnapshot().context.currentPlayerIndex).toBe(2);
+
+    actor.stop();
   });
 });

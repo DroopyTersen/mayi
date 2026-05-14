@@ -184,6 +184,11 @@ function replenishStockAfterDraw(stock: Card[], discard: Card[]): { stock: Card[
   };
 }
 
+function didCurrentRoundPlayerGoOut(context: RoundContext, output: TurnOutput): boolean {
+  const currentPlayer = context.players[context.currentPlayerIndex];
+  return currentPlayer?.id === output.playerId && currentPlayer.hand.length === 0;
+}
+
 export const roundMachine = setup({
   types: {
     context: {} as RoundContext,
@@ -845,26 +850,13 @@ export const roundMachine = setup({
         onDone: [
           {
             // Player went out - end the round
-            guard: ({ event }) => (event.output as TurnOutput).wentOut === true,
+            guard: ({ context, event }) =>
+              didCurrentRoundPlayerGoOut(context, event.output as TurnOutput),
             target: "#round.scoring",
             actions: assign(({ context, event }) => {
               const output = event.output as TurnOutput;
-              const handUpdates = output.handUpdates ?? {};
 
               return {
-                players: context.players.map((player) => {
-                  if (player.id === output.playerId) {
-                    return { ...player, hand: output.hand, isDown: output.isDown };
-                  }
-                  const update = handUpdates[player.id];
-                  if (update) {
-                    return { ...player, hand: [...player.hand, ...update.added] };
-                  }
-                  return player;
-                }),
-                stock: output.stock,
-                discard: output.discard,
-                table: output.table,
                 winnerPlayerId: output.playerId,
               };
             }),
@@ -874,24 +866,10 @@ export const roundMachine = setup({
             target: "#round.active",
             reenter: true,
             actions: [
-              assign(({ context, event }) => {
+              assign(({ event }) => {
                 const output = event.output as TurnOutput;
-                const handUpdates = output.handUpdates ?? {};
 
                 return {
-                  players: context.players.map((player) => {
-                    if (player.id === output.playerId) {
-                      return { ...player, hand: output.hand, isDown: output.isDown };
-                    }
-                    const update = handUpdates[player.id];
-                    if (update) {
-                      return { ...player, hand: [...player.hand, ...update.added] };
-                    }
-                    return player;
-                  }),
-                  stock: output.stock,
-                  discard: output.discard,
-                  table: output.table,
                   lastDiscardedByPlayerId: output.playerId,
                 };
               }),

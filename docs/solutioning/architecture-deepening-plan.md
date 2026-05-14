@@ -82,6 +82,8 @@ Minimum browser checks:
 ## Progress Tracker
 
 - [ ] Phase 1: Finish the core card-state owner seam
+  - [x] Prevent turn completion from overwriting round-owned card/player state
+    from stale `TurnOutput`
 - [ ] Phase 2: Deepen the committed game action pipeline
 - [ ] Phase 3: Move `GameAction` into a shared command module
 - [ ] Phase 4: Split room side effects into domain events and broadcast projection
