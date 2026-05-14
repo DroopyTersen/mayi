@@ -81,7 +81,7 @@ Minimum browser checks:
 
 ## Progress Tracker
 
-- [ ] Phase 1: Finish the core card-state owner seam
+- [x] Phase 1: Finish the core card-state owner seam
   - [x] Prevent turn completion from overwriting round-owned card/player state
     from stale `TurnOutput`
   - [x] Extract draw, discard, and reorder card moves into pure round
