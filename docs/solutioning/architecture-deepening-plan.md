@@ -90,9 +90,16 @@ Minimum browser checks:
     card-state helpers
   - [x] Project legacy game-actor player state from `RoundMachine` instead of
     stale turn copies
-- [ ] Phase 2: Deepen the committed game action pipeline
+- [x] Phase 2: Deepen the committed game action pipeline
   - [x] Centralize room queued action submission behind
     `submitQueuedGameAction`
+  - [x] Verify Party/AI queue path with focused tests, typecheck, full suite,
+    and production build
+  - [x] Verify CLI full-round transition with deterministic `ARCHP5` harness
+    state
+  - [x] Verify local realtime action path with WebSocket agent-state smoke;
+    Chrome automation was attempted but blocked by tool timeouts
+  - [x] Verify AI integration with `RUN_INTEGRATION_TESTS=1 bun test ai/`
 - [ ] Phase 3: Move `GameAction` into a shared command module
 - [ ] Phase 4: Split room side effects into domain events and broadcast projection
 - [ ] Phase 5: Create typed UI player-action intents
@@ -207,6 +214,14 @@ Browser gate:
 - Use Chrome automation against `/game/agent/new`.
 - Confirm AI turns can run.
 - Confirm a human May-I action can interrupt an AI turn without stale-state overwrite.
+
+Verification note:
+
+- 2026-05-14: Chrome DevTools automation timed out when listing/opening
+  pages, and Computer Use could not attach to Chrome (`cgWindowNotFound`).
+  As a fallback, a local WebSocket smoke against the dev server injected an
+  agent state, performed human draw/skip/discard through `GAME_ACTION`, and
+  observed live AI turns run through the queued action path.
 
 AI integration gate:
 
