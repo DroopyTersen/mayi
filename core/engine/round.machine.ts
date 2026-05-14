@@ -19,7 +19,6 @@ import { CONTRACTS } from "./contracts";
 import { createDeck, shuffle, deal } from "../card/card.deck";
 import { turnMachine, type TurnInput, type TurnOutput, type TurnContext as TurnMachineContext } from "./turn.machine";
 import { calculateHandScore } from "../scoring/scoring";
-import { reorderHand as reorderHandUtil } from "./hand.reordering";
 import {
   buildMeldsFromProposals,
   meetsContract,
@@ -35,6 +34,12 @@ import {
   validateCardOwnership,
 } from "./layoff";
 import { canSwapJokerWithCard } from "../meld/meld.joker";
+import {
+  applyRoundDiscard,
+  applyRoundDrawFromDiscard,
+  applyRoundDrawFromStock,
+  applyRoundReorderHand,
+} from "./round.card-state";
 
 /**
  * Events that need to be forwarded to child turn actor
@@ -171,19 +176,6 @@ function getPlayersAheadOfCaller(
   return result;
 }
 
-function replenishStockAfterDraw(stock: Card[], discard: Card[]): { stock: Card[]; discard: Card[] } {
-  if (stock.length > 0 || discard.length <= 1) {
-    return { stock, discard };
-  }
-
-  const topDiscard = discard[0];
-  const cardsToReshuffle = discard.slice(1);
-  return {
-    stock: shuffle(cardsToReshuffle),
-    discard: topDiscard ? [topDiscard] : [],
-  };
-}
-
 function didCurrentRoundPlayerGoOut(context: RoundContext, output: TurnOutput): boolean {
   const currentPlayer = context.players[context.currentPlayerIndex];
   return currentPlayer?.id === output.playerId && currentPlayer.hand.length === 0;
@@ -267,7 +259,7 @@ export const roundMachine = setup({
       }
 
       // For non-current players, validate against round context (authoritative for them)
-      const result = reorderHandUtil(player.hand, event.newOrder);
+      const result = applyRoundReorderHand(context, playerId, event.newOrder);
       return result.success;
     },
 
@@ -351,21 +343,8 @@ export const roundMachine = setup({
       if (turnSnapshot?.value !== "awaitingDraw") return {};
       if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
 
-      const drawnCard = context.stock[0];
-      if (!drawnCard) return {};
-
-      const hand = [...currentPlayer.hand, drawnCard];
-      const replenished = replenishStockAfterDraw(context.stock.slice(1), context.discard);
-
-      return {
-        players: context.players.map((player, index) =>
-          index === context.currentPlayerIndex ? { ...player, hand } : player
-        ),
-        stock: replenished.stock,
-        discard: replenished.discard,
-        endRoundDueToStockExhaustion:
-          replenished.stock.length === 0 && replenished.discard.length <= 1,
-      };
+      const result = applyRoundDrawFromStock(context);
+      return result.success ? result.patch : {};
     }),
 
     applyDrawFromDiscardToRound: assign(({ context, event, self }) => {
@@ -373,7 +352,6 @@ export const roundMachine = setup({
       const currentPlayer = context.players[context.currentPlayerIndex];
       if (!currentPlayer) return {};
       if (event.playerId !== undefined && event.playerId !== currentPlayer.id) return {};
-      if (currentPlayer.isDown) return {};
 
       const turnActor = self.getSnapshot().children.turn;
       const turnSnapshot = turnActor?.getSnapshot();
@@ -381,17 +359,8 @@ export const roundMachine = setup({
       if (turnSnapshot?.value !== "awaitingDraw") return {};
       if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
 
-      const drawnCard = context.discard[0];
-      if (!drawnCard) return {};
-
-      return {
-        players: context.players.map((player, index) =>
-          index === context.currentPlayerIndex
-            ? { ...player, hand: [...currentPlayer.hand, drawnCard] }
-            : player
-        ),
-        discard: context.discard.slice(1),
-      };
+      const result = applyRoundDrawFromDiscard(context);
+      return result.success ? result.patch : {};
     }),
 
     applyLayDownToRound: assign(({ context, event, self }) => {
@@ -562,27 +531,8 @@ export const roundMachine = setup({
       }
       if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
 
-      const card = currentPlayer.hand.find((handCard) => handCard.id === event.cardId);
-      if (!card) return {};
-
-      let removed = false;
-      return {
-        players: context.players.map((player, index) =>
-          index === context.currentPlayerIndex
-            ? {
-                ...player,
-                hand: player.hand.filter((handCard) => {
-                  if (!removed && handCard.id === event.cardId) {
-                    removed = true;
-                    return false;
-                  }
-                  return true;
-                }),
-              }
-            : player
-        ),
-        discard: [card, ...context.discard],
-      };
+      const result = applyRoundDiscard(context, event.cardId);
+      return result.success ? result.patch : {};
     }),
 
     initializeMayIResolution: assign(({ context, event }) => {
@@ -766,18 +716,10 @@ export const roundMachine = setup({
       const playerId = event.playerId;
       if (!playerId) return {};
 
-      const playerIndex = context.players.findIndex((p) => p.id === playerId);
-      if (playerIndex === -1) return {};
-
-      const player = context.players[playerIndex]!;
-      const result = reorderHandUtil(player.hand, event.newOrder);
+      const result = applyRoundReorderHand(context, playerId, event.newOrder);
       if (!result.success) return {};
 
-      return {
-        players: context.players.map((p, i) =>
-          i === playerIndex ? { ...p, hand: result.hand } : p
-        ),
-      };
+      return result.patch;
     }),
   },
 }).createMachine({

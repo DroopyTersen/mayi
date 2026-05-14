@@ -84,6 +84,8 @@ Minimum browser checks:
 - [ ] Phase 1: Finish the core card-state owner seam
   - [x] Prevent turn completion from overwriting round-owned card/player state
     from stale `TurnOutput`
+  - [x] Extract draw, discard, and reorder card moves into pure round
+    card-state helpers
 - [ ] Phase 2: Deepen the committed game action pipeline
 - [ ] Phase 3: Move `GameAction` into a shared command module
 - [ ] Phase 4: Split room side effects into domain events and broadcast projection
