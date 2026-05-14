@@ -28,8 +28,8 @@ import {
   type GameActionSideEffect,
   type RoomPhase,
 } from "./mayi-room.message-handlers";
-import { executeStoredGameAction } from "./game-action-executor";
 import { GameActionQueue } from "./game-action-queue";
+import { submitQueuedGameAction } from "./queued-game-action";
 
 import {
   parseClientMessage,
@@ -690,15 +690,13 @@ export class MayIRoom extends Server {
     action: GameAction,
     options: { skipAITurnsIfNeeded?: boolean } = {}
   ): Promise<AIActionResult> {
-    const result = await this.gameActionQueue.enqueue(async () => {
-      const roomPhase = await this.getRoomPhase();
-      return executeStoredGameAction({
-        roomPhase,
-        callerPlayerId: playerId,
-        action,
-        getState: () => this.getGameState(),
-        setState: (state) => this.setGameState(state),
-      });
+    const result = await submitQueuedGameAction({
+      queue: this.gameActionQueue,
+      getRoomPhase: () => this.getRoomPhase(),
+      callerPlayerId: playerId,
+      action,
+      getState: () => this.getGameState(),
+      setState: (state) => this.setGameState(state),
     });
 
     if (!result.ok) {
@@ -814,15 +812,13 @@ export class MayIRoom extends Server {
       this.logMayI(`AI turn aborted`);
     }
 
-    const result = await this.gameActionQueue.enqueue(async () => {
-      const roomPhase = await this.getRoomPhase();
-      return executeStoredGameAction({
-        roomPhase,
-        callerPlayerId,
-        action: msg.action,
-        getState: () => this.getGameState(),
-        setState: (state) => this.setGameState(state),
-      });
+    const result = await submitQueuedGameAction({
+      queue: this.gameActionQueue,
+      getRoomPhase: () => this.getRoomPhase(),
+      callerPlayerId,
+      action: msg.action,
+      getState: () => this.getGameState(),
+      setState: (state) => this.setGameState(state),
     });
 
     if (!result.ok) {

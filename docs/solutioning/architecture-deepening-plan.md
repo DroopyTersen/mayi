@@ -1,6 +1,6 @@
 # Architecture Deepening Plan
 
-Status: proposed
+Status: in progress
 Created: 2026-05-14
 
 ## Summary
@@ -91,6 +91,8 @@ Minimum browser checks:
   - [x] Project legacy game-actor player state from `RoundMachine` instead of
     stale turn copies
 - [ ] Phase 2: Deepen the committed game action pipeline
+  - [x] Centralize room queued action submission behind
+    `submitQueuedGameAction`
 - [ ] Phase 3: Move `GameAction` into a shared command module
 - [ ] Phase 4: Split room side effects into domain events and broadcast projection
 - [ ] Phase 5: Create typed UI player-action intents
