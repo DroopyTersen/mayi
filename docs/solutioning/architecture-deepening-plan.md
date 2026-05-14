@@ -86,6 +86,8 @@ Minimum browser checks:
     from stale `TurnOutput`
   - [x] Extract draw, discard, and reorder card moves into pure round
     card-state helpers
+  - [x] Extract laydown, layoff, and joker-swap card moves into pure round
+    card-state helpers
 - [ ] Phase 2: Deepen the committed game action pipeline
 - [ ] Phase 3: Move `GameAction` into a shared command module
 - [ ] Phase 4: Split room side effects into domain events and broadcast projection

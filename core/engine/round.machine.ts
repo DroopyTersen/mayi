@@ -38,7 +38,10 @@ import {
   applyRoundDiscard,
   applyRoundDrawFromDiscard,
   applyRoundDrawFromStock,
+  applyRoundLayDown,
+  applyRoundLayOff,
   applyRoundReorderHand,
+  applyRoundSwapJoker,
 } from "./round.card-state";
 
 /**
@@ -393,18 +396,8 @@ export const roundMachine = setup({
         id: `meld-${currentPlayer.id}-${tableLen + index}`,
       }));
 
-      return {
-        players: context.players.map((player, index) =>
-          index === context.currentPlayerIndex
-            ? {
-                ...player,
-                hand: player.hand.filter((card) => !usedCardIds.has(card.id)),
-                isDown: true,
-              }
-            : player
-        ),
-        table: [...context.table, ...newMelds],
-      };
+      const result = applyRoundLayDown(context, [...usedCardIds], newMelds);
+      return result.success ? result.patch : {};
     }),
 
     applyLayOffToRound: assign(({ context, event, self }) => {
@@ -450,21 +443,8 @@ export const roundMachine = setup({
             : { ...targetMeld, cards: [...targetMeld.cards, card] };
       }
 
-      const updatedTable = context.table.map((meld) =>
-        meld.id === event.meldId && updatedMeld !== null ? updatedMeld : meld
-      );
-
-      return {
-        players: context.players.map((player, index) =>
-          index === context.currentPlayerIndex
-            ? {
-                ...player,
-                hand: currentPlayer.hand.filter((handCard) => handCard.id !== event.cardId),
-              }
-            : player
-        ),
-        table: updatedTable,
-      };
+      const result = applyRoundLayOff(context, event.cardId, updatedMeld);
+      return result.success ? result.patch : {};
     }),
 
     applySwapJokerToRound: assign(({ context, event, self }) => {
@@ -491,30 +471,13 @@ export const roundMachine = setup({
       if (!swapCard) return {};
       if (!canSwapJokerWithCard(targetMeld, jokerCard, swapCard)) return {};
 
-      const updatedTable = context.table.map((meld) => {
-        if (meld.id !== event.meldId) return meld;
-        return {
-          ...meld,
-          cards: meld.cards.map((card) =>
-            card.id === event.jokerCardId ? swapCard : card
-          ),
-        };
-      });
-
-      return {
-        players: context.players.map((player, index) =>
-          index === context.currentPlayerIndex
-            ? {
-                ...player,
-                hand: [
-                  ...currentPlayer.hand.filter((handCard) => handCard.id !== event.swapCardId),
-                  jokerCard,
-                ],
-              }
-            : player
-        ),
-        table: updatedTable,
-      };
+      const result = applyRoundSwapJoker(
+        context,
+        event.meldId,
+        event.jokerCardId,
+        event.swapCardId
+      );
+      return result.success ? result.patch : {};
     }),
 
     applyDiscardToRound: assign(({ context, event, self }) => {

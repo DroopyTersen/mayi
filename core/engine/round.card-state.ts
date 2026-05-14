@@ -167,3 +167,134 @@ export function applyRoundReorderHand(
     },
   };
 }
+
+export function applyRoundLayDown(
+  state: RoundCardState,
+  usedCardIds: string[],
+  newMelds: Meld[]
+): RoundCardStateResult {
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  if (!currentPlayer) {
+    return { success: false, error: "Current player not found" };
+  }
+
+  const usedCardIdSet = new Set(usedCardIds);
+  if (usedCardIdSet.size !== usedCardIds.length) {
+    return { success: false, error: "Duplicate card IDs in laydown" };
+  }
+
+  const handCardIds = new Set(currentPlayer.hand.map((handCard) => handCard.id));
+  for (const usedCardId of usedCardIdSet) {
+    if (!handCardIds.has(usedCardId)) {
+      return { success: false, error: "Laydown card is not in current player's hand" };
+    }
+  }
+
+  return {
+    success: true,
+    patch: {
+      players: state.players.map((player, index) =>
+        index === state.currentPlayerIndex
+          ? {
+              ...player,
+              hand: player.hand.filter((handCard) => !usedCardIdSet.has(handCard.id)),
+              isDown: true,
+            }
+          : player
+      ),
+      table: [...state.table, ...newMelds],
+    },
+  };
+}
+
+export function applyRoundLayOff(
+  state: RoundCardState,
+  cardId: string,
+  updatedMeld: Meld
+): RoundCardStateResult {
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  if (!currentPlayer) {
+    return { success: false, error: "Current player not found" };
+  }
+
+  const card = currentPlayer.hand.find((handCard) => handCard.id === cardId);
+  if (!card) {
+    return { success: false, error: "Layoff card is not in current player's hand" };
+  }
+  if (!state.table.some((meld) => meld.id === updatedMeld.id)) {
+    return { success: false, error: "Target meld not found" };
+  }
+
+  let removed = false;
+  return {
+    success: true,
+    patch: {
+      players: state.players.map((player, index) =>
+        index === state.currentPlayerIndex
+          ? {
+              ...player,
+              hand: player.hand.filter((handCard) => {
+                if (!removed && handCard.id === cardId) {
+                  removed = true;
+                  return false;
+                }
+                return true;
+              }),
+            }
+          : player
+      ),
+      table: state.table.map((meld) => (meld.id === updatedMeld.id ? updatedMeld : meld)),
+    },
+  };
+}
+
+export function applyRoundSwapJoker(
+  state: RoundCardState,
+  meldId: string,
+  jokerCardId: string,
+  swapCardId: string
+): RoundCardStateResult {
+  const currentPlayer = state.players[state.currentPlayerIndex];
+  if (!currentPlayer) {
+    return { success: false, error: "Current player not found" };
+  }
+
+  const targetMeld = state.table.find((meld) => meld.id === meldId);
+  if (!targetMeld) {
+    return { success: false, error: "Target meld not found" };
+  }
+
+  const jokerCard = targetMeld.cards.find((card) => card.id === jokerCardId);
+  if (!jokerCard) {
+    return { success: false, error: "Joker card not found in target meld" };
+  }
+
+  const swapCard = currentPlayer.hand.find((card) => card.id === swapCardId);
+  if (!swapCard) {
+    return { success: false, error: "Swap card is not in current player's hand" };
+  }
+
+  return {
+    success: true,
+    patch: {
+      players: state.players.map((player, index) =>
+        index === state.currentPlayerIndex
+          ? {
+              ...player,
+              hand: [
+                ...currentPlayer.hand.filter((handCard) => handCard.id !== swapCardId),
+                jokerCard,
+              ],
+            }
+          : player
+      ),
+      table: state.table.map((meld) => {
+        if (meld.id !== meldId) return meld;
+        return {
+          ...meld,
+          cards: meld.cards.map((card) => (card.id === jokerCardId ? swapCard : card)),
+        };
+      }),
+    },
+  };
+}

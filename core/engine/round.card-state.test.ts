@@ -6,7 +6,10 @@ import {
   applyRoundDiscard,
   applyRoundDrawFromDiscard,
   applyRoundDrawFromStock,
+  applyRoundLayDown,
+  applyRoundLayOff,
   applyRoundReorderHand,
+  applyRoundSwapJoker,
 } from "./round.card-state";
 
 function card(id: string, rank: Card["rank"] = "7", suit: Card["suit"] = "clubs"): Card {
@@ -201,5 +204,112 @@ describe("round card-state helpers", () => {
     expect(result.patch.discard).toBeUndefined();
     expect(result.patch.table).toBeUndefined();
     expect(state).toEqual(before);
+  });
+
+  it("lays down melds by removing their cards from the current hand and appending table melds", () => {
+    const setCards = [
+      card("set-7-hearts", "7", "hearts"),
+      card("set-7-diamonds", "7", "diamonds"),
+      card("set-7-clubs", "7", "clubs"),
+    ];
+    const keepCard = card("keep-card", "9", "spades");
+    const newMelds = [meld("new-set", setCards)];
+    const state = {
+      players: [player("player-0", [...setCards, keepCard])],
+      currentPlayerIndex: 0,
+      stock: [card("stock-card")],
+      discard: [card("discard-card")],
+      table: [meld("existing-meld", [card("existing-table-card")])],
+    };
+    const before = structuredClone(state);
+
+    const result = applyRoundLayDown(
+      state,
+      setCards.map((setCard) => setCard.id),
+      newMelds
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.patch.players?.[0]?.hand.map((handCard) => handCard.id)).toEqual([
+      keepCard.id,
+    ]);
+    expect(result.patch.players?.[0]?.isDown).toBe(true);
+    expect(result.patch.table?.map((tableMeld) => tableMeld.id)).toEqual([
+      "existing-meld",
+      "new-set",
+    ]);
+    expect(result.patch.stock).toBeUndefined();
+    expect(result.patch.discard).toBeUndefined();
+    expect(state).toEqual(before);
+  });
+
+  it("lays off a card by removing it from hand and replacing the target meld", () => {
+    const layoffCard = card("layoff-card", "7", "spades");
+    const keepCard = card("keep-card", "9", "spades");
+    const originalMeld = meld("target-meld", [
+      card("set-7-hearts", "7", "hearts"),
+      card("set-7-diamonds", "7", "diamonds"),
+      card("set-7-clubs", "7", "clubs"),
+    ]);
+    const updatedMeld = { ...originalMeld, cards: [...originalMeld.cards, layoffCard] };
+    const state = {
+      players: [player("player-0", [layoffCard, keepCard], true)],
+      currentPlayerIndex: 0,
+      stock: [],
+      discard: [],
+      table: [originalMeld],
+    };
+
+    const result = applyRoundLayOff(state, layoffCard.id, updatedMeld);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.patch.players?.[0]?.hand.map((handCard) => handCard.id)).toEqual([
+      keepCard.id,
+    ]);
+    expect(result.patch.table?.[0]?.cards.map((tableCard) => tableCard.id)).toEqual([
+      "set-7-hearts",
+      "set-7-diamonds",
+      "set-7-clubs",
+      layoffCard.id,
+    ]);
+  });
+
+  it("swaps a joker by moving the real card to the table and the joker to hand", () => {
+    const joker = card("run-joker", "Joker", null);
+    const swapCard = card("swap-5-hearts", "5", "hearts");
+    const keepCard = card("keep-card", "9", "spades");
+    const runMeld: Meld = {
+      id: "run-meld",
+      ownerId: "player-1",
+      type: "run",
+      cards: [
+        card("run-3-hearts", "3", "hearts"),
+        card("run-4-hearts", "4", "hearts"),
+        joker,
+      ],
+    };
+    const state = {
+      players: [player("player-0", [swapCard, keepCard])],
+      currentPlayerIndex: 0,
+      stock: [],
+      discard: [],
+      table: [runMeld],
+    };
+
+    const result = applyRoundSwapJoker(state, runMeld.id, joker.id, swapCard.id);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.patch.players?.[0]?.hand.map((handCard) => handCard.id)).toEqual([
+      keepCard.id,
+      joker.id,
+    ]);
+    expect(result.patch.table?.[0]?.cards.map((tableCard) => tableCard.id)).toEqual([
+      "run-3-hearts",
+      "run-4-hearts",
+      swapCard.id,
+    ]);
   });
 });
