@@ -33,8 +33,6 @@ interface MayIContext {
 
 interface TurnContext {
   playerId: string;
-  hand: Card[];
-  isDown: boolean;
   hasDrawn: boolean;
   laidDownThisTurn: boolean;
 }
@@ -231,7 +229,8 @@ export function getSerializableState(actor: GameActor): SerializableGameState {
     }
   }
 
-  // Build players array - prefer round context if available
+  // Build players array from round context. RoundMachine owns physical cards
+  // and player round state; TurnMachine only contributes turn workflow flags.
   const players: Player[] = roundContext?.players ?? context.players;
 
   return {
@@ -250,8 +249,8 @@ export function getSerializableState(actor: GameActor): SerializableGameState {
     players: players.map((p) => ({
       id: p.id,
       name: p.name,
-      hand: turnContext?.playerId === p.id ? turnContext.hand : p.hand,
-      isDown: turnContext?.playerId === p.id ? turnContext.isDown : p.isDown,
+      hand: p.hand,
+      isDown: p.isDown,
       totalScore: p.totalScore,
     })),
     currentPlayerIndex: roundContext?.currentPlayerIndex ?? 0,

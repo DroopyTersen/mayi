@@ -79,14 +79,9 @@ interface RoundContext {
 
 interface TurnContext {
   playerId: string;
-  hand: Card[];
-  stock: Card[];
-  discard: Card[];
-  isDown: boolean;
   hasDrawn: boolean;
   laidDownThisTurn: boolean;
   tookActionThisTurn: boolean;
-  table: Meld[];
   lastError: string | null;
 }
 
@@ -503,12 +498,7 @@ export class GameEngine {
           gameId: this.gameId,
           cardInvariantViolations: cardInvariantReport.violations,
           turnPlayerId: turnContext?.playerId ?? null,
-          turnHasDiscard: Array.isArray(turnContext?.discard),
-          turnDiscardCount: Array.isArray(turnContext?.discard)
-            ? turnContext.discard.length
-            : null,
           roundDiscardCount: roundContext?.discard?.length ?? null,
-          turnHandCount: Array.isArray(turnContext?.hand) ? turnContext.hand.length : null,
           roundPlayerCount: roundContext?.players?.length ?? null,
         }
       );

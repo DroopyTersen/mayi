@@ -14,6 +14,11 @@ import {
   restoreGameActor,
   type SerializableGameState,
 } from "./game.actor";
+import type { Card } from "../card/card.types";
+
+function card(id: string, rank: Card["rank"] = "7", suit: Card["suit"] = "clubs"): Card {
+  return { id, rank, suit };
+}
 
 describe("createGameActor", () => {
   it("creates an actor in setup state", () => {
@@ -125,6 +130,81 @@ describe("getSerializableState", () => {
     expect(["drawn", "awaitingDiscard"]).toContain(state.turnPhase);
 
     actor.stop();
+  });
+
+  it("serializes current player cards and down status from round state when turn copy is stale", () => {
+    const roundCard = card("round-owned-card", "8", "hearts");
+    const staleTurnCard = card("stale-turn-card", "9", "spades");
+    const gameContext = {
+      gameId: "test-game",
+      players: [
+        {
+          id: "player-0",
+          name: "Alice",
+          hand: [],
+          isDown: false,
+          totalScore: 0,
+        },
+      ],
+      currentRound: 1,
+      dealerIndex: 0,
+      roundHistory: [],
+      winners: [],
+      lastError: null,
+    };
+    const fakeActor = {
+      getSnapshot: () => ({
+        value: "playing",
+        context: gameContext,
+      }),
+      getPersistedSnapshot: () => ({
+        value: "playing",
+        context: gameContext,
+        children: {
+          round: {
+            snapshot: {
+              value: { active: "playing" },
+              context: {
+                players: [
+                  {
+                    id: "player-0",
+                    name: "Alice",
+                    hand: [roundCard],
+                    isDown: false,
+                    totalScore: 0,
+                  },
+                ],
+                currentPlayerIndex: 0,
+                stock: [card("stock-card")],
+                discard: [card("discard-card")],
+                table: [],
+              },
+              children: {
+                turn: {
+                  snapshot: {
+                    value: "drawn",
+                    context: {
+                      playerId: "player-0",
+                      hand: [staleTurnCard],
+                      isDown: true,
+                      hasDrawn: true,
+                      laidDownThisTurn: false,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    };
+
+    const state = getSerializableState(fakeActor as never);
+
+    expect(state.players[0]?.hand.map((handCard) => handCard.id)).toEqual([
+      roundCard.id,
+    ]);
+    expect(state.players[0]?.isDown).toBe(false);
   });
 });
 
