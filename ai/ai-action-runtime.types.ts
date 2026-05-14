@@ -1,5 +1,5 @@
 import type { GameSnapshot } from "../core/engine/game-engine.types";
-import type { GameAction } from "../app/party/protocol.types";
+import type { GameAction } from "../core/engine/game-action.command";
 
 export type AIActionResult =
   | { ok: true; snapshot: GameSnapshot }

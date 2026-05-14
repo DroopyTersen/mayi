@@ -19,7 +19,7 @@ import type { ActionLogEntry, CliGameSave } from "./cli.types";
 import { appendActionLog, generateGameId, loadGameSave, saveGameSave } from "./cli.persistence";
 import { getNumberedMelds } from "./cli-meld-numbering";
 import { renderCard } from "./cli.renderer";
-import type { GameAction } from "../../app/party/protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 
 type EnginePersistedSnapshot = ReturnType<GameEngine["getPersistedSnapshot"]>;
 

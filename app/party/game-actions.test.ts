@@ -8,7 +8,8 @@
 import { describe, it, expect } from "bun:test";
 import { PartyGameAdapter } from "./party-game-adapter";
 import { executeGameAction } from "./game-actions";
-import type { HumanPlayerInfo, AIPlayerInfo, GameAction } from "./protocol.types";
+import type { HumanPlayerInfo, AIPlayerInfo } from "./protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import type { AgentTestState } from "./agent-state.types";
 import { createTestCard } from "../../core/engine/test.fixtures";

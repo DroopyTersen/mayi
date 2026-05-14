@@ -10,7 +10,8 @@ import {
   type RoomPhase,
 } from "./mayi-room.message-handlers";
 import { PartyGameAdapter, type StoredGameState } from "./party-game-adapter";
-import type { ErrorMessage, GameAction } from "./protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
+import type { ErrorMessage } from "./protocol.types";
 
 export interface ExecuteStoredGameActionInput {
   roomPhase: RoomPhase;

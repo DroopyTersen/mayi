@@ -2,8 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import { AITurnCoordinator, type AITurnCoordinatorDeps } from "./ai-turn-coordinator";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 import type { PlayerMapping, StoredGameState } from "./party-game-adapter";
-import type { GameAction } from "./protocol.types";
 import type { PartyGameAdapter } from "./party-game-adapter";
 
 function createSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot {

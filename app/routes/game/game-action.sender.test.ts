@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
-import type { ClientMessage, GameAction } from "~/party/protocol.types";
+import type { ClientMessage } from "~/party/protocol.types";
+import type { GameAction } from "core/engine/game-action.command";
 import { sendGameActionIfConnected } from "./game-action.sender";
 
 function createSendCapture() {

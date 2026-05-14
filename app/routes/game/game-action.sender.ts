@@ -1,5 +1,6 @@
 import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
-import type { ClientMessage, GameAction } from "~/party/protocol.types";
+import type { ClientMessage } from "~/party/protocol.types";
+import type { GameAction } from "core/engine/game-action.command";
 
 interface SendGameActionOptions {
   connectionStatus: ConnectionStatus;

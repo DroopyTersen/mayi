@@ -100,7 +100,14 @@ Minimum browser checks:
   - [x] Verify local realtime action path with WebSocket agent-state smoke;
     Chrome automation was attempted but blocked by tool timeouts
   - [x] Verify AI integration with `RUN_INTEGRATION_TESTS=1 bun test ai/`
-- [ ] Phase 3: Move `GameAction` into a shared command module
+- [x] Phase 3: Move `GameAction` into a shared command module
+  - [x] Add shared `core/engine/game-action.command.ts` schema and type
+  - [x] Make Party protocol adapt/re-export the shared command schema
+  - [x] Move AI, CLI, Party action, and web sender imports to the shared
+    command module
+  - [x] Verify no AI/CLI imports from `app/party/protocol.types`
+  - [x] Verify with targeted tests, typecheck, full suite, build, and CLI
+    command-mode smoke
 - [ ] Phase 4: Split room side effects into domain events and broadcast projection
 - [ ] Phase 5: Create typed UI player-action intents
 - [ ] Phase 6: Move shared rendering, prompt, and activity text out of CLI

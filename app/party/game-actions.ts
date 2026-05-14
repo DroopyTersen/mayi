@@ -5,7 +5,7 @@
  * It bridges between the wire protocol (ClientMessage) and the PartyGameAdapter.
  */
 
-import type { GameAction } from "./protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 import type { PartyGameAdapter } from "./party-game-adapter";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import { renderCard } from "../../cli/shared/cli.renderer";

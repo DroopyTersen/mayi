@@ -37,9 +37,9 @@ import type {
   ClientMessage,
   ServerMessage,
   PlayerView,
-  GameAction,
   ActivityLogEntry,
 } from "~/party/protocol.types";
+import type { GameAction } from "core/engine/game-action.command";
 import type { RoundSummaryPayload } from "~/party/round-summary.types";
 import type { Card } from "core/card/card.types";
 import { normalizeRoomId } from "core/room/room-id.utils";

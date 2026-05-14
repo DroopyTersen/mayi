@@ -8,7 +8,7 @@
 import { z } from "zod";
 import type { Card } from "../../core/card/card.types";
 import type { Meld } from "../../core/meld/meld.types";
-import type { PlayerView, MeldSpec } from "../../core/engine/game-engine.types";
+import type { PlayerView } from "../../core/engine/game-engine.types";
 import type { RoundSummaryPayload } from "./round-summary.types";
 import type { RoundNumber } from "../../core/engine/engine.types";
 import type { Contract } from "../../core/engine/contracts";
@@ -16,6 +16,11 @@ import type { AgentTestState } from "./agent-state.types";
 import { agentTestStateSchema } from "./agent-state.validation";
 import { AI_MODEL_DISPLAY_NAMES, AI_MODEL_IDS, type AIModelId } from "./ai-models";
 import { agentSetupMessageSchema } from "./agent-harness.types";
+import {
+  gameActionSchema,
+  meldSpecSchema,
+  type GameAction,
+} from "../../core/engine/game-action.command";
 
 // Re-export types needed by clients
 export type { PlayerView } from "../../core/engine/game-engine.types";
@@ -128,29 +133,7 @@ export const injectStateMessageSchema = z.object({
 export const agentSetupSchema = agentSetupMessageSchema;
 
 // Game action schemas
-export const meldSpecSchema = z.object({
-  type: z.enum(["set", "run"]),
-  cardIds: z.array(z.string()),
-});
-
-export const gameActionSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("DRAW_FROM_STOCK") }),
-  z.object({ type: z.literal("DRAW_FROM_DISCARD") }),
-  z.object({ type: z.literal("LAY_DOWN"), melds: z.array(meldSpecSchema) }),
-  z.object({ type: z.literal("LAY_OFF"), cardId: z.string(), meldId: z.string(), position: z.enum(["start", "end"]).optional() }),
-  z.object({
-    type: z.literal("SWAP_JOKER"),
-    meldId: z.string(),
-    jokerCardId: z.string(),
-    swapCardId: z.string(),
-  }),
-  z.object({ type: z.literal("DISCARD"), cardId: z.string() }),
-  z.object({ type: z.literal("SKIP") }),
-  z.object({ type: z.literal("REORDER_HAND"), cardIds: z.array(z.string()) }),
-  z.object({ type: z.literal("CALL_MAY_I") }),
-  z.object({ type: z.literal("ALLOW_MAY_I") }),
-  z.object({ type: z.literal("CLAIM_MAY_I") }),
-]);
+export { gameActionSchema, meldSpecSchema };
 
 export const gameActionMessageSchema = z.object({
   type: z.literal("GAME_ACTION"),
@@ -184,7 +167,7 @@ export type StartGameMessage = z.infer<typeof startGameSchema>;
 export type InjectStateMessage = z.infer<typeof injectStateMessageSchema>;
 export type AgentSetupMessage = z.infer<typeof agentSetupSchema>;
 export type GameActionMessage = z.infer<typeof gameActionMessageSchema>;
-export type GameAction = z.infer<typeof gameActionSchema>;
+export type { GameAction };
 export type PingMessage = z.infer<typeof pingMessageSchema>;
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 

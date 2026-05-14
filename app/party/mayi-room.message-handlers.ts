@@ -1,13 +1,13 @@
 import type {
   AddAIPlayerMessage,
   ErrorMessage,
-  GameAction,
   HumanPlayerInfo,
   JoinMessage,
   RemoveAIPlayerMessage,
   ServerMessage,
   SetStartingRoundMessage,
 } from "./protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 import {
   upsertStoredPlayerOnJoin,
   type StoredPlayer,

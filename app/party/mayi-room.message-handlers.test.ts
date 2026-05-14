@@ -13,10 +13,10 @@ import type { StoredPlayer } from "./mayi-room.presence";
 import type {
   AIPlayerInfo,
   AddAIPlayerMessage,
-  GameAction,
   HumanPlayerInfo,
   JoinMessage,
 } from "./protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 import { AI_MODEL_DISPLAY_NAMES } from "./protocol.types";
 import { PartyGameAdapter } from "./party-game-adapter";
 

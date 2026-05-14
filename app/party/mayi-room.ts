@@ -39,8 +39,8 @@ import {
   type InjectStateMessage,
   type AgentSetupMessage,
   type MayINotificationMessage,
-  type GameAction,
 } from "./protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import type { AgentStoredStateV1 } from "./agent-harness.types";

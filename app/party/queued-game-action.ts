@@ -5,7 +5,7 @@ import {
 import type { GameActionQueue } from "./game-action-queue";
 import type { RoomPhase } from "./mayi-room.message-handlers";
 import type { StoredGameState } from "./party-game-adapter";
-import type { GameAction } from "./protocol.types";
+import type { GameAction } from "../../core/engine/game-action.command";
 
 export interface SubmitQueuedGameActionInput {
   queue: GameActionQueue;
