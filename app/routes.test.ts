@@ -20,6 +20,10 @@ describe("route config", () => {
     expect(JSON.stringify(routeConfig)).toContain("storybook/*");
   });
 
+  it("includes the mobile May-I repro route for local/ngrok debugging", () => {
+    expect(JSON.stringify(routeConfig)).toContain("debug/mayi-mobile-repro");
+  });
+
   it("does not gate storybook on the build environment", async () => {
     const source = await Bun.file(new URL("./routes.ts", import.meta.url)).text();
 

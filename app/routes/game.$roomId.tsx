@@ -45,6 +45,7 @@ import type { Card } from "core/card/card.types";
 import { normalizeRoomId } from "core/room/room-id.utils";
 import { useAgentHarnessSetup } from "~/ui/agent-harness/useAgentHarnessSetup";
 import { sendGameActionIfConnected } from "./game/game-action.sender";
+import { getVisibleMayIPrompt } from "./game/may-i-prompt.state";
 import { applyOptimisticMayIPending } from "./game/optimistic-may-i";
 import {
   createMayINotification,
@@ -606,6 +607,15 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     [gameState, hasOptimisticMayIPending]
   );
 
+  const visibleMayIPrompt = useMemo(
+    () =>
+      getVisibleMayIPrompt({
+        explicitPrompt: mayIPrompt,
+        gameState: displayGameState,
+      }),
+    [displayGameState, mayIPrompt]
+  );
+
   // Phase 3.3: Render lobby or game based on room phase
   if (roomPhase === "playing" && displayGameState) {
     return (
@@ -621,11 +631,11 @@ export default function Game({ loaderData }: Route.ComponentProps) {
           suppressActionDrawers={Boolean(roundEndData || gameEndData)}
         />
         {/* Phase 3.6: May I Prompt Dialog */}
-        {mayIPrompt && (
+        {visibleMayIPrompt && (
           <MayIPromptDialog
             open={true}
-            callerName={mayIPrompt.callerName}
-            card={mayIPrompt.card}
+            callerName={visibleMayIPrompt.callerName}
+            card={visibleMayIPrompt.card}
             canMayIInstead={canMayIInstead}
             isCurrentPlayer={isCurrentTurnPlayer}
             onAllow={onAllowMayI}

@@ -96,6 +96,11 @@ describe("getPlayersWhoCanCallMayI", () => {
     const fakeSnapshot = { ...snapshot, phase: "RESOLVING_MAY_I" as const };
     expect(getPlayersWhoCanCallMayI(fakeSnapshot)).toEqual([]);
   });
+
+  it("returns empty array after the exposed discard has already been claimed", () => {
+    const fakeSnapshot = { ...snapshot, discardClaimed: true };
+    expect(getPlayersWhoCanCallMayI(fakeSnapshot)).toEqual([]);
+  });
 });
 
 describe("getMeldPlaceholderCount", () => {

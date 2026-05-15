@@ -603,6 +603,166 @@ describe("executeGameAction", () => {
   });
 
   describe("May I actions", () => {
+    function createCurtKateRobinMayIAdapter() {
+      const robinHand = [
+        createTestCard("6", "diamonds", "robin-6-D"),
+        createTestCard("6", "clubs", "robin-6-C"),
+        createTestCard("10", "hearts", "robin-10-H"),
+        createTestCard("10", "clubs", "robin-10-C-1"),
+        createTestCard("10", "clubs", "robin-10-C-2"),
+        createTestCard("A", "hearts", "robin-A-H"),
+        createTestCard("A", "spades", "robin-A-S-1"),
+        createTestCard("A", "spades", "robin-A-S-2"),
+        createTestCard("A", "clubs", "robin-A-C"),
+        createTestCard("9", "clubs", "robin-9-C"),
+        createTestCard("8", "spades", "robin-8-S"),
+        createTestCard("7", "spades", "robin-7-S"),
+        createTestCard("3", "diamonds", "robin-3-D"),
+      ];
+
+      const state: AgentTestState = {
+        players: [
+          {
+            id: "curt",
+            name: "Curt",
+            isAI: false,
+            hand: [
+              createTestCard("K", "clubs", "curt-K-C"),
+              createTestCard("Q", "clubs", "curt-Q-C"),
+              createTestCard("J", "clubs", "curt-J-C"),
+              createTestCard("10", "spades", "curt-10-S"),
+              createTestCard("9", "spades", "curt-9-S"),
+              createTestCard("8", "spades", "curt-8-S"),
+              createTestCard("7", "hearts", "curt-7-H"),
+              createTestCard("6", "hearts", "curt-6-H"),
+              createTestCard("5", "hearts", "curt-5-H"),
+              createTestCard("4", "clubs", "curt-4-C"),
+              createTestCard("3", "clubs", "curt-3-C"),
+            ],
+            isDown: false,
+            totalScore: 34,
+          },
+          {
+            id: "kate",
+            name: "Kate",
+            isAI: false,
+            hand: [
+              createTestCard("3", "diamonds", "kate-3-D"),
+              createTestCard("8", "hearts", "kate-8-H"),
+            ],
+            isDown: true,
+            totalScore: 14,
+          },
+          {
+            id: "robin",
+            name: "Robin",
+            isAI: false,
+            hand: robinHand,
+            isDown: false,
+            totalScore: 31,
+          },
+        ],
+        roundNumber: 4,
+        stock: [
+          createTestCard("9", "hearts", "stock-9-H"),
+          createTestCard("Q", "diamonds", "stock-Q-D"),
+          createTestCard("5", "clubs", "stock-5-C"),
+        ],
+        discard: [
+          createTestCard("4", "diamonds", "discard-4-D"),
+          createTestCard("K", "hearts", "discard-K-H"),
+        ],
+        table: [
+          {
+            id: "kate-set-kings",
+            type: "set",
+            ownerId: "kate",
+            cards: [
+              createTestCard("K", "clubs", "kate-table-K-C"),
+              createTestCard("K", "hearts", "kate-table-K-H"),
+              createTestCard("K", "clubs", "kate-table-K-C-2"),
+            ],
+          },
+          {
+            id: "kate-set-tens",
+            type: "set",
+            ownerId: "kate",
+            cards: [
+              createTestCard("2", "spades", "kate-table-2-S"),
+              createTestCard("10", "spades", "kate-table-10-S"),
+              createTestCard("10", "diamonds", "kate-table-10-D"),
+            ],
+          },
+          {
+            id: "kate-set-eights",
+            type: "set",
+            ownerId: "kate",
+            cards: [
+              createTestCard("8", "clubs", "kate-table-8-C-1"),
+              createTestCard("8", "clubs", "kate-table-8-C-2"),
+              createTestCard("8", "diamonds", "kate-table-8-D"),
+            ],
+          },
+        ],
+        turn: {
+          currentPlayerIndex: 2,
+          hasDrawn: false,
+          phase: "awaitingDraw",
+        },
+      };
+
+      return createAdapterFromAgentState(state);
+    }
+
+    it("lets the current player respond when prompted by a May-I before drawing", () => {
+      const adapter = createCurtKateRobinMayIAdapter();
+
+      const callResult = executeGameAction(adapter, "curt", {
+        type: "CALL_MAY_I",
+      });
+
+      expect(callResult.success).toBe(true);
+      expect(adapter.getSnapshot().phase).toBe("RESOLVING_MAY_I");
+      expect(adapter.getAwaitingLobbyPlayerId()).toBe("robin");
+
+      const allowResult = executeGameAction(adapter, "robin", {
+        type: "ALLOW_MAY_I",
+      });
+
+      expect(allowResult.status).toBe("accepted");
+      expect(adapter.getSnapshot().phase).toBe("ROUND_ACTIVE");
+      expect(adapter.getAwaitingLobbyPlayerId()).toBe("robin");
+      expect(adapter.getSnapshot().turnPhase).toBe("AWAITING_DRAW");
+
+      const robinView = adapter.getPlayerView("robin");
+      expect(robinView?.availableActions.canDrawFromStock).toBe(true);
+      expect(robinView?.availableActions.canDrawFromDiscard).toBe(false);
+    });
+
+    it("lets the current player claim a May-I prompt as their normal draw", () => {
+      const adapter = createCurtKateRobinMayIAdapter();
+
+      executeGameAction(adapter, "curt", { type: "CALL_MAY_I" });
+
+      const claimResult = executeGameAction(adapter, "robin", {
+        type: "CLAIM_MAY_I",
+      });
+
+      expect(claimResult.status).toBe("accepted");
+      expect(adapter.getSnapshot().phase).toBe("ROUND_ACTIVE");
+      expect(adapter.getAwaitingLobbyPlayerId()).toBe("robin");
+      expect(adapter.getSnapshot().turnPhase).toBe("AWAITING_ACTION");
+
+      const robinView = adapter.getPlayerView("robin");
+      expect(robinView?.yourHand).toHaveLength(14);
+      expect(robinView?.yourHand.map((card) => card.id)).toContain(
+        "discard-4-D"
+      );
+      expect(robinView?.yourHand.map((card) => card.id)).not.toContain(
+        "stock-9-H"
+      );
+    });
+
     it("fails CALL_MAY_I on own turn", () => {
       const adapter = createTestAdapter();
       const awaitingId = adapter.getAwaitingLobbyPlayerId()!;
@@ -719,6 +879,99 @@ describe("executeGameAction", () => {
       const result = executeGameAction(adapter, resolverId, { type: "CLAIM_MAY_I" });
 
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe("Round 6 lay down after a rejected attempt", () => {
+    it("accepts a corrected all-card laydown on the same turn after an invalid first attempt", () => {
+      const setCards = [
+        createTestCard("3", "spades", "p0-3-S"),
+        createTestCard("3", "hearts", "p0-3-H"),
+        createTestCard("3", "clubs", "p0-3-C"),
+      ];
+      const diamondRun = [
+        createTestCard("4", "diamonds", "p0-4-D"),
+        createTestCard("5", "diamonds", "p0-5-D"),
+        createTestCard("6", "diamonds", "p0-6-D"),
+        createTestCard("7", "diamonds", "p0-7-D"),
+        createTestCard("8", "diamonds", "p0-8-D"),
+      ];
+      const clubRun = [
+        createTestCard("7", "clubs", "p0-7-C"),
+        createTestCard("8", "clubs", "p0-8-C"),
+        createTestCard("9", "clubs", "p0-9-C"),
+        createTestCard("10", "clubs", "p0-10-C"),
+      ];
+
+      const adapter = createAdapterFromAgentState({
+        players: [
+          {
+            id: "human-1",
+            name: "Alice",
+            isAI: false,
+            hand: [...setCards, ...diamondRun, ...clubRun],
+            isDown: false,
+          },
+          {
+            id: "human-2",
+            name: "Bob",
+            isAI: false,
+            hand: [
+              createTestCard("4", "spades", "p1-4-S"),
+              createTestCard("5", "spades", "p1-5-S"),
+              createTestCard("6", "spades", "p1-6-S"),
+            ],
+            isDown: false,
+          },
+          {
+            id: "ai-abc123",
+            name: "ClaudeBot",
+            isAI: true,
+            aiModelId: "default:claude",
+            hand: [
+              createTestCard("9", "hearts", "p2-9-H"),
+              createTestCard("10", "hearts", "p2-10-H"),
+              createTestCard("J", "hearts", "p2-J-H"),
+            ],
+            isDown: false,
+          },
+        ],
+        roundNumber: 6,
+        stock: [createTestCard("A", "spades", "stock-A-S")],
+        discard: [createTestCard("Q", "hearts", "discard-Q-H")],
+        table: [],
+        turn: {
+          currentPlayerIndex: 0,
+          hasDrawn: true,
+          drawSource: "stock",
+          phase: "awaitingAction",
+        },
+      });
+
+      const invalidFirstTry = executeGameAction(adapter, "human-1", {
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: setCards.map((card) => card.id) },
+          { type: "run", cardIds: diamondRun.slice(0, 4).map((card) => card.id) },
+          { type: "run", cardIds: clubRun.map((card) => card.id) },
+        ],
+      });
+
+      expect(invalidFirstTry.success).toBe(false);
+      expect(adapter.getSnapshot().lastError).toContain("Round 6");
+
+      const correctedSecondTry = executeGameAction(adapter, "human-1", {
+        type: "LAY_DOWN",
+        melds: [
+          { type: "set", cardIds: setCards.map((card) => card.id) },
+          { type: "run", cardIds: diamondRun.map((card) => card.id) },
+          { type: "run", cardIds: clubRun.map((card) => card.id) },
+        ],
+      });
+
+      expect(correctedSecondTry.success).toBe(true);
+      expect(correctedSecondTry.snapshot?.phase).toBe("GAME_END");
+      expect(correctedSecondTry.snapshot?.lastError).toBeNull();
     });
   });
 

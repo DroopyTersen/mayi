@@ -201,6 +201,7 @@ export function getActionAvailabilityDetails(
       meld.type === "run" && meld.cards.some((c) => c.rank === "Joker")
   );
   const hasDiscard = snapshot.discard.length > 0;
+  const hasExposedDiscard = hasDiscard && !snapshot.discardClaimed;
 
   const hasPendingMayIRequest = snapshot.mayIContext?.originalCaller === playerId;
   const actions = createEmptyAvailableActions(hasPendingMayIRequest);
@@ -281,7 +282,7 @@ export function getActionAvailabilityDetails(
       actions.canDrawFromStock = true;
       setActionState("drawStock", "available");
       // Down players can only draw from stock (house rule)
-      if (!isDown) {
+      if (!isDown && hasExposedDiscard) {
         actions.canDrawFromDiscard = true;
         setActionState("pickUpDiscard", "available");
       }
@@ -348,6 +349,17 @@ export function getActionAvailabilityDetails(
         "unavailable",
         "Must draw from stock when down"
       );
+    } else if (
+      !isDown &&
+      snapshot.turnPhase === "AWAITING_DRAW" &&
+      hasDiscard &&
+      snapshot.discardClaimed
+    ) {
+      setActionState(
+        "pickUpDiscard",
+        "unavailable",
+        "Discard has already been claimed"
+      );
     }
   }
 
@@ -398,11 +410,9 @@ export function getPlayersWhoCanCallMayI(snapshot: GameSnapshot): string[] {
     return [];
   }
 
-  // Can't call May I after current player draws from discard (they claimed it)
-  // This is indicated by the discard being claimed - but we don't have a direct flag.
-  // Instead, we check if the current player has drawn from discard by checking hasDrawn
-  // and whether the discard pile shrunk. But actually, the lastDiscardedByPlayerId
-  // tells us who discarded the current top card.
+  if (snapshot.discardClaimed || snapshot.mayIContext !== null) {
+    return [];
+  }
 
   const eligiblePlayers: string[] = [];
 

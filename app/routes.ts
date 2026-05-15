@@ -5,6 +5,7 @@ export default [
   // Agent testing routes
   route("game/agent/new", "routes/game.agent.new.tsx"),
   route("game/agent/state/:state", "routes/game.agent.state.$state.tsx"),
+  route("debug/mayi-mobile-repro", "routes/debug.mayi-mobile-repro.tsx"),
   route("game/new", "routes/game.new.tsx"),
   route("game/:roomId", "routes/game.$roomId.tsx"),
   route("storybook/*", "storybook/StorybookLayout.tsx"),

@@ -56,6 +56,31 @@ function findNextIncompleteMeldIndex(
   return fromIndex;
 }
 
+function findCompatibleCompletedMeldIndex(
+  stagedMelds: StagedMeld[],
+  card: Card,
+  preferredIndex: number
+): number | null {
+  const candidateIndexes = [
+    preferredIndex,
+    ...stagedMelds.map((_, index) => index).filter((index) => index !== preferredIndex),
+  ];
+
+  for (const index of candidateIndexes) {
+    const meld = stagedMelds[index];
+    if (!meld || !isMeldComplete(meld)) {
+      continue;
+    }
+
+    const candidate = { ...meld, cards: [...meld.cards, card] };
+    if (isStagedMeldValid(candidate)) {
+      return index;
+    }
+  }
+
+  return null;
+}
+
 function isStagedMeldValid(meld: StagedMeld): boolean {
   if (meld.type === "set") {
     return isValidSet(meld.cards);
@@ -74,9 +99,31 @@ export function stageCardInMelds({
   }
 
   const preferredMeld = stagedMelds[activeMeldIndex];
-  const targetIndex = preferredMeld && !isMeldComplete(preferredMeld)
-    ? activeMeldIndex
-    : findNextIncompleteMeldIndex(stagedMelds, activeMeldIndex);
+  let targetIndex: number | null = null;
+
+  if (preferredMeld && !isMeldComplete(preferredMeld)) {
+    targetIndex = activeMeldIndex;
+  } else {
+    const compatibleCompletedIndex = findCompatibleCompletedMeldIndex(
+      stagedMelds,
+      card,
+      activeMeldIndex
+    );
+    const nextIncompleteIndex = findNextIncompleteMeldIndex(
+      stagedMelds,
+      activeMeldIndex
+    );
+    const nextIncompleteMeld = stagedMelds[nextIncompleteIndex];
+
+    targetIndex = compatibleCompletedIndex
+      ?? (nextIncompleteMeld && !isMeldComplete(nextIncompleteMeld)
+        ? nextIncompleteIndex
+        : null);
+  }
+
+  if (targetIndex === null) {
+    return { stagedMelds, activeMeldIndex };
+  }
 
   const targetMeld = stagedMelds[targetIndex];
   if (!targetMeld) {

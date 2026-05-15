@@ -198,6 +198,72 @@ describe("mayi-room.message-handlers", () => {
     }
   });
 
+  it("returns durable May-I response state when the prompted player rejoins during resolution", () => {
+    const now = 790;
+    const humanPlayers: HumanPlayerInfo[] = [
+      { playerId: "curt", name: "Curt", isConnected: true, disconnectedAt: null },
+      { playerId: "kate", name: "Kate", isConnected: true, disconnectedAt: null },
+      { playerId: "robin", name: "Robin", isConnected: true, disconnectedAt: null },
+    ];
+    const adapter = PartyGameAdapter.createFromLobby({
+      roomId: "room-1",
+      humanPlayers,
+      aiPlayers: [],
+      startingRound: 4,
+    });
+
+    const currentPlayerId = adapter.getAwaitingLobbyPlayerId();
+    if (!currentPlayerId) {
+      throw new Error("Expected current player");
+    }
+    const caller = adapter
+      .getAllPlayerMappings()
+      .find((mapping) => mapping.lobbyId !== currentPlayerId);
+    if (!caller) {
+      throw new Error("Expected non-current May-I caller");
+    }
+
+    adapter.callMayI(caller.lobbyId);
+    const promptedPlayerId = adapter.getAwaitingLobbyPlayerId();
+    if (!promptedPlayerId) {
+      throw new Error("Expected prompted player");
+    }
+
+    const result = handleJoinMessage({
+      message: buildJoin({
+        playerId: promptedPlayerId,
+        playerName:
+          humanPlayers.find((player) => player.playerId === promptedPlayerId)
+            ?.name ?? promptedPlayerId,
+      }),
+      state: {
+        connectionId: "conn-4",
+        now,
+        existingPlayer: null,
+        humanPlayers,
+        lobbyState: baseLobbyState,
+        roomPhase: "playing",
+        gameState: adapter.getStoredState(),
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.afterBroadcastMessages.map((message) => message.type)).toEqual([
+        "GAME_STARTED",
+      ]);
+      const [gameStarted] = result.afterBroadcastMessages;
+      if (gameStarted?.type !== "GAME_STARTED") {
+        throw new Error("Expected GAME_STARTED");
+      }
+      expect(gameStarted.state.mayIContext?.playerBeingPrompted).toBe(
+        gameStarted.state.viewingPlayerId
+      );
+      expect(gameStarted.state.availableActions.canAllowMayI).toBe(true);
+      expect(gameStarted.state.availableActions.canClaimMayI).toBe(true);
+    }
+  });
+
   describe("lobby action handlers", () => {
     const buildAddAI = (
       overrides: Partial<AddAIPlayerMessage> = {}

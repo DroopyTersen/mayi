@@ -89,6 +89,14 @@ function makeSnapshot(overrides: {
   } as GameSnapshot;
 }
 
+function withExposedDiscard(snapshot: GameSnapshot): GameSnapshot {
+  return {
+    ...snapshot,
+    discard: [{ id: "discard-7h", rank: "7", suit: "hearts" }],
+    discardClaimed: false,
+  };
+}
+
 describe("getAvailableToolNames", () => {
   describe("when not player's turn", () => {
     it("returns empty array", () => {
@@ -144,12 +152,26 @@ describe("getAvailableToolNames", () => {
 
   describe("AWAITING_DRAW phase", () => {
     it("offers stock or discard when NOT down", () => {
-      const snapshot = makeSnapshot({ turnPhase: "AWAITING_DRAW", isDown: false });
+      const snapshot = withExposedDiscard(
+        makeSnapshot({ turnPhase: "AWAITING_DRAW", isDown: false })
+      );
       expect(getAvailableToolNames(snapshot, "ai")).toEqual(["draw_from_stock", "draw_from_discard"]);
     });
 
     it("offers only stock when DOWN (per house rules: down players cannot draw from discard)", () => {
-      const snapshot = makeSnapshot({ turnPhase: "AWAITING_DRAW", isDown: true });
+      const snapshot = withExposedDiscard(
+        makeSnapshot({ turnPhase: "AWAITING_DRAW", isDown: true })
+      );
+      expect(getAvailableToolNames(snapshot, "ai")).toEqual(["draw_from_stock"]);
+    });
+
+    it("offers only stock after the discard has already been claimed", () => {
+      const snapshot = {
+        ...withExposedDiscard(
+          makeSnapshot({ turnPhase: "AWAITING_DRAW", isDown: false })
+        ),
+        discardClaimed: true,
+      };
       expect(getAvailableToolNames(snapshot, "ai")).toEqual(["draw_from_stock"]);
     });
   });
