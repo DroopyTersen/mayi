@@ -29,6 +29,7 @@ import { useInlineLayOff } from "./useInlineLayOff";
 import { InlineLayOffMeldTarget } from "./InlineLayOffMeldTarget";
 import { LayOffPositionPrompt } from "~/ui/lay-off-view/LayOffPositionPrompt";
 import { getInactivityHintMessage } from "core/engine/game-engine.inactivity";
+import type { GameAction } from "core/engine/game-action.command";
 
 interface GameViewProps {
   gameState: PlayerView;
@@ -37,7 +38,7 @@ interface GameViewProps {
   /** Activity log entries */
   activityLog?: ActivityEntry[];
   /** Called when player performs an action */
-  onAction?: (action: string, payload?: unknown) => void;
+  onAction?: (action: GameAction) => void;
   /** Error message to display (e.g., from failed game action) */
   errorMessage?: string | null;
   /** WebSocket connection status */

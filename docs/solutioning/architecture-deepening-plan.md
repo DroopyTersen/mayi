@@ -117,7 +117,15 @@ Minimum browser checks:
   - [x] Verify May-I prompt and final-round transition projection through live
     WebSocket smoke checks; Chrome automation remained blocked by local tool
     timeouts
-- [ ] Phase 5: Create typed UI player-action intents
+- [x] Phase 5: Create typed UI player-action intents
+  - [x] Add typed `PlayerActionIntent` resolver for command mapping, drawer
+    transitions, and payload validation
+  - [x] Wire ActionBar, HandDrawer, desktop footer, mobile discard context, and
+    GameView state through typed intents
+  - [x] Simplify the route to send already-formed shared `GameAction`
+    commands, including May-I allow/claim
+  - [x] Verify UI intent tests, full type/test/build ladder, and live
+    WebSocket draw/reorder/discard fallback; Chrome automation remained blocked
 - [ ] Phase 6: Move shared rendering, prompt, and activity text out of CLI
 - [ ] Phase 7: Clean up projection, persistence, availability, and command results
 
@@ -409,6 +417,23 @@ Browser gate:
 - Chrome E2E discard.
 - Chrome E2E reorder hand and confirm server update preserves order.
 - Chrome E2E May-I response.
+
+Phase 5 result:
+
+- Added `player-action.intent` as the typed seam between UI controls, local
+  drawer transitions, and shared game commands.
+- `ActionBar`, `HandDrawer`, `GameViewDesktopFooter`,
+  `GameViewMobileDiscardContext`, and `useGameViewState` now pass typed intents
+  instead of `string` plus `unknown` payloads.
+- `game.$roomId` no longer casts UI payloads into commands; it sends shared
+  `GameAction` values and handles May-I prompt responses through the same send
+  path.
+- Verification passed: targeted route/UI tests, `bun run typecheck`,
+  `bun test`, and `bun run build`.
+- Chrome DevTools remained blocked; even `list_pages` timed out. Fallback live
+  WebSocket smoke passed by starting a three-human room and performing
+  draw-from-stock, hand reorder, skip, and discard with shared `GameAction`
+  commands.
 
 Commit checkpoint:
 

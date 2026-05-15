@@ -1,6 +1,7 @@
 import { ActionBar } from "./ActionBar";
 import { ViewportComparison } from "~/storybook/ViewportSimulator";
 import type { AvailableActions } from "core/engine/game-engine.availability";
+import type { PlayerActionIntent } from "~/ui/game-view/player-action.intent";
 
 // Helper to create available actions with defaults
 function createAvailableActions(overrides: Partial<AvailableActions> = {}): AvailableActions {
@@ -22,8 +23,8 @@ function createAvailableActions(overrides: Partial<AvailableActions> = {}): Avai
 }
 
 export function ActionBarStory() {
-  const handleAction = (action: string) => {
-    alert(`Action: ${action}`);
+  const handleAction = (intent: PlayerActionIntent) => {
+    alert(`Action: ${intent.type}`);
   };
 
   return (

@@ -5,6 +5,7 @@ import { HandDrawer } from "./HandDrawer";
 import { GameHeader } from "~/ui/game-status/GameHeader";
 import { ViewportSimulator } from "~/storybook/ViewportSimulator";
 import { cn } from "~/shadcn/lib/utils";
+import type { PlayerActionIntent } from "~/ui/game-view/player-action.intent";
 
 // Helper to create cards
 function card(id: string, rank: Card["rank"], suit: Card["suit"]): Card {
@@ -183,8 +184,8 @@ function InteractiveDrawerExample({
     });
   };
 
-  const handleAction = (action: string) => {
-    setLastAction(`Action: ${action}`);
+  const handleAction = (intent: PlayerActionIntent) => {
+    setLastAction(`Action: ${intent.type}`);
     setTimeout(() => setLastAction(""), 2000);
   };
 
@@ -236,8 +237,8 @@ function FullscreenDrawerTest() {
     });
   };
 
-  const handleAction = (action: string) => {
-    setLastAction(`Action: ${action}`);
+  const handleAction = (intent: PlayerActionIntent) => {
+    setLastAction(`Action: ${intent.type}`);
     setTimeout(() => setLastAction(""), 2000);
   };
 

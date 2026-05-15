@@ -5,6 +5,7 @@ import { ActionBar } from "~/ui/action-bar/ActionBar";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
 import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
 import { cn } from "~/shadcn/lib/utils";
+import type { PlayerActionIntent } from "./player-action.intent";
 
 interface GameViewDesktopFooterProps {
   gameState: PlayerView;
@@ -13,7 +14,7 @@ interface GameViewDesktopFooterProps {
   discardInteractiveLabel: "pickup" | "may-i" | undefined;
   onCardClick: (cardId: string) => void;
   onReorderHand: (newOrder: Card[]) => void;
-  onAction: (action: string) => void;
+  onAction: (intent: PlayerActionIntent) => void;
 }
 
 /**
@@ -45,8 +46,8 @@ export function GameViewDesktopFooter({
                   ? () =>
                       onAction(
                         discardInteractiveLabel === "pickup"
-                          ? "pickUpDiscard"
-                          : "mayI"
+                          ? { type: "pickUpDiscard" }
+                          : { type: "mayI" }
                       )
                   : undefined
               }
@@ -55,7 +56,7 @@ export function GameViewDesktopFooter({
               <StockPileDisplay
                 size="lg"
                 isClickable={gameState.availableActions.canDrawFromStock}
-                onClick={() => onAction("drawStock")}
+                onClick={() => onAction({ type: "drawStock" })}
               />
             )}
           </div>

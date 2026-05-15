@@ -282,119 +282,39 @@ export default function Game({ loaderData }: Route.ComponentProps) {
     sendMessage({ type: "START_GAME" });
   }, [sendMessage]);
 
-  // Phase 3.6: May I prompt actions
-  const onAllowMayI = useCallback(() => {
+  const sendConnectedGameAction = useCallback((gameAction: GameAction): boolean => {
     const result = sendGameActionIfConnected({
       connectionStatus,
       sendMessage,
-      action: { type: "ALLOW_MAY_I" },
+      action: gameAction,
     });
     if (!result.sent) {
       setTransientGameError("Connection lost. Retrying...");
-      return;
+      return false;
     }
-    setMayIPrompt(null);
+    if (gameAction.type === "CALL_MAY_I") {
+      setHasOptimisticMayIPending(true);
+    }
+    return true;
   }, [connectionStatus, sendMessage, setTransientGameError]);
 
-  const onClaimMayI = useCallback(() => {
-    const result = sendGameActionIfConnected({
-      connectionStatus,
-      sendMessage,
-      action: { type: "CLAIM_MAY_I" },
-    });
-    if (!result.sent) {
-      setTransientGameError("Connection lost. Retrying...");
-      return;
-    }
+  // Phase 3.6: May I prompt actions
+  const onAllowMayI = useCallback(() => {
+    if (!sendConnectedGameAction({ type: "ALLOW_MAY_I" })) return;
     setMayIPrompt(null);
-  }, [connectionStatus, sendMessage, setTransientGameError]);
+  }, [sendConnectedGameAction]);
+
+  const onClaimMayI = useCallback(() => {
+    if (!sendConnectedGameAction({ type: "CLAIM_MAY_I" })) return;
+    setMayIPrompt(null);
+  }, [sendConnectedGameAction]);
 
   // Phase 3.3: Handle game actions from GameView
   const onGameAction = useCallback(
-    (action: string, payload?: unknown) => {
-      console.log("[onGameAction] Called with action:", action, "payload:", payload);
-      // Map UI action strings to wire protocol actions
-      let gameAction: GameAction | null = null;
-
-      switch (action) {
-        case "drawStock":
-          gameAction = { type: "DRAW_FROM_STOCK" };
-          break;
-        case "pickUpDiscard":
-          gameAction = { type: "DRAW_FROM_DISCARD" };
-          break;
-        case "discard": {
-          // payload should have selectedCardIds
-          const p = payload as { selectedCardIds?: string[] } | undefined;
-          const cardId = p?.selectedCardIds?.[0];
-          console.log("[onGameAction] discard - extracted cardId:", cardId);
-          if (cardId) {
-            gameAction = { type: "DISCARD", cardId };
-          }
-          break;
-        }
-        case "mayI":
-          gameAction = { type: "CALL_MAY_I" };
-          break;
-        case "skip":
-          gameAction = { type: "SKIP" };
-          break;
-        case "layDown": {
-          // payload should have melds array
-          const p = payload as { melds?: Array<{ type: "set" | "run"; cardIds: string[] }> } | undefined;
-          if (p?.melds && p.melds.length > 0) {
-            gameAction = { type: "LAY_DOWN", melds: p.melds };
-          }
-          break;
-        }
-        case "layOff": {
-          // payload should have cardId, meldId, and optional position for wild cards
-          const p = payload as { cardId?: string; meldId?: string; position?: "start" | "end" } | undefined;
-          if (p?.cardId && p?.meldId) {
-            gameAction = { type: "LAY_OFF", cardId: p.cardId, meldId: p.meldId, position: p.position };
-          }
-          break;
-        }
-        case "swapJoker": {
-          // payload should have meldId, jokerCardId, swapCardId
-          const p = payload as { meldId?: string; jokerCardId?: string; swapCardId?: string } | undefined;
-          if (p?.meldId && p?.jokerCardId && p?.swapCardId) {
-            gameAction = { type: "SWAP_JOKER", meldId: p.meldId, jokerCardId: p.jokerCardId, swapCardId: p.swapCardId };
-          }
-          break;
-        }
-        case "reorderHand": {
-          // payload should have cardIds array
-          const p = payload as { cardIds?: string[] } | undefined;
-          if (p?.cardIds && p.cardIds.length > 0) {
-            gameAction = { type: "REORDER_HAND", cardIds: p.cardIds };
-          }
-          break;
-        }
-        default:
-          console.log("Unhandled action:", action, payload);
-          return;
-      }
-
-      if (gameAction) {
-        console.log("[onGameAction] Sending game action:", gameAction);
-        const result = sendGameActionIfConnected({
-          connectionStatus,
-          sendMessage,
-          action: gameAction,
-        });
-        if (!result.sent) {
-          setTransientGameError("Connection lost. Retrying...");
-          return;
-        }
-        if (gameAction.type === "CALL_MAY_I") {
-          setHasOptimisticMayIPending(true);
-        }
-      } else {
-        console.log("[onGameAction] No game action to send (gameAction is null)");
-      }
+    (gameAction: GameAction) => {
+      sendConnectedGameAction(gameAction);
     },
-    [connectionStatus, sendMessage, setTransientGameError]
+    [sendConnectedGameAction]
   );
 
   useEffect(() => {

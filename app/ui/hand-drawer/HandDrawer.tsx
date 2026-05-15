@@ -13,6 +13,7 @@ import { StockPileDisplay } from "~/ui/game-table/StockPileDisplay";
 import { ActionBar } from "~/ui/action-bar/ActionBar";
 import { getDiscardInteractiveLabel } from "~/ui/game-view/game-view.utils";
 import { cn } from "~/shadcn/lib/utils";
+import type { PlayerActionIntent } from "~/ui/game-view/player-action.intent";
 
 export const MOBILE_HAND_PEEK_HEIGHT_PX = 104;
 export const MOBILE_PEEK_DISCARD_HAND_THRESHOLD = 5;
@@ -27,7 +28,7 @@ interface HandDrawerProps {
   /** Callback when a card is clicked */
   onCardClick: (cardId: string) => void;
   /** Callback when an action is performed */
-  onAction: (action: string) => void;
+  onAction: (intent: PlayerActionIntent) => void;
   /** Available actions - drives all button visibility and interactions */
   availableActions: AvailableActions;
   /** Full action availability breakdown (for disabled actions and future hints) */
@@ -88,16 +89,16 @@ export function HandDrawer({
   // Handle discard pile click
   const handleDiscardClick = useCallback(() => {
     if (availableActions.canMayI) {
-      onAction("mayI");
+      onAction({ type: "mayI" });
     } else if (availableActions.canDrawFromDiscard) {
-      onAction("pickUpDiscard");
+      onAction({ type: "pickUpDiscard" });
     }
   }, [availableActions.canMayI, availableActions.canDrawFromDiscard, onAction]);
 
   // Handle stock pile click
   const handleStockClick = useCallback(() => {
     if (availableActions.canDrawFromStock) {
-      onAction("drawStock");
+      onAction({ type: "drawStock" });
     }
   }, [availableActions.canDrawFromStock, onAction]);
 

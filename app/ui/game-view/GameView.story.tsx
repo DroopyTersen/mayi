@@ -3,6 +3,7 @@ import { GameView } from "./GameView";
 import type { PlayerView } from "~/party/protocol.types";
 import type { Meld } from "core/meld/meld.types";
 import type { Card } from "core/card/card.types";
+import type { GameAction } from "core/engine/game-action.command";
 import { reorderHand } from "core/engine/hand.reordering";
 import { ViewportSimulator, ViewportComparison } from "~/storybook/ViewportSimulator";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
@@ -180,16 +181,8 @@ const MOCK_GAME_STATE: PlayerView = {
   turnOrder: ["p1", "p2", "p3", "p4"],
 };
 
-function getReorderCardIds(payload: unknown): string[] | null {
-  return (
-    typeof payload === "object" &&
-    payload !== null &&
-    "cardIds" in payload &&
-    Array.isArray(payload.cardIds) &&
-    payload.cardIds.every((cardId) => typeof cardId === "string")
-  )
-    ? payload.cardIds
-    : null;
+function getReorderCardIds(action: GameAction): string[] | null {
+  return action.type === "REORDER_HAND" ? action.cardIds : null;
 }
 
 // Activity log for realistic display
@@ -206,8 +199,8 @@ export function GameViewStory() {
   const [selectedState, setSelectedState] =
     useState<PlayerView>(MOCK_GAME_STATE);
 
-  const handleStoryAction = (action: string, payload?: unknown) => {
-    const cardIds = action === "reorderHand" ? getReorderCardIds(payload) : null;
+  const handleStoryAction = (action: GameAction) => {
+    const cardIds = getReorderCardIds(action);
     if (!cardIds) {
       return;
     }

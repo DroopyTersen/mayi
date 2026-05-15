@@ -1,6 +1,17 @@
 import { useState, useCallback, useEffect } from "react";
 import type { Card } from "core/card/card.types";
 import type { ActiveDrawer } from "./game-view.types";
+import type { GameAction } from "core/engine/game-action.command";
+import {
+  createDiscardIntent,
+  createLayDownIntent,
+  createLayOffIntent,
+  createReorderHandIntent,
+  createSwapJokerIntent,
+  resolvePlayerActionIntent,
+  type PlayerActionIntent,
+  type PlayerActionResolution,
+} from "./player-action.intent";
 
 interface MeldSubmission {
   type: "set" | "run";
@@ -11,32 +22,7 @@ interface UseGameViewStateOptions {
   /** The player's current hand (for cleanup stale selections) */
   hand: Card[];
   /** Callback for game actions (passed to parent) */
-  onAction?: (action: string, payload?: unknown) => void;
-}
-
-type ActionDrawer = Exclude<ActiveDrawer, null>;
-
-export type GameViewActionResolution =
-  | {
-      kind: "openDrawer";
-      drawer: ActionDrawer;
-    }
-  | {
-      kind: "sendAction";
-      action: string;
-      payload?: { selectedCardIds: string[] };
-    };
-
-const ACTION_DRAWERS: ReadonlySet<ActionDrawer> = new Set([
-  "layDown",
-  "layOff",
-  "discard",
-  "swapJoker",
-  "organize",
-]);
-
-function isActionDrawer(action: string): action is ActionDrawer {
-  return ACTION_DRAWERS.has(action as ActionDrawer);
+  onAction?: (action: GameAction) => void;
 }
 
 export function getOnlySelectedCardId(
@@ -61,38 +47,6 @@ export function toggleSingleSelectedCard(
   return new Set([cardId]);
 }
 
-export function resolveGameViewAction(
-  action: string,
-  selectedCardIds: ReadonlySet<string>
-): GameViewActionResolution {
-  if (action === "discard") {
-    const cardId = getOnlySelectedCardId(selectedCardIds);
-    if (cardId) {
-      return {
-        kind: "sendAction",
-        action: "discard",
-        payload: { selectedCardIds: [cardId] },
-      };
-    }
-  }
-
-  if (isActionDrawer(action)) {
-    return { kind: "openDrawer", drawer: action };
-  }
-
-  return {
-    kind: "sendAction",
-    action,
-    payload: { selectedCardIds: Array.from(selectedCardIds) },
-  };
-}
-
-export function createReorderHandPayload(
-  newOrder: Array<{ id: string }>
-) {
-  return { cardIds: newOrder.map((card) => card.id) };
-}
-
 export interface UseGameViewStateReturn {
   // Selection state
   selectedCardIds: Set<string>;
@@ -108,7 +62,7 @@ export interface UseGameViewStateReturn {
   handleCardClick: (cardId: string) => void;
 
   // Action handlers
-  handleAction: (action: string) => void;
+  handleAction: (intent: PlayerActionIntent) => void;
   handleLayDown: (
     melds: Array<MeldSubmission>
   ) => void;
@@ -167,26 +121,40 @@ export function useGameViewState({
     setSelectedCardIds((prev) => toggleSingleSelectedCard(prev, cardId));
   }, [registerActivity]);
 
-  // Handle actions from ActionBar
-  const handleAction = useCallback(
-    (action: string) => {
-      registerActivity();
-      const resolution = resolveGameViewAction(action, selectedCardIds);
-
+  const applyResolution = useCallback(
+    (
+      resolution: PlayerActionResolution,
+      options: { closeDrawer?: boolean } = {}
+    ) => {
       if (resolution.kind === "openDrawer") {
         setIsHandDrawerOpen(false);
         setActiveDrawer(resolution.drawer);
         return;
       }
 
-      if (action === "discard") {
+      if (resolution.kind === "invalid") {
+        return;
+      }
+
+      if (options.closeDrawer) {
         setIsHandDrawerOpen(false);
         setActiveDrawer(null);
       }
 
-      onAction?.(resolution.action, resolution.payload);
+      onAction?.(resolution.action);
     },
-    [onAction, registerActivity, selectedCardIds]
+    [onAction]
+  );
+
+  // Handle actions from ActionBar
+  const handleAction = useCallback(
+    (intent: PlayerActionIntent) => {
+      registerActivity();
+      applyResolution(resolvePlayerActionIntent(intent, selectedCardIds), {
+        closeDrawer: intent.type === "discard",
+      });
+    },
+    [applyResolution, registerActivity, selectedCardIds]
   );
 
   // Close the active drawer
@@ -199,63 +167,90 @@ export function useGameViewState({
   const handleLayDown = useCallback(
     (melds: Array<MeldSubmission>) => {
       registerActivity();
-      onAction?.("layDown", {
-        melds: melds.map((m) => ({
-          type: m.type,
-          cardIds: m.cards.map((c) => c.id),
-        })),
-      });
-      setActiveDrawer(null);
+      applyResolution(
+        resolvePlayerActionIntent(
+          createLayDownIntent(
+            melds.map((m) => ({
+              type: m.type,
+              cardIds: m.cards.map((c) => c.id),
+            }))
+          ),
+          selectedCardIds
+        ),
+        { closeDrawer: true }
+      );
     },
-    [onAction, registerActivity]
+    [applyResolution, registerActivity, selectedCardIds]
   );
 
   // Handle lay off action
   const handleLayOff = useCallback(
     (cardId: string, meldId: string, position?: "start" | "end") => {
       registerActivity();
-      onAction?.("layOff", { cardId, meldId, position });
+      applyResolution(
+        resolvePlayerActionIntent(
+          createLayOffIntent(cardId, meldId, position),
+          selectedCardIds
+        )
+      );
       // Don't close - user might want to lay off more cards
     },
-    [onAction, registerActivity]
+    [applyResolution, registerActivity, selectedCardIds]
   );
 
   // Handle discard action
   const handleDiscard = useCallback(
     (cardId: string) => {
       registerActivity();
-      onAction?.("discard", { selectedCardIds: [cardId] });
-      setActiveDrawer(null);
+      applyResolution(
+        resolvePlayerActionIntent(createDiscardIntent(cardId), selectedCardIds),
+        { closeDrawer: true }
+      );
     },
-    [onAction, registerActivity]
+    [applyResolution, registerActivity, selectedCardIds]
   );
 
   // Handle swap joker action
   const handleSwapJoker = useCallback(
     (meldId: string, jokerCardId: string, swapCardId: string) => {
       registerActivity();
-      onAction?.("swapJoker", { meldId, jokerCardId, swapCardId });
-      setActiveDrawer(null);
+      applyResolution(
+        resolvePlayerActionIntent(
+          createSwapJokerIntent(meldId, jokerCardId, swapCardId),
+          selectedCardIds
+        ),
+        { closeDrawer: true }
+      );
     },
-    [onAction, registerActivity]
+    [applyResolution, registerActivity, selectedCardIds]
   );
 
   // Handle organize hand (reorder)
   const handleOrganize = useCallback(
     (newOrder: Array<{ id: string }>) => {
       registerActivity();
-      onAction?.("reorderHand", createReorderHandPayload(newOrder));
-      setActiveDrawer(null);
+      applyResolution(
+        resolvePlayerActionIntent(
+          createReorderHandIntent(newOrder),
+          selectedCardIds
+        ),
+        { closeDrawer: true }
+      );
     },
-    [onAction, registerActivity]
+    [applyResolution, registerActivity, selectedCardIds]
   );
 
   const handleReorderHand = useCallback(
     (newOrder: Card[]) => {
       registerActivity();
-      onAction?.("reorderHand", createReorderHandPayload(newOrder));
+      applyResolution(
+        resolvePlayerActionIntent(
+          createReorderHandIntent(newOrder),
+          selectedCardIds
+        )
+      );
     },
-    [onAction, registerActivity]
+    [applyResolution, registerActivity, selectedCardIds]
   );
 
   const setHandDrawerOpen = useCallback(

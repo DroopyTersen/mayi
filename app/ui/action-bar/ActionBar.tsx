@@ -7,6 +7,7 @@ import type {
 } from "core/engine/game-engine.availability";
 import type { UnavailabilityHint } from "core/engine/game-engine.types";
 import { ActionInfoButton } from "./ActionInfoButton";
+import type { PlayerActionIntent } from "~/ui/game-view/player-action.intent";
 
 interface ActionBarProps {
   /** Available actions for the current player - from PlayerView.availableActions */
@@ -16,7 +17,7 @@ interface ActionBarProps {
   /** Hints explaining why certain actions are unavailable */
   unavailabilityHints?: UnavailabilityHint[];
   /** Called when player performs an action */
-  onAction: (action: string) => void;
+  onAction: (intent: PlayerActionIntent) => void;
   /** Improves tap reliability in touch contexts like drawers */
   touchOptimized?: boolean;
   /** Optional content rendered at the leading edge (e.g. turn status text on desktop) */
@@ -34,7 +35,7 @@ type ActionDisplayState = {
 };
 type ActionDisplayConfig = {
   id: ActionId;
-  action: string;
+  intent: PlayerActionIntent;
   availableFlag: AvailableActionFlag;
   label: string;
   variant: ButtonVariant;
@@ -61,49 +62,49 @@ type AvailableActionFlag = keyof Pick<
 const MAIN_ACTION_DEFINITIONS: ActionDisplayConfig[] = [
   {
     id: "drawStock",
-    action: "drawStock",
+    intent: { type: "drawStock" },
     availableFlag: "canDrawFromStock",
     label: "Draw Card",
     variant: "outline",
   },
   {
     id: "pickUpDiscard",
-    action: "pickUpDiscard",
+    intent: { type: "pickUpDiscard" },
     availableFlag: "canDrawFromDiscard",
     label: "Pick Up Discard",
     variant: "outline",
   },
   {
     id: "layDown",
-    action: "layDown",
+    intent: { type: "layDown" },
     availableFlag: "canLayDown",
     label: "Lay Down",
     variant: "outline",
   },
   {
     id: "layOff",
-    action: "layOff",
+    intent: { type: "layOff" },
     availableFlag: "canLayOff",
     label: "Lay Off",
     variant: "outline",
   },
   {
     id: "swapJoker",
-    action: "swapJoker",
+    intent: { type: "swapJoker" },
     availableFlag: "canSwapJoker",
     label: "Swap Joker",
     variant: "outline",
   },
   {
     id: "discard",
-    action: "discard",
+    intent: { type: "discard" },
     availableFlag: "canDiscard",
     label: "Discard",
     variant: "default",
   },
   {
     id: "mayI",
-    action: "mayI",
+    intent: { type: "mayI" },
     availableFlag: "canMayI",
     label: "May I?",
     variant: "outline",
@@ -113,14 +114,14 @@ const MAIN_ACTION_DEFINITIONS: ActionDisplayConfig[] = [
 const MAY_I_RESOLUTION_ACTION_DEFINITIONS: ActionDisplayConfig[] = [
   {
     id: "allowMayI",
-    action: "allowMayI",
+    intent: { type: "allowMayI" },
     availableFlag: "canAllowMayI",
     label: "Allow",
     variant: "outline",
   },
   {
     id: "claimMayI",
-    action: "claimMayI",
+    intent: { type: "claimMayI" },
     availableFlag: "canClaimMayI",
     label: "Claim",
     variant: "outline",
@@ -134,7 +135,7 @@ const TURN_ACTION_DEFINITIONS = [
 
 const REORDER_HAND_ACTION_DEFINITION: ActionDisplayConfig = {
   id: "reorderHand",
-  action: "organize",
+  intent: { type: "organize" },
   availableFlag: "canReorderHand",
   label: "Organize",
   variant: "ghost",
@@ -215,7 +216,7 @@ export function ActionBar({
     return (
       <Button
         key={display.id}
-        onClick={() => onAction(display.action)}
+        onClick={() => onAction(display.intent)}
         variant={display.variant}
         size={display.size}
         className={cn(

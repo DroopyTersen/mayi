@@ -1,6 +1,7 @@
 import type { Card } from "core/card/card.types";
 import type { PlayerView } from "~/party/protocol.types";
 import { DiscardPileDisplay } from "~/ui/game-table/DiscardPileDisplay";
+import type { PlayerActionIntent } from "./player-action.intent";
 
 type DiscardInteractiveLabel = "pickup" | "may-i" | undefined;
 
@@ -17,7 +18,7 @@ export function shouldShowMobileDiscardContext(gameState: PlayerView): boolean {
 interface GameViewMobileDiscardContextProps {
   topDiscard: Card | null;
   interactiveLabel: DiscardInteractiveLabel;
-  onAction: (action: string) => void;
+  onAction: (intent: PlayerActionIntent) => void;
 }
 
 export function GameViewMobileDiscardContext({
@@ -28,7 +29,12 @@ export function GameViewMobileDiscardContext({
   if (!topDiscard) return null;
 
   const handleClick = interactiveLabel
-    ? () => onAction(interactiveLabel === "pickup" ? "pickUpDiscard" : "mayI")
+    ? () =>
+        onAction(
+          interactiveLabel === "pickup"
+            ? { type: "pickUpDiscard" }
+            : { type: "mayI" }
+        )
     : undefined;
 
   return (
