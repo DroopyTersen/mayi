@@ -650,15 +650,15 @@ describe("mayi-room.message-handlers", () => {
       if (result.ok) {
         expect(result.nextState.gameState.roomId).toBe("room-1");
         expect(result.sideEffects.map((effect) => effect.type)).toEqual([
-          "setGameState",
-          "detectAndBroadcastTransitions",
-          "broadcastGameState",
-          "executeAITurnsIfNeeded",
+          "gameStateCommitted",
+          "gameTransitionsDetected",
+          "playerViewsChanged",
+          "aiTurnEligible",
         ]);
         const transitionEffect = result.sideEffects.find(
-          (effect) => effect.type === "detectAndBroadcastTransitions"
+          (effect) => effect.type === "gameTransitionsDetected"
         );
-        if (transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions") {
+        if (transitionEffect && transitionEffect.type === "gameTransitionsDetected") {
           expect(transitionEffect.roundBefore).toBe(1);
         }
       }
@@ -692,8 +692,8 @@ describe("mayi-room.message-handlers", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const effectTypes = result.sideEffects.map((effect) => effect.type);
-        expect(effectTypes).toContain("broadcastMayIPrompt");
-        expect(effectTypes).toContain("executeAIMayIResponseIfNeeded");
+        expect(effectTypes).toContain("mayIPromptNeeded");
+        expect(effectTypes).toContain("aiMayIResponseNeeded");
       }
     });
 
@@ -711,8 +711,8 @@ describe("mayi-room.message-handlers", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const effectTypes = result.sideEffects.map((effect) => effect.type);
-        expect(effectTypes).toContain("broadcastMayIPrompt");
-        expect(effectTypes).toContain("executeAIMayIResponseIfNeeded");
+        expect(effectTypes).toContain("mayIPromptNeeded");
+        expect(effectTypes).toContain("aiMayIResponseNeeded");
       }
     });
 
@@ -730,7 +730,7 @@ describe("mayi-room.message-handlers", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         const effectTypes = result.sideEffects.map((effect) => effect.type);
-        expect(effectTypes).toContain("broadcastMayIResolved");
+        expect(effectTypes).toContain("mayIResolved");
       }
     });
   });

@@ -6,7 +6,7 @@ import {
 } from "../../core/engine/card-state.invariants";
 import {
   handleGameActionMessage,
-  type GameActionSideEffect,
+  type GameActionDomainEvent,
   type RoomPhase,
 } from "./mayi-room.message-handlers";
 import { PartyGameAdapter, type StoredGameState } from "./party-game-adapter";
@@ -39,7 +39,7 @@ export type ExecuteStoredGameActionResult =
       revisionBefore: number;
       revisionAfter: number;
       outboundMessages: [];
-      sideEffects: GameActionSideEffect[];
+      sideEffects: GameActionDomainEvent[];
     };
 
 function buildErrorMessage(error: string, message: string): ErrorMessage {
@@ -62,10 +62,10 @@ function validateStoredGameState(state: StoredGameState): {
   };
 }
 
-function removeSetGameStateSideEffect(
-  sideEffects: GameActionSideEffect[]
-): GameActionSideEffect[] {
-  return sideEffects.filter((effect) => effect.type !== "setGameState");
+function removeCommittedStateEvent(
+  sideEffects: GameActionDomainEvent[]
+): GameActionDomainEvent[] {
+  return sideEffects.filter((effect) => effect.type !== "gameStateCommitted");
 }
 
 export async function executeStoredGameAction(
@@ -129,6 +129,6 @@ export async function executeStoredGameAction(
     revisionBefore: revisionOf(currentState),
     revisionAfter,
     outboundMessages: [],
-    sideEffects: removeSetGameStateSideEffect(result.sideEffects),
+    sideEffects: removeCommittedStateEvent(result.sideEffects),
   };
 }

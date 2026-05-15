@@ -112,21 +112,21 @@ export type StartGameSideEffect =
   | { type: "broadcastPlayerViews"; adapter: PartyGameAdapter }
   | { type: "executeAITurnsIfNeeded" };
 
-export type GameActionSideEffect =
-  | { type: "setGameState"; state: StoredGameState }
+export type GameActionDomainEvent =
+  | { type: "gameStateCommitted"; state: StoredGameState }
   | {
-      type: "detectAndBroadcastTransitions";
+      type: "gameTransitionsDetected";
       adapter: PartyGameAdapter;
       phaseBefore: string;
       roundBefore: number;
       /** Snapshot captured BEFORE action - used for round summary */
       snapshotBefore: import("../../core/engine/game-engine.types").GameSnapshot;
     }
-  | { type: "broadcastMayIPrompt"; adapter: PartyGameAdapter }
-  | { type: "executeAIMayIResponseIfNeeded"; adapter: PartyGameAdapter }
-  | { type: "broadcastMayIResolved"; adapter: PartyGameAdapter }
-  | { type: "broadcastGameState" }
-  | { type: "executeAITurnsIfNeeded" };
+  | { type: "mayIPromptNeeded"; adapter: PartyGameAdapter }
+  | { type: "aiMayIResponseNeeded"; adapter: PartyGameAdapter }
+  | { type: "mayIResolved"; adapter: PartyGameAdapter }
+  | { type: "playerViewsChanged" }
+  | { type: "aiTurnEligible" };
 
 export type StartGameHandlerResult =
   | { ok: false; outboundMessages: [ErrorMessage]; sideEffects: [] }
@@ -143,7 +143,7 @@ export type GameActionHandlerResult =
       ok: true;
       nextState: { gameState: StoredGameState };
       outboundMessages: [];
-      sideEffects: GameActionSideEffect[];
+      sideEffects: GameActionDomainEvent[];
     };
 
 function buildErrorMessage(error: string, message: string): ErrorMessage {
@@ -437,37 +437,37 @@ export function handleGameActionMessage(args: {
   const phaseAfter = snapshotAfter.phase;
   const gameState = adapter.getStoredState();
 
-  const sideEffects: GameActionSideEffect[] = [
-    { type: "setGameState", state: gameState },
+  const sideEffects: GameActionDomainEvent[] = [
+    { type: "gameStateCommitted", state: gameState },
   ];
 
   if (phaseBefore !== "RESOLVING_MAY_I" && phaseAfter === "RESOLVING_MAY_I") {
-    sideEffects.push({ type: "broadcastMayIPrompt", adapter });
-    sideEffects.push({ type: "executeAIMayIResponseIfNeeded", adapter });
+    sideEffects.push({ type: "mayIPromptNeeded", adapter });
+    sideEffects.push({ type: "aiMayIResponseNeeded", adapter });
   } else if (
     phaseBefore === "RESOLVING_MAY_I" &&
     phaseAfter === "RESOLVING_MAY_I"
   ) {
-    sideEffects.push({ type: "broadcastMayIPrompt", adapter });
-    sideEffects.push({ type: "executeAIMayIResponseIfNeeded", adapter });
+    sideEffects.push({ type: "mayIPromptNeeded", adapter });
+    sideEffects.push({ type: "aiMayIResponseNeeded", adapter });
   } else if (
     phaseBefore === "RESOLVING_MAY_I" &&
     phaseAfter !== "RESOLVING_MAY_I"
   ) {
-    sideEffects.push({ type: "broadcastMayIResolved", adapter });
+    sideEffects.push({ type: "mayIResolved", adapter });
   }
 
   sideEffects.push({
-    type: "detectAndBroadcastTransitions",
+    type: "gameTransitionsDetected",
     adapter,
     phaseBefore,
     roundBefore,
     snapshotBefore,
   });
-  sideEffects.push({ type: "broadcastGameState" });
+  sideEffects.push({ type: "playerViewsChanged" });
 
   if (phaseAfter === "ROUND_ACTIVE") {
-    sideEffects.push({ type: "executeAITurnsIfNeeded" });
+    sideEffects.push({ type: "aiTurnEligible" });
   }
 
   return {

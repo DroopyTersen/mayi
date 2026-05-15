@@ -25,7 +25,7 @@ import {
   handleRemoveAIPlayerMessage,
   handleStartGameMessage,
   handleSetStartingRoundMessage,
-  type GameActionSideEffect,
+  type GameActionDomainEvent,
   type RoomPhase,
 } from "./mayi-room.message-handlers";
 import { GameActionQueue } from "./game-action-queue";
@@ -38,7 +38,6 @@ import {
   type HumanPlayerInfo,
   type InjectStateMessage,
   type AgentSetupMessage,
-  type MayINotificationMessage,
 } from "./protocol.types";
 import type { GameAction } from "../../core/engine/game-action.command";
 
@@ -51,8 +50,16 @@ import {
   type StoredGameState,
 } from "./party-game-adapter";
 
-import { captureRoundSummary } from "./round-summary.capture";
 import type { RoundSummaryPayload } from "./round-summary.types";
+import {
+  projectGameEndedMessage,
+  projectMayINotificationMessage,
+  projectMayIPromptMessage,
+  projectMayIResolvedMessage,
+  projectPlayerViewMessages,
+  projectRoundEndedMessage,
+  type ProjectedServerMessage,
+} from "./game-action-event.projection";
 
 import {
   executeAITurn,
@@ -728,24 +735,24 @@ export class MayIRoom extends Server {
   }
 
   private async processGameActionSideEffects(
-    sideEffects: GameActionSideEffect[],
+    sideEffects: GameActionDomainEvent[],
     options: {
       actionType: GameAction["type"];
       skipAITurnsIfNeeded?: boolean;
     }
   ): Promise<void> {
     const transitionEffect = sideEffects.find(
-      (effect) => effect.type === "detectAndBroadcastTransitions"
+      (effect) => effect.type === "gameTransitionsDetected"
     );
     const mayIPhaseBefore =
-      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
+      transitionEffect && transitionEffect.type === "gameTransitionsDetected"
         ? transitionEffect.phaseBefore
         : null;
     const mayIPhaseAfter =
-      transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions"
+      transitionEffect && transitionEffect.type === "gameTransitionsDetected"
         ? transitionEffect.adapter.getSnapshot().phase
         : null;
-    if (transitionEffect && transitionEffect.type === "detectAndBroadcastTransitions") {
+    if (transitionEffect && transitionEffect.type === "gameTransitionsDetected") {
       const snapshotAfter = transitionEffect.adapter.getSnapshot();
       const phaseAfter = snapshotAfter.phase;
 
@@ -762,9 +769,9 @@ export class MayIRoom extends Server {
     }
 
     for (const effect of sideEffects) {
-      if (effect.type === "setGameState") {
+      if (effect.type === "gameStateCommitted") {
         await this.setGameState(effect.state);
-      } else if (effect.type === "broadcastMayIPrompt") {
+      } else if (effect.type === "mayIPromptNeeded") {
         if (
           mayIPhaseBefore === "RESOLVING_MAY_I" &&
           mayIPhaseAfter === "RESOLVING_MAY_I"
@@ -776,23 +783,23 @@ export class MayIRoom extends Server {
           await this.broadcastMayINotification(effect.adapter);
         }
         await this.broadcastMayIPrompt(effect.adapter);
-      } else if (effect.type === "executeAIMayIResponseIfNeeded") {
+      } else if (effect.type === "aiMayIResponseNeeded") {
         this.logMayI(`Checking if prompted player is AI...`);
         await this.executeAIMayIResponseIfNeeded(effect.adapter);
-      } else if (effect.type === "broadcastMayIResolved") {
+      } else if (effect.type === "mayIResolved") {
         const phaseAfter = effect.adapter.getSnapshot().phase;
         this.logMayI(`May-I resolved, new phase: ${phaseAfter}`);
         await this.broadcastMayIResolved(effect.adapter);
-      } else if (effect.type === "detectAndBroadcastTransitions") {
+      } else if (effect.type === "gameTransitionsDetected") {
         await this.detectAndBroadcastTransitions(
           effect.adapter,
           effect.phaseBefore,
           effect.roundBefore,
           effect.snapshotBefore
         );
-      } else if (effect.type === "broadcastGameState") {
+      } else if (effect.type === "playerViewsChanged") {
         await this.broadcastGameState();
-      } else if (effect.type === "executeAITurnsIfNeeded" && !options.skipAITurnsIfNeeded) {
+      } else if (effect.type === "aiTurnEligible" && !options.skipAITurnsIfNeeded) {
         await this.executeAITurnsIfNeeded();
       }
     }
@@ -933,26 +940,44 @@ export class MayIRoom extends Server {
     await this.broadcastLobbyState();
   }
 
+  private connectedPlayerIds(): string[] {
+    const playerIds: string[] = [];
+    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
+      const playerId = conn.state?.playerId;
+      if (playerId) {
+        playerIds.push(playerId);
+      }
+    }
+    return playerIds;
+  }
+
+  private sendProjectedMessage(projected: ProjectedServerMessage | null): void {
+    if (!projected) return;
+
+    const payload = JSON.stringify(projected.message satisfies ServerMessage);
+    if (projected.recipient === "all") {
+      this.broadcast(payload);
+      return;
+    }
+
+    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
+      if (conn.state?.playerId === projected.recipient.playerId) {
+        conn.send(payload);
+        break;
+      }
+    }
+  }
+
   /**
    * Broadcast GAME_STARTED to each connected player with their specific PlayerView
    */
   private async broadcastPlayerViews(adapter: PartyGameAdapter): Promise<void> {
-    const activityLog = adapter.getRecentActivityLog(10);
-
-    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
-      const lobbyPlayerId = conn.state?.playerId;
-      if (!lobbyPlayerId) continue;
-
-      const playerView = adapter.getPlayerView(lobbyPlayerId);
-      if (!playerView) continue;
-
-      conn.send(
-        JSON.stringify({
-          type: "GAME_STARTED",
-          state: playerView,
-          activityLog,
-        } satisfies ServerMessage)
-      );
+    for (const projected of projectPlayerViewMessages({
+      adapter,
+      messageType: "GAME_STARTED",
+      recipientPlayerIds: this.connectedPlayerIds(),
+    })) {
+      this.sendProjectedMessage(projected);
     }
   }
 
@@ -964,22 +989,12 @@ export class MayIRoom extends Server {
     if (!gameState) return;
 
     const adapter = PartyGameAdapter.fromStoredState(gameState);
-    const activityLog = adapter.getRecentActivityLog(10);
-
-    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
-      const lobbyPlayerId = conn.state?.playerId;
-      if (!lobbyPlayerId) continue;
-
-      const playerView = adapter.getPlayerView(lobbyPlayerId);
-      if (!playerView) continue;
-
-      conn.send(
-        JSON.stringify({
-          type: "GAME_STATE",
-          state: playerView,
-          activityLog,
-        } satisfies ServerMessage)
-      );
+    for (const projected of projectPlayerViewMessages({
+      adapter,
+      messageType: "GAME_STATE",
+      recipientPlayerIds: this.connectedPlayerIds(),
+    })) {
+      this.sendProjectedMessage(projected);
     }
   }
 
@@ -1031,38 +1046,12 @@ export class MayIRoom extends Server {
     completedRoundNumber: number,
     snapshotBefore: import("../../core/engine/game-engine.types").GameSnapshot
   ): Promise<void> {
-    // Capture round summary from the snapshot BEFORE round transition
-    // This ensures we have the actual hands at round end, not new dealt cards
-    const latestRoundRecord = adapter
-      .getSnapshot()
-      .roundHistory.find((record) => record.roundNumber === completedRoundNumber);
-    const summary = captureRoundSummary(
-      snapshotBefore,
-      adapter.getAllPlayerMappings(),
-      latestRoundRecord?.winnerId
-    );
-
-    // Use current snapshot for updated scores (after points were added)
-    const snapshotAfter = adapter.getSnapshot();
-    const scores: Record<string, number> = {};
-    for (const mapping of adapter.getAllPlayerMappings()) {
-      const player = snapshotAfter.players.find((p) => p.id === mapping.engineId);
-      if (player) {
-        scores[mapping.lobbyId] = player.totalScore;
-      }
-    }
-
-    // Include player names map for UI display
-    const playerNames = adapter.getPlayerNamesMap();
-
-    this.broadcast(
-      JSON.stringify({
-        type: "ROUND_ENDED",
-        roundNumber: completedRoundNumber,
-        scores,
-        playerNames,
-        summary,
-      } satisfies ServerMessage)
+    this.sendProjectedMessage(
+      projectRoundEndedMessage({
+        adapter,
+        completedRoundNumber,
+        snapshotBefore,
+      })
     );
   }
 
@@ -1070,74 +1059,14 @@ export class MayIRoom extends Server {
    * Broadcast GAME_ENDED to all clients
    */
   private async broadcastGameEnded(adapter: PartyGameAdapter): Promise<void> {
-    const snapshot = adapter.getSnapshot();
-
-    // Build final scores map and find winner (lowest score wins)
-    const finalScores: Record<string, number> = {};
-    let winnerId = "";
-    let lowestScore = Infinity;
-
-    for (const mapping of adapter.getAllPlayerMappings()) {
-      const player = snapshot.players.find((p) => p.id === mapping.engineId);
-      if (player) {
-        finalScores[mapping.lobbyId] = player.totalScore;
-        if (player.totalScore < lowestScore) {
-          lowestScore = player.totalScore;
-          winnerId = mapping.lobbyId;
-        }
-      }
-    }
-
-    // Include player names map for UI display
-    const playerNames = adapter.getPlayerNamesMap();
-
-    this.broadcast(
-      JSON.stringify({
-        type: "GAME_ENDED",
-        finalScores,
-        winnerId,
-        playerNames,
-      } satisfies ServerMessage)
-    );
+    this.sendProjectedMessage(projectGameEndedMessage(adapter));
   }
 
   /**
    * Broadcast MAY_I_PROMPT to the player being prompted
    */
   private async broadcastMayIPrompt(adapter: PartyGameAdapter): Promise<void> {
-    const snapshot = adapter.getSnapshot();
-    const mayIContext = snapshot.mayIContext;
-    if (!mayIContext) return;
-
-    // Find the connection for the player being prompted
-    const promptedEngineId = mayIContext.playerBeingPrompted;
-    if (!promptedEngineId) return;
-
-    // Get caller info
-    const callerMapping = adapter.getAllPlayerMappings().find(
-      (m) => m.engineId === mayIContext.originalCaller
-    );
-    if (!callerMapping) return;
-
-    const promptedMapping = adapter.getAllPlayerMappings().find(
-      (m) => m.engineId === promptedEngineId
-    );
-    if (!promptedMapping) return;
-
-    // Send prompt to the prompted player
-    for (const conn of this.getConnections<MayIRoomConnectionState>()) {
-      if (conn.state?.playerId === promptedMapping.lobbyId) {
-        conn.send(
-          JSON.stringify({
-            type: "MAY_I_PROMPT",
-            callerId: callerMapping.lobbyId,
-            callerName: callerMapping.name,
-            card: mayIContext.cardBeingClaimed,
-          } satisfies ServerMessage)
-        );
-        break;
-      }
-    }
+    this.sendProjectedMessage(projectMayIPromptMessage(adapter));
   }
 
   /**
@@ -1147,25 +1076,7 @@ export class MayIRoom extends Server {
    * MAY_I_NOTIFICATION lets all players see that someone has called May I in the table view.
    */
   private async broadcastMayINotification(adapter: PartyGameAdapter): Promise<void> {
-    const snapshot = adapter.getSnapshot();
-    const mayIContext = snapshot.mayIContext;
-    if (!mayIContext) return;
-
-    // Get caller info
-    const callerMapping = adapter.getAllPlayerMappings().find(
-      (m) => m.engineId === mayIContext.originalCaller
-    );
-    if (!callerMapping) return;
-
-    const message: MayINotificationMessage = {
-      type: "MAY_I_NOTIFICATION",
-      callerId: callerMapping.lobbyId,
-      callerName: callerMapping.name,
-      card: mayIContext.cardBeingClaimed,
-    };
-
-    // Broadcast to ALL connected players
-    this.broadcast(JSON.stringify(message satisfies ServerMessage));
+    this.sendProjectedMessage(projectMayINotificationMessage(adapter));
   }
 
   /**
@@ -1256,22 +1167,8 @@ export class MayIRoom extends Server {
   /**
    * Broadcast MAY_I_RESOLVED to all clients
    */
-  private async broadcastMayIResolved(adapter: PartyGameAdapter): Promise<void> {
-    // The May I has been resolved - we need to determine the outcome
-    // If phase returned to ROUND_ACTIVE, the original caller got the card (if there was one)
-    // Check who drew from discard last
-    const snapshot = adapter.getSnapshot();
-
-    // Find who claimed the card (if anyone)
-    // We can infer this from the game state or track it during resolution
-    // For now, we'll just broadcast that it was resolved
-    this.broadcast(
-      JSON.stringify({
-        type: "MAY_I_RESOLVED",
-        winnerId: null, // TODO: track the actual winner during resolution
-        outcome: "resolved",
-      } satisfies ServerMessage)
-    );
+  private async broadcastMayIResolved(_adapter: PartyGameAdapter): Promise<void> {
+    this.sendProjectedMessage(projectMayIResolvedMessage());
   }
 
   /**

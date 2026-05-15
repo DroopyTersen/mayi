@@ -108,7 +108,15 @@ Minimum browser checks:
   - [x] Verify no AI/CLI imports from `app/party/protocol.types`
   - [x] Verify with targeted tests, typecheck, full suite, build, and CLI
     command-mode smoke
-- [ ] Phase 4: Split room side effects into domain events and broadcast projection
+- [x] Phase 4: Split room side effects into domain events and broadcast projection
+  - [x] Rename game action side-effect outputs to domain event names
+  - [x] Add `game-action-event.projection` for per-recipient server message
+    projection
+  - [x] Keep `MayIRoom` as the WebSocket adapter that stores state, sends
+    projected messages, and invokes AI continuations
+  - [x] Verify May-I prompt and final-round transition projection through live
+    WebSocket smoke checks; Chrome automation remained blocked by local tool
+    timeouts
 - [ ] Phase 5: Create typed UI player-action intents
 - [ ] Phase 6: Move shared rendering, prompt, and activity text out of CLI
 - [ ] Phase 7: Clean up projection, persistence, availability, and command results
@@ -326,8 +334,7 @@ Red tests:
 Verification gate:
 
 ```bash
-bun test app/party/mayi-room.message-handlers.test.ts app/party/protocol.types.test.ts
-bun test app/party/round-summary.capture.test.ts app/party/party-game-adapter.test.ts
+bun test app/party/mayi-room.message-handlers.test.ts app/party/protocol.types.test.ts app/party/game-action-event.projection.test.ts app/party/round-summary.capture.test.ts app/party/party-game-adapter.test.ts app/party/game-action-executor.test.ts app/party/queued-game-action.test.ts
 bun run typecheck
 bun test
 bun run build
@@ -338,6 +345,19 @@ Browser gate:
 - Chrome E2E quick start.
 - Chrome E2E injected May-I prompt state.
 - Chrome E2E injected round-end state.
+
+Phase 4 result:
+
+- Focused Party projection and queued-action tests passed.
+- `bun run typecheck`, `bun test`, and `bun run build` passed.
+- Local WebSocket fallback May-I smoke passed: three human clients joined,
+  started a game, a non-current player called May-I, notification reached all
+  clients, and exactly one prompted player received `MAY_I_PROMPT`.
+- Local WebSocket fallback final-round smoke passed: agent harness injected a
+  round 6 state, the human laid down all cards, and the room emitted
+  `ROUND_ENDED` plus `GAME_ENDED` with winner and score payloads.
+- Chrome E2E remains blocked by the same local automation issue recorded in
+  Phase 2; the fallback used the actual dev server WebSocket path.
 
 Commit checkpoint:
 
