@@ -12,12 +12,9 @@
  * All game logic lives in the XState machines - this is just a wrapper.
  */
 
-import { createActor, type Snapshot } from "xstate";
-import { gameMachine, type GameContext, type GameEvent } from "./game.machine";
-import { CONTRACTS, getContractForRound } from "./contracts";
-import type { Card } from "../card/card.types";
-import type { Meld } from "../meld/meld.types";
-import type { MayIResolution, Player, RoundNumber, RoundRecord } from "./engine.types";
+import { createActor } from "xstate";
+import { gameMachine } from "./game.machine";
+import type { RoundNumber } from "./engine.types";
 import type {
   GameSnapshot,
   PlayerView,
@@ -27,63 +24,14 @@ import type {
   CreateGameOptions,
   EnginePhase,
   TurnPhase,
-  MayIContext,
 } from "./game-engine.types";
-import type { Contract } from "./contracts";
 import { getActionAvailabilityDetails } from "./game-engine.availability";
-import {
-  duplicateCardIdsFromReport,
-  validateCardZones,
-  zonesFromRoundState,
-} from "./card-state.invariants";
+import { projectGameSnapshotFromXState } from "./game-engine.projection";
 
 /**
  * Type for XState's persisted snapshot structure
  */
 type PersistedSnapshot = ReturnType<ReturnType<typeof createActor>["getPersistedSnapshot"]>;
-
-function cloneCards(cards: Card[]): Card[] {
-  return cards.map((card) => ({ ...card }));
-}
-
-function clonePlayers(players: Player[]): Player[] {
-  return players.map((player) => ({
-    ...player,
-    hand: cloneCards(player.hand),
-  }));
-}
-
-function cloneTable(table: Meld[]): Meld[] {
-  return table.map((meld) => ({
-    ...meld,
-    cards: cloneCards(meld.cards),
-  }));
-}
-
-/**
- * Internal types for extracting nested actor state from XState's persisted snapshot
- */
-interface RoundContext {
-  players: Player[];
-  currentPlayerIndex: number;
-  dealerIndex: number;
-  stock: Card[];
-  discard: Card[];
-  table: Meld[];
-  roundNumber: RoundNumber;
-  turnNumber: number;
-  lastDiscardedByPlayerId: string | null;
-  mayIResolution: MayIResolution | null;
-  discardClaimed: boolean;
-}
-
-interface TurnContext {
-  playerId: string;
-  hasDrawn: boolean;
-  laidDownThisTurn: boolean;
-  tookActionThisTurn: boolean;
-  lastError: string | null;
-}
 
 // Note: MayIWindowContext removed - May I is now handled at round level
 
@@ -386,149 +334,11 @@ export class GameEngine {
    * Extract GameSnapshot from XState's internal state
    */
   private extractGameSnapshot(): GameSnapshot {
-    const actorSnapshot = this.actor.getSnapshot();
-    const persistedSnapshot = this.actor.getPersistedSnapshot() as any;
-    const context = actorSnapshot.context;
-
-    // Get nested actor state
-    const roundSnapshot = persistedSnapshot.children?.round?.snapshot;
-    const roundContext = roundSnapshot?.context as RoundContext | undefined;
-    const turnSnapshot = roundSnapshot?.children?.turn?.snapshot;
-    const turnContext = turnSnapshot?.context as TurnContext | undefined;
-
-    // Check if we're in May I resolution (round-level state)
-    const roundState = roundSnapshot?.value;
-    const isResolvingMayI =
-      typeof roundState === "object" &&
-      roundState !== null &&
-      "active" in roundState &&
-      typeof roundState.active === "object" &&
-      roundState.active !== null &&
-      "resolvingMayI" in roundState.active;
-
-    // Determine phase
-    let phase: EnginePhase = "ROUND_ACTIVE";
-    let turnPhase: TurnPhase = "AWAITING_DRAW";
-
-    const machineState = actorSnapshot.value;
-    if (machineState === "setup") {
-      phase = "ROUND_ACTIVE";
-    } else if (machineState === "gameEnd") {
-      phase = "GAME_END";
-    } else if (machineState === "roundEnd") {
-      phase = "ROUND_END";
-    } else if (machineState === "playing") {
-      // Check for May I resolution state first
-      if (isResolvingMayI) {
-        phase = "RESOLVING_MAY_I";
-      } else {
-        phase = "ROUND_ACTIVE";
-      }
-
-      // Check turn state
-      const turnState = turnSnapshot?.value;
-      if (typeof turnState === "string") {
-        if (turnState === "awaitingDraw") turnPhase = "AWAITING_DRAW";
-        else if (turnState === "drawn") turnPhase = "AWAITING_ACTION";
-        else if (turnState === "awaitingDiscard") turnPhase = "AWAITING_DISCARD";
-      }
-    }
-
-    // RoundMachine owns physical card zones. TurnMachine still exposes turn-local
-    // flags and errors, but its card arrays are not authoritative for snapshots.
-    const players: Player[] = clonePlayers(roundContext?.players ?? context.players);
-
-    // Get current player index
-    const currentPlayerIndex = roundContext?.currentPlayerIndex ?? 0;
-    const dealerIndex = roundContext?.dealerIndex ?? context.dealerIndex;
-
-    // Get awaiting player - during May I resolution, it's the prompted player
-    let awaitingPlayerId = players[currentPlayerIndex]?.id ?? "";
-    if (isResolvingMayI && roundContext?.mayIResolution?.playerBeingPrompted) {
-      awaitingPlayerId = roundContext.mayIResolution.playerBeingPrompted;
-    }
-
-    // Extract May I context from round-level mayIResolution
-    let mayIContextResult: MayIContext | null = null;
-    if (roundContext?.mayIResolution) {
-      const resolution = roundContext.mayIResolution;
-      mayIContextResult = {
-        originalCaller: resolution.originalCaller,
-        cardBeingClaimed: resolution.cardBeingClaimed,
-        playersToCheck: resolution.playersToCheck,
-        currentPromptIndex: resolution.currentPromptIndex,
-        playerBeingPrompted: resolution.playerBeingPrompted,
-        playersWhoAllowed: resolution.playersWhoAllowed,
-        winner: resolution.winner,
-        outcome: resolution.outcome,
-      };
-    }
-
-    const currentRound = (context.currentRound ?? 1) as RoundNumber;
-
-    const roundStock = cloneCards(roundContext?.stock ?? []);
-    const roundDiscard = cloneCards(roundContext?.discard ?? []);
-    const roundTable = cloneTable(roundContext?.table ?? []);
-
-    const stock = roundStock;
-    const discard = roundDiscard;
-    const table = roundTable;
-
-    // Prefer turn error when available, then fall back to game-level error
-    const lastError = turnContext?.lastError ?? context.lastError ?? null;
-
-    // Duplicate detection runs for debugging but does NOT set lastError.
-    // Setting lastError would cause game-actions.ts to treat valid actions as failed.
-    // The underlying duplicate cause is unknown (see specs/may-i-bugs.bug.md),
-    // but we shouldn't block users from playing when duplicates are detected.
-    const cardInvariantReport = validateCardZones(
-      zonesFromRoundState({
-        players,
-        stock,
-        discard,
-        table,
-      })
-    );
-    const duplicateIds = duplicateCardIdsFromReport(cardInvariantReport);
-    if (duplicateIds.length > 0) {
-      console.warn(
-        `[GameEngine] Duplicate card IDs detected: ${duplicateIds.join(", ")}. ` +
-          "Game continues but state may be corrupted.",
-        {
-          gameId: this.gameId,
-          cardInvariantViolations: cardInvariantReport.violations,
-          turnPlayerId: turnContext?.playerId ?? null,
-          roundDiscardCount: roundContext?.discard?.length ?? null,
-          roundPlayerCount: roundContext?.players?.length ?? null,
-        }
-      );
-    }
-
-    return {
-      version: "3.0",
+    return projectGameSnapshotFromXState({
+      actorSnapshot: this.actor.getSnapshot(),
+      persistedSnapshot: this.actor.getPersistedSnapshot(),
       gameId: this.gameId,
-      lastError,
-      phase,
-      turnPhase,
-      turnNumber: roundContext?.turnNumber ?? 1,
-      lastDiscardedByPlayerId: roundContext?.lastDiscardedByPlayerId ?? null,
-      discardClaimed: roundContext?.discardClaimed ?? false,
-      currentRound,
-      contract: getContractForRound(currentRound)!,
-      players,
-      dealerIndex,
-      currentPlayerIndex,
-      awaitingPlayerId,
-      stock,
-      discard,
-      table,
-      hasDrawn: turnContext?.hasDrawn ?? false,
-      laidDownThisTurn: turnContext?.laidDownThisTurn ?? false,
-      tookActionThisTurn: turnContext?.tookActionThisTurn ?? false,
-      mayIContext: mayIContextResult,
-      roundHistory: context.roundHistory ?? [],
       createdAt: this.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
+    });
   }
 }
