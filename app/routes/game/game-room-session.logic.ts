@@ -6,6 +6,7 @@ import type {
 } from "~/party/protocol.types";
 import type { ActivityEntry } from "~/ui/game-view/game-view.types";
 import type { MayINotificationState } from "./game-room-session.types";
+import { formatActivityEntry } from "core/activity/activity-log.format";
 
 const MAY_I_RESOLUTION_VISIBLE_MS = 5000;
 
@@ -39,10 +40,10 @@ export function resolveMayINotification(
 export function formatActivityLogEntries(
   entries: ActivityLogEntry[]
 ): ActivityEntry[] {
-  return entries.map((entry) => ({
-    id: entry.id,
-    message: entry.details
-      ? `${entry.playerName}: ${entry.action} ${entry.details}`
-      : `${entry.playerName}: ${entry.action}`,
-  }));
+  return entries
+    .map((entry) => {
+      const message = formatActivityEntry(entry, { humanPlayerId: null });
+      return message ? { id: entry.id, message } : null;
+    })
+    .filter((entry): entry is ActivityEntry => entry !== null);
 }

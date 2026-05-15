@@ -18,7 +18,8 @@ import type {
 } from "../../core/engine/game-engine.types";
 import type { RoundNumber } from "../../core/engine/engine.types";
 import type { AIPlayerInfo, HumanPlayerInfo, ActivityLogEntry } from "./protocol.types";
-import { renderCard } from "../../cli/shared/cli.renderer";
+import { formatCardText } from "../../core/card/card-text.utils";
+import { createActivityLogEntry } from "../../core/activity/activity-log.format";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -490,19 +491,20 @@ export class PartyGameAdapter {
    */
   logAction(lobbyPlayerId: string, action: string, details?: string): void {
     const snapshot = this.engine.getSnapshot();
-    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
-    const playerName = lobbyPlayerId === "system" ? "System" : (mapping?.name ?? lobbyPlayerId);
-
-    const entry: ActivityLogEntry = {
+    const entry: ActivityLogEntry = createActivityLogEntry({
+      context: {
+        roundNumber: snapshot.currentRound,
+        turnNumber: snapshot.turnNumber,
+        players: this.playerMappings.map((mapping) => ({
+          id: mapping.lobbyId,
+          name: mapping.name,
+        })),
+      },
       id: `log-${++this.logIdCounter}`,
-      timestamp: new Date().toISOString(),
-      roundNumber: snapshot.currentRound,
-      turnNumber: snapshot.turnNumber,
       playerId: lobbyPlayerId,
-      playerName,
       action,
       ...(details ? { details } : {}),
-    };
+    });
 
     this.activityLog.push(entry);
   }
@@ -536,7 +538,7 @@ export class PartyGameAdapter {
       this.logAction(lobbyPlayerId, "drew from the draw pile");
     } else {
       // Discard is face-up, so everyone can see what was taken
-      this.logAction(lobbyPlayerId, "took from discard", renderCard(drawn));
+      this.logAction(lobbyPlayerId, "took from discard", formatCardText(drawn));
     }
   }
 
@@ -559,7 +561,7 @@ export class PartyGameAdapter {
 
     if (cardInDiscard || roundEnded) {
       if (card) {
-        this.logAction(lobbyPlayerId, "discarded", renderCard(card));
+        this.logAction(lobbyPlayerId, "discarded", formatCardText(card));
       }
 
       // Log "went out" if player went out
@@ -611,7 +613,7 @@ export class PartyGameAdapter {
       if (card) {
         // Only show "at start" for prepending - appending is the default
         const positionText = position === "start" ? " at start" : "";
-        this.logAction(lobbyPlayerId, `laid off${positionText}`, renderCard(card));
+        this.logAction(lobbyPlayerId, `laid off${positionText}`, formatCardText(card));
       }
     }
   }
@@ -662,7 +664,7 @@ export class PartyGameAdapter {
       ? `${owner.name}'s ${afterMeld.type}`
       : `${afterMeld.type} ${afterMeld.id}`;
 
-    this.logAction(lobbyPlayerId, "swapped Joker", `${renderCard(swapCard)} into ${targetLabel}`);
+    this.logAction(lobbyPlayerId, "swapped Joker", `${formatCardText(swapCard)} into ${targetLabel}`);
   }
 
   /**
@@ -671,7 +673,7 @@ export class PartyGameAdapter {
   logMayICall(lobbyPlayerId: string, cardId: string, before: GameSnapshot): void {
     const card = before.discard.find((c) => c.id === cardId);
     if (card) {
-      this.logAction(lobbyPlayerId, "called May I", renderCard(card));
+      this.logAction(lobbyPlayerId, "called May I", formatCardText(card));
     }
   }
 

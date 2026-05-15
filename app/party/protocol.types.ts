@@ -21,6 +21,7 @@ import {
   meldSpecSchema,
   type GameAction,
 } from "../../core/engine/game-action.command";
+import type { BaseActivityLogEntry } from "../../core/activity/activity-log.format";
 
 // Re-export types needed by clients
 export type { PlayerView } from "../../core/engine/game-engine.types";
@@ -34,23 +35,9 @@ export type { PlayerView } from "../../core/engine/game-engine.types";
  *
  * Used to display a human-readable log of game events to players.
  */
-export interface ActivityLogEntry {
+export interface ActivityLogEntry extends BaseActivityLogEntry {
   /** Unique ID for React keys */
   id: string;
-  /** Timestamp of the action */
-  timestamp: string;
-  /** Round number when action occurred */
-  roundNumber: RoundNumber;
-  /** Turn number when action occurred */
-  turnNumber: number;
-  /** Player who performed the action (lobby ID) */
-  playerId: string;
-  /** Player name */
-  playerName: string;
-  /** Action type (e.g., "drew from stock", "discarded", "laid down") */
-  action: string;
-  /** Additional details (e.g., card that was discarded) */
-  details?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

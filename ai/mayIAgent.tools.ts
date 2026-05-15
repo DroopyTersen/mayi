@@ -9,7 +9,10 @@ import { tool } from "ai";
 import { z } from "zod/v4";
 import type { GameSnapshot, MeldSpec } from "../core/engine/game-engine.types";
 import type { ToolExecutionResult } from "./mayIAgent.types";
-import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
+import {
+  outputGameStateForLLM,
+  type ActionLogEntry,
+} from "./mayIAgent.prompt-renderer";
 import { getAvailableActions } from "../core/engine/game-engine.availability";
 import { isValidRun, isValidSet } from "../core/meld/meld.validation";
 import type { AIActionRuntime, GameAction } from "./ai-action-runtime.types";

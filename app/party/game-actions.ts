@@ -8,7 +8,7 @@
 import type { GameAction } from "../../core/engine/game-action.command";
 import type { PartyGameAdapter } from "./party-game-adapter";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
-import { renderCard } from "../../cli/shared/cli.renderer";
+import { formatCardText } from "../../core/card/card-text.utils";
 
 const ACTIONS_THAT_DONT_REQUIRE_TURN: ReadonlySet<GameAction["type"]> = new Set([
   "CALL_MAY_I",
@@ -334,7 +334,7 @@ function logSuccessfulAction(
       if (before.phase === "RESOLVING_MAY_I" && after.phase === "ROUND_ACTIVE") {
         const mayIContext = before.mayIContext;
         if (mayIContext) {
-          const cardRendered = renderCard(mayIContext.cardBeingClaimed);
+          const cardRendered = formatCardText(mayIContext.cardBeingClaimed);
           const winnerEngineId = mayIContext.originalCaller;
           const winnerMapping = adapter.getAllPlayerMappings().find(
             (m) => m.engineId === winnerEngineId
@@ -350,7 +350,7 @@ function logSuccessfulAction(
     case "CLAIM_MAY_I": {
       const mayIContext = before.mayIContext;
       if (mayIContext) {
-        const cardRendered = renderCard(mayIContext.cardBeingClaimed);
+        const cardRendered = formatCardText(mayIContext.cardBeingClaimed);
         adapter.logMayIClaim(lobbyPlayerId, cardRendered);
         // Claimer is this player, they took the card
         adapter.logMayIResolved(lobbyPlayerId, cardRendered);

@@ -5,6 +5,7 @@
  */
 
 import type { RoundNumber } from "../../core/engine/engine.types";
+import type { BaseActivityLogEntry } from "../../core/activity/activity-log.format";
 
 /**
  * Decision phases - what the CLI is waiting for
@@ -20,15 +21,7 @@ export type DecisionPhase =
 /**
  * Action log entry for the game log file
  */
-export interface ActionLogEntry {
-  timestamp: string;
-  turnNumber: number;
-  roundNumber: RoundNumber;
-  playerId: string;
-  playerName: string;
-  action: string;
-  details?: string;
-}
+export interface ActionLogEntry extends BaseActivityLogEntry {}
 
 /**
  * Result of executing a command

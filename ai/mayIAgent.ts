@@ -6,7 +6,10 @@
 
 import { generateText, type LanguageModel, type StepResult } from "ai";
 import type { AIActionRuntime } from "./ai-action-runtime.types";
-import { outputGameStateForLLM, type ActionLogEntry } from "../cli/shared/cli.llm-output";
+import {
+  outputGameStateForLLM,
+  type ActionLogEntry,
+} from "./mayIAgent.prompt-renderer";
 import { buildSystemPrompt } from "./mayIAgent.prompt";
 import {
   createMayITools,

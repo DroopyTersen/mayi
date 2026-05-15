@@ -126,7 +126,15 @@ Minimum browser checks:
     commands, including May-I allow/claim
   - [x] Verify UI intent tests, full type/test/build ladder, and live
     WebSocket draw/reorder/discard fallback; Chrome automation remained blocked
-- [ ] Phase 6: Move shared rendering, prompt, and activity text out of CLI
+- [x] Phase 6: Move shared rendering, prompt, and activity text out of CLI
+  - [x] Move Party activity/card text off `cli/shared/cli.renderer`
+  - [x] Move AI prompt rendering under the AI seam with direct prompt-renderer
+    tests
+  - [x] Move meld numbering to a shared core module re-exported by CLI
+  - [x] Add shared activity log entry creation and display formatting used by
+    CLI, Party, and web activity rendering
+  - [x] Verify with import checks, targeted renderer/activity tests, full
+    type/test/build ladder, and AI integration
 - [ ] Phase 7: Clean up projection, persistence, availability, and command results
 
 ## Phase 1: Finish The Core Card-State Owner Seam
@@ -488,6 +496,21 @@ AI integration gate:
 ```bash
 RUN_INTEGRATION_TESTS=1 bun test ai/
 ```
+
+Phase 6 result:
+
+- `app/party` and `ai` no longer import `cli/shared/cli.renderer`.
+- Party action logging now uses core card text directly.
+- AI prompt rendering lives in `ai/mayIAgent.prompt-renderer` with direct tests
+  for privacy, table rendering, May-I prompts, and available actions.
+- Meld numbering lives in `core/meld/meld-numbering`; CLI keeps a compatibility
+  re-export.
+- Activity log entry creation and display formatting live in
+  `core/activity/activity-log.format`, with CLI, Party, and web formatting using
+  the shared seam.
+- Verification passed: import check, targeted CLI/AI/Party/activity tests,
+  `bun run typecheck`, `bun test`, `bun run build`, and
+  `RUN_INTEGRATION_TESTS=1 bun test ai/`.
 
 Commit checkpoint:
 

@@ -20,6 +20,7 @@ import { appendActionLog, generateGameId, loadGameSave, saveGameSave } from "./c
 import { getNumberedMelds } from "./cli-meld-numbering";
 import { renderCard } from "./cli.renderer";
 import type { GameAction } from "../../core/engine/game-action.command";
+import { createActivityLogEntry } from "../../core/activity/activity-log.format";
 
 type EnginePersistedSnapshot = ReturnType<GameEngine["getPersistedSnapshot"]>;
 
@@ -516,20 +517,16 @@ export class CliGameAdapter {
     action: string,
     details?: string
   ): void {
-    const playerName =
-      playerId === "system"
-        ? "System"
-        : state.players.find((p) => p.id === playerId)?.name ?? playerId;
-
-    const entry: ActionLogEntry = {
-      timestamp: new Date().toISOString(),
-      turnNumber: state.turnNumber,
-      roundNumber: state.currentRound,
+    const entry: ActionLogEntry = createActivityLogEntry({
+      context: {
+        roundNumber: state.currentRound,
+        turnNumber: state.turnNumber,
+        players: state.players,
+      },
       playerId,
-      playerName,
       action,
       ...(details ? { details } : {}),
-    };
+    });
 
     appendActionLog(state.gameId, entry);
   }
