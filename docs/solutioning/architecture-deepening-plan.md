@@ -13,6 +13,15 @@ The highest-risk seam is the core card-state owner seam. Later phases depend on 
 
 ## Working Rules
 
+- Load `docs/house-rules.md` before each refactor phase or continuation of
+  this work. Keep it in working context while designing, editing, and verifying.
+- Treat Grandma Jeanne's house rules as domain invariants. A refactor must not
+  change rule behavior unless the change is intentional, documented, and covered
+  by a red test first.
+- Before editing a rule-bearing module, identify which house-rule sections the
+  change can affect.
+- Every verification note must include a house-rule review statement for the
+  affected behavior.
 - Use TDD for every behavior change. Write a failing test first, run it red, then implement.
 - Keep each phase mergeable on its own.
 - Do not mix unrelated architecture phases in one commit.
@@ -25,14 +34,37 @@ The highest-risk seam is the core card-state owner seam. Later phases depend on 
 Every implementation phase must define a local verification gate. The full ladder is:
 
 1. Run the new failing test and confirm it fails before implementation.
-2. Run targeted tests for the changed seam.
-3. Run `bun run typecheck`.
-4. Run `bun test`.
-5. Run `bun run build`.
-6. Run CLI harness smoke coverage.
-7. Run at least one full CLI round after major engine or command pipeline phases.
-8. Run browser E2E after web, realtime, and protocol phases.
-9. Run AI integration tests after AI command, prompt, or tool behavior changes.
+2. Review the changed behavior against `docs/house-rules.md` and record which
+   house-rule sections were protected by tests or manual harness checks.
+3. Run targeted tests for the changed seam.
+4. Run `bun run typecheck`.
+5. Run `bun test`.
+6. Run `bun run build`.
+7. Run CLI harness smoke coverage.
+8. Run at least one full CLI round after major engine or command pipeline phases.
+9. Run browser E2E after web, realtime, and protocol phases.
+10. Run AI integration tests after AI command, prompt, or tool behavior changes.
+
+House-rule review checklist:
+
+- Setup: 3-8 players, correct deck count, 11-card deal, 6 hands.
+- Turn structure: draw first, exactly one draw, discard to end turn unless going
+  out by playing all cards.
+- Down status: down players draw stock only, cannot May I, can lay off only on
+  later turns, and cannot lay off on the same turn they lay down.
+- Contracts: each hand requires the exact contract, same-suit two-run gap rule,
+  wild ratio applies to initial laydown only.
+- Joker swapping: runs only, before laying down only, after drawing only, never
+  in Hand 6.
+- May I: exposed discard lifecycle, priority line, down-player skip, current
+  player priority before draw, penalty-card draw, AI non-response counts as
+  allow, no usage limit.
+- Hand 6: no one is down until winning, all cards must be used to lay down, no
+  discard on win, no layoff, no Joker swapping.
+- Stock depletion: replenish from discard except top exposed card, or end hand
+  if no replenishment is possible.
+- Scoring: went-out player scores 0; remaining hand values follow the card-value
+  table; lowest total wins after Hand 6.
 
 Commands:
 
