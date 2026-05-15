@@ -13,6 +13,7 @@ import {
   validateCardZones,
   zonesFromRoundState,
 } from "./card-state.invariants";
+import { applyCardInvariantPolicy } from "./card-state.invariant-policy";
 
 export type ProjectionWarningSink = (
   message?: unknown,
@@ -255,17 +256,19 @@ function warnOnCardInvariantViolations(input: {
     return;
   }
 
-  input.warn(
-    `[GameEngine] Duplicate card IDs detected: ${duplicateIds.join(", ")}. ` +
+  applyCardInvariantPolicy(cardInvariantReport, {
+    policy: "warn",
+    warn: input.warn,
+    message:
+      `[GameEngine] Duplicate card IDs detected: ${duplicateIds.join(", ")}. ` +
       "Game continues but state may be corrupted.",
-    {
+    context: {
       gameId: input.gameId,
-      cardInvariantViolations: cardInvariantReport.violations,
       turnPlayerId: input.turnPlayerId,
       roundDiscardCount: input.roundDiscardCount,
       roundPlayerCount: input.roundPlayerCount,
-    }
-  );
+    },
+  });
 }
 
 function cloneCards(cards: Card[]): Card[] {

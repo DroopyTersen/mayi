@@ -51,6 +51,7 @@ describe("executeGameAction", () => {
 
       const result = executeGameAction(adapter, awaitingId, action);
 
+      expect(result.status).toBe("accepted");
       expect(result.success).toBe(true);
       expect(result.snapshot).not.toBe(null);
       expect(result.snapshot?.hasDrawn).toBe(true);
@@ -67,6 +68,7 @@ describe("executeGameAction", () => {
       const action: GameAction = { type: "DRAW_FROM_STOCK" };
       const result = executeGameAction(adapter, otherPlayerId, action);
 
+      expect(result.status).toBe("rejected");
       expect(result.success).toBe(false);
       expect(result.error).toBe("NOT_YOUR_TURN");
     });
@@ -225,6 +227,7 @@ describe("executeGameAction", () => {
       });
 
       expect(result.success).toBe(false);
+      expect(result.status).toBe("rejected");
       expect(result.error).toBe("card not in hand");
       expect(result.snapshot?.lastError).toBe("card not in hand");
     });

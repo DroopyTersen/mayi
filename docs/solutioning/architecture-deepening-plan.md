@@ -1,6 +1,6 @@
 # Architecture Deepening Plan
 
-Status: in progress
+Status: completed
 Created: 2026-05-14
 
 ## Summary
@@ -135,7 +135,19 @@ Minimum browser checks:
     CLI, Party, and web activity rendering
   - [x] Verify with import checks, targeted renderer/activity tests, full
     type/test/build ladder, and AI integration
-- [ ] Phase 7: Clean up projection, persistence, availability, and command results
+- [x] Phase 7: Clean up projection, persistence, availability, and command results
+  - [x] Extract XState-to-`GameSnapshot` projection into an engine-owned
+    projection module with fixture coverage
+  - [x] Add a versioned engine persistence envelope while preserving legacy
+    snapshot restore compatibility
+  - [x] Share command availability and execution preflight through a core
+    command policy module
+  - [x] Return explicit accepted/rejected action results from the Party action
+    adapter
+  - [x] Add explicit card-invariant policies for projection warning,
+    persistence rejection, and test failure
+  - [x] Verify final system gate with CLI full round, live realtime smoke,
+    full test/build ladder, and AI integration
 
 ## Phase 1: Finish The Core Card-State Owner Seam
 
@@ -553,8 +565,8 @@ Red tests:
 Verification gate:
 
 ```bash
-bun test core/engine/game-engine*.test.ts core/engine/available-actions.test.ts core/engine/card-state.invariants.test.ts
-bun test app/party/game-actions.test.ts cli/shared/cli-game-adapter.test.ts ai/mayIAgent.tools.test.ts
+bun test core/engine/game-engine*.test.ts core/engine/available-actions.test.ts core/engine/card-state.invariants.test.ts core/engine/card-state.invariant-policy.test.ts core/engine/game-action.command-policy.test.ts
+bun test app/party/game-actions.test.ts app/party/game-action-executor.test.ts cli/shared/cli-game-adapter.test.ts ai/mayIAgent.tools.test.ts
 bun run typecheck
 bun test
 bun run build
@@ -567,6 +579,36 @@ Final system gate:
 - Run Chrome E2E injected May-I state.
 - Run Chrome E2E injected round-end state.
 - Run `RUN_INTEGRATION_TESTS=1 bun test ai/`, or document missing integration credentials.
+
+Phase 7 result:
+
+- Extracted `GameSnapshot` projection to `core/engine/game-engine.projection`
+  and covered round-owned card state, May-I resolution, round/game end states,
+  and duplicate-card warning behavior.
+- Added `core/engine/game-engine.persistence` so CLI, Party, and agent-state
+  injection restore through a versioned engine persistence envelope instead of
+  reaching into raw nested actor layout.
+- Added `core/engine/game-action.command-policy` and wired Party human action
+  execution through it, with `ActionResult.status` now explicitly reporting
+  `accepted` or `rejected`.
+- Added `core/engine/card-state.invariant-policy` so snapshot projection warns,
+  persisted action commits reject, and tests can fail fast on invariant
+  violations.
+- Verification passed: red tests were run before implementation for projection,
+  persistence, command policy, action result status, and invariant policy;
+  targeted Phase 7 engine/Party/CLI/AI tests passed; `bun run typecheck`,
+  `bun test`, and `bun run build` passed.
+- Final CLI gate passed with deterministic `ARCHP7CLI`: status began in Round 1
+  `AWAITING_DISCARD`, `discard 1` advanced to Round 2, scores were recorded, and
+  the log showed `Closer went out - Round 1 complete`.
+- Chrome automation remained blocked: `mcp__chrome_devtools__.list_pages`
+  timed out after 120 seconds on 2026-05-14. Live dev-server WebSocket fallback
+  passed instead: quick start emitted `GAME_STARTED`; a three-human room
+  performed draw, hand reorder, skip, discard, May-I call, prompted allow, and
+  resolution; an injected round-end room emitted `ROUND_ENDED` for Round 1 and
+  `GAME_STATE` for Round 2.
+- AI integration passed with `RUN_INTEGRATION_TESTS=1 bun test ai/` across all
+  54 AI tests and live provider connectivity checks.
 
 Commit checkpoint:
 

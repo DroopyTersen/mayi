@@ -4,6 +4,7 @@ import {
   zonesFromGameSnapshot,
   type CardInvariantReport,
 } from "../../core/engine/card-state.invariants";
+import { applyCardInvariantPolicy } from "../../core/engine/card-state.invariant-policy";
 import {
   handleGameActionMessage,
   type GameActionDomainEvent,
@@ -102,7 +103,11 @@ export async function executeStoredGameAction(
   };
   const { snapshot, invariantReport } = validateStoredGameState(nextState);
 
-  if (!invariantReport.ok) {
+  const invariantPolicyResult = applyCardInvariantPolicy(invariantReport, {
+    policy: "reject",
+  });
+
+  if (!invariantPolicyResult.ok) {
     return {
       ok: false,
       state: null,
@@ -116,7 +121,7 @@ export async function executeStoredGameAction(
         ),
       ],
       sideEffects: [],
-      invariantReport,
+      invariantReport: invariantPolicyResult.invariantReport,
     };
   }
 
