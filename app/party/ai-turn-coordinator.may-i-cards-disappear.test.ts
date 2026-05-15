@@ -11,6 +11,10 @@
 import { describe, expect, it } from "bun:test";
 
 import { GameEngine } from "../../core/engine/game-engine";
+import {
+  parseGameEnginePersistedState,
+  stringifyGameEnginePersistedState,
+} from "../../core/engine/game-engine.persistence";
 import { AITurnCoordinator, type AITurnCoordinatorDeps } from "./ai-turn-coordinator";
 import { executeStoredGameAction } from "./game-action-executor";
 import { PartyGameAdapter, type PlayerMapping, type StoredGameState } from "./party-game-adapter";
@@ -39,7 +43,7 @@ function createTestGameState(playerNames: string[]): StoredGameState {
 }
 
 function setPlayersDown(state: StoredGameState, engineIds: string[]): StoredGameState {
-  const snapshot = JSON.parse(state.engineSnapshot);
+  const snapshot = parseGameEnginePersistedState(state.engineSnapshot) as any;
   const players = snapshot.children?.round?.snapshot?.context?.players;
   if (Array.isArray(players)) {
     for (const player of players) {
@@ -56,12 +60,12 @@ function setPlayersDown(state: StoredGameState, engineIds: string[]): StoredGame
 
   return {
     ...state,
-    engineSnapshot: JSON.stringify(snapshot),
+    engineSnapshot: stringifyGameEnginePersistedState(snapshot),
   };
 }
 
 function getRoundHandIds(state: StoredGameState, engineId: string): string[] {
-  const snapshot = JSON.parse(state.engineSnapshot);
+  const snapshot = parseGameEnginePersistedState(state.engineSnapshot) as any;
   const players = snapshot.children?.round?.snapshot?.context?.players;
   const player = players?.find((candidate: { id: string }) => candidate.id === engineId);
   return (player?.hand ?? []).map((card: { id: string }) => card.id);

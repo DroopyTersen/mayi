@@ -49,8 +49,8 @@ export interface AvailableCommands {
 /**
  * CLI save format for persisting a GameEngine-backed game
  *
- * This stores XState's persisted snapshot (engineSnapshot) plus metadata needed
- * to hydrate GameEngine with stable gameId and createdAt.
+ * This stores GameEngine's versioned persisted state plus metadata needed to
+ * hydrate GameEngine with stable gameId and createdAt.
  */
 export interface CliGameSave {
   version: "3.0";

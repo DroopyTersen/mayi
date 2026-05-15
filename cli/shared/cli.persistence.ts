@@ -98,8 +98,8 @@ export function listSavedGames(includeCompleted: boolean = false): GameSummary[]
       // v3.0: GameEngine-backed save
       if (data.version === "3.0") {
         const save = data as CliGameSave;
-        const engine = GameEngine.fromPersistedSnapshot(
-          save.engineSnapshot as unknown as ReturnType<GameEngine["getPersistedSnapshot"]>,
+        const engine = GameEngine.fromPersistedState(
+          save.engineSnapshot,
           save.gameId,
           save.createdAt
         );

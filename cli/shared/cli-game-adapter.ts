@@ -22,8 +22,6 @@ import { renderCard } from "./cli.renderer";
 import type { GameAction } from "../../core/engine/game-action.command";
 import { createActivityLogEntry } from "../../core/activity/activity-log.format";
 
-type EnginePersistedSnapshot = ReturnType<GameEngine["getPersistedSnapshot"]>;
-
 export interface NewCliGameOptions {
   gameId?: string;
   playerNames: string[];
@@ -54,8 +52,11 @@ export class CliGameAdapter {
     // Stop any existing actor before replacing
     this.engine?.stop();
 
-    const engineSnapshot = save.engineSnapshot as EnginePersistedSnapshot;
-    const engine = GameEngine.fromPersistedSnapshot(engineSnapshot, save.gameId, save.createdAt);
+    const engine = GameEngine.fromPersistedState(
+      save.engineSnapshot,
+      save.gameId,
+      save.createdAt
+    );
     this.engine = engine;
     return engine.getSnapshot();
   }
@@ -498,14 +499,12 @@ export class CliGameAdapter {
   private persist(): void {
     const engine = this.requireEngine();
     const snapshot = engine.getSnapshot();
-    const persistedSnapshot = engine.getPersistedSnapshot();
-
     const save: CliGameSave = {
       version: "3.0",
       gameId: snapshot.gameId,
       createdAt: snapshot.createdAt,
       updatedAt: snapshot.updatedAt,
-      engineSnapshot: persistedSnapshot,
+      engineSnapshot: engine.getPersistedState(),
     };
 
     saveGameSave(snapshot.gameId, save);

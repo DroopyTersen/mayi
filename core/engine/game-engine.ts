@@ -27,6 +27,12 @@ import type {
 } from "./game-engine.types";
 import { getActionAvailabilityDetails } from "./game-engine.availability";
 import { projectGameSnapshotFromXState } from "./game-engine.projection";
+import {
+  createGameEnginePersistedState,
+  parseGameEnginePersistedState,
+  stringifyGameEnginePersistedState,
+  type GameEnginePersistedState,
+} from "./game-engine.persistence";
 
 /**
  * Type for XState's persisted snapshot structure
@@ -127,11 +133,26 @@ export class GameEngine {
   }
 
   /**
+   * Restore a game from the engine-owned persistence format.
+   *
+   * Legacy raw XState snapshots are still accepted for old saves and tests.
+   */
+  static fromPersistedState(
+    persistedState: unknown,
+    gameId: string = crypto.randomUUID(),
+    createdAt: string = new Date().toISOString()
+  ): GameEngine {
+    const persistedSnapshot = parseGameEnginePersistedState(
+      persistedState
+    ) as PersistedSnapshot;
+    return GameEngine.fromPersistedSnapshot(persistedSnapshot, gameId, createdAt);
+  }
+
+  /**
    * Restore from a JSON string (convenience method)
    */
   static fromJSON(json: string, gameId?: string, createdAt?: string): GameEngine {
-    const persistedSnapshot = JSON.parse(json);
-    return GameEngine.fromPersistedSnapshot(persistedSnapshot, gameId, createdAt);
+    return GameEngine.fromPersistedState(JSON.parse(json), gameId, createdAt);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -149,10 +170,17 @@ export class GameEngine {
   }
 
   /**
-   * Get persisted snapshot as JSON string
+   * Get the engine-owned persistence envelope for durable adapters.
+   */
+  getPersistedState(): GameEnginePersistedState {
+    return createGameEnginePersistedState(this.getPersistedSnapshot());
+  }
+
+  /**
+   * Get persisted engine state as a JSON string.
    */
   toJSON(): string {
-    return JSON.stringify(this.getPersistedSnapshot());
+    return stringifyGameEnginePersistedState(this.getPersistedSnapshot());
   }
 
   /**

@@ -2,6 +2,10 @@ import { describe, expect, it } from "bun:test";
 import { PartyGameAdapter, type StoredGameState } from "./party-game-adapter";
 import { executeStoredGameAction } from "./game-action-executor";
 import type { HumanPlayerInfo } from "./protocol.types";
+import {
+  parseGameEnginePersistedState,
+  stringifyGameEnginePersistedState,
+} from "../../core/engine/game-engine.persistence";
 
 function human(playerId: string, name: string): HumanPlayerInfo {
   return {
@@ -56,7 +60,7 @@ function reorderActionForAwaitingPlayer(state: StoredGameState) {
 }
 
 function corruptHandDiscardOverlap(state: StoredGameState): StoredGameState {
-  const snapshot = JSON.parse(state.engineSnapshot);
+  const snapshot = parseGameEnginePersistedState(state.engineSnapshot) as any;
   const roundSnapshot = snapshot.children?.round?.snapshot;
   const roundContext = roundSnapshot?.context;
 
@@ -77,7 +81,7 @@ function corruptHandDiscardOverlap(state: StoredGameState): StoredGameState {
 
   return {
     ...state,
-    engineSnapshot: JSON.stringify(snapshot),
+    engineSnapshot: stringifyGameEnginePersistedState(snapshot),
   };
 }
 

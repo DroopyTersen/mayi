@@ -8,6 +8,10 @@
 import type { AgentTestState } from "./agent-state.types";
 import type { StoredGameState, PlayerMapping } from "./party-game-adapter";
 import { GameEngine } from "../../core/engine/game-engine";
+import {
+  parseGameEnginePersistedState,
+  stringifyGameEnginePersistedState,
+} from "../../core/engine/game-engine.persistence";
 
 /**
  * Convert AgentTestState to StoredGameState
@@ -30,7 +34,9 @@ export function convertAgentTestStateToStoredState(
     startingRound: state.roundNumber,
     gameId: roomId,
   });
-  const persistedSnapshot = JSON.parse(baseEngine.toJSON()) as any;
+  const persistedSnapshot = parseGameEnginePersistedState(
+    baseEngine.toJSON()
+  ) as any;
 
   // Build player mappings (lobby IDs ↔ engine IDs)
   const playerMappings: PlayerMapping[] = state.players.map((player, index) => ({
@@ -66,7 +72,7 @@ export function convertAgentTestStateToStoredState(
   const rootContext = persistedSnapshot?.context;
 
   return {
-    engineSnapshot: JSON.stringify(
+    engineSnapshot: stringifyGameEnginePersistedState(
       patchPersistedSnapshotForAgentTestState({
         persistedSnapshot,
         rootContext,
