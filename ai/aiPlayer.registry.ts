@@ -7,7 +7,8 @@
  */
 
 import type { LanguageModel } from "ai";
-import { modelRegistry, withDevTools, type ModelId } from "./modelRegistry";
+import { modelRegistry, withDevTools } from "./modelRegistry";
+import type { AIModelId } from "./ai-model-catalog";
 import type { AIPlayerConfig, GamePlayerConfig } from "./aiPlayer.types";
 
 /**
@@ -16,7 +17,7 @@ import type { AIPlayerConfig, GamePlayerConfig } from "./aiPlayer.types";
 interface AIPlayerEntry {
   playerId: string;
   name: string;
-  modelId: ModelId;
+  modelId: AIModelId;
 }
 
 /**
@@ -70,7 +71,7 @@ export class AIPlayerRegistry {
   /**
    * Get the model ID for an AI player
    */
-  getModelId(playerId: string): ModelId | undefined {
+  getModelId(playerId: string): AIModelId | undefined {
     return this.entries.get(playerId)?.modelId;
   }
 

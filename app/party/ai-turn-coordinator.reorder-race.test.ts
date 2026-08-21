@@ -113,7 +113,6 @@ describe("AI Turn Coordinator - Reorder Race Condition", () => {
       env: {} as AITurnCoordinatorDeps["env"],
       thinkingDelayMs: 0,
       interTurnDelayMs: 0,
-      toolDelayMs: 0,
     };
 
     const coordinator = new AITurnCoordinator(deps);
@@ -152,7 +151,6 @@ describe("AI Turn Coordinator - Reorder Race Condition", () => {
       env: {} as AITurnCoordinatorDeps["env"],
       thinkingDelayMs: 0,
       interTurnDelayMs: 0,
-      toolDelayMs: 0,
     };
 
     const coordinator = new AITurnCoordinator(deps);

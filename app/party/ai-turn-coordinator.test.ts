@@ -5,6 +5,7 @@ import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import type { GameAction } from "../../core/engine/game-action.command";
 import type { PlayerMapping, StoredGameState } from "./party-game-adapter";
 import type { PartyGameAdapter } from "./party-game-adapter";
+import { DEFAULT_AI_MODEL_ID } from "./ai-models";
 
 function createSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot {
   return {
@@ -53,7 +54,7 @@ function createAIPlayerMapping(): PlayerMapping {
     engineId: "player-0",
     name: "AI 1",
     isAI: true,
-    aiModelId: "default:grok",
+    aiModelId: DEFAULT_AI_MODEL_ID,
   };
 }
 
@@ -99,13 +100,52 @@ function createDeps(options: Partial<{
       }) as PartyGameAdapter,
     thinkingDelayMs: 0,
     interTurnDelayMs: 0,
-    toolDelayMs: 0,
   };
 
   return { deps, state, executedActions };
 }
 
 describe("AITurnCoordinator", () => {
+  it("records measured provider timing without derived pricing", async () => {
+    const records: NonNullable<AITurnCoordinatorDeps["recordMetrics"]> extends (
+      record: infer T,
+    ) => void
+      ? T[]
+      : never = [];
+    const { deps } = createDeps({
+      executeAITurn: async () => ({
+        success: true,
+        actions: ["draw_from_stock"],
+        metrics: {
+          turnDurationMs: 1_500,
+          providerDurationMs: 1_100,
+          toolExecutionDurationMs: 100,
+          orchestrationDurationMs: 300,
+          stepCount: 2,
+          inputTokens: 2_000,
+          noCacheInputTokens: 1_000,
+          cacheReadInputTokens: 800,
+          cacheWriteInputTokens: 200,
+          outputTokens: 300,
+          textOutputTokens: 50,
+          reasoningOutputTokens: 250,
+          totalTokens: 2_300,
+        },
+      }),
+    });
+    deps.recordMetrics = (record) => records.push(record);
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+
+    expect(records).toHaveLength(1);
+    expect("agentTurnDurationMs" in records[0]!).toBe(false);
+    expect("estimatedCostUsd" in records[0]!).toBe(false);
+    expect(records[0]).toMatchObject({
+      providerDurationMs: 1_100,
+    });
+  });
+
   it("exits immediately when the latest state is not awaiting an AI", async () => {
     let executed = false;
     const { deps } = createDeps({
@@ -197,6 +237,47 @@ describe("AITurnCoordinator", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     coordinator.abortCurrentTurn();
     await promise;
+
+    expect(doneCalls).toEqual(["ai-player-1"]);
+    expect(coordinator.isRunning()).toBe(false);
+  });
+
+  it("allows May-I when the AI cannot complete a May-I response", async () => {
+    const { deps, executedActions } = createDeps({
+      aiTurnSequence: [true, false],
+      snapshotForState: () =>
+        createSnapshot({
+          phase: "RESOLVING_MAY_I",
+          awaitingPlayerId: "player-0",
+        }),
+      executeAITurn: async () => ({
+        success: false,
+        actions: [],
+        error: "AI response failed",
+      }),
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+
+    expect(executedActions).toEqual([{ type: "ALLOW_MAY_I" }]);
+    expect(coordinator.isRunning()).toBe(false);
+  });
+
+  it("notifies done exactly once when post-thinking execution fails", async () => {
+    const { deps } = createDeps({
+      executeAITurn: async () => {
+        throw new Error("turn setup failed");
+      },
+    });
+
+    const doneCalls: string[] = [];
+    const coordinator = new AITurnCoordinator(deps);
+    await expect(
+      coordinator.executeAITurnsIfNeeded({
+        onAIDone: (playerId) => doneCalls.push(playerId),
+      }),
+    ).rejects.toThrow("turn setup failed");
 
     expect(doneCalls).toEqual(["ai-player-1"]);
     expect(coordinator.isRunning()).toBe(false);

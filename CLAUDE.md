@@ -353,7 +353,7 @@ For testing AI agents through the web UI, use the agent harness routes (dev mode
 # Start the dev server
 bun run dev
 
-# Quick start: auto-creates a 3-player game (1 human + 2 Grok AI)
+# Quick start: auto-creates a 3-player game (1 human + 2 GPT-5.6 Luna AI)
 # Open in browser: http://localhost:5173/game/agent/new
 
 # Custom state: inject a specific game situation for testing
@@ -371,8 +371,8 @@ bun run dev
 const state = {
   players: [
     { id: "agent", name: "Agent", isAI: false, hand: [...], isDown: false },
-    { id: "ai-1", name: "Grok-1", isAI: true, aiModelId: "default:grok", hand: [...], isDown: false },
-    { id: "ai-2", name: "Grok-2", isAI: true, aiModelId: "default:grok", hand: [...], isDown: false },
+    { id: "ai-1", name: "Luna-1", isAI: true, aiModelId: "default:openai", hand: [...], isDown: false },
+    { id: "ai-2", name: "Luna-2", isAI: true, aiModelId: "default:openai", hand: [...], isDown: false },
   ],
   roundNumber: 1,
   stock: [...],

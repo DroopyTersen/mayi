@@ -9,11 +9,20 @@
  */
 
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGoogle } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
-import { wrapLanguageModel, type LanguageModel } from "ai";
-import type { AIModelId } from "./protocol.types";
+import { defaultSettingsMiddleware, wrapLanguageModel, type LanguageModel } from "ai";
+import type {
+  LanguageModelV4,
+  LanguageModelV4Middleware,
+} from "@ai-sdk/provider";
+import {
+  AI_MODEL_CATALOG,
+  DEFAULT_AI_MODEL_ID,
+  isAIModelId,
+  type AIModelDefinition,
+} from "../../ai/ai-model-catalog";
 
 /**
  * Environment bindings containing API keys
@@ -26,9 +35,6 @@ export interface AIEnv {
   GOOGLE_GENERATIVE_AI_API_KEY?: string;
 }
 
-/** Supported model IDs */
-export type WebAIModelId = AIModelId;
-
 /**
  * Check if we're running in a Node.js environment (local dev)
  * vs Cloudflare Workers (production)
@@ -38,14 +44,13 @@ function isNodeEnvironment(): boolean {
   return typeof process !== "undefined" && !!process.versions?.node;
 }
 
-// Cache the middleware promise (typed as any to avoid complex middleware types)
-let devToolsMiddlewarePromise: Promise<unknown> | null = null;
+let devToolsMiddlewarePromise: Promise<LanguageModelV4Middleware | null> | null = null;
 
 /**
  * Lazily load devtools middleware only in Node.js environment
  * This avoids import errors in Cloudflare Workers
  */
-async function getDevToolsMiddleware(): Promise<unknown> {
+async function getDevToolsMiddleware(): Promise<LanguageModelV4Middleware | null> {
   if (!isNodeEnvironment()) {
     return null;
   }
@@ -61,61 +66,42 @@ async function getDevToolsMiddleware(): Promise<unknown> {
 /**
  * Create a language model with explicit API keys from env
  */
-function createBaseModel(modelId: string, env: AIEnv): LanguageModel {
-  // Parse provider:model format
-  const colonIndex = modelId.indexOf(":");
-  if (colonIndex === -1) {
-    console.warn(`Invalid model ID format: ${modelId}, expected "provider:model"`);
-    return createXai({ apiKey: env.XAI_API_KEY })("grok-4-1-fast-reasoning");
+function getModelDefinition(modelId: string): AIModelDefinition {
+  if (!isAIModelId(modelId)) {
+    throw new Error(`Unsupported AI model ID: ${modelId}`);
   }
+  return AI_MODEL_CATALOG[modelId];
+}
 
-  const provider = modelId.slice(0, colonIndex);
-  const model = modelId.slice(colonIndex + 1);
-
-  switch (provider) {
-    case "xai":
-      return createXai({ apiKey: env.XAI_API_KEY })(model);
-
+function createBaseModel(modelId: string, env: AIEnv): LanguageModelV4 {
+  const definition = getModelDefinition(modelId);
+  switch (definition.provider) {
     case "openai":
-      return createOpenAI({ apiKey: env.OPENAI_API_KEY })(model);
-
+      return createOpenAI({ apiKey: env.OPENAI_API_KEY })(definition.model);
     case "anthropic":
-      return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })(model);
-
+      return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })(definition.model);
     case "gemini":
-      return createGoogleGenerativeAI({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY })(model);
-
-    case "default":
-      // Map default: aliases to their actual models
-      // These match the definitions in ai/modelRegistry.ts
-      switch (model) {
-        case "grok":
-          return createXai({ apiKey: env.XAI_API_KEY })("grok-4-1-fast-reasoning");
-        case "openai":
-          return createOpenAI({ apiKey: env.OPENAI_API_KEY })("gpt-5-mini");
-        case "claude":
-          return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })("claude-haiku-4-5-latest");
-        case "gemini":
-          return createGoogleGenerativeAI({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY })("gemini-3-flash-preview-20241219");
-        default:
-          console.warn(`Unknown default model: ${model}, falling back to grok`);
-          return createXai({ apiKey: env.XAI_API_KEY })("grok-4-1-fast-reasoning");
-      }
-
-    default:
-      console.warn(`Unknown provider: ${provider}, falling back to xai`);
-      return createXai({ apiKey: env.XAI_API_KEY })("grok-4-1-fast-reasoning");
+      return createGoogle({ apiKey: env.GOOGLE_GENERATIVE_AI_API_KEY })(definition.model);
+    case "xai":
+      return createXai({ apiKey: env.XAI_API_KEY }).chat(definition.model);
   }
+}
+
+function withPlayerSettings(modelId: string, model: LanguageModelV4): LanguageModel {
+  return wrapLanguageModel({
+    model,
+    middleware: defaultSettingsMiddleware({ settings: getModelDefinition(modelId).settings }),
+  });
 }
 
 /**
  * Create a language model for use in web app
  *
- * Uses the same model IDs as the protocol: "provider:model-name"
+ * Accepts only the four model IDs in the shared player-model catalog.
  * Requires env parameter with API keys (process.env not available in Workers).
  */
 export function createWorkerAIModel(modelId: string, env: AIEnv): LanguageModel {
-  const baseModel = createBaseModel(modelId, env);
+  const baseModel = withPlayerSettings(modelId, createBaseModel(modelId, env));
 
   // In Workers, just return the base model
   if (!isNodeEnvironment()) {
@@ -135,10 +121,10 @@ export function createWorkerAIModel(modelId: string, env: AIEnv): LanguageModel 
  * Requires env parameter with API keys (process.env not available in Workers).
  */
 export async function createWorkerAIModelAsync(modelId: string, env: AIEnv): Promise<LanguageModel> {
-  const baseModel = createBaseModel(modelId, env);
+  const rawModel = createBaseModel(modelId, env);
 
   if (!isNodeEnvironment()) {
-    return baseModel;
+    return withPlayerSettings(modelId, rawModel);
   }
 
   // Lazy load and cache devtools middleware
@@ -148,20 +134,22 @@ export async function createWorkerAIModelAsync(modelId: string, env: AIEnv): Pro
 
   const middleware = await devToolsMiddlewarePromise;
   if (!middleware) {
-    return baseModel;
+    return withPlayerSettings(modelId, rawModel);
   }
 
   console.log(`[AI] DevTools enabled for model: ${modelId}`);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return wrapLanguageModel({
-    model: baseModel as any,
-    middleware: middleware as any,
-  }) as LanguageModel;
+    model: rawModel,
+    middleware: [
+      defaultSettingsMiddleware({ settings: getModelDefinition(modelId).settings }),
+      middleware,
+    ],
+  });
 }
 
 /**
  * Get the default AI model for game play
  */
 export function getDefaultWorkerAIModel(env: AIEnv): LanguageModel {
-  return createWorkerAIModel("default:grok", env);
+  return createWorkerAIModel(DEFAULT_AI_MODEL_ID, env);
 }

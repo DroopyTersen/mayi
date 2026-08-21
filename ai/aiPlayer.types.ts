@@ -2,7 +2,7 @@
  * Types for AI player configuration
  */
 
-import type { ModelId } from "./modelRegistry";
+import type { AIModelId } from "./ai-model-catalog";
 
 /**
  * Configuration for an AI player
@@ -12,7 +12,7 @@ export interface AIPlayerConfig {
   name: string;
 
   /** Model ID from the registry (e.g., "default:openai", "default:claude") */
-  modelId: ModelId;
+  modelId: AIModelId;
 }
 
 /**

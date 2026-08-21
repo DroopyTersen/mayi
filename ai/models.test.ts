@@ -13,7 +13,7 @@ import { modelRegistry } from "./modelRegistry";
  * Models to test for basic connectivity
  */
 const MODELS_TO_TEST = [
-  { name: "OpenAI GPT-5 Mini", id: "default:openai" },
+  { name: "OpenAI GPT-5.6 Luna", id: "default:openai" },
   { name: "Anthropic Claude Haiku 4.5", id: "default:claude" },
   { name: "Google Gemini 3 Flash", id: "default:gemini" },
   { name: "xAI Grok 4.1 Fast", id: "default:grok" },

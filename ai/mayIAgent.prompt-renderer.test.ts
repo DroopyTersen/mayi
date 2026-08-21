@@ -60,7 +60,37 @@ describe("AI prompt renderer", () => {
     expect(output).toContain("2:8");
     expect(output).toContain("Bob: 2 cards");
     expect(output).not.toContain("K♠");
-    expect(output).not.toContain("(50 pts)");
+    expect(output).toContain("Alice (you): 2 cards (12 pts)");
+    expect(output).toContain("Bob: 2 cards (50 pts)");
+    expect(output).not.toContain("Bob's hand");
+  });
+
+  it("renders only a bounded current-round public action history", () => {
+    const output = outputGameStateForLLM(
+      createSnapshot(),
+      "p1",
+      {
+        actionLog: [
+          ...Array.from({ length: 12 }, (_, index) => ({
+            roundNumber: 1,
+            playerId: index % 2 === 0 ? "p1" : "p2",
+            playerName: index % 2 === 0 ? "Alice" : "Bob",
+            action: `action-${index}`,
+          })),
+          {
+            roundNumber: 2,
+            playerId: "p2",
+            playerName: "Bob",
+            action: "future-round-private-context",
+          },
+        ],
+      }
+    );
+
+    expect(output).toContain("RECENT ACTIONS:");
+    expect(output).toContain("action-11");
+    expect(output).not.toContain("action-0");
+    expect(output).not.toContain("future-round-private-context");
   });
 
   it("renders numbered table melds with owner names", () => {
@@ -119,7 +149,85 @@ describe("AI prompt renderer", () => {
 
     expect(output).toContain("AVAILABLE ACTIONS");
     expect(output).toContain("lay_down");
-    expect(output).toContain("swap_joker");
+    expect(output).not.toContain("swap_joker");
     expect(output).toContain("discard");
   });
+
+  it("reminds Hand 6 players to test the full all-card contract before discarding", () => {
+    const output = outputGameStateForLLM(
+      createSnapshot({
+        currentRound: 6,
+        contract: { roundNumber: 6, sets: 1, runs: 2 },
+        turnPhase: "AWAITING_ACTION",
+        hasDrawn: true,
+        players: [
+          {
+            id: "p1",
+            name: "Alice",
+            hand: Array.from({ length: 12 }, (_, index) =>
+              card(`card-${index}`, "9", "clubs"),
+            ),
+            isDown: false,
+            totalScore: 12,
+          },
+          createSnapshot().players[1]!,
+        ],
+      }),
+      "p1",
+    );
+
+    expect(output).toContain(
+      "HAND 6 CHECK: Before discarding, partition all 12 numbered cards into exactly 1 set and 2 runs",
+    );
+    expect(output).toContain("Use every card exactly once");
+    expect(output).toContain("Melds may exceed their minimum size");
+  });
+
+  it("renders exact legal Joker swap positions from public table state and the AI hand", () => {
+    const output = outputGameStateForLLM(
+      createSnapshot({
+        turnPhase: "AWAITING_ACTION",
+        hasDrawn: true,
+        players: [
+          {
+            id: "p1",
+            name: "Alice",
+            hand: [card("a-6h", "6", "hearts"), card("a-9c", "9", "clubs")],
+            isDown: false,
+            totalScore: 12,
+          },
+          {
+            id: "p2",
+            name: "Bob",
+            hand: [card("private-k", "K", "spades")],
+            isDown: false,
+            totalScore: 50,
+          },
+        ],
+        table: [{
+          id: "joker-run",
+          ownerId: "p2",
+          type: "run",
+          cards: [
+            card("run-3h", "3", "hearts"),
+            card("run-4h", "4", "hearts"),
+            card("run-5h", "5", "hearts"),
+            card("run-joker", "Joker", null),
+            card("run-7h", "7", "hearts"),
+          ],
+        }],
+      }),
+      "p1",
+    );
+
+    expect(output).toContain("TACTICAL OPPORTUNITIES");
+    expect(output).toContain(
+      "CALL swap_joker before discarding: meld 1, Joker position 4, hand position 1 (6♥)",
+    );
+    expect(output).toContain(
+      "The Joker enters your hand; immediately re-check lay_down",
+    );
+    expect(output).not.toContain("K♠");
+  });
+
 });

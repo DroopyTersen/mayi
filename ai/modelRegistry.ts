@@ -6,32 +6,35 @@
  *
  * Usage:
  *   // Use named defaults (RECOMMENDED - these are the only models we test)
- *   const model = modelRegistry.languageModel("default:openai");  // GPT-5 Mini
+ *   const model = modelRegistry.languageModel("default:openai");  // GPT-5.6 Luna
  *   const model = modelRegistry.languageModel("default:claude");  // Claude Haiku 4.5
  *   const model = modelRegistry.languageModel("default:gemini");  // Gemini 3.1 Flash Lite Preview
  *   const model = modelRegistry.languageModel("default:grok");    // Grok 4.1 Fast
  *
- *   // Direct provider access (for experimentation only - not tested!)
- *   const model = modelRegistry.languageModel("openai:some-model-id");
  */
 
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGoogle } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import {
   createProviderRegistry,
   customProvider,
   defaultSettingsMiddleware,
+  type LanguageModel,
   wrapLanguageModel,
 } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+import {
+  AI_MODEL_CATALOG,
+  type AIModelDefinition,
+  type AIModelId,
+} from "./ai-model-catalog";
 
 /**
  * Model Providers - centralized provider configuration
  *
- * These are the raw providers that can be used directly for experimentation
- * or accessed via the modelRegistry for consistent default settings.
+ * These construct the four catalogued player models.
  *
  * API keys are loaded from environment variables:
  * - OPENAI_API_KEY
@@ -46,7 +49,7 @@ export const modelProviders = {
   anthropic: createAnthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
   }),
-  gemini: createGoogleGenerativeAI({
+  gemini: createGoogle({
     apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
   }),
   xai: createXai({
@@ -56,79 +59,58 @@ export const modelProviders = {
 /**
  * Valid model ID patterns for the registry
  */
-export type ModelId =
-  | `default:${string}`
-  | `openai:${string}`
-  | `anthropic:${string}`
-  | `gemini:${string}`
-  | `xai:${string}`;
+export type ModelId = AIModelId;
 
-/**
- * Canonical model IDs - the only models we test and support
- *
- * Use these via default: prefix for stable references that won't break
- * when underlying model versions change.
- */
-export const CANONICAL_MODELS = {
-  openai: "gpt-5-mini",
-  claude: "claude-haiku-4-5",
-  gemini: "gemini-3.1-flash-lite-preview",
-  grok: "grok-4-1-fast-reasoning",
-} as const;
 /**
  * Wrap a model with devtools middleware for debugging
  *
  * Usage:
  *   const model = withDevTools(modelRegistry.languageModel("default:grok"));
  */
-export function withDevTools<T extends ReturnType<typeof wrapLanguageModel>>(
-  model: T,
-): T {
+export function withDevTools(model: LanguageModel): LanguageModel {
+  if (typeof model === "string") {
+    return model;
+  }
+
   return wrapLanguageModel({
     model,
     middleware: devToolsMiddleware(),
-  }) as T;
+  });
 }
 
 /**
  * Default settings for AI player models
  */
-const defaultPlayerSettings = defaultSettingsMiddleware({
-  settings: {
-    maxOutputTokens: 4096,
-    temperature: 0.7,
-  },
-});
+function createCatalogModel(definition: AIModelDefinition): LanguageModel {
+  const model = (() => {
+    switch (definition.provider) {
+      case "openai":
+        return modelProviders.openai(definition.model);
+      case "anthropic":
+        return modelProviders.anthropic(definition.model);
+      case "gemini":
+        return modelProviders.gemini(definition.model);
+      case "xai":
+        return modelProviders.xai.chat(definition.model);
+    }
+  })();
+
+  return wrapLanguageModel({
+    model,
+    middleware: defaultSettingsMiddleware({ settings: definition.settings }),
+  });
+}
 
 export const modelRegistry = createProviderRegistry(
   {
     default: customProvider({
       languageModels: {
-        // Named defaults - ALWAYS use these instead of raw provider:model strings
-        openai: wrapLanguageModel({
-          model: modelProviders.openai(CANONICAL_MODELS.openai),
-          middleware: defaultPlayerSettings,
-        }),
-        claude: wrapLanguageModel({
-          model: modelProviders.anthropic(CANONICAL_MODELS.claude),
-          middleware: defaultPlayerSettings,
-        }),
-        gemini: wrapLanguageModel({
-          model: modelProviders.gemini(CANONICAL_MODELS.gemini),
-          middleware: defaultPlayerSettings,
-        }),
-        grok: wrapLanguageModel({
-          model: modelProviders.xai(CANONICAL_MODELS.grok),
-          middleware: defaultPlayerSettings,
-        }),
+        openai: createCatalogModel(AI_MODEL_CATALOG["default:openai"]),
+        grok: createCatalogModel(AI_MODEL_CATALOG["default:grok"]),
+        claude: createCatalogModel(AI_MODEL_CATALOG["default:claude"]),
+        gemini: createCatalogModel(AI_MODEL_CATALOG["default:gemini"]),
       },
     }),
-
-    // Direct provider access for experimentation only
-    openai: modelProviders.openai,
-    anthropic: modelProviders.anthropic,
-    gemini: modelProviders.gemini,
-    xai: modelProviders.xai,
   },
   { separator: ":" },
 );

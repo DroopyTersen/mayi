@@ -16,14 +16,33 @@ import type { Card } from "../../core/card/card.types";
 import type { Meld } from "../../core/meld/meld.types";
 import { canLayOffToSet, canLayOffToRun, needsPositionChoice } from "../../core/engine/layoff";
 import { canPlayerCallMayI } from "../../core/engine/game-engine.availability";
-import { listSavedGames, readActionLog, formatGameDate, saveAIPlayerConfigs, loadAIPlayerConfigs } from "../shared/cli.persistence";
+import {
+  clearAIResponseLineage,
+  formatGameDate,
+  listSavedGames,
+  loadAIPlayerConfigs,
+  loadAIResponseLineages,
+  readActionLog,
+  saveAIPlayerConfigs,
+  saveAIResponseLineages,
+} from "../shared/cli.persistence";
 import { formatRecentActivity } from "../shared/cli.activity";
 import { sortHandByRank, sortHandBySuit, moveCard } from "../../core/engine/hand.reordering";
 import { AIPlayerRegistry, setupGameWithAI } from "../../ai/aiPlayer.registry";
-import { executeAITurn } from "../../ai/mayIAgent";
+import {
+  executeAITurn,
+  type ExecuteTurnResult,
+} from "../../ai/mayIAgent";
 import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
-import type { ModelId } from "../../ai/modelRegistry";
+import {
+  AI_MODEL_CATALOG,
+  AI_MODEL_OPTIONS,
+  DEFAULT_AI_MODEL_ID,
+  type AIModelId,
+} from "../../ai/ai-model-catalog";
 import type { DecisionPhase } from "../shared/cli.types";
+import { MAYI_AI_PROMPT_VERSION } from "../../ai/openai-luna-profile";
+import { executeWithOpenAIResponseLineage } from "../../ai/openai-response-lineage";
 
 // Track the current game ID for persistence
 let currentGameId: string = "";
@@ -40,19 +59,21 @@ const AI_FIRST_NAMES = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Gra
 /**
  * Available AI models for player selection
  */
-const MODEL_OPTIONS: readonly { id: ModelId; name: string; provider: string }[] = [
-  { id: "default:grok", name: "Grok", provider: "xAI" },
-  { id: "default:claude", name: "Claude", provider: "Anthropic" },
-  { id: "default:openai", name: "GPT", provider: "OpenAI" },
-  { id: "default:gemini", name: "Gemini", provider: "Google" },
-];
+const MODEL_OPTIONS: readonly { id: AIModelId; name: string; provider: string }[] = AI_MODEL_OPTIONS;
 
-const DEFAULT_MODEL_INDEX = 0; // Grok is default (fastest)
+const DEFAULT_MODEL_INDEX = MODEL_OPTIONS.findIndex((model) => model.id === DEFAULT_AI_MODEL_ID);
+const DEFAULT_MODEL_OPTION = (() => {
+  const option = MODEL_OPTIONS.find((model) => model.id === DEFAULT_AI_MODEL_ID);
+  if (!option) {
+    throw new Error(`Default AI model ${DEFAULT_AI_MODEL_ID} is missing from the model catalog`);
+  }
+  return option;
+})();
 
 /**
  * Get the display name for a model ID from MODEL_OPTIONS
  */
-function getModelDisplayName(modelId: ModelId): string {
+function getModelDisplayName(modelId: AIModelId): string {
   const option = MODEL_OPTIONS.find((opt) => opt.id === modelId);
   return option?.name ?? "AI";
 }
@@ -61,7 +82,7 @@ function getModelDisplayName(modelId: ModelId): string {
  * Create AI player configs with random first names and model-based last names
  * Each player can have a different model
  */
-function createAIPlayerConfigs(modelIds: ModelId[]): AIPlayerConfig[] {
+function createAIPlayerConfigs(modelIds: AIModelId[]): AIPlayerConfig[] {
   const shuffledNames = [...AI_FIRST_NAMES].sort(() => Math.random() - 0.5);
 
   return modelIds.map((modelId, index) => {
@@ -83,6 +104,57 @@ const game = new CliGameAdapter();
 
 // Player 0 is always the human player ("You")
 const HUMAN_PLAYER_ID = "player-0";
+
+async function executePersistedAITurn(
+  playerId: string,
+  maxSteps?: number,
+): Promise<ExecuteTurnResult> {
+  const modelId = aiRegistry.getModelId(playerId);
+  if (!modelId) {
+    return {
+      success: false,
+      actions: [],
+      error: `Player ${playerId} is not registered as an AI player`,
+    };
+  }
+
+  const snapshot = game.getSnapshot();
+  const context = {
+    gameId: snapshot.gameId,
+    playerId,
+    round: snapshot.currentRound,
+    modelId: AI_MODEL_CATALOG[modelId].model,
+    promptVersion: MAYI_AI_PROMPT_VERSION,
+  };
+
+  const turnConfig = {
+    runtime: createCliAIActionRuntime(game),
+    playerId,
+    registry: aiRegistry,
+    debug: false,
+    maxSteps,
+    actionLog: readActionLog(snapshot.gameId),
+  };
+  return executeWithOpenAIResponseLineage({
+    context,
+    store: {
+      get: (lineagePlayerId) =>
+        loadAIResponseLineages(snapshot.gameId).find(
+          (lineage) => lineage.playerId === lineagePlayerId,
+        ),
+      clear: (lineagePlayerId) =>
+        clearAIResponseLineage(snapshot.gameId, lineagePlayerId),
+      set: (lineage) => {
+        const others = loadAIResponseLineages(snapshot.gameId).filter(
+          (candidate) => candidate.playerId !== lineage.playerId,
+        );
+        saveAIResponseLineages(snapshot.gameId, [...others, lineage]);
+      },
+    },
+    execute: (continuation) =>
+      executeAITurn({ ...turnConfig, continuation }),
+  });
+}
 
 function getDecisionPhase(state: GameSnapshot): DecisionPhase {
   if (state.phase === "RESOLVING_MAY_I") return "RESOLVING_MAY_I";
@@ -113,7 +185,7 @@ async function promptNumber(question: string, min: number, max: number): Promise
 /**
  * Prompt user to select an AI model for a player
  */
-async function promptModelSelection(playerNumber: number): Promise<ModelId> {
+async function promptModelSelection(playerNumber: number): Promise<AIModelId> {
   const defaultModel = MODEL_OPTIONS[DEFAULT_MODEL_INDEX];
   if (!defaultModel) {
     throw new Error("No default model configured");
@@ -660,12 +732,7 @@ async function resolveMayIIfNeeded(): Promise<void> {
     }
 
     if (aiRegistry.isAI(awaitingPlayer.id)) {
-      const result = await executeAITurn({
-        runtime: createCliAIActionRuntime(game),
-        playerId: awaitingPlayer.id,
-        registry: aiRegistry,
-        debug: false,
-      });
+      const result = await executePersistedAITurn(awaitingPlayer.id);
 
       if (!result.success) {
         console.log(`AI May-I response error: ${result.error}`);
@@ -758,12 +825,7 @@ async function handleAITurn(state: GameSnapshot): Promise<void> {
 
   // Use the real AI agent if this player is registered
   if (aiRegistry.isAI(currentPlayer.id)) {
-    const result = await executeAITurn({
-      runtime: createCliAIActionRuntime(game),
-      playerId: currentPlayer.id,
-      registry: aiRegistry,
-      debug: false,
-    });
+    const result = await executePersistedAITurn(currentPlayer.id);
 
     if (!result.success) {
       console.log(`AI error: ${result.error}`);
@@ -890,7 +952,7 @@ async function startNewGame(): Promise<void> {
 
   // Prompt for each AI player's model
   const aiCount = playerCount - 1;
-  const modelIds: ModelId[] = [];
+  const modelIds: AIModelId[] = [];
   for (let i = 0; i < aiCount; i++) {
     const modelId = await promptModelSelection(i + 1);
     modelIds.push(modelId);
@@ -954,7 +1016,10 @@ async function resumeGame(gameId: string): Promise<void> {
 
       aiRegistry.clear();
       for (let i = 0; i < aiPlayerCount; i++) {
-        const player = state.players[i + 1]!;
+        const player = state.players[i + 1];
+        if (!player) {
+          throw new Error(`Saved game is missing AI player ${i + 1}`);
+        }
         const playerId = `player-${i + 1}`;
 
         console.log("");
@@ -969,23 +1034,19 @@ async function resumeGame(gameId: string): Promise<void> {
         const answer = await prompt("> ");
         const num = parseInt(answer, 10);
 
-        let modelId: ModelId;
-        if (!isNaN(num) && num >= 1 && num <= MODEL_OPTIONS.length && MODEL_OPTIONS[num - 1]) {
-          modelId = MODEL_OPTIONS[num - 1]!.id;
-        } else {
-          modelId = MODEL_OPTIONS[DEFAULT_MODEL_INDEX]!.id;
-        }
+        const selectedModel =
+          Number.isInteger(num) && num >= 1
+            ? MODEL_OPTIONS[num - 1]
+            : undefined;
+        const modelId = selectedModel?.id ?? DEFAULT_MODEL_OPTION.id;
 
         aiRegistry.register(playerId, { name: player.name, modelId });
       }
 
       // Save the configs for future resumes
-      const newPersistedPlayers = Array.from({ length: aiPlayerCount }, (_, i) => ({
-        playerId: `player-${i + 1}`,
-        config: {
-          name: state.players[i + 1]!.name,
-          modelId: aiRegistry.getModelId(`player-${i + 1}`)!,
-        },
+      const newPersistedPlayers = aiRegistry.getAll().map((player) => ({
+        playerId: player.playerId,
+        config: { name: player.name, modelId: player.modelId },
       }));
       saveAIPlayerConfigs(gameId, newPersistedPlayers);
     }

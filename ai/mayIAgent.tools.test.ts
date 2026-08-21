@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect } from "bun:test";
-import { createMayITools, getAvailableToolNames } from "./mayIAgent.tools";
+import { createMayITools } from "./mayIAgent.tools";
+import { getAvailableToolNames } from "./mayIAgent.tool-availability";
 import type { GameSnapshot } from "../core/engine/game-engine.types";
 import type { Player } from "../core/engine/engine.types";
 import type { Meld } from "../core/meld/meld.types";
@@ -291,6 +292,67 @@ describe("createMayITools", () => {
       },
     };
   }
+
+  it("does not instruct Luna to call a nonexistent skip tool", () => {
+    const snapshot = makeSnapshot({ turnPhase: "AWAITING_ACTION" });
+    const tools = createMayITools(createRuntime(snapshot, []), "ai");
+
+    expect(tools.discard.description).not.toContain("skip");
+  });
+
+  it("marks a May-I response complete when play returns to the same player", async () => {
+    const resolving = makeSnapshot({ phase: "RESOLVING_MAY_I" });
+    const resumed = makeSnapshot({
+      phase: "ROUND_ACTIVE",
+      turnPhase: "AWAITING_DRAW",
+      awaitingPlayerId: "ai",
+    });
+    const actions: GameAction[] = [];
+    const tools = createMayITools(
+      {
+        getSnapshot: async () => resolving,
+        executeAction: async (action) => {
+          actions.push(action);
+          return { ok: true, snapshot: resumed };
+        },
+      },
+      "ai",
+    );
+
+    const result = (await tools.allow_may_i.execute?.(
+      {},
+      {} as never,
+    )) as ToolExecutionResult | undefined;
+
+    expect(actions).toEqual([{ type: "ALLOW_MAY_I" }]);
+    expect(result?.turnComplete).toBe(true);
+  });
+
+  it("marks an action that ends the round complete even when the player ID remains", async () => {
+    const before = withHand(
+      makeSnapshot({ turnPhase: "AWAITING_DISCARD" }),
+      [{ id: "last-card", rank: "A", suit: "spades" }],
+    );
+    const roundEnded = {
+      ...before,
+      phase: "ROUND_END" as const,
+      players: before.players.map((player) => ({ ...player, hand: [] })),
+    };
+    const tools = createMayITools(
+      {
+        getSnapshot: async () => before,
+        executeAction: async () => ({ ok: true, snapshot: roundEnded }),
+      },
+      "ai",
+    );
+
+    const result = (await tools.discard.execute?.(
+      { position: 1 },
+      {} as never,
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.turnComplete).toBe(true);
+  });
 
   it("maps discard positions from the latest runtime snapshot", async () => {
     const staleCard: Card = { id: "stale-card", rank: "3", suit: "hearts" };

@@ -8,6 +8,7 @@
 import type { Card, Suit, Rank } from "../../core/card/card.types";
 import type { Meld } from "../../core/meld/meld.types";
 import type { RoundNumber } from "../../core/engine/engine.types";
+import type { AIModelId } from "../../ai/ai-model-catalog";
 
 /**
  * Simplified player definition for state injection
@@ -19,8 +20,8 @@ export interface AgentTestPlayer {
   name: string;
   /** Whether this is an AI player */
   isAI: boolean;
-  /** AI model ID if isAI is true (e.g., "default:grok") */
-  aiModelId?: string;
+  /** AI model ID if isAI is true (e.g., "default:openai") */
+  aiModelId?: AIModelId;
   /** Cards in player's hand */
   hand: Card[];
   /** Whether player has laid down contract this round */

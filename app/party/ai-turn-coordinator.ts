@@ -27,11 +27,25 @@ import {
   type ExecuteAITurnOptions,
 } from "./ai-turn-handler";
 import type { AIEnv } from "./ai-model-factory";
+import { DEFAULT_AI_MODEL_ID } from "./ai-models";
+import type { AITurnMetrics } from "../../ai/ai-turn-metrics";
+import { settleAIMayIResponse } from "./ai-may-i-response";
 
 const MAX_CHAINED_TURNS = 8;
 const DEFAULT_INTER_TURN_DELAY_MS = 300;
 const DEFAULT_AI_THINKING_DELAY_MS = 500;
-const DEFAULT_TOOL_DELAY_MS = 0;
+
+export interface AITurnMetricsRecord extends AITurnMetrics {
+  gameId: string;
+  playerId: string;
+  playerName: string;
+  modelId: string;
+}
+
+type CoordinatedAITurnOptions = Omit<
+  ExecuteAITurnOptions,
+  "responseLineageStore"
+>;
 
 /**
  * Dependencies for AITurnCoordinator.
@@ -44,7 +58,7 @@ export interface AITurnCoordinatorDeps {
   executeAIAction: (playerId: string, action: GameAction) => Promise<AIActionResult>;
 
   /** Execute a single AI turn. */
-  executeAITurn: (options: ExecuteAITurnOptions) => Promise<AITurnResult>;
+  executeAITurn: (options: CoordinatedAITurnOptions) => Promise<AITurnResult>;
 
   /** Check if it's an AI player's turn. */
   isAIPlayerTurn?: (adapter: PartyGameAdapter) => PlayerMapping | null;
@@ -61,8 +75,8 @@ export interface AITurnCoordinatorDeps {
   /** Delay between chained AI turns (ms). Default: 300. Set to 0 for tests. */
   interTurnDelayMs?: number;
 
-  /** Delay after each tool execution (ms). Default: 0. */
-  toolDelayMs?: number;
+  /** Receive provider, tool, orchestration, token, cache, and pacing metrics. */
+  recordMetrics?: (record: AITurnMetricsRecord) => void;
 
   /** Enable debug logging. Default: false. */
   debug?: boolean;
@@ -104,7 +118,6 @@ export class AITurnCoordinator {
       const isAIPlayerTurn = this.deps.isAIPlayerTurn ?? realIsAIPlayerTurn;
       const thinkingDelayMs = this.deps.thinkingDelayMs ?? DEFAULT_AI_THINKING_DELAY_MS;
       const interTurnDelayMs = this.deps.interTurnDelayMs ?? DEFAULT_INTER_TURN_DELAY_MS;
-      const toolDelayMs = this.deps.toolDelayMs ?? DEFAULT_TOOL_DELAY_MS;
       const debug = this.deps.debug ?? false;
 
       let turnsExecuted = 0;
@@ -118,23 +131,25 @@ export class AITurnCoordinator {
         if (!aiPlayer) return;
 
         callbacks?.onAIThinking?.(aiPlayer.lobbyId, aiPlayer.name);
-
-        if (thinkingDelayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs));
-        }
-
-        this.abortController = new AbortController();
-        const runtime = this.createRuntime(aiPlayer.lobbyId, createAdapter, toolDelayMs, debug);
-        const modelToUse = aiPlayer.aiModelId ?? "default:grok";
+        const turnAbortController = new AbortController();
+        this.abortController = turnAbortController;
 
         try {
+          if (thinkingDelayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs));
+          }
+
+          const runtime = this.createRuntime(aiPlayer.lobbyId, createAdapter);
+          const modelToUse = aiPlayer.aiModelId ?? DEFAULT_AI_MODEL_ID;
+          const snapshotBefore = adapter.getSnapshot();
+
           if (debug) {
             console.log(
               `[AI] Starting turn for ${aiPlayer.name} (${aiPlayer.lobbyId}) with model ${modelToUse}`
             );
           }
 
-          const result = await this.deps.executeAITurn({
+          const turnOptions: CoordinatedAITurnOptions = {
             adapter,
             aiPlayerId: aiPlayer.lobbyId,
             modelId: modelToUse,
@@ -143,8 +158,21 @@ export class AITurnCoordinator {
             playerName: aiPlayer.name,
             maxSteps: 10,
             debug,
-            abortSignal: this.abortController.signal,
-          });
+            abortSignal: turnAbortController.signal,
+          };
+          const settled =
+            snapshotBefore.phase === "RESOLVING_MAY_I"
+              ? await settleAIMayIResponse({
+                  promptedEngineId: aiPlayer.engineId,
+                  runtime,
+                  executeResponse: () => this.deps.executeAITurn(turnOptions),
+                })
+              : {
+                  turnResult: await this.deps.executeAITurn(turnOptions),
+                  defaultAllowed: false,
+                  defaultAllowResult: undefined,
+                };
+          const result = settled.turnResult;
 
           if (debug) {
             console.log(
@@ -152,14 +180,30 @@ export class AITurnCoordinator {
             );
           }
 
-          callbacks?.onAIDone?.(aiPlayer.lobbyId);
+          if (result.metrics) {
+            const metricsRecord: AITurnMetricsRecord = {
+              ...result.metrics,
+              gameId: snapshotBefore.gameId,
+              playerId: aiPlayer.engineId,
+              playerName: aiPlayer.name,
+              modelId: modelToUse,
+            };
+            this.deps.recordMetrics?.(metricsRecord);
+
+            if (debug) {
+              console.log("[AI] Turn metrics", metricsRecord);
+            }
+          }
+
           turnsExecuted++;
 
-          if (result.aborted) {
+          if (turnAbortController.signal.aborted || result.aborted) {
             return;
           }
 
-          if (!result.success) {
+          const defaultAllowSucceeded =
+            settled.defaultAllowed && settled.defaultAllowResult?.ok === true;
+          if (!result.success && !defaultAllowSucceeded) {
             console.error(`[AI] Turn failed for ${aiPlayer.name}: ${result.error}`);
             return;
           }
@@ -171,19 +215,21 @@ export class AITurnCoordinator {
             return;
           }
 
-          if (interTurnDelayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, interTurnDelayMs));
-          }
         } catch (err) {
-          callbacks?.onAIDone?.(aiPlayer.lobbyId);
-
           if (err instanceof Error && err.name === "AbortError") {
             return;
           }
 
           throw err;
         } finally {
-          this.abortController = null;
+          callbacks?.onAIDone?.(aiPlayer.lobbyId);
+          if (this.abortController === turnAbortController) {
+            this.abortController = null;
+          }
+        }
+
+        if (interTurnDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, interTurnDelayMs));
         }
       }
 
@@ -217,8 +263,6 @@ export class AITurnCoordinator {
   private createRuntime(
     aiLobbyId: string,
     createAdapter: (state: StoredGameState) => PartyGameAdapter,
-    toolDelayMs: number,
-    debug: boolean
   ): AIActionRuntime {
     return {
       getSnapshot: async () => {
@@ -228,18 +272,7 @@ export class AITurnCoordinator {
         }
         return createAdapter(latestState).getSnapshot();
       },
-      executeAction: async (action) => {
-        const result = await this.deps.executeAIAction(aiLobbyId, action);
-
-        if (toolDelayMs > 0) {
-          if (debug) {
-            console.log(`[AI] Tool executed, waiting ${toolDelayMs}ms`);
-          }
-          await new Promise((resolve) => setTimeout(resolve, toolDelayMs));
-        }
-
-        return result;
-      },
+      executeAction: (action) => this.deps.executeAIAction(aiLobbyId, action),
     };
   }
 }

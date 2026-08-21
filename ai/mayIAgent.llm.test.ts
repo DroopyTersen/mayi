@@ -16,6 +16,7 @@ import { modelRegistry } from "./modelRegistry";
 import { CliGameAdapter } from "../cli/shared/cli-game-adapter";
 import { createCliAIActionRuntime } from "../cli/shared/cli-ai-action-runtime";
 import type { GameAction } from "./ai-action-runtime.types";
+import { DEFAULT_AI_MODEL_ID } from "../app/party/ai-models";
 
 // Skip LLM tests by default - run with: RUN_INTEGRATION_TESTS=1 bun test ai/mayIAgent.llm.test.ts
 const skipLLM = !process.env.RUN_INTEGRATION_TESTS;
@@ -54,10 +55,11 @@ describe("AI Agent Error Handling", () => {
     });
 
     const wrongPlayerId = snapshot.players.find((p) => p.id !== snapshot.awaitingPlayerId)!.id;
-    const model = modelRegistry.languageModel("default:grok");
+    const model = modelRegistry.languageModel(DEFAULT_AI_MODEL_ID);
 
     const result = await executeTurn({
       model,
+      modelId: DEFAULT_AI_MODEL_ID,
       runtime: createCliAIActionRuntime(game),
       playerId: wrongPlayerId,
       debug: false,
@@ -88,10 +90,11 @@ describe.skipIf(skipLLM)("AWAITING_DRAW phase", () => {
     });
 
     const aiPlayerId = snapshot.awaitingPlayerId;
-    const model = modelRegistry.languageModel("default:grok");
+    const model = modelRegistry.languageModel(DEFAULT_AI_MODEL_ID);
 
     const result = await executeTurn({
       model,
+      modelId: DEFAULT_AI_MODEL_ID,
       runtime: createCliAIActionRuntime(game),
       playerId: aiPlayerId,
       debug: false,
@@ -104,6 +107,10 @@ describe.skipIf(skipLLM)("AWAITING_DRAW phase", () => {
         (action) => action.type === "DRAW_FROM_STOCK" || action.type === "DRAW_FROM_DISCARD"
       )
     ).toBe(true);
+    expect("reasoningContext" in result).toBe(false);
+    expect(result.continuation?.responseId).toBeString();
+    expect(result.continuation?.pendingToolResult.toolCallId).toBeString();
+    expect(result.metrics?.providerDurationMs).toBeGreaterThan(0);
   }, 30000);
 });
 
@@ -133,10 +140,11 @@ describe.skipIf(skipLLM)("RESOLVING_MAY_I phase", () => {
     expect(game.getSnapshot().phase).toBe("RESOLVING_MAY_I");
     expect(game.getSnapshot().awaitingPlayerId).toBe(promptedPlayerId);
 
-    const model = modelRegistry.languageModel("default:grok");
+    const model = modelRegistry.languageModel(DEFAULT_AI_MODEL_ID);
 
     const result = await executeTurn({
       model,
+      modelId: DEFAULT_AI_MODEL_ID,
       runtime: createCliAIActionRuntime(game),
       playerId: promptedPlayerId,
       debug: false,
@@ -149,5 +157,8 @@ describe.skipIf(skipLLM)("RESOLVING_MAY_I phase", () => {
         (action) => action.type === "ALLOW_MAY_I" || action.type === "CLAIM_MAY_I"
       )
     ).toBe(true);
+    expect("reasoningContext" in result).toBe(false);
+    expect(result.continuation?.responseId).toBeString();
+    expect(result.continuation?.pendingToolResult.toolCallId).toBeString();
   }, 30000);
 });

@@ -14,7 +14,13 @@ import type { RoundNumber } from "../../core/engine/engine.types";
 import type { Contract } from "../../core/engine/contracts";
 import type { AgentTestState } from "./agent-state.types";
 import { agentTestStateSchema } from "./agent-state.validation";
-import { AI_MODEL_DISPLAY_NAMES, AI_MODEL_IDS, type AIModelId } from "./ai-models";
+import {
+  AI_MODEL_DISPLAY_NAMES,
+  AI_MODEL_IDS,
+  DEFAULT_AI_MODEL_ID,
+  DEFAULT_AI_PLAYER_NAME_PREFIX,
+  type AIModelId,
+} from "./ai-models";
 import { agentSetupMessageSchema } from "./agent-harness.types";
 import {
   gameActionSchema,
@@ -44,7 +50,12 @@ export interface ActivityLogEntry extends BaseActivityLogEntry {
 // AI Player Types
 // ═══════════════════════════════════════════════════════════════════════════
 
-export { AI_MODEL_IDS, AI_MODEL_DISPLAY_NAMES };
+export {
+  AI_MODEL_IDS,
+  AI_MODEL_DISPLAY_NAMES,
+  DEFAULT_AI_MODEL_ID,
+  DEFAULT_AI_PLAYER_NAME_PREFIX,
+};
 export type { AIModelId };
 
 /** AI player information */

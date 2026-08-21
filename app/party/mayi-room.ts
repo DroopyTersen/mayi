@@ -43,7 +43,11 @@ import type { GameAction } from "../../core/engine/game-action.command";
 
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import type { AgentStoredStateV1 } from "./agent-harness.types";
-import { AI_MODEL_DISPLAY_NAMES } from "./ai-models";
+import {
+  AI_MODEL_DISPLAY_NAMES,
+  DEFAULT_AI_MODEL_ID,
+  DEFAULT_AI_PLAYER_NAME_PREFIX,
+} from "./ai-models";
 
 import {
   PartyGameAdapter,
@@ -64,18 +68,19 @@ import {
 import {
   executeAITurn,
 } from "./ai-turn-handler";
-import { settleAIMayIResponse } from "./ai-may-i-response";
 import { AITurnCoordinator } from "./ai-turn-coordinator";
 import type { AIEnv } from "./ai-model-factory";
 import type {
   AIActionResult,
   AIActionRuntime,
 } from "../../ai/ai-action-runtime.types";
+import type { OpenAIResponseLineage } from "../../ai/openai-response-lineage";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const LOBBY_STATE_KEY = "lobby:state";
 const GAME_STATE_KEY = "game:state";
 const ROOM_PHASE_KEY = "room:phase";
+const AI_RESPONSE_LINEAGE_KEY_PREFIX = "ai:continuity:";
 
 type MayIRoomConnectionState = { playerId: string };
 
@@ -108,19 +113,21 @@ export class MayIRoom extends Server {
   /** Get or create the AI turn coordinator */
   private getAICoordinator(): AITurnCoordinator {
     if (!this.aiCoordinator) {
-      // Enable debug and tool delay for May-I testing
-      // TODO: Make these configurable via environment variables
-      const enableMayITestMode = true; // Set to true to slow down AI for May-I testing
+      const aiEnv = this.env as AIEnv;
+      const responseLineageStore = {
+        get: (playerId: string) => this.getAIResponseLineage(playerId),
+        set: (lineage: OpenAIResponseLineage) =>
+          this.setAIResponseLineage(lineage),
+        clear: (playerId: string) => this.clearAIResponseLineage(playerId),
+      };
 
       this.aiCoordinator = new AITurnCoordinator({
         getState: () => this.getGameState(),
-        executeAITurn: (options) => executeAITurn(options),
+        executeAITurn: (options) =>
+          executeAITurn({ ...options, responseLineageStore }),
         executeAIAction: (playerId, action) => this.executeAIAction(playerId, action),
-        env: this.env as AIEnv,
-        // Debug mode: shows AI actions and deliberate May-I test delays.
-        debug: enableMayITestMode,
-        // Add 2 second delay after each tool execution to give time for May-I clicks
-        toolDelayMs: enableMayITestMode ? 2000 : 0,
+        recordMetrics: (metrics) => this.log("AI turn metrics", metrics),
+        env: aiEnv,
       });
     }
     return this.aiCoordinator;
@@ -425,6 +432,7 @@ export class MayIRoom extends Server {
 
     for (const effect of result.sideEffects) {
       if (effect.type === "setGameState") {
+        await this.clearAllAIResponseLineages();
         await this.setGameState(effect.state);
       } else if (effect.type === "setRoomPhase") {
         await this.setRoomPhase(effect.phase);
@@ -552,18 +560,18 @@ export class MayIRoom extends Server {
       throw new Error("Invalid starting round");
     }
 
-    // Ensure 2 Grok AI players exist.
+    // Ensure the requested default AI players exist.
     let nextLobbyState: LobbyState = updatedRoundState;
-    const existingGrok = nextLobbyState.aiPlayers.filter(
-      (p) => p.modelId === "default:grok"
+    const existingDefaultPlayers = nextLobbyState.aiPlayers.filter(
+      (p) => p.modelId === msg.ai.modelId
     ).length;
     const desired = msg.ai.count;
-    const toAdd = Math.max(0, desired - existingGrok);
+    const toAdd = Math.max(0, desired - existingDefaultPlayers);
 
     for (let i = 0; i < toAdd; i++) {
-      const index = existingGrok + i + 1;
-      const name = `${msg.ai.namePrefix ?? "Grok"}-${index}`;
-      const newState = addAIPlayer(nextLobbyState, humanCount, name, "default:grok");
+      const index = existingDefaultPlayers + i + 1;
+      const name = `${msg.ai.namePrefix ?? DEFAULT_AI_PLAYER_NAME_PREFIX}-${index}`;
+      const newState = addAIPlayer(nextLobbyState, humanCount, name, msg.ai.modelId);
       if (!newState) {
         throw new Error("Unable to add AI players (max players exceeded)");
       }
@@ -617,14 +625,17 @@ export class MayIRoom extends Server {
     const adapter = PartyGameAdapter.fromStoredState(storedState);
     const snapshot = adapter.getSnapshot();
 
-    const aiPlayers = stored.playerMappings
-      .filter((m) => m.isAI && m.aiModelId)
-      .map((m) => ({
-        playerId: m.lobbyId,
-        name: m.name,
-        modelId: m.aiModelId!,
-        modelDisplayName: AI_MODEL_DISPLAY_NAMES[m.aiModelId!] ?? m.name,
-      }));
+    const aiPlayers = stored.playerMappings.flatMap((mapping) => {
+      const modelId = mapping.aiModelId;
+      return mapping.isAI && modelId
+        ? [{
+            playerId: mapping.lobbyId,
+            name: mapping.name,
+            modelId,
+            modelDisplayName: AI_MODEL_DISPLAY_NAMES[modelId],
+          }]
+        : [];
+    });
 
     const lobbyState: LobbyState = {
       aiPlayers,
@@ -632,6 +643,7 @@ export class MayIRoom extends Server {
     };
 
     await this.setLobbyState(lobbyState);
+    await this.clearAllAIResponseLineages();
     await this.setGameState(storedState);
     await this.setRoomPhase("playing");
 
@@ -651,14 +663,17 @@ export class MayIRoom extends Server {
 
     const storedState = convertAgentTestStateToStoredState(state, this.name);
 
-    const aiPlayers = state.players
-      .filter((p) => p.isAI && p.aiModelId)
-      .map((p) => ({
-        playerId: p.id,
-        name: p.name,
-        modelId: p.aiModelId!,
-        modelDisplayName: AI_MODEL_DISPLAY_NAMES[p.aiModelId!] ?? p.name,
-      }));
+    const aiPlayers = state.players.flatMap((player) => {
+      const modelId = player.aiModelId;
+      return player.isAI && modelId
+        ? [{
+            playerId: player.id,
+            name: player.name,
+            modelId,
+            modelDisplayName: AI_MODEL_DISPLAY_NAMES[modelId],
+          }]
+        : [];
+    });
 
     const lobbyState: LobbyState = {
       aiPlayers,
@@ -666,6 +681,7 @@ export class MayIRoom extends Server {
     };
 
     await this.setLobbyState(lobbyState);
+    await this.clearAllAIResponseLineages();
     await this.setGameState(storedState);
     await this.setRoomPhase("playing");
 
@@ -785,7 +801,7 @@ export class MayIRoom extends Server {
         await this.broadcastMayIPrompt(effect.adapter);
       } else if (effect.type === "aiMayIResponseNeeded") {
         this.logMayI(`Checking if prompted player is AI...`);
-        await this.executeAIMayIResponseIfNeeded(effect.adapter);
+        await this.executeAITurnsIfNeeded();
       } else if (effect.type === "mayIResolved") {
         const phaseAfter = effect.adapter.getSnapshot().phase;
         this.logMayI(`May-I resolved, new phase: ${phaseAfter}`);
@@ -890,6 +906,41 @@ export class MayIRoom extends Server {
 
   private async setGameState(state: StoredGameState): Promise<void> {
     await this.ctx.storage.put(GAME_STATE_KEY, state);
+  }
+
+  private getAIResponseLineageKey(playerId: string): string {
+    return `${AI_RESPONSE_LINEAGE_KEY_PREFIX}${playerId}`;
+  }
+
+  private async getAIResponseLineage(
+    playerId: string,
+  ): Promise<OpenAIResponseLineage | undefined> {
+    return this.ctx.storage.get<OpenAIResponseLineage>(
+      this.getAIResponseLineageKey(playerId),
+    );
+  }
+
+  private async setAIResponseLineage(
+    lineage: OpenAIResponseLineage,
+  ): Promise<void> {
+    await this.ctx.storage.put(
+      this.getAIResponseLineageKey(lineage.playerId),
+      lineage,
+    );
+  }
+
+  private async clearAIResponseLineage(playerId: string): Promise<void> {
+    await this.ctx.storage.delete(this.getAIResponseLineageKey(playerId));
+  }
+
+  private async clearAllAIResponseLineages(): Promise<void> {
+    const entries = await this.ctx.storage.list<OpenAIResponseLineage>({
+      prefix: AI_RESPONSE_LINEAGE_KEY_PREFIX,
+    });
+    const keys = Array.from(entries.keys());
+    if (keys.length > 0) {
+      await this.ctx.storage.delete(keys);
+    }
   }
 
   private async getStoredPlayers(): Promise<StoredPlayer[]> {
@@ -1077,91 +1128,6 @@ export class MayIRoom extends Server {
    */
   private async broadcastMayINotification(adapter: PartyGameAdapter): Promise<void> {
     this.sendProjectedMessage(projectMayINotificationMessage(adapter));
-  }
-
-  /**
-   * Execute AI response if the player being prompted for May-I is an AI
-   *
-   * When May-I is called and we're prompting players in turn order,
-   * if the prompted player is an AI, we need to execute their turn
-   * so they can respond (allowMayI or claimMayI).
-   */
-  private async executeAIMayIResponseIfNeeded(adapter: PartyGameAdapter): Promise<void> {
-    const snapshot = adapter.getSnapshot();
-    const mayIContext = snapshot.mayIContext;
-    if (!mayIContext) {
-      this.logMayI(`executeAIMayIResponseIfNeeded: No May-I context, skipping`);
-      return;
-    }
-
-    const promptedEngineId = mayIContext.playerBeingPrompted;
-    if (!promptedEngineId) {
-      this.logMayI(`executeAIMayIResponseIfNeeded: No player being prompted, skipping`);
-      return;
-    }
-
-    // Find the prompted player's mapping
-    const promptedMapping = adapter.getAllPlayerMappings().find(
-      (m) => m.engineId === promptedEngineId
-    );
-    if (!promptedMapping?.isAI) {
-      this.logMayI(`executeAIMayIResponseIfNeeded: Prompted player ${promptedMapping?.name || promptedEngineId} is human, waiting for their response`);
-      return;
-    }
-
-    this.logMayI(`AI ${promptedMapping.name} (${promptedMapping.lobbyId}) being prompted for May-I response`);
-
-    // It's an AI's turn to respond to May-I
-    this.broadcastAIThinking(promptedMapping.lobbyId, promptedMapping.name);
-
-    // Small delay for UX
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    const modelToUse = promptedMapping.aiModelId ?? "default:grok";
-    this.logMayI(`Executing AI May-I response with model ${modelToUse}`);
-
-    const runtime = this.createAIActionRuntime(promptedMapping.lobbyId, {
-      skipAITurnsIfNeeded: false,
-    });
-
-    try {
-      const settled = await settleAIMayIResponse({
-        promptedEngineId,
-        runtime,
-        executeResponse: () =>
-          executeAITurn({
-            adapter,
-            aiPlayerId: promptedMapping.lobbyId,
-            modelId: modelToUse,
-            env: this.env as AIEnv,
-            runtime,
-            playerName: promptedMapping.name,
-            maxSteps: 5, // May-I response is simple - allow or claim
-            debug: true, // Enable debug for May-I responses
-          }),
-      });
-      const result = settled.turnResult;
-      this.broadcastAIDone(promptedMapping.lobbyId);
-      this.logMayI(`AI May-I response result: success=${result.success}, actions=${result.actions.join(", ")}, error=${result.error || "none"}`);
-
-      if (settled.defaultAllowed && settled.defaultAllowResult) {
-        const allowStatus = settled.defaultAllowResult.ok
-          ? "OK"
-          : settled.defaultAllowResult.error;
-        this.logMayI(
-          `AI May-I response defaulted to allow for ${promptedMapping.name}: ${allowStatus}`
-        );
-      }
-
-      if (!result.success) {
-        this.logMayI(`AI May-I response FAILED for ${promptedMapping.name}: ${result.error}`);
-        console.error(`[AI] May-I response failed for ${promptedMapping.name}: ${result.error}`);
-      }
-    } catch (error) {
-      this.broadcastAIDone(promptedMapping.lobbyId);
-      this.logMayI(`AI May-I response ERROR for ${promptedMapping.name}: ${error}`);
-      console.error(`[AI] May-I response error for ${promptedMapping.name}:`, error);
-    }
   }
 
   /**

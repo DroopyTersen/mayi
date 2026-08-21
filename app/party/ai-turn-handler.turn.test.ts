@@ -6,6 +6,15 @@ import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import type { AgentTestState } from "./agent-state.types";
 import { createTestCard, createTestHand } from "../../core/engine/test.fixtures";
 import type { AIActionRuntime } from "../../ai/ai-action-runtime.types";
+import type { OpenAIResponseLineageStore } from "../../ai/openai-response-lineage";
+
+function createLineageStore(): OpenAIResponseLineageStore {
+  return {
+    get: () => undefined,
+    set: () => undefined,
+    clear: () => undefined,
+  };
+}
 
 function createAdapterFromState(state: AgentTestState): PartyGameAdapter {
   const stored = convertAgentTestStateToStoredState(state, "test-room");
@@ -105,6 +114,7 @@ describe("executeAITurn", () => {
       modelId: "default:grok",
       env: {},
       runtime,
+      responseLineageStore: createLineageStore(),
     });
 
     expect(result.success).toBe(false);
@@ -130,9 +140,10 @@ describe("executeAITurn", () => {
       env: {},
       runtime,
       abortSignal: abortController.signal,
+      responseLineageStore: createLineageStore(),
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
     expect(result.aborted).toBe(true);
   });
 });
