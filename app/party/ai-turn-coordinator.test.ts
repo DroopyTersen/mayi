@@ -6,6 +6,7 @@ import type { GameAction } from "../../core/engine/game-action.command";
 import type { PlayerMapping, StoredGameState } from "./party-game-adapter";
 import type { PartyGameAdapter } from "./party-game-adapter";
 import { DEFAULT_AI_MODEL_ID } from "./ai-models";
+import type { LangfuseGameContext } from "../../ai/langfuse-ai-telemetry";
 
 function createSnapshot(overrides: Partial<GameSnapshot> = {}): GameSnapshot {
   return {
@@ -106,6 +107,36 @@ function createDeps(options: Partial<{
 }
 
 describe("AITurnCoordinator", () => {
+  it("creates production telemetry with the game as the session", async () => {
+    const telemetry = {};
+    let telemetryContext: LangfuseGameContext | undefined;
+    const { deps } = createDeps({
+      executeAITurn: async (options) => {
+        expect("telemetry" in options ? options.telemetry : undefined).toBe(
+          telemetry,
+        );
+        return { success: true, actions: ["draw_from_stock"] };
+      },
+    });
+    Object.assign(deps, {
+      createTelemetry: (context: LangfuseGameContext) => {
+        telemetryContext = context;
+        return telemetry;
+      },
+    });
+
+    const coordinator = new AITurnCoordinator(deps);
+    await coordinator.executeAITurnsIfNeeded();
+
+    expect(telemetryContext).toEqual({
+      gameId: "test-room",
+      playerId: "player-0",
+      playerName: "AI 1",
+      round: 1,
+      turnNumber: 1,
+    });
+  });
+
   it("records measured provider timing without derived pricing", async () => {
     const records: NonNullable<AITurnCoordinatorDeps["recordMetrics"]> extends (
       record: infer T,

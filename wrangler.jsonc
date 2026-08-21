@@ -12,5 +12,13 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["MayIRoom"] }
   ],
-  "observability": { "enabled": true }
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true,
+      "destinations": ["langfuse-traces"],
+      "head_sampling_rate": 1,
+      "persist": false
+    }
+  }
 }

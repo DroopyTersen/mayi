@@ -4,7 +4,12 @@
  * Executes turns for AI players using an LLM with tool-based actions.
  */
 
-import { generateText, type LanguageModel, type StepResult } from "ai";
+import {
+  generateText,
+  type LanguageModel,
+  type StepResult,
+  type Telemetry,
+} from "ai";
 import type { AIActionRuntime } from "./ai-action-runtime.types";
 import {
   summarizeAITurnMetrics,
@@ -85,8 +90,8 @@ export interface ExecuteTurnConfig {
   /** Enable debug logging. Default: false */
   debug?: boolean;
 
-  /** Enable telemetry/devtools. Default: true */
-  telemetry?: boolean;
+  /** Enable telemetry or provide a per-call integration. Default: true */
+  telemetry?: boolean | Telemetry;
 
   /** Optional action log entries for LLM context (only used in CLI mode) */
   actionLog?: ActionLogEntry[];
@@ -281,8 +286,9 @@ export async function executeTurn(
         ? {
             isEnabled: true,
             functionId: "may-i-agent",
-            recordInputs: false,
-            recordOutputs: false,
+            ...(typeof telemetry === "object"
+              ? { integrations: [telemetry] }
+              : {}),
             includeRuntimeContext: {
               playerId: true,
               playerName: true,

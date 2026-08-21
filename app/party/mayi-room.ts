@@ -75,6 +75,7 @@ import type {
   AIActionRuntime,
 } from "../../ai/ai-action-runtime.types";
 import type { OpenAIResponseLineage } from "../../ai/openai-response-lineage";
+import { createCloudflareLangfuseTelemetry } from "./cloudflare-langfuse-telemetry";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const LOBBY_STATE_KEY = "lobby:state";
@@ -127,6 +128,7 @@ export class MayIRoom extends Server {
           executeAITurn({ ...options, responseLineageStore }),
         executeAIAction: (playerId, action) => this.executeAIAction(playerId, action),
         recordMetrics: (metrics) => this.log("AI turn metrics", metrics),
+        createTelemetry: createCloudflareLangfuseTelemetry,
         env: aiEnv,
       });
     }
