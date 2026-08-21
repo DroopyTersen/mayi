@@ -7,6 +7,7 @@
  */
 
 import type { AIActionRuntime } from "../../ai/ai-action-runtime.types";
+import type { Telemetry } from "ai";
 import {
   executeTurn,
   type ExecuteTurnResult,
@@ -56,6 +57,8 @@ export interface ExecuteAITurnOptions {
   abortSignal?: AbortSignal;
   /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
   maxRetries?: number;
+  /** Production telemetry integration for each model call. */
+  telemetry?: Telemetry;
   /** Stored Responses continuation for this game. */
   responseLineageStore: OpenAIResponseLineageStore;
 }
@@ -83,6 +86,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     debug = false,
     abortSignal,
     maxRetries,
+    telemetry,
     responseLineageStore,
   } = options;
 
@@ -133,7 +137,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
           playerName: playerName ?? mapping.name,
           maxSteps,
           debug,
-          telemetry: false,
+          telemetry: telemetry ?? false,
           actionLog: adapter.getRecentActivityLogForEngine(10),
           abortSignal,
           maxRetries,

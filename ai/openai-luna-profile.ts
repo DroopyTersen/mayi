@@ -49,7 +49,7 @@ export function createOpenAILunaProviderOptions(
 ): OpenAILanguageModelResponsesOptions {
   return {
     store: true,
-    reasoningEffort: "medium",
+    reasoningEffort: "xhigh",
     reasoningContext: "all_turns",
     reasoningSummary: null,
     textVerbosity: "low",

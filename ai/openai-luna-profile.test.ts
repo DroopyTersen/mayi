@@ -8,13 +8,13 @@ import {
 } from "./openai-luna-profile";
 
 describe("GPT-5.6 Luna profile", () => {
-  it("uses the auditable medium-reasoning Responses defaults", () => {
+  it("uses the auditable xhigh-reasoning Responses defaults", () => {
     expect(OPENAI_LUNA_MODEL_ID).toBe("gpt-5.6-luna");
     expect(MAYI_AI_PROMPT_VERSION).toBe("house-rules-v3");
 
     expect(createOpenAILunaProviderOptions({})).toEqual({
       store: true,
-      reasoningEffort: "medium",
+      reasoningEffort: "xhigh",
       reasoningContext: "all_turns",
       reasoningSummary: null,
       textVerbosity: "low",
@@ -41,7 +41,7 @@ describe("GPT-5.6 Luna profile", () => {
       }),
     ).toEqual({
       store: true,
-      reasoningEffort: "medium",
+      reasoningEffort: "xhigh",
       reasoningContext: "all_turns",
       reasoningSummary: null,
       textVerbosity: "low",

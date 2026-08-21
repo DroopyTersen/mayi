@@ -30,6 +30,8 @@ import type { AIEnv } from "./ai-model-factory";
 import { DEFAULT_AI_MODEL_ID } from "./ai-models";
 import type { AITurnMetrics } from "../../ai/ai-turn-metrics";
 import { settleAIMayIResponse } from "./ai-may-i-response";
+import type { Telemetry } from "ai";
+import type { LangfuseGameContext } from "../../ai/langfuse-ai-telemetry";
 
 const MAX_CHAINED_TURNS = 8;
 const DEFAULT_INTER_TURN_DELAY_MS = 300;
@@ -77,6 +79,9 @@ export interface AITurnCoordinatorDeps {
 
   /** Receive provider, tool, orchestration, token, cache, and pacing metrics. */
   recordMetrics?: (record: AITurnMetricsRecord) => void;
+
+  /** Create production model-call telemetry for this game turn. */
+  createTelemetry?: (context: LangfuseGameContext) => Telemetry;
 
   /** Enable debug logging. Default: false. */
   debug?: boolean;
@@ -159,6 +164,13 @@ export class AITurnCoordinator {
             maxSteps: 10,
             debug,
             abortSignal: turnAbortController.signal,
+            telemetry: this.deps.createTelemetry?.({
+              gameId: snapshotBefore.gameId,
+              playerId: aiPlayer.engineId,
+              playerName: aiPlayer.name,
+              round: snapshotBefore.currentRound,
+              turnNumber: snapshotBefore.turnNumber,
+            }),
           };
           const settled =
             snapshotBefore.phase === "RESOLVING_MAY_I"
