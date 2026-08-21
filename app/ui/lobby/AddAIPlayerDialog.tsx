@@ -11,6 +11,7 @@ import {
 import {
   AI_MODEL_IDS,
   AI_MODEL_DISPLAY_NAMES,
+  DEFAULT_AI_MODEL_ID,
   type AIModelId,
 } from "~/party/protocol.types";
 import { Bot, Plus } from "lucide-react";
@@ -29,11 +30,11 @@ export function AddAIPlayerDialog({
   disabled,
 }: AddAIPlayerDialogProps) {
   const [open, setOpen] = useState(false);
-  const [modelId, setModelId] = useState<AIModelId>("default:grok");
+  const [modelId, setModelId] = useState<AIModelId>(DEFAULT_AI_MODEL_ID);
 
   const handleSelect = (character: Character) => {
     onAdd(character.name, modelId, character.id);
-    setModelId("default:grok");
+    setModelId(DEFAULT_AI_MODEL_ID);
     setOpen(false);
   };
 
@@ -41,7 +42,7 @@ export function AddAIPlayerDialog({
     setOpen(newOpen);
     if (!newOpen) {
       // Reset form when closing
-      setModelId("default:grok");
+      setModelId(DEFAULT_AI_MODEL_ID);
     }
   };
 

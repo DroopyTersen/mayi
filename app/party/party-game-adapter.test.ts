@@ -472,6 +472,22 @@ describe("PartyGameAdapter", () => {
   });
 
   describe("activity logging", () => {
+    it("projects activity IDs into the engine domain for AI prompts", () => {
+      const adapter = PartyGameAdapter.createFromLobby({
+        roomId: "test-room",
+        humanPlayers,
+        aiPlayers,
+        startingRound: 1,
+      });
+
+      adapter.logAction("ai-abc123", "picked up", "7♣ from the discard pile");
+
+      const [entry] = adapter.getRecentActivityLogForEngine(10);
+      expect(entry?.playerId).toBe("player-2");
+      expect(entry?.playerName).toBe("ClaudeBot");
+      expect(entry?.details).toContain("7♣");
+    });
+
     it("logs draw actions correctly", () => {
       const adapter = PartyGameAdapter.createFromLobby({
         roomId: "test-room",

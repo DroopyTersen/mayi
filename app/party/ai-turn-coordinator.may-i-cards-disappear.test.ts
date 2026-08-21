@@ -150,7 +150,6 @@ describe("Bug #41 - May-I cards disappear", () => {
       env: {} as AITurnCoordinatorDeps["env"],
       thinkingDelayMs: 0,
       interTurnDelayMs: 0,
-      toolDelayMs: 0,
     };
 
     const coordinator = new AITurnCoordinator(deps);

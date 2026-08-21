@@ -7,7 +7,19 @@
  */
 
 import type { AIActionRuntime } from "../../ai/ai-action-runtime.types";
-import { executeTurn } from "../../ai/mayIAgent";
+import {
+  executeTurn,
+  type ExecuteTurnResult,
+} from "../../ai/mayIAgent";
+import {
+  executeWithOpenAIResponseLineage,
+  type OpenAIResponseLineageStore,
+} from "../../ai/openai-response-lineage";
+import {
+  AI_MODEL_CATALOG,
+  isAIModelId,
+} from "../../ai/ai-model-catalog";
+import { MAYI_AI_PROMPT_VERSION } from "../../ai/openai-luna-profile";
 import type { AIEnv } from "./ai-model-factory";
 import { createWorkerAIModelAsync } from "./ai-model-factory";
 import type { PartyGameAdapter, PlayerMapping } from "./party-game-adapter";
@@ -15,13 +27,7 @@ import type { PartyGameAdapter, PlayerMapping } from "./party-game-adapter";
 /**
  * Result of executing an AI turn.
  */
-export interface AITurnResult {
-  /** Whether the turn completed successfully. */
-  success: boolean;
-  /** Summary of actions taken. */
-  actions: string[];
-  /** Error message if failed. */
-  error?: string;
+export interface AITurnResult extends ExecuteTurnResult {
   /** True when execution stopped because an external event aborted the loop. */
   aborted?: boolean;
 }
@@ -50,6 +56,8 @@ export interface ExecuteAITurnOptions {
   abortSignal?: AbortSignal;
   /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
   maxRetries?: number;
+  /** Stored Responses continuation for this game. */
+  responseLineageStore: OpenAIResponseLineageStore;
 }
 
 function errorMessage(error: unknown): string {
@@ -75,6 +83,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     debug = false,
     abortSignal,
     maxRetries,
+    responseLineageStore,
   } = options;
 
   const mapping = adapter.getPlayerMapping(aiPlayerId);
@@ -96,49 +105,48 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
   }
 
   try {
+    if (!isAIModelId(modelId)) {
+      return {
+        success: false,
+        actions: [],
+        error: `Unsupported AI model ID: ${modelId}`,
+      };
+    }
+
     const model = await createWorkerAIModelAsync(modelId, env);
-    const result = await executeTurn({
-      model,
-      runtime,
-      playerId: mapping.engineId,
-      playerName: playerName ?? mapping.name,
-      maxSteps,
-      debug,
-      telemetry: false,
+    return await executeWithOpenAIResponseLineage({
+      context: {
+        gameId: latestSnapshot.gameId,
+        playerId: mapping.engineId,
+        round: latestSnapshot.currentRound,
+        modelId: AI_MODEL_CATALOG[modelId].model,
+        promptVersion: MAYI_AI_PROMPT_VERSION,
+      },
+      store: responseLineageStore,
       abortSignal,
-      maxRetries,
+      execute: (continuation) =>
+        executeTurn({
+          model,
+          modelId,
+          runtime,
+          playerId: mapping.engineId,
+          playerName: playerName ?? mapping.name,
+          maxSteps,
+          debug,
+          telemetry: false,
+          actionLog: adapter.getRecentActivityLogForEngine(10),
+          abortSignal,
+          maxRetries,
+          continuation,
+        }),
     });
-
-    if (result.success) {
-      return {
-        success: true,
-        actions: result.actions,
-      };
-    }
-
-    if (result.error?.toLowerCase().includes("abort")) {
-      if (debug) {
-        console.log("[AI] Turn aborted");
-      }
-      return {
-        success: true,
-        actions: result.actions,
-        aborted: true,
-      };
-    }
-
-    return {
-      success: false,
-      actions: result.actions,
-      error: result.error,
-    };
   } catch (error) {
     if (isAbortError(error)) {
       if (debug) {
         console.log("[AI] Turn aborted");
       }
       return {
-        success: true,
+        success: false,
         actions: [],
         aborted: true,
       };

@@ -223,6 +223,19 @@ export class PartyGameAdapter {
     return interesting.slice(-count);
   }
 
+  /**
+   * Recent activity in the engine player's ID domain, for AI prompts.
+   * Lobby IDs never cross this boundary.
+   */
+  getRecentActivityLogForEngine(count: number = 10): ActivityLogEntry[] {
+    return this.getRecentActivityLog(count).map((entry) => ({
+      ...entry,
+      playerId: entry.playerId === "system"
+        ? entry.playerId
+        : this.lobbyIdToEngineId(entry.playerId) ?? entry.playerId,
+    }));
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ID Translation
   // ═══════════════════════════════════════════════════════════════════════════

@@ -1,25 +1,10 @@
-/**
- * AI model identifiers and display names.
- *
- * Kept in a small standalone module to avoid circular dependencies between
- * protocol types and agent test state validation.
- */
-
-/** Available AI model IDs - use default: prefix for stable references */
-export const AI_MODEL_IDS = [
-  "default:grok",
-  "default:claude",
-  "default:openai",
-  "default:gemini",
-] as const;
-
-export type AIModelId = (typeof AI_MODEL_IDS)[number];
-
-/** Display names for AI models */
-export const AI_MODEL_DISPLAY_NAMES: Record<AIModelId, string> = {
-  "default:grok": "Grok",
-  "default:claude": "Claude",
-  "default:openai": "GPT",
-  "default:gemini": "Gemini",
-};
-
+/** Protocol-facing model exports. The AI package owns the catalog so every
+ * runtime resolves the same four player choices. */
+export {
+  AI_MODEL_DISPLAY_NAMES,
+  AI_MODEL_IDS,
+  AI_MODEL_OPTIONS,
+  DEFAULT_AI_MODEL_ID,
+  DEFAULT_AI_PLAYER_NAME_PREFIX,
+} from "../../ai/ai-model-catalog";
+export type { AIModelId } from "../../ai/ai-model-catalog";

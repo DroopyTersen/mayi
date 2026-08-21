@@ -31,7 +31,7 @@ describe("Bug #40 - round transition after AI goes out", () => {
             id: "ai1",
             name: "AI-1",
             isAI: true,
-            aiModelId: "default:fallback",
+            aiModelId: "default:openai",
             isDown: true,
             hand: [{ id: "c1", rank: "A", suit: "spades" }],
           },
@@ -39,7 +39,7 @@ describe("Bug #40 - round transition after AI goes out", () => {
             id: "ai2",
             name: "AI-2",
             isAI: true,
-            aiModelId: "default:fallback",
+            aiModelId: "default:openai",
             isDown: false,
             hand: [{ id: "a2-1", rank: "K", suit: "diamonds" }],
           },
@@ -111,7 +111,6 @@ describe("Bug #40 - round transition after AI goes out", () => {
       env: {} as AITurnCoordinatorDeps["env"],
       thinkingDelayMs: 0,
       interTurnDelayMs: 0,
-      toolDelayMs: 0,
       debug: false,
     };
 

@@ -25,7 +25,7 @@ This route is only enabled in development mode. In production, it returns `404`.
 Creates a new room and auto-starts a game with:
 
 - 1 human: "Agent" (the UI automation agent)
-- 2 AI players: Grok
+- 2 AI players: GPT-5.6 Luna
 
 **Response:** Redirects to `/game/:roomId?agent=true` (the param is removed after setup succeeds)
 
@@ -89,7 +89,7 @@ interface AgentTestPlayer {
   id: string;           // Unique player ID
   name: string;         // Display name
   isAI: boolean;        // true for AI opponents
-  aiModelId?: string;   // Required if isAI (e.g., "default:grok")
+  aiModelId?: string;   // Required if isAI (e.g., "default:openai")
   hand: Card[];         // Cards in hand
   isDown: boolean;      // Has laid down contract
   totalScore?: number;  // Cumulative score (defaults to 0)
@@ -124,7 +124,7 @@ interface AgentStoredStateV1 {
     engineId: `player-${number}`;
     name: string;
     isAI: boolean;
-    aiModelId?: "default:grok" | "default:claude" | "default:openai" | "default:gemini";
+    aiModelId?: "default:openai" | "default:grok" | "default:claude" | "default:gemini";
   }>;
 }
 ```
@@ -135,9 +135,9 @@ When specifying `aiModelId` for AI players:
 
 | Model ID | Description |
 |----------|-------------|
+| `default:openai` | GPT-5.6 Luna (OpenAI, default) |
 | `default:grok` | Grok (xAI) |
 | `default:claude` | Claude (Anthropic) |
-| `default:openai` | GPT (OpenAI) |
 | `default:gemini` | Gemini (Google) |
 
 ## Example: Custom Test State
@@ -167,9 +167,9 @@ const state = {
     },
     {
       id: "ai-1",
-      name: "Grok-1",
+      name: "Luna-1",
       isAI: true,
-      aiModelId: "default:grok",
+      aiModelId: "default:openai",
       hand: [
         { id: "c10", suit: "spades", rank: "10" },
         { id: "c11", suit: "hearts", rank: "9" },
@@ -178,9 +178,9 @@ const state = {
     },
     {
       id: "ai-2",
-      name: "Grok-2",
+      name: "Luna-2",
       isAI: true,
-      aiModelId: "default:grok",
+      aiModelId: "default:openai",
       hand: [
         { id: "c20", suit: "clubs", rank: "7" },
         { id: "c21", suit: "diamonds", rank: "6" },
@@ -218,7 +218,7 @@ When the game loads with `?agent=true` or `?agentState=...`, it sends a single `
   requestId: "agent-<roomId>",
   mode: "quickStart",
   human: { playerId: "<session-id>", name: "Agent" },
-  ai: { modelId: "default:grok", count: 2, namePrefix: "Grok" }
+  ai: { modelId: "default:openai", count: 2, namePrefix: "Luna" }
 }
 
 // Client → Server (state injection)

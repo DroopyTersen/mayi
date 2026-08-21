@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { agentTestStateSchema } from "./agent-state.validation";
-import { AI_MODEL_IDS } from "./ai-models";
+import { AI_MODEL_IDS, DEFAULT_AI_MODEL_ID } from "./ai-models";
 
 const humanSchema = z.object({
   playerId: z.string().min(1).max(64),
@@ -30,7 +30,7 @@ export const agentSetupMessageSchema = z.discriminatedUnion("mode", [
     mode: z.literal("quickStart"),
     human: humanSchema,
     ai: z.object({
-      modelId: z.literal("default:grok"),
+      modelId: z.literal(DEFAULT_AI_MODEL_ID),
       count: z.literal(2),
       namePrefix: z.string().optional(),
     }),
@@ -64,4 +64,3 @@ export const agentSetupResultMessageSchema = z.object({
 export type AgentSetupResultMessage = z.infer<
   typeof agentSetupResultMessageSchema
 >;
-

@@ -7,6 +7,7 @@
 import * as fs from "node:fs";
 import type { ActionLogEntry, CliGameSave } from "./cli.types";
 import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
+import type { OpenAIResponseLineage } from "../../ai/openai-response-lineage";
 import { GameEngine } from "../../core/engine/game-engine";
 import { generateRoomId } from "../../core/room/room-id.utils";
 
@@ -193,6 +194,10 @@ function getAIPlayersFilePath(gameId: string): string {
   return `${getGameDir(gameId)}/ai-players.json`;
 }
 
+function getAIResponseLineagesFilePath(gameId: string): string {
+  return `${getGameDir(gameId)}/ai-continuity.json`;
+}
+
 /**
  * Persisted AI player config with player ID mapping
  */
@@ -221,6 +226,37 @@ export function loadAIPlayerConfigs(gameId: string): PersistedAIPlayer[] {
   }
   const content = fs.readFileSync(filePath, "utf-8");
   return JSON.parse(content) as PersistedAIPlayer[];
+}
+
+export function saveAIResponseLineages(
+  gameId: string,
+  lineages: OpenAIResponseLineage[],
+): void {
+  ensureGameDir(gameId);
+  const content = JSON.stringify(lineages, null, 2);
+  fs.writeFileSync(getAIResponseLineagesFilePath(gameId), content);
+}
+
+export function loadAIResponseLineages(
+  gameId: string,
+): OpenAIResponseLineage[] {
+  const filePath = getAIResponseLineagesFilePath(gameId);
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
+
+  const content = fs.readFileSync(filePath, "utf-8");
+  return JSON.parse(content) as OpenAIResponseLineage[];
+}
+
+export function clearAIResponseLineage(
+  gameId: string,
+  playerId: string,
+): void {
+  const remaining = loadAIResponseLineages(gameId).filter(
+    (lineage) => lineage.playerId !== playerId,
+  );
+  saveAIResponseLineages(gameId, remaining);
 }
 
 /**

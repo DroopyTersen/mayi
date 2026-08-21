@@ -11,6 +11,8 @@ import type { GameSnapshot } from "../core/engine/game-engine.types";
 import type { Card } from "../core/card/card.types";
 import { formatCardText } from "../core/card/card-text.utils";
 import { getNumberedMelds } from "../core/meld/meld-numbering";
+import { getJokerSwapHints } from "./mayIAgent.tactics";
+import { getAvailableToolNames } from "./mayIAgent.tool-availability";
 
 /** Action log entry for LLM context */
 export interface ActionLogEntry {
@@ -64,7 +66,7 @@ export function outputGameStateForLLM(
     const indicator = isCurrentTurn ? "→ " : "  ";
     const youLabel = isYou ? " (you)" : "";
     const downStatus = p.isDown ? " ✓ DOWN" : "";
-    const scoreStr = isYou && p.totalScore > 0 ? ` (${p.totalScore} pts)` : "";
+    const scoreStr = ` (${p.totalScore} pts)`;
     lines.push(
       `${indicator}${p.name}${youLabel}: ${p.hand.length} cards${downStatus}${scoreStr}`
     );
@@ -151,8 +153,32 @@ export function outputGameStateForLLM(
   lines.push(`  ${renderNumberedHand(player.hand)}`);
   lines.push("");
 
+  if (
+    state.currentRound === 6 &&
+    state.phase === "ROUND_ACTIVE" &&
+    state.turnPhase === "AWAITING_ACTION" &&
+    isYourDecision
+  ) {
+    lines.push(
+      `HAND 6 CHECK: Before discarding, partition all ${player.hand.length} numbered cards into exactly 1 set and 2 runs.`,
+    );
+    lines.push(
+      "Use every card exactly once; a valid lay_down wins immediately. Melds may exceed their minimum size.",
+    );
+    lines.push("");
+  }
+
+  const jokerSwapHints = getJokerSwapHints(state, player);
+  if (jokerSwapHints.length > 0) {
+    lines.push("TACTICAL OPPORTUNITIES:");
+    for (const hint of jokerSwapHints) {
+      lines.push(`  ${hint}`);
+    }
+    lines.push("");
+  }
+
   if (isYourDecision) {
-    const actions = getAvailableActions(state, player);
+    const actions = getAvailableToolNames(state, player.id);
     if (actions.length > 0) {
       lines.push("─".repeat(66));
       lines.push("");
@@ -185,29 +211,6 @@ function renderNumberedHand(hand: Card[]): string {
   return hand
     .map((card, index) => `${index + 1}:${formatCardText(card)}`)
     .join(" | ");
-}
-
-function getAvailableActions(state: GameSnapshot, player: Player): string[] {
-  if (state.phase === "RESOLVING_MAY_I") {
-    return ["allow_may_i", "claim_may_i"];
-  }
-
-  if (state.phase !== "ROUND_ACTIVE") {
-    return [];
-  }
-
-  switch (state.turnPhase) {
-    case "AWAITING_DRAW":
-      return player.isDown
-        ? ["draw_from_stock"]
-        : ["draw_from_stock", "draw_from_discard"];
-    case "AWAITING_ACTION":
-      return player.isDown
-        ? ["lay_off", "discard"]
-        : ["lay_down", "swap_joker", "discard"];
-    case "AWAITING_DISCARD":
-      return ["discard"];
-  }
 }
 
 function formatContract(contract: { sets: number; runs: number }): string {

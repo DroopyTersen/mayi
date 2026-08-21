@@ -6,6 +6,10 @@ import {
   agentStoredStateV1Schema,
   type AgentStoredStateV1,
 } from "~/party/agent-harness.types";
+import {
+  DEFAULT_AI_MODEL_ID,
+  DEFAULT_AI_PLAYER_NAME_PREFIX,
+} from "~/party/protocol.types";
 
 type AgentHarnessIdentity = { playerId: string; name: string };
 
@@ -105,7 +109,11 @@ export function useAgentHarnessSetup(options: {
           requestId,
           mode: "quickStart",
           human: { playerId, name: parsed.identity.name },
-          ai: { modelId: "default:grok", count: 2, namePrefix: "Grok" },
+          ai: {
+            modelId: DEFAULT_AI_MODEL_ID,
+            count: 2,
+            namePrefix: DEFAULT_AI_PLAYER_NAME_PREFIX,
+          },
         } as ClientMessage;
       }
 

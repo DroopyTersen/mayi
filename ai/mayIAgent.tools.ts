@@ -13,7 +13,6 @@ import {
   outputGameStateForLLM,
   type ActionLogEntry,
 } from "./mayIAgent.prompt-renderer";
-import { getAvailableActions } from "../core/engine/game-engine.availability";
 import { isValidRun, isValidSet } from "../core/meld/meld.validation";
 import type { AIActionRuntime, GameAction } from "./ai-action-runtime.types";
 
@@ -45,13 +44,20 @@ export function createMayITools(
     };
   }
 
-  async function executeAction(action: GameAction): Promise<ToolExecutionResult> {
+  async function executeAction(
+    action: GameAction,
+    completesDecision = false,
+  ): Promise<ToolExecutionResult> {
     const result = await runtime.executeAction(action);
     const state = result.snapshot;
     const gameState = outputGameStateForLLM(state, playerId, {
       actionLog: options.actionLog,
     });
-    const turnComplete = state.awaitingPlayerId !== playerId;
+    const turnComplete =
+      completesDecision ||
+      state.awaitingPlayerId !== playerId ||
+      state.phase === "ROUND_END" ||
+      state.phase === "GAME_END";
 
     return {
       success: result.ok,
@@ -142,7 +148,7 @@ In Round 6, you must use ALL cards in your hand.`,
 
     discard: tool({
       description:
-        "Discard a card from your hand to end your turn. Provide the hand position (1-indexed). If you're still in the action phase, the engine will ignore invalid discards; prefer to use skip when needed.",
+        "Discard a card from your hand to end your turn. Provide the hand position (1-indexed). The engine validates whether discarding is legal in the current phase.",
       inputSchema: z.object({
         position: z.number().int().min(1),
       }),
@@ -199,13 +205,13 @@ In Round 6, you must use ALL cards in your hand.`,
     allow_may_i: tool({
       description: "Allow the May I caller to take the discard (when prompted).",
       inputSchema: z.object({}),
-      execute: async () => executeAction({ type: "ALLOW_MAY_I" }),
+      execute: async () => executeAction({ type: "ALLOW_MAY_I" }, true),
     }),
 
     claim_may_i: tool({
       description: "Claim the discard for yourself, blocking the original caller (when prompted).",
       inputSchema: z.object({}),
-      execute: async () => executeAction({ type: "CLAIM_MAY_I" }),
+      execute: async () => executeAction({ type: "CLAIM_MAY_I" }, true),
     }),
 
     swap_joker: tool({
@@ -247,35 +253,6 @@ In Round 6, you must use ALL cards in your hand.`,
       },
     }),
   };
-}
-
-/**
- * Get the tools available for the current game snapshot.
- *
- * Uses the centralized getAvailableActions utility and maps to tool names.
- * Current agent policy: only act when the engine is awaiting this player.
- */
-export function getAvailableToolNames(snapshot: GameSnapshot, playerId: string): string[] {
-  // Only act when the engine is awaiting this player
-  if (snapshot.awaitingPlayerId !== playerId) {
-    return [];
-  }
-
-  const actions = getAvailableActions(snapshot, playerId);
-
-  const toolNames: string[] = [];
-
-  // Map AvailableActions flags to tool names
-  if (actions.canDrawFromStock) toolNames.push("draw_from_stock");
-  if (actions.canDrawFromDiscard) toolNames.push("draw_from_discard");
-  if (actions.canLayDown) toolNames.push("lay_down");
-  if (actions.canSwapJoker) toolNames.push("swap_joker");
-  if (actions.canLayOff) toolNames.push("lay_off");
-  if (actions.canDiscard) toolNames.push("discard");
-  if (actions.canAllowMayI) toolNames.push("allow_may_i");
-  if (actions.canClaimMayI) toolNames.push("claim_may_i");
-
-  return toolNames;
 }
 
 export type MayITools = ReturnType<typeof createMayITools>;
