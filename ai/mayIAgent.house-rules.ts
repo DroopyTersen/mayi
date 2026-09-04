@@ -1,8 +1,8 @@
 /** Game legality only. Canonical human authority: docs/house-rules.md.
- * The pre-existing initial-meld extension discrepancy awaits owner clarification;
- * this extraction does not decide a rule change. Never tune this in a strategy experiment.
+ * Exact initial sizes for Hands 1-5 confirmed by Drew on 2026-09-04.
+ * Never tune house rules in a strategy experiment.
  */
-export const MAYI_HOUSE_RULES_VERSION = "house-rules-v1";
+export const MAYI_HOUSE_RULES_VERSION = "house-rules-v2";
 
 export const MAYI_HOUSE_RULES = `## Grandma Jeanne house rules
 - Six hands; lowest cumulative score wins. Cards score 3-10 face value, J/Q/K 10, A 15, 2 20, Joker 50.
@@ -14,7 +14,7 @@ export const MAYI_HOUSE_RULES = `## Grandma Jeanne house rules
 
 ## Turn and contract rules
 - You must draw before any other action. Draw one card from stock or discard; a down player may draw only from stock.
-- Before going down, submit exactly the required number and type of melds. Each set or run may contain more than its minimum cards when those cards form one valid meld; do not include unrelated extra cards.
+- Before going down, submit exactly the required number and type of melds. Hands 1-5: each initial set must contain exactly 3 cards and each initial run exactly 4 cards. Keep extra cards in your hand until a later turn, even if they could extend a meld. Only Hand 6 permits larger initial melds, and every card in your hand must be used.
 - Do not lay off on the same turn you lay down. On later turns, after drawing, lay off to any valid table meld, then discard.
 - A discard ends the turn. You may go out without a discard only by playing every remaining card into valid melds.
 - Jokers can be swapped only out of runs, never sets. You may only swap Jokers before laying down, and only after the required draw.

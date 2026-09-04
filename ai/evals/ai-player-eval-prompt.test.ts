@@ -71,7 +71,7 @@ describe("AI player evaluation prompt selection", () => {
         addendum: "Compare the next two turns before choosing a discard.",
       },
     });
-    expect(baseline.components?.houseRules.version).toBe("house-rules-v1");
+    expect(baseline.components?.houseRules.version).toBe("house-rules-v2");
     expect(experiment.components?.houseRules).toEqual(
       baseline.components?.houseRules,
     );

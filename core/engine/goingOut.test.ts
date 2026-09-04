@@ -1810,7 +1810,7 @@ describe("going out - not down scenarios", () => {
 });
 
 describe("going out - on lay down turn", () => {
-  describe("going out same turn as laying down (rounds 1-5)", () => {
+  describe("going out after an exact contract from a synthetic shortened hand", () => {
     it("given: player has 7 cards in hand", () => {
       // Round 1: 2 sets (minimum 6 cards)
       // Player has 7 cards that can form 2 sets + 1 extra
@@ -1871,17 +1871,16 @@ describe("going out - on lay down turn", () => {
       expect(actor.getSnapshot().context.hand.length).toBe(8);
     });
 
-    it("and: player lays down melds totaling 7 cards (1 card remaining)", () => {
+    it("and: player lays down melds totaling 6 cards (1 card remaining)", () => {
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
-      const nine4 = card("9", "spades"); // Extra 9 for larger set
       const king1 = card("K", "clubs");
       const king2 = card("K", "diamonds");
       const king3 = card("K", "hearts");
       const extraCard = card("Q", "spades");
 
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -1898,11 +1897,11 @@ describe("going out - on lay down turn", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
 
-      // Lay down: set of 4 nines + set of 3 kings = 7 cards
+      // Lay down: set of 3 nines + set of 3 kings = 6 cards
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -1916,13 +1915,12 @@ describe("going out - on lay down turn", () => {
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
-      const nine4 = card("9", "spades");
       const king1 = card("K", "clubs");
       const king2 = card("K", "diamonds");
       const king3 = card("K", "hearts");
       const extraCard = card("Q", "spades");
 
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -1941,7 +1939,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -1956,13 +1954,12 @@ describe("going out - on lay down turn", () => {
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
-      const nine4 = card("9", "spades");
       const king1 = card("K", "clubs");
       const king2 = card("K", "diamonds");
       const king3 = card("K", "hearts");
       const extraCard = card("Q", "spades");
 
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -1981,7 +1978,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -1995,13 +1992,12 @@ describe("going out - on lay down turn", () => {
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
-      const nine4 = card("9", "spades");
       const king1 = card("K", "clubs");
       const king2 = card("K", "diamonds");
       const king3 = card("K", "hearts");
       const extraCard = card("Q", "spades");
 
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -2024,7 +2020,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -2043,13 +2039,12 @@ describe("going out - on lay down turn", () => {
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
-      const nine4 = card("9", "spades");
       const king1 = card("K", "clubs");
       const king2 = card("K", "diamonds");
       const king3 = card("K", "hearts");
       const extraCard = card("Q", "spades");
 
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -2068,7 +2063,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -2080,8 +2075,8 @@ describe("going out - on lay down turn", () => {
     });
   });
 
-  describe("going out on lay down - contract uses all cards", () => {
-    it("given: player has 11 cards forming exactly the contract (larger melds)", () => {
+  describe("oversized initial melds cannot consume the whole Hand 1", () => {
+    it("given: player has 11 cards forming oversized sets", () => {
       // Round 1: 2 sets (minimum 6 cards)
       // But we could have set of 5 + set of 6 = 11 cards
       const nines = [
@@ -2139,9 +2134,8 @@ describe("going out - on lay down turn", () => {
       expect(actor.getSnapshot().context.hand.length).toBe(12);
     });
 
-    it("and: player lays down 12 cards (all cards form contract)", () => {
-      // This would require all 12 cards to form valid contract
-      // For simplicity, show that laying down uses all cards
+    it("rejects an attempt to lay down all 12 cards in two oversized sets", () => {
+      // Emptying the hand does not exempt initial melds from exact sizes.
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
@@ -2172,7 +2166,7 @@ describe("going out - on lay down turn", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
 
-      // Lay down all 12 cards
+      // Try to lay down all 12 cards.
       actor.send({
         type: "LAY_DOWN",
         melds: [
@@ -2181,11 +2175,11 @@ describe("going out - on lay down turn", () => {
         ],
       });
 
-      // 0 cards remaining
-      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      // Rejection preserves all 12 cards
+      expect(actor.getSnapshot().context.hand.length).toBe(12);
     });
 
-    it("then: player has 0 cards, went out immediately on lay down", () => {
+    it("keeps all 12 cards and does not go out", () => {
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
@@ -2223,12 +2217,12 @@ describe("going out - on lay down turn", () => {
         ],
       });
 
-      expect(actor.getSnapshot().context.hand.length).toBe(0);
-      expect(actor.getSnapshot().value).toBe("wentOut");
+      expect(actor.getSnapshot().context.hand.length).toBe(12);
+      expect(actor.getSnapshot().value).toBe("drawn");
     });
 
-    it("and: no discard needed", () => {
-      // When all cards used in lay down, hand is empty - went out without discard
+    it("still requires a discard after rejecting the laydown", () => {
+      // Emptying the hand does not exempt an initial meld from exact sizes
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
@@ -2266,27 +2260,19 @@ describe("going out - on lay down turn", () => {
         ],
       });
 
-      // State is wentOut, not awaitingDiscard
-      expect(actor.getSnapshot().value).toBe("wentOut");
+      // The player remains in the action phase after rejection
+      expect(actor.getSnapshot().value).toBe("drawn");
       // Discard pile unchanged
       expect(actor.getSnapshot().context.discard.length).toBe(1);
     });
 
-    it("note: rare scenario requiring larger-than-minimum melds", () => {
-      // This is a conceptual note - verified by above tests
-      // To go out on lay down with 0 cards remaining:
-      // After draw (12 cards), all must be used in contract
-      // Minimum contract is 6 cards, so need 6 extra cards in melds
-      expect(true).toBe(true);
-    });
   });
 
-  describe("example: round 1 going out on lay down", () => {
+  describe("example: exact Round 1 contract from a synthetic shortened hand", () => {
     // Set up cards for this scenario
     const nine1 = card("9", "clubs");
     const nine2 = card("9", "diamonds");
     const nine3 = card("9", "hearts");
-    const nine4 = card("9", "spades");
     const king1 = card("K", "clubs");
     const king2 = card("K", "diamonds");
     const king3 = card("K", "hearts");
@@ -2297,13 +2283,13 @@ describe("going out - on lay down turn", () => {
       expect(1).toBe(1); // Contract definition - tested elsewhere
     });
 
-    it("and: player has 7 cards: (9♣ 9♦ 9♥ 9♠) + (K♣ K♦ K♥)", () => {
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
-      expect(hand.length).toBe(7);
+    it("and: player has 6 cards: (9♣ 9♦ 9♥) + (K♣ K♦ K♥)", () => {
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
+      expect(hand.length).toBe(6);
     });
 
-    it("when: player draws (8 cards total)", () => {
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+    it("when: player draws (7 cards total)", () => {
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -2320,11 +2306,11 @@ describe("going out - on lay down turn", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
 
-      expect(actor.getSnapshot().context.hand.length).toBe(8);
+      expect(actor.getSnapshot().context.hand.length).toBe(7);
     });
 
-    it("and: player lays down: set of 4 nines + set of 3 kings = 7 cards", () => {
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+    it("and: player lays down: set of 3 nines + set of 3 kings = 6 cards", () => {
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -2343,7 +2329,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -2353,7 +2339,7 @@ describe("going out - on lay down turn", () => {
     });
 
     it("and: player has 1 card remaining", () => {
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -2372,7 +2358,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -2381,7 +2367,7 @@ describe("going out - on lay down turn", () => {
     });
 
     it("and: player discards that card", () => {
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -2400,7 +2386,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });
@@ -2410,7 +2396,7 @@ describe("going out - on lay down turn", () => {
     });
 
     it("then: player went out on same turn as laying down", () => {
-      const hand = [nine1, nine2, nine3, nine4, king1, king2, king3];
+      const hand = [nine1, nine2, nine3, king1, king2, king3];
 
       const input = {
         playerId: "player-1",
@@ -2429,7 +2415,7 @@ describe("going out - on lay down turn", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
+          { type: "set", cardIds: [nine1.id, nine2.id, nine3.id] },
           { type: "set", cardIds: [king1.id, king2.id, king3.id] },
         ],
       });

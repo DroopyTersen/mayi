@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "~/shadcn/components/ui/button";
 import type { Card } from "core/card/card.types";
+import type { Contract } from "core/engine/contracts";
 import {
   Drawer,
   DrawerContent,
@@ -10,12 +11,7 @@ import {
 } from "~/shadcn/components/ui/drawer";
 import { LayDownView } from "./LayDownView";
 
-interface Contract {
-  sets: number;
-  runs: number;
-}
-
-const CONTRACT: Contract = { sets: 1, runs: 1 };
+const CONTRACT: Contract = { roundNumber: 2, sets: 1, runs: 1 };
 
 // Hand includes multiple Ks to mirror the original report, but the repro harness
 // focuses on duplicate *ids* staged multiple times (UI-only).
@@ -154,4 +150,3 @@ export function LayDownBug34ReproStory() {
     </div>
   );
 }
-

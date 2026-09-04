@@ -11,6 +11,72 @@ const card = (id: string, rank: Card["rank"], suit: Card["suit"]): Card => ({
 });
 
 describe("LayDownView staging", () => {
+  for (const roundNumber of [1, 2, 3, 4, 5] as const) {
+    for (const type of ["set", "run"] as const) {
+      it(`does not extend a completed ${type} in Hand ${roundNumber}`, () => {
+        const cards = type === "set"
+          ? [
+              card("jc", "J", "clubs"),
+              card("jd", "J", "diamonds"),
+              card("jh", "J", "hearts"),
+            ]
+          : [
+              card("3s", "3", "spades"),
+              card("4s", "4", "spades"),
+              card("5s", "5", "spades"),
+              card("6s", "6", "spades"),
+            ];
+        const stagedMelds: StagedMeld[] = [{ type, cards }];
+        const extra = card("extra", "Joker", null);
+        const result = stageCardInMelds({
+          stagedMelds,
+          card: extra,
+          activeMeldIndex: 0,
+          roundNumber,
+        });
+        expect(result.stagedMelds).toEqual(stagedMelds);
+
+        const html = renderToStaticMarkup(
+          createElement(LayDownView, {
+            hand: [...cards, extra],
+            contract: {
+              roundNumber,
+              sets: type === "set" ? 1 : 0,
+              runs: type === "run" ? 1 : 0,
+            },
+            initialStagedMelds: [{ type, cards: [...cards, extra] }],
+            onLayDown: () => undefined,
+            onCancel: () => undefined,
+          })
+        );
+        expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Lay Down<\/button>/);
+      });
+    }
+  }
+
+  it("starts the next set instead of extending a completed matching set in Hand 1", () => {
+    const stagedMelds: StagedMeld[] = [
+      {
+        type: "set",
+        cards: [
+          card("jc", "J", "clubs"),
+          card("jd", "J", "diamonds"),
+          card("jh", "J", "hearts"),
+        ],
+      },
+      { type: "set", cards: [] },
+    ];
+    const extra = card("js", "J", "spades");
+    const result = stageCardInMelds({
+      stagedMelds,
+      card: extra,
+      activeMeldIndex: 0,
+      roundNumber: 1,
+    });
+    expect(result.stagedMelds[0]?.cards).toHaveLength(3);
+    expect(result.stagedMelds[1]?.cards).toEqual([extra]);
+  });
+
   it("advances to the next incomplete meld after filling the active meld", () => {
     const stagedMelds: StagedMeld[] = [
       {
@@ -28,6 +94,7 @@ describe("LayDownView staging", () => {
       stagedMelds,
       card: card("q-spades", "Q", "spades"),
       activeMeldIndex: 0,
+      roundNumber: 1,
     });
 
     expect(result.stagedMelds[0]?.cards.map((c) => c.id)).toEqual([
@@ -57,6 +124,7 @@ describe("LayDownView staging", () => {
       stagedMelds,
       card: card("a-hearts", "A", "hearts"),
       activeMeldIndex: 0,
+      roundNumber: 1,
     });
 
     expect(result.stagedMelds[0]?.cards.map((c) => c.id)).toEqual([
@@ -78,7 +146,7 @@ describe("LayDownView staging", () => {
     const html = renderToStaticMarkup(
       createElement(LayDownView, {
         hand: runCards,
-        contract: { sets: 0, runs: 1 },
+        contract: { roundNumber: 3, sets: 0, runs: 1 },
         initialStagedMelds: [{ type: "run", cards: runCards }],
         onLayDown: () => undefined,
         onCancel: () => undefined,
@@ -123,6 +191,7 @@ describe("LayDownView staging", () => {
       stagedMelds,
       card: card("eight-diamonds", "8", "diamonds"),
       activeMeldIndex: 2,
+      roundNumber: 6,
     });
 
     expect(result.stagedMelds[1]?.cards.map((c) => c.id)).toEqual([
@@ -174,6 +243,7 @@ describe("LayDownView staging", () => {
       stagedMelds,
       card: card("ten-diamonds", "10", "diamonds"),
       activeMeldIndex: 1,
+      roundNumber: 6,
     });
 
     expect(result.stagedMelds[1]?.cards.map((c) => c.id)).toEqual([

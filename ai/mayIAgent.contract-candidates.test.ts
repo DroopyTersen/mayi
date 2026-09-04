@@ -7,6 +7,43 @@ function card(id: string, rank: Card["rank"], suit: Card["suit"]): Card {
 }
 
 describe("AI exact contract candidates", () => {
+  it("only offers three-card sets for Hand 1 even when larger sets are available", () => {
+    const hand = [
+      card("jc", "J", "clubs"), card("jd", "J", "diamonds"),
+      card("jh", "J", "hearts"), card("js", "J", "spades"),
+      card("10c", "10", "clubs"), card("10d", "10", "diamonds"),
+      card("10h", "10", "hearts"), card("10s", "10", "spades"),
+      card("joker", "Joker", null),
+    ];
+    const candidates = findLayDownCandidates({
+      hand, contract: { roundNumber: 1, sets: 2, runs: 0 }, playerId: "p1",
+    });
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const candidate of candidates) {
+      expect(candidate.positionGroups.map((group) => group.length)).toEqual([3, 3]);
+      expect(candidate.usedCardCount).toBe(6);
+      expect(candidate.remainingCardIds).toHaveLength(3);
+    }
+  });
+
+  it("only offers a three-card set and four-card run for Hand 2", () => {
+    const hand = [
+      card("jc", "J", "clubs"), card("jd", "J", "diamonds"),
+      card("jh", "J", "hearts"), card("js", "J", "spades"),
+      card("3s", "3", "spades"), card("4s", "4", "spades"),
+      card("5s", "5", "spades"), card("6s", "6", "spades"),
+      card("7s", "7", "spades"),
+    ];
+    const candidates = findLayDownCandidates({
+      hand, contract: { roundNumber: 2, sets: 1, runs: 1 }, playerId: "p1",
+    });
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const candidate of candidates) {
+      expect(candidate.positionGroups.map((group) => group.length)).toEqual([3, 4]);
+      expect(candidate.usedCardCount).toBe(7);
+    }
+  });
+
   it("finds the natural set plus recovered-Joker run after a swap", () => {
     const hand = [
       card("9c", "9", "clubs"),

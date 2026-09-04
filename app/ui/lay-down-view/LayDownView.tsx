@@ -1,16 +1,13 @@
 import { useState } from "react";
 import type { Card } from "core/card/card.types";
+import type { Contract } from "core/engine/contracts";
+import type { RoundNumber } from "core/engine/engine.types";
 import { isValidRun, isValidSet } from "core/meld/meld.validation";
 import { normalizeRunCards } from "core/meld/run.normalizer";
 import { HandDisplay } from "~/ui/player-hand/HandDisplay";
 import { PlayingCard } from "~/ui/playing-card/PlayingCard";
 import { Button } from "~/shadcn/components/ui/button";
 import { cn } from "~/shadcn/lib/utils";
-
-interface Contract {
-  sets: number;
-  runs: number;
-}
 
 export interface StagedMeld {
   type: "set" | "run";
@@ -21,6 +18,7 @@ interface StageCardInMeldsInput {
   stagedMelds: StagedMeld[];
   card: Card;
   activeMeldIndex: number;
+  roundNumber: RoundNumber;
 }
 
 interface StageCardInMeldsResult {
@@ -93,6 +91,7 @@ export function stageCardInMelds({
   stagedMelds,
   card,
   activeMeldIndex,
+  roundNumber,
 }: StageCardInMeldsInput): StageCardInMeldsResult {
   if (stagedMelds.some((m) => m.cards.some((c) => c.id === card.id))) {
     return { stagedMelds, activeMeldIndex };
@@ -104,11 +103,10 @@ export function stageCardInMelds({
   if (preferredMeld && !isMeldComplete(preferredMeld)) {
     targetIndex = activeMeldIndex;
   } else {
-    const compatibleCompletedIndex = findCompatibleCompletedMeldIndex(
-      stagedMelds,
-      card,
-      activeMeldIndex
-    );
+    const compatibleCompletedIndex =
+      roundNumber === 6
+        ? findCompatibleCompletedMeldIndex(stagedMelds, card, activeMeldIndex)
+        : null;
     const nextIncompleteIndex = findNextIncompleteMeldIndex(
       stagedMelds,
       activeMeldIndex
@@ -186,6 +184,7 @@ export function LayDownView({
         stagedMelds: prev.stagedMelds,
         card,
         activeMeldIndex: prev.activeMeldIndex,
+        roundNumber: contract.roundNumber,
       })
     );
   };
@@ -211,7 +210,12 @@ export function LayDownView({
     onLayDown(stagedMelds);
   };
 
-  const allMeldsValid = stagedMelds.every(isStagedMeldValid);
+  const allMeldsValid = stagedMelds.every(
+    (meld) =>
+      isStagedMeldValid(meld) &&
+      (contract.roundNumber === 6 ||
+        meld.cards.length === minimumMeldCardCount(meld.type))
+  );
 
   return (
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>

@@ -228,9 +228,11 @@ To lay down:
 
 1. It must be your turn, after you draw.
 2. You must lay down **exactly** the contract for that hand — no more, no less.
-   - For "2 sets": exactly 2 sets (minimum 6 cards total)
-   - For "1 set + 1 run": exactly 1 set and 1 run (minimum 7 cards)
+   - Each initial set is exactly **3 cards**; each initial run is exactly **4 cards**.
+   - For "2 sets": exactly 2 three-card sets (6 cards total)
+   - For "1 set + 1 run": exactly 1 three-card set and 1 four-card run (7 cards total)
    - You cannot include extra cards, even if they would extend a meld.
+   - Hand 6 is the only exception: extend its melds as needed to use every card in your hand.
 3. Lay those cards face up in front of you, clearly separated into sets and runs.
 4. On this turn, you only lay down the contract. No laying off extras yet.
 5. Discard one card to end your turn.
