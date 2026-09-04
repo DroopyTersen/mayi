@@ -11,6 +11,10 @@
  */
 
 import { GameEngine } from "../../core/engine/game-engine";
+import {
+  projectGameActionActivity,
+  type GameActivityAction,
+} from "../../core/activity/game-action-activity";
 import type {
   PlayerView,
   MeldSpec,
@@ -233,6 +237,22 @@ export class PartyGameAdapter {
       playerId: entry.playerId === "system"
         ? entry.playerId
         : this.lobbyIdToEngineId(entry.playerId) ?? entry.playerId,
+    }));
+  }
+
+  /** Recorded public activity for this hand, oldest first, without a turn limit. */
+  getCurrentRoundActivityLog(): ActivityLogEntry[] {
+    const roundNumber = this.engine.getSnapshot().currentRound;
+    return this.getRecentActivityLog(this.activityLog.length).filter(
+      (entry) => entry.roundNumber === roundNumber
+    );
+  }
+
+  /** Same public evidence as the app, with identities mapped for the AI runtime. */
+  getCurrentRoundActivityLogForEngine(): ActivityLogEntry[] {
+    return this.getCurrentRoundActivityLog().map((entry) => ({
+      ...entry,
+      playerId: this.lobbyIdToEngineId(entry.playerId) ?? entry.playerId,
     }));
   }
 
@@ -502,8 +522,12 @@ export class PartyGameAdapter {
    * @param action - Action description
    * @param details - Optional additional details
    */
-  logAction(lobbyPlayerId: string, action: string, details?: string): void {
-    const snapshot = this.engine.getSnapshot();
+  logAction(
+    lobbyPlayerId: string,
+    action: string,
+    details?: string,
+    snapshot: Pick<GameSnapshot, "currentRound" | "turnNumber"> = this.engine.getSnapshot()
+  ): void {
     const entry: ActivityLogEntry = createActivityLogEntry({
       context: {
         roundNumber: snapshot.currentRound,
@@ -522,92 +546,53 @@ export class PartyGameAdapter {
     this.activityLog.push(entry);
   }
 
-  /**
-   * Log a draw action with the drawn card
-   */
+  /** Append shared public facts, mapping engine identities back to lobby IDs. */
+  logGameAction(
+    lobbyPlayerId: string,
+    action: GameActivityAction,
+    before: GameSnapshot,
+    after: GameSnapshot
+  ): void {
+    const playerId = this.lobbyIdToEngineId(lobbyPlayerId);
+    if (!playerId) return;
+    const entries = projectGameActionActivity({ playerId, action, before, after });
+    for (const entry of entries) {
+      const ownerId = this.engineIdToLobbyId(entry.playerId);
+      if (ownerId) this.logAction(ownerId, entry.action, entry.details, before);
+    }
+  }
+
   logDraw(
     lobbyPlayerId: string,
     before: GameSnapshot,
     after: GameSnapshot,
     source: "stock" | "discard"
   ): void {
-    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
-    if (!mapping) return;
-
-    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
-    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
-    if (!beforePlayer || !afterPlayer) return;
-
-    // Check if draw succeeded
-    if (afterPlayer.hand.length !== beforePlayer.hand.length + 1) return;
-
-    // Find the new card
-    const beforeIds = new Set(beforePlayer.hand.map((c) => c.id));
-    const drawn = afterPlayer.hand.find((c) => !beforeIds.has(c.id));
-    if (!drawn) return;
-
-    if (source === "stock") {
-      // Stock is face-down, so don't reveal the card
-      this.logAction(lobbyPlayerId, "drew from the draw pile");
-    } else {
-      // Discard is face-up, so everyone can see what was taken
-      this.logAction(lobbyPlayerId, "took from discard", formatCardText(drawn));
-    }
+    this.logGameAction(
+      lobbyPlayerId,
+      { type: source === "stock" ? "DRAW_FROM_STOCK" : "DRAW_FROM_DISCARD" },
+      before,
+      after
+    );
   }
 
-  /**
-   * Log a discard action
-   */
   logDiscard(
     lobbyPlayerId: string,
     before: GameSnapshot,
     after: GameSnapshot,
     cardId: string
   ): void {
-    // Find the card that was discarded
-    const card = before.discard.find((c) => c.id === cardId) ??
-      after.discard.find((c) => c.id === cardId);
-
-    // Check if discard succeeded
-    const cardInDiscard = after.discard.some((c) => c.id === cardId);
-    const roundEnded = after.currentRound !== before.currentRound || after.phase === "GAME_END";
-
-    if (cardInDiscard || roundEnded) {
-      if (card) {
-        this.logAction(lobbyPlayerId, "discarded", formatCardText(card));
-      }
-
-      // Log "went out" if player went out
-      const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
-      if (mapping) {
-        const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
-        if (beforePlayer && beforePlayer.hand.length === 1 && roundEnded) {
-          this.logAction(lobbyPlayerId, "went out!");
-        }
-      }
-    }
+    this.logGameAction(lobbyPlayerId, { type: "DISCARD", cardId }, before, after);
   }
 
-  /**
-   * Log a lay down action
-   */
-  logLayDown(lobbyPlayerId: string, before: GameSnapshot, after: GameSnapshot): void {
-    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
-    if (!mapping) return;
-
-    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
-    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
-
-    if (beforePlayer && afterPlayer && !beforePlayer.isDown && afterPlayer.isDown) {
-      this.logAction(lobbyPlayerId, "laid down contract");
-    }
+  logLayDown(
+    lobbyPlayerId: string,
+    before: GameSnapshot,
+    after: GameSnapshot
+  ): void {
+    this.logGameAction(lobbyPlayerId, { type: "LAY_DOWN" }, before, after);
   }
 
-  /**
-   * Log a lay off action
-   *
-   * @param position - Only shown in log when "start" (prepending to run)
-   */
   logLayOff(
     lobbyPlayerId: string,
     cardId: string,
@@ -615,25 +600,11 @@ export class PartyGameAdapter {
     after: GameSnapshot,
     position?: "start" | "end"
   ): void {
-    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
-    if (!mapping) return;
-
-    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
-    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
-
-    if (beforePlayer && afterPlayer && afterPlayer.hand.length === beforePlayer.hand.length - 1) {
-      const card = beforePlayer.hand.find((c) => c.id === cardId);
-      if (card) {
-        // Only show "at start" for prepending - appending is the default
-        const positionText = position === "start" ? " at start" : "";
-        this.logAction(lobbyPlayerId, `laid off${positionText}`, formatCardText(card));
-      }
-    }
+    this.logGameAction(
+      lobbyPlayerId, { type: "LAY_OFF", cardId, position }, before, after
+    );
   }
 
-  /**
-   * Log a joker swap after verifying the table and hand actually changed.
-   */
   logSwapJoker(
     lobbyPlayerId: string,
     meldId: string,
@@ -642,42 +613,12 @@ export class PartyGameAdapter {
     before: GameSnapshot,
     after: GameSnapshot
   ): void {
-    const mapping = this.playerMappings.find((m) => m.lobbyId === lobbyPlayerId);
-    if (!mapping) return;
-
-    const beforePlayer = before.players.find((p) => p.id === mapping.engineId);
-    const afterPlayer = after.players.find((p) => p.id === mapping.engineId);
-    const beforeMeld = before.table.find((meld) => meld.id === meldId);
-    const afterMeld = after.table.find((meld) => meld.id === meldId);
-    if (!beforePlayer || !afterPlayer || !beforeMeld || !afterMeld) return;
-
-    const swapCard = beforePlayer.hand.find((card) => card.id === swapCardId);
-    if (!swapCard) return;
-
-    const hadJokerInMeld = beforeMeld.cards.some((card) => card.id === jokerCardId);
-    const hasSwapInMeld = afterMeld.cards.some((card) => card.id === swapCardId);
-    const lostJokerFromMeld = !afterMeld.cards.some((card) => card.id === jokerCardId);
-    const gainedJokerInHand = afterPlayer.hand.some((card) => card.id === jokerCardId);
-    const lostSwapFromHand = !afterPlayer.hand.some((card) => card.id === swapCardId);
-
-    if (
-      !hadJokerInMeld ||
-      !hasSwapInMeld ||
-      !lostJokerFromMeld ||
-      !gainedJokerInHand ||
-      !lostSwapFromHand
-    ) {
-      return;
-    }
-
-    const owner = this.playerMappings.find(
-      (player) => player.engineId === afterMeld.ownerId || player.lobbyId === afterMeld.ownerId
+    this.logGameAction(
+      lobbyPlayerId,
+      { type: "SWAP_JOKER", meldId, jokerCardId, swapCardId },
+      before,
+      after
     );
-    const targetLabel = owner
-      ? `${owner.name}'s ${afterMeld.type}`
-      : `${afterMeld.type} ${afterMeld.id}`;
-
-    this.logAction(lobbyPlayerId, "swapped Joker", `${formatCardText(swapCard)} into ${targetLabel}`);
   }
 
   /**
@@ -686,28 +627,28 @@ export class PartyGameAdapter {
   logMayICall(lobbyPlayerId: string, cardId: string, before: GameSnapshot): void {
     const card = before.discard.find((c) => c.id === cardId);
     if (card) {
-      this.logAction(lobbyPlayerId, "called May I", formatCardText(card));
+      this.logAction(lobbyPlayerId, "called May I", formatCardText(card), before);
     }
   }
 
   /**
    * Log when a player allows May-I to proceed
    */
-  logMayIAllow(lobbyPlayerId: string): void {
-    this.logAction(lobbyPlayerId, "allowed May I");
+  logMayIAllow(lobbyPlayerId: string, before?: GameSnapshot): void {
+    this.logAction(lobbyPlayerId, "allowed May I", undefined, before);
   }
 
   /**
    * Log when a player claims and blocks the original caller
    */
-  logMayIClaim(lobbyPlayerId: string, cardRendered: string): void {
-    this.logAction(lobbyPlayerId, "claimed May I", cardRendered);
+  logMayIClaim(lobbyPlayerId: string, cardRendered: string, before?: GameSnapshot): void {
+    this.logAction(lobbyPlayerId, "claimed May I", cardRendered, before);
   }
 
   /**
    * Log May I resolution - who took the card
    */
-  logMayIResolved(winnerLobbyId: string, cardRendered: string): void {
-    this.logAction(winnerLobbyId, "took the May I card", cardRendered);
+  logMayIResolved(winnerLobbyId: string, cardRendered: string, before?: GameSnapshot): void {
+    this.logAction(winnerLobbyId, "took the May I card", cardRendered, before);
   }
 }

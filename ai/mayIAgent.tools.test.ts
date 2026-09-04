@@ -178,6 +178,15 @@ describe("getAvailableToolNames", () => {
   });
 
   describe("AWAITING_ACTION phase", () => {
+    it("offers contract-aware hand organization after drawing", () => {
+      const snapshot = makeSnapshot({
+        turnPhase: "AWAITING_ACTION",
+        isDown: false,
+      });
+
+      expect(getAvailableToolNames(snapshot, "ai")).toContain("organize_hand");
+    });
+
     it("offers lay_down, swap_joker, discard when NOT down and runs with jokers exist", () => {
       const snapshot = makeSnapshot({
         turnPhase: "AWAITING_ACTION",
@@ -185,7 +194,12 @@ describe("getAvailableToolNames", () => {
         tableMelds: 2,
         currentRound: 3,
       });
-      expect(getAvailableToolNames(snapshot, "ai")).toEqual(["lay_down", "swap_joker", "discard"]);
+      expect(getAvailableToolNames(snapshot, "ai")).toEqual([
+        "organize_hand",
+        "lay_down",
+        "swap_joker",
+        "discard",
+      ]);
     });
 
     it("offers lay_down, discard (no swap_joker) when NOT down but no melds on table", () => {
@@ -195,7 +209,11 @@ describe("getAvailableToolNames", () => {
         tableMelds: 0,
         currentRound: 1,
       });
-      expect(getAvailableToolNames(snapshot, "ai")).toEqual(["lay_down", "discard"]);
+      expect(getAvailableToolNames(snapshot, "ai")).toEqual([
+        "organize_hand",
+        "lay_down",
+        "discard",
+      ]);
     });
 
     it("offers lay_off, discard when DOWN and melds exist (can add to melds but not lay down again)", () => {
@@ -204,7 +222,11 @@ describe("getAvailableToolNames", () => {
         isDown: true,
         tableMelds: 1, // Need melds on table to lay off to
       });
-      expect(getAvailableToolNames(snapshot, "ai")).toEqual(["lay_off", "discard"]);
+      expect(getAvailableToolNames(snapshot, "ai")).toEqual([
+        "organize_hand",
+        "lay_off",
+        "discard",
+      ]);
     });
 
     it("offers only discard when DOWN but no melds on table", () => {
@@ -213,7 +235,10 @@ describe("getAvailableToolNames", () => {
         isDown: true,
         tableMelds: 0, // No melds to lay off to
       });
-      expect(getAvailableToolNames(snapshot, "ai")).toEqual(["discard"]);
+      expect(getAvailableToolNames(snapshot, "ai")).toEqual([
+        "organize_hand",
+        "discard",
+      ]);
     });
   });
 
@@ -298,6 +323,34 @@ describe("createMayITools", () => {
     const tools = createMayITools(createRuntime(snapshot, []), "ai");
 
     expect(tools.discard.description).not.toContain("skip");
+  });
+
+  it("organizes the latest hand by rank through the canonical reorder action", async () => {
+    const latestSnapshot = withHand(
+      makeSnapshot({ turnPhase: "AWAITING_ACTION" }),
+      [
+        { id: "king-hearts", rank: "K", suit: "hearts" },
+        { id: "seven-clubs", rank: "7", suit: "clubs" },
+        { id: "seven-spades", rank: "7", suit: "spades" },
+        { id: "joker", rank: "Joker", suit: null },
+      ],
+    );
+    const actions: GameAction[] = [];
+    const tools = createMayITools(createRuntime(latestSnapshot, actions), "ai");
+
+    const result = (await tools.organize_hand.execute?.(
+      { order: "rank" },
+      {} as never,
+    )) as ToolExecutionResult | undefined;
+
+    expect(result?.success).toBe(true);
+    expect(result?.turnComplete).toBe(false);
+    expect(actions).toEqual([
+      {
+        type: "REORDER_HAND",
+        cardIds: ["seven-spades", "seven-clubs", "king-hearts", "joker"],
+      },
+    ]);
   });
 
   it("marks a May-I response complete when play returns to the same player", async () => {

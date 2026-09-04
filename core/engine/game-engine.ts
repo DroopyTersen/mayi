@@ -88,6 +88,7 @@ export class GameEngine {
       playerNames,
       startingRound = 1,
       gameId = crypto.randomUUID(),
+      seed,
     } = options;
 
     if (playerNames.length < 3 || playerNames.length > 8) {
@@ -96,7 +97,7 @@ export class GameEngine {
 
     // Create actor with starting round input
     const actor = createActor(gameMachine, {
-      input: { startingRound: startingRound as RoundNumber },
+      input: { startingRound: startingRound as RoundNumber, seed },
     });
     actor.start();
 

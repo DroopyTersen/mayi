@@ -108,8 +108,6 @@ describe.skipIf(skipLLM)("AWAITING_DRAW phase", () => {
       )
     ).toBe(true);
     expect("reasoningContext" in result).toBe(false);
-    expect(result.continuation?.responseId).toBeString();
-    expect(result.continuation?.pendingToolResult.toolCallId).toBeString();
     expect(result.metrics?.providerDurationMs).toBeGreaterThan(0);
   }, 30000);
 });
@@ -158,7 +156,5 @@ describe.skipIf(skipLLM)("RESOLVING_MAY_I phase", () => {
       )
     ).toBe(true);
     expect("reasoningContext" in result).toBe(false);
-    expect(result.continuation?.responseId).toBeString();
-    expect(result.continuation?.pendingToolResult.toolCallId).toBeString();
   }, 30000);
 });

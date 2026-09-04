@@ -1,5 +1,5 @@
 /** Protocol-facing model exports. The AI package owns the catalog so every
- * runtime resolves the same four player choices. */
+ * runtime resolves the same five player choices. */
 export {
   AI_MODEL_DISPLAY_NAMES,
   AI_MODEL_IDS,

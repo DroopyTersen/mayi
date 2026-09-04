@@ -29,24 +29,38 @@ import {
 import type { AIEnv } from "./ai-model-factory";
 import { DEFAULT_AI_MODEL_ID } from "./ai-models";
 import type { AITurnMetrics } from "../../ai/ai-turn-metrics";
+import type { EnginePhase } from "../../core/engine/game-engine.types";
 import { settleAIMayIResponse } from "./ai-may-i-response";
 import type { Telemetry } from "ai";
 import type { LangfuseGameContext } from "../../ai/langfuse-ai-telemetry";
 
 const MAX_CHAINED_TURNS = 8;
 const DEFAULT_INTER_TURN_DELAY_MS = 300;
-const DEFAULT_AI_THINKING_DELAY_MS = 500;
+export const DEFAULT_AI_THINKING_DELAY_MS = 10_000;
+export const DEFAULT_AI_MAY_I_RESPONSE_DELAY_MS = 500;
+
+export function getAITurnPacingDelayMs(
+  phase: EnginePhase,
+  thinkingDelayMs: number,
+  mayIResponseDelayMs: number,
+): number {
+  return phase === "RESOLVING_MAY_I"
+    ? mayIResponseDelayMs
+    : thinkingDelayMs;
+}
 
 export interface AITurnMetricsRecord extends AITurnMetrics {
   gameId: string;
   playerId: string;
   playerName: string;
   modelId: string;
+  /** Player-facing reaction window before provider execution. */
+  pacingDelayMs: number;
 }
 
 type CoordinatedAITurnOptions = Omit<
   ExecuteAITurnOptions,
-  "responseLineageStore"
+  "notebookStore"
 >;
 
 /**
@@ -71,8 +85,11 @@ export interface AITurnCoordinatorDeps {
   /** Environment with API keys. */
   env: AIEnv;
 
-  /** Delay before AI starts (ms). Default: 500. Set to 0 for tests. */
+  /** Player reaction window before AI starts (ms). Default: 10 seconds. Set to 0 for tests. */
   thinkingDelayMs?: number;
+
+  /** Brief pacing delay for an AI May-I response (ms). Default: 500. Set to 0 for tests. */
+  mayIResponseDelayMs?: number;
 
   /** Delay between chained AI turns (ms). Default: 300. Set to 0 for tests. */
   interTurnDelayMs?: number;
@@ -122,6 +139,8 @@ export class AITurnCoordinator {
       const createAdapter = this.deps.createAdapter ?? PartyGameAdapter.fromStoredState;
       const isAIPlayerTurn = this.deps.isAIPlayerTurn ?? realIsAIPlayerTurn;
       const thinkingDelayMs = this.deps.thinkingDelayMs ?? DEFAULT_AI_THINKING_DELAY_MS;
+      const mayIResponseDelayMs =
+        this.deps.mayIResponseDelayMs ?? DEFAULT_AI_MAY_I_RESPONSE_DELAY_MS;
       const interTurnDelayMs = this.deps.interTurnDelayMs ?? DEFAULT_INTER_TURN_DELAY_MS;
       const debug = this.deps.debug ?? false;
 
@@ -134,19 +153,24 @@ export class AITurnCoordinator {
         const adapter = createAdapter(gameState);
         const aiPlayer = isAIPlayerTurn(adapter);
         if (!aiPlayer) return;
+        const snapshotBefore = adapter.getSnapshot();
+        const pacingDelayMs = getAITurnPacingDelayMs(
+          snapshotBefore.phase,
+          thinkingDelayMs,
+          mayIResponseDelayMs,
+        );
 
         callbacks?.onAIThinking?.(aiPlayer.lobbyId, aiPlayer.name);
         const turnAbortController = new AbortController();
         this.abortController = turnAbortController;
 
         try {
-          if (thinkingDelayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, thinkingDelayMs));
+          if (pacingDelayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, pacingDelayMs));
           }
 
           const runtime = this.createRuntime(aiPlayer.lobbyId, createAdapter);
           const modelToUse = aiPlayer.aiModelId ?? DEFAULT_AI_MODEL_ID;
-          const snapshotBefore = adapter.getSnapshot();
 
           if (debug) {
             console.log(
@@ -199,6 +223,7 @@ export class AITurnCoordinator {
               playerId: aiPlayer.engineId,
               playerName: aiPlayer.name,
               modelId: modelToUse,
+              pacingDelayMs,
             };
             this.deps.recordMetrics?.(metricsRecord);
 

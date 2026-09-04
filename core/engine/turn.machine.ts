@@ -14,7 +14,7 @@ import type { Meld } from "../meld/meld.types";
 import type { RoundNumber } from "./engine.types";
 import { CONTRACTS, validateContractMelds } from "./contracts";
 import { isValidSet, isValidRun } from "../meld/meld.validation";
-import { shuffle } from "../card/card.deck";
+import { createSeededRandom, shuffle } from "../card/card.deck";
 import {
   buildMeldsFromProposals,
   meetsContract,
@@ -44,6 +44,8 @@ export type MeldProposal = GuardMeldProposal;
  */
 export interface TurnContext {
   playerId: string;
+  /** Serializable, turn-specific randomness; absent in unseeded or legacy games. */
+  seed?: string;
   hand: Card[];
   stock: Card[];
   discard: Card[];
@@ -92,6 +94,8 @@ export type TurnEvent =
  */
 export interface TurnInput {
   playerId: string;
+  /** Optional turn-specific seed for reproducible stock recycling. */
+  seed?: string;
   hand: Card[];
   stock: Card[];
   discard: Card[];
@@ -406,7 +410,12 @@ export const turnMachine = setup({
       if (stock.length === 0 && discard.length > 1) {
         const topDiscard = discard[0];
         const cardsToReshuffle = discard.slice(1);
-        stock = shuffle(cardsToReshuffle);
+        stock = shuffle(
+          cardsToReshuffle,
+          context.seed === undefined
+            ? Math.random
+            : createSeededRandom(`${context.seed}:stock-recycle`),
+        );
         discard = topDiscard ? [topDiscard] : [];
       }
 
@@ -569,6 +578,7 @@ export const turnMachine = setup({
   },
   context: ({ input }) => ({
     playerId: input.playerId,
+    seed: input.seed,
     hand: input.hand,
     stock: input.stock,
     discard: input.discard,

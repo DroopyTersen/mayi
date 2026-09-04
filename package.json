@@ -40,6 +40,7 @@
     "@ai-sdk/openai": "4.0.45",
     "@ai-sdk/xai": "4.0.42",
     "@dnd-kit/react": "^0.4.0",
+    "@openrouter/ai-sdk-provider": "3.0.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-popover": "^1.1.15",
@@ -60,5 +61,8 @@
     "vaul": "^1.1.2",
     "xstate": "^5.30.0",
     "zod": "^4.3.6"
+  },
+  "patchedDependencies": {
+    "@openrouter/ai-sdk-provider@3.0.0": "patches/@openrouter%2Fai-sdk-provider@3.0.0.patch"
   }
 }

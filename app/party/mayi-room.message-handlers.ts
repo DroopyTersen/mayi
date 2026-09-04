@@ -210,7 +210,7 @@ export function handleJoinMessage(args: JoinHandlerInput): JoinHandlerResult {
   if (args.state.roomPhase === "playing" && args.state.gameState) {
     const adapter = PartyGameAdapter.fromStoredState(args.state.gameState);
     const playerView = adapter.getPlayerView(playerId);
-    const activityLog = adapter.getRecentActivityLog(10);
+    const activityLog = adapter.getCurrentRoundActivityLog();
     if (playerView) {
       afterBroadcastMessages.push({
         type: "GAME_STARTED",

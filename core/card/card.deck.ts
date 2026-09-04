@@ -22,6 +22,23 @@ export interface DeckOptions {
   jokerCount: number;
 }
 
+export function createSeededRandom(seed: string): () => number {
+  let state = 2_166_136_261;
+  for (let index = 0; index < seed.length; index++) {
+    state ^= seed.charCodeAt(index);
+    state = Math.imul(state, 16_777_619);
+  }
+  state >>>= 0;
+
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
+
 /**
  * Create a deck of cards for May I?
  *
@@ -63,11 +80,11 @@ export function createDeck(options: DeckOptions): Card[] {
  * Shuffle a deck of cards using Fisher-Yates algorithm
  * Returns a new shuffled array, does not mutate the original
  */
-export function shuffle(cards: Card[]): Card[] {
+export function shuffle(cards: Card[], random: () => number = Math.random): Card[] {
   const shuffled = [...cards];
 
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     const cardI = shuffled[i];
     const cardJ = shuffled[j];
     if (cardI !== undefined && cardJ !== undefined) {

@@ -112,6 +112,39 @@ describe("GameEngine (XState-backed)", () => {
       const expectedFirstPlayer = snapshot.players[(snapshot.dealerIndex + 1) % 3];
       expect(snapshot.awaitingPlayerId).toBe(expectedFirstPlayer!.id);
     });
+
+    it("uses the optional seed to produce reproducible tournament deals", () => {
+      const first = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+        seed: "tournament-seed-a",
+      });
+      const second = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+        seed: "tournament-seed-a",
+      });
+      const different = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+        seed: "tournament-seed-b",
+      });
+
+      const dealFingerprint = (game: GameEngine): string[] => {
+        const snapshot = game.getSnapshot();
+        return [
+          ...snapshot.players.flatMap((player) => player.hand.map((card) => card.id)),
+          ...snapshot.stock.map((card) => card.id),
+          ...snapshot.discard.map((card) => card.id),
+        ];
+      };
+
+      try {
+        expect(dealFingerprint(first)).toEqual(dealFingerprint(second));
+        expect(dealFingerprint(first)).not.toEqual(dealFingerprint(different));
+      } finally {
+        first.stop();
+        second.stop();
+        different.stop();
+      }
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -519,6 +552,31 @@ describe("GameEngine (XState-backed)", () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe("May I resolution", () => {
+    it("rejects a May I call from the current player at the engine boundary", () => {
+      engine = GameEngine.createGame({
+        playerNames: ["Alice", "Bob", "Carol"],
+        seed: "reject-current-player-may-i",
+      });
+      const before = engine.getSnapshot();
+      const currentPlayer = before.players.find(
+        (player) => player.id === before.awaitingPlayerId,
+      );
+      expect(currentPlayer).toBeDefined();
+      if (currentPlayer === undefined) return;
+
+      engine.callMayI(currentPlayer.id);
+      const after = engine.getSnapshot();
+      const currentPlayerAfter = after.players.find(
+        (player) => player.id === currentPlayer.id,
+      );
+
+      expect(after.phase).toBe("ROUND_ACTIVE");
+      expect(after.mayIContext).toBeNull();
+      expect(after.discardClaimed).toBe(false);
+      expect(after.discard).toEqual(before.discard);
+      expect(currentPlayerAfter?.hand).toEqual(currentPlayer.hand);
+    });
+
     it("callMayI starts resolution and changes phase", () => {
       engine = GameEngine.createGame({
         playerNames: ["Alice", "Bob", "Carol"],

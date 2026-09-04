@@ -1,0 +1,48 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 4ebf303b1c13db66e3b40aa38ecd5e3a6bf7345d..a2004519741443a6f6c5d28853a3b8641724c58e 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -509,6 +509,7 @@ declare enum ReasoningFormat {
+     Unknown = "unknown",
+     OpenAIResponsesV1 = "openai-responses-v1",
+     AzureOpenAIResponsesV1 = "azure-openai-responses-v1",
++    MetaResponsesV1 = "meta-responses-v1",
+     XAIResponsesV1 = "xai-responses-v1",
+     AnthropicClaudeV1 = "anthropic-claude-v1",
+     GoogleGeminiV1 = "google-gemini-v1"
+diff --git a/dist/index.js b/dist/index.js
+index 5ebd3756860e75d89ef13b683310a4fe066bdd62..8d87c1269c95dc77954d865219a1657c1492e4e1 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -2494,6 +2494,7 @@ var ReasoningFormat = /* @__PURE__ */ ((ReasoningFormat2) => {
+   ReasoningFormat2["Unknown"] = "unknown";
+   ReasoningFormat2["OpenAIResponsesV1"] = "openai-responses-v1";
+   ReasoningFormat2["AzureOpenAIResponsesV1"] = "azure-openai-responses-v1";
++  ReasoningFormat2["MetaResponsesV1"] = "meta-responses-v1";
+   ReasoningFormat2["XAIResponsesV1"] = "xai-responses-v1";
+   ReasoningFormat2["AnthropicClaudeV1"] = "anthropic-claude-v1";
+   ReasoningFormat2["GoogleGeminiV1"] = "google-gemini-v1";
+diff --git a/dist/internal/index.d.ts b/dist/internal/index.d.ts
+index d8cf9d840becafad2a841d90f7bcaf948d3155d1..1474cce4a72c699ebd577db1a315164aa0de1396 100644
+--- a/dist/internal/index.d.ts
++++ b/dist/internal/index.d.ts
+@@ -7,6 +7,7 @@ declare enum ReasoningFormat {
+     Unknown = "unknown",
+     OpenAIResponsesV1 = "openai-responses-v1",
+     AzureOpenAIResponsesV1 = "azure-openai-responses-v1",
++    MetaResponsesV1 = "meta-responses-v1",
+     XAIResponsesV1 = "xai-responses-v1",
+     AnthropicClaudeV1 = "anthropic-claude-v1",
+     GoogleGeminiV1 = "google-gemini-v1"
+diff --git a/dist/internal/index.js b/dist/internal/index.js
+index ba7bca933a29fd4729b5e9f525512dbed39e6e6f..2591d5de793c5dccbdb6b454fadbd17f1ceb0b92 100644
+--- a/dist/internal/index.js
++++ b/dist/internal/index.js
+@@ -2418,6 +2418,7 @@ var ReasoningFormat = /* @__PURE__ */ ((ReasoningFormat2) => {
+   ReasoningFormat2["Unknown"] = "unknown";
+   ReasoningFormat2["OpenAIResponsesV1"] = "openai-responses-v1";
+   ReasoningFormat2["AzureOpenAIResponsesV1"] = "azure-openai-responses-v1";
++  ReasoningFormat2["MetaResponsesV1"] = "meta-responses-v1";
+   ReasoningFormat2["XAIResponsesV1"] = "xai-responses-v1";
+   ReasoningFormat2["AnthropicClaudeV1"] = "anthropic-claude-v1";
+   ReasoningFormat2["GoogleGeminiV1"] = "google-gemini-v1";

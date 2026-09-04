@@ -16,7 +16,7 @@ import type { Meld } from "../meld/meld.types";
 import type { Player, RoundRecord, RoundNumber, MayIResolution } from "./engine.types";
 import type { Contract } from "./contracts";
 import { CONTRACTS } from "./contracts";
-import { createDeck, shuffle, deal } from "../card/card.deck";
+import { createDeck, createSeededRandom, shuffle, deal } from "../card/card.deck";
 import { turnMachine, type TurnInput, type TurnOutput, type TurnContext as TurnMachineContext } from "./turn.machine";
 import { calculateHandScore } from "../scoring/scoring";
 import {
@@ -82,6 +82,8 @@ export interface RoundInput {
   roundNumber: RoundNumber;
   players: Player[];
   dealerIndex: number;
+  /** Optional deterministic seed for evaluation and tournament play. */
+  seed?: string;
   /**
    * Optional predefined state for testing.
    * When provided, bypasses random dealing and uses this exact state.
@@ -116,6 +118,8 @@ export interface RoundContext {
   currentPlayerHasDrawnFromStock: boolean;
   /** True when the hand must score immediately because no penalty stock card can be paid. */
   endRoundDueToStockExhaustion: boolean;
+  /** Optional deterministic seed for dealing and stock recycling. */
+  seed: string | null;
 }
 
 /**
@@ -214,6 +218,12 @@ export const roundMachine = setup({
       const player = context.players.find((p) => p.id === playerId);
       if (!player) return false;
 
+      // The active player claims the exposed discard through their normal draw,
+      // never by calling May I on their own turn.
+      if (context.players[context.currentPlayerIndex]?.id === playerId) {
+        return false;
+      }
+
       // Down players can't call May I
       if (player.isDown) return false;
 
@@ -292,7 +302,12 @@ export const roundMachine = setup({
       const playerCount = context.players.length;
       const deckConfig = getDeckConfig(playerCount);
       const deck = createDeck(deckConfig);
-      const shuffledDeck = shuffle(deck);
+      const shuffledDeck = shuffle(
+        deck,
+        context.seed === null
+          ? Math.random
+          : createSeededRandom(`${context.seed}:deal`),
+      );
       const dealResult = deal(shuffledDeck, playerCount);
 
       // Update players with their dealt hands
@@ -322,7 +337,12 @@ export const roundMachine = setup({
       // Discard pile is stored with the top card at index 0.
       const topDiscard = context.discard[0];
       const cardsToReshuffle = context.discard.slice(1);
-      const newStock = shuffle(cardsToReshuffle);
+      const newStock = shuffle(
+        cardsToReshuffle,
+        context.seed === null
+          ? Math.random
+          : createSeededRandom(`${context.seed}:reshuffle:${context.turnNumber}`),
+      );
 
       return {
         stock: newStock,
@@ -346,7 +366,14 @@ export const roundMachine = setup({
       if (turnSnapshot?.value !== "awaitingDraw") return {};
       if (turnContext !== null && turnContext.playerId !== currentPlayer.id) return {};
 
-      const result = applyRoundDrawFromStock(context);
+      const result = applyRoundDrawFromStock(context, (cards) => shuffle(
+        cards,
+        context.seed == null
+          ? Math.random
+          : createSeededRandom(
+              `${context.seed}:turn:${context.turnNumber}:${currentPlayer.id}:stock-recycle`,
+            ),
+      ));
       return result.success ? result.patch : {};
     }),
 
@@ -609,7 +636,14 @@ export const roundMachine = setup({
         const topDiscard = currentDiscard[0];
         const cardsToReshuffle = currentDiscard.slice(1);
         return {
-          stock: shuffle(cardsToReshuffle),
+          stock: shuffle(
+            cardsToReshuffle,
+            context.seed === null
+              ? Math.random
+              : createSeededRandom(
+                  `${context.seed}:may-i-reshuffle:${context.turnNumber}:${currentStock.length}:${currentDiscard.length}`,
+                ),
+          ),
           discard: topDiscard ? [topDiscard] : [],
         };
       };
@@ -709,6 +743,7 @@ export const roundMachine = setup({
     discardClaimed: false,
     currentPlayerHasDrawnFromStock: false,
     endRoundDueToStockExhaustion: false,
+    seed: input.seed ?? null,
   }),
   output: ({ context }) => ({
     roundRecord: {
@@ -738,6 +773,9 @@ export const roundMachine = setup({
           const currentPlayer = context.players[context.currentPlayerIndex]!;
           return {
             playerId: currentPlayer.id,
+            seed: context.seed == null
+              ? undefined
+              : `${context.seed}:turn:${context.turnNumber}:${currentPlayer.id}`,
             hand: currentPlayer.hand,
             stock: context.stock,
             discard: context.discard,

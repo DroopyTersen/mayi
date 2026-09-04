@@ -4,7 +4,7 @@
  * GET /game/agent/new
  *
  * Creates a new room and redirects into "agent quick start" mode where the
- * client auto-joins as "Agent", adds 2 default Luna AI players, and starts the game.
+ * client auto-joins as "Agent", adds 2 default Spark AI players, and starts the game.
  */
 
 import { redirect } from "react-router";

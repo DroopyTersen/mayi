@@ -1,4 +1,7 @@
-import { describe, it, expect } from "bun:test";
+import { afterAll, describe, it, expect } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { basename } from "node:path";
+import { createAINotebookStore } from "../../cli/shared/cli.persistence";
 
 import { executeAITurn, isAIPlayerTurn } from "./ai-turn-handler";
 import { PartyGameAdapter } from "./party-game-adapter";
@@ -6,15 +9,10 @@ import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import type { AgentTestState } from "./agent-state.types";
 import { createTestCard, createTestHand } from "../../core/engine/test.fixtures";
 import type { AIActionRuntime } from "../../ai/ai-action-runtime.types";
-import type { OpenAIResponseLineageStore } from "../../ai/openai-response-lineage";
-
-function createLineageStore(): OpenAIResponseLineageStore {
-  return {
-    get: () => undefined,
-    set: () => undefined,
-    clear: () => undefined,
-  };
-}
+mkdirSync(".data", { recursive: true });
+const notebookDirectory = mkdtempSync(".data/handler-notebook-test-");
+const notebookStore = createAINotebookStore(basename(notebookDirectory));
+afterAll(() => rmSync(notebookDirectory, { recursive: true, force: true }));
 
 function createAdapterFromState(state: AgentTestState): PartyGameAdapter {
   const stored = convertAgentTestStateToStoredState(state, "test-room");
@@ -114,7 +112,7 @@ describe("executeAITurn", () => {
       modelId: "default:grok",
       env: {},
       runtime,
-      responseLineageStore: createLineageStore(),
+      notebookStore,
     });
 
     expect(result.success).toBe(false);
@@ -140,7 +138,7 @@ describe("executeAITurn", () => {
       env: {},
       runtime,
       abortSignal: abortController.signal,
-      responseLineageStore: createLineageStore(),
+      notebookStore,
     });
 
     expect(result.success).toBe(false);

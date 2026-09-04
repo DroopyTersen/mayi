@@ -47,6 +47,8 @@ export interface GameContext {
   winners: string[]; // Player IDs of winners (determined at game end)
   /** Error message from last failed operation */
   lastError: string | null;
+  /** Optional deterministic tournament seed. */
+  seed: string | null;
 }
 
 /**
@@ -82,6 +84,7 @@ export interface GameOutput {
  */
 export interface GameInput {
   startingRound?: RoundNumber;
+  seed?: string;
 }
 
 export const gameMachine = setup({
@@ -163,6 +166,7 @@ export const gameMachine = setup({
     roundHistory: [],
     winners: [],
     lastError: null,
+    seed: input?.seed ?? null,
   }),
   output: ({ context }) => ({
     finalScores: Object.fromEntries(context.players.map((p) => [p.id, p.totalScore])),
@@ -197,6 +201,10 @@ export const gameMachine = setup({
           roundNumber: context.currentRound as RoundNumber,
           players: context.players,
           dealerIndex: context.dealerIndex,
+          seed:
+            context.seed === null
+              ? undefined
+              : `${context.seed}:round:${context.currentRound}`,
         }),
         onDone: {
           target: "roundEnd",

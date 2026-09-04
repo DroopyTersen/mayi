@@ -8,7 +8,11 @@ const SAMPLE_ENTRIES = [
   { id: "4", message: "Bob requested May I?", timestamp: "2:31 PM" },
   { id: "5", message: "Bob picked up 7♠ + penalty card", timestamp: "2:32 PM" },
   { id: "6", message: "Charlie drew from stock", timestamp: "2:32 PM" },
-  { id: "7", message: "Charlie laid down: Set of 9s, Run 5-6-7-8♠", timestamp: "2:33 PM" },
+  {
+    id: "7",
+    message: "Charlie laid down: Set of 9s, Run 5-6-7-8♠",
+    timestamp: "2:33 PM",
+  },
   { id: "8", message: "Charlie discarded K♥", timestamp: "2:33 PM" },
 ];
 
@@ -25,7 +29,7 @@ export function ActivityLogStory() {
       <header>
         <h1 className="text-2xl font-bold">ActivityLog</h1>
         <p className="text-muted-foreground mt-1">
-          Recent game activity list showing last few moves.
+          Recent moves with expandable, scrollable history for the current hand.
         </p>
       </header>
 
@@ -36,8 +40,21 @@ export function ActivityLogStory() {
           <ActivityLog entries={SAMPLE_ENTRIES} />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Shows last 6 entries by default.
+          Shows the last 6 entries immediately; earlier activity remains
+          available.
         </p>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Long hand history</h2>
+        <div className="border rounded-lg p-3">
+          <ActivityLog
+            entries={Array.from({ length: 48 }, (_, index) => ({
+              id: `long-${index}`,
+              message: `${["Alice", "Bob", "Carol"][index % 3]} ${index % 2 === 0 ? "took 7♦ from discard" : "discarded K♣"} (turn ${Math.floor(index / 2) + 1})`,
+            }))}
+          />
+        </div>
       </section>
 
       {/* With Timestamps */}

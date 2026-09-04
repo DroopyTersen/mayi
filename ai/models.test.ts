@@ -14,6 +14,7 @@ import { modelRegistry } from "./modelRegistry";
  */
 const MODELS_TO_TEST = [
   { name: "OpenAI GPT-5.6 Luna", id: "default:openai" },
+  { name: "Meta Muse Spark 1.3 Contributor", id: "default:meta" },
   { name: "Anthropic Claude Haiku 4.5", id: "default:claude" },
   { name: "Google Gemini 3 Flash", id: "default:gemini" },
   { name: "xAI Grok 4.1 Fast", id: "default:grok" },
