@@ -10,9 +10,6 @@ import {
   saveGameSave,
   saveAIPlayerConfigs,
   loadAIPlayerConfigs,
-  saveAIResponseLineages,
-  loadAIResponseLineages,
-  clearAIResponseLineage,
   type PersistedAIPlayer,
 } from "./cli.persistence";
 import { createActor } from "xstate";
@@ -20,7 +17,6 @@ import { gameMachine } from "../../core/engine/game.machine";
 import { GameEngine } from "../../core/engine/game-engine";
 import type { ActionLogEntry, CliGameSave } from "./cli.types";
 import type { RoundRecord } from "../../core/engine/engine.types";
-import type { OpenAIResponseLineage } from "../../ai/openai-response-lineage";
 
 // Use a unique test game ID for each test to avoid conflicts
 let testGameId: string;
@@ -454,76 +450,6 @@ describe("cli.persistence", () => {
 
       saveAIPlayerConfigs(testGameId, []);
       expect(fs.existsSync(dir)).toBe(true);
-    });
-  });
-
-  describe("AI response lineage persistence", () => {
-    it("saves and loads per-game response lineages", () => {
-      const lineages: OpenAIResponseLineage[] = [
-        {
-          gameId: testGameId,
-          playerId: "player-1",
-          round: 2,
-          modelId: "default:openai",
-          promptVersion: "mayi-luna-v2",
-          continuation: {
-            responseId: "resp-1",
-            pendingToolResult: {
-              toolCallId: "call-1",
-              toolName: "discard",
-              output: '{"success":true,"turnComplete":true}',
-            },
-          },
-        },
-      ];
-
-      saveAIResponseLineages(testGameId, lineages);
-
-      expect(loadAIResponseLineages(testGameId)).toEqual(lineages);
-    });
-
-    it("clears one player's lineage without affecting another player's lineage", () => {
-      const lineages: OpenAIResponseLineage[] = [
-        {
-          gameId: testGameId,
-          playerId: "player-1",
-          round: 1,
-          modelId: "default:openai",
-          promptVersion: "mayi-luna-v2",
-          continuation: {
-            responseId: "resp-1",
-            pendingToolResult: {
-              toolCallId: "call-1",
-              toolName: "discard",
-              output: '{"success":true,"turnComplete":true}',
-            },
-          },
-        },
-        {
-          gameId: testGameId,
-          playerId: "player-2",
-          round: 1,
-          modelId: "default:openai",
-          promptVersion: "mayi-luna-v2",
-          continuation: {
-            responseId: "resp-2",
-            pendingToolResult: {
-              toolCallId: "call-2",
-              toolName: "discard",
-              output: '{"success":true,"turnComplete":true}',
-            },
-          },
-        },
-      ];
-      saveAIResponseLineages(testGameId, lineages);
-
-      clearAIResponseLineage(testGameId, "player-1");
-
-      expect(loadAIResponseLineages(testGameId)).toEqual([lineages[1]!]);
-    });
-
-    it("returns no lineage for old games with no lineage file", () => {
-      expect(loadAIResponseLineages("old-game-without-lineage")).toEqual([]);
     });
   });
 

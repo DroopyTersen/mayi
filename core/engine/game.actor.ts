@@ -315,6 +315,7 @@ export function restoreGameActor(
     roundHistory: state.roundHistory,
     winners: [],
     lastError: null,
+    seed: null,
   };
 
   // XState expects specific literal types for status

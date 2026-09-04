@@ -25,7 +25,7 @@ This route is only enabled in development mode. In production, it returns `404`.
 Creates a new room and auto-starts a game with:
 
 - 1 human: "Agent" (the UI automation agent)
-- 2 AI players: GPT-5.6 Luna
+- 2 AI players: Muse Spark 1.3 Contributor
 
 **Response:** Redirects to `/game/:roomId?agent=true` (the param is removed after setup succeeds)
 
@@ -124,7 +124,7 @@ interface AgentStoredStateV1 {
     engineId: `player-${number}`;
     name: string;
     isAI: boolean;
-    aiModelId?: "default:openai" | "default:grok" | "default:claude" | "default:gemini";
+    aiModelId?: "default:openai" | "default:meta" | "default:grok" | "default:claude" | "default:gemini";
   }>;
 }
 ```
@@ -135,7 +135,8 @@ When specifying `aiModelId` for AI players:
 
 | Model ID | Description |
 |----------|-------------|
-| `default:openai` | GPT-5.6 Luna (OpenAI, default) |
+| `default:meta` | Muse Spark 1.3 Contributor (Meta via OpenRouter, default) |
+| `default:openai` | GPT-5.6 Luna (OpenAI) |
 | `default:grok` | Grok (xAI) |
 | `default:claude` | Claude (Anthropic) |
 | `default:gemini` | Gemini (Google) |
@@ -218,7 +219,7 @@ When the game loads with `?agent=true` or `?agentState=...`, it sends a single `
   requestId: "agent-<roomId>",
   mode: "quickStart",
   human: { playerId: "<session-id>", name: "Agent" },
-  ai: { modelId: "default:openai", count: 2, namePrefix: "Luna" }
+  ai: { modelId: "default:meta", count: 2, namePrefix: "Spark" }
 }
 
 // Client → Server (state injection)

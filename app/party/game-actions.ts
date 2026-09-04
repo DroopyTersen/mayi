@@ -8,18 +8,7 @@
 import type { GameAction } from "../../core/engine/game-action.command";
 import type { PartyGameAdapter } from "./party-game-adapter";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
-import { formatCardText } from "../../core/card/card-text.utils";
-import { validateGameActionCommand } from "../../core/engine/game-action.command-policy";
-
-// These actions are processed by the round machine and don't touch `lastError`,
-// so checking `lastError` would incorrectly surface stale errors from previous
-// failed turn actions.
-const ACTIONS_THAT_IGNORE_LAST_ERROR: ReadonlySet<GameAction["type"]> = new Set([
-  "CALL_MAY_I",
-  "ALLOW_MAY_I",
-  "CLAIM_MAY_I",
-  "REORDER_HAND",
-]);
+import { ACTIONS_THAT_IGNORE_LAST_ERROR, validateGameActionCommand } from "../../core/engine/game-action.command-policy";
 
 export type ActionResult =
   | {
@@ -139,7 +128,7 @@ export function executeGameAction(
   }
 
   // Log successful action
-  logSuccessfulAction(adapter, lobbyPlayerId, action, snapshotBefore, result);
+  adapter.logGameAction(lobbyPlayerId, action, snapshotBefore, result);
 
   return acceptedAction(result);
 }
@@ -162,94 +151,4 @@ function rejectedAction(
     snapshot,
     error,
   };
-}
-
-/**
- * Log a successful action to the activity log
- */
-function logSuccessfulAction(
-  adapter: PartyGameAdapter,
-  lobbyPlayerId: string,
-  action: GameAction,
-  before: GameSnapshot,
-  after: GameSnapshot
-): void {
-  switch (action.type) {
-    case "DRAW_FROM_STOCK":
-      adapter.logDraw(lobbyPlayerId, before, after, "stock");
-      break;
-
-    case "DRAW_FROM_DISCARD":
-      adapter.logDraw(lobbyPlayerId, before, after, "discard");
-      break;
-
-    case "DISCARD":
-      adapter.logDiscard(lobbyPlayerId, before, after, action.cardId);
-      break;
-
-    case "LAY_DOWN":
-      adapter.logLayDown(lobbyPlayerId, before, after);
-      break;
-
-    case "LAY_OFF":
-      adapter.logLayOff(
-        lobbyPlayerId,
-        action.cardId,
-        before,
-        after,
-        action.position
-      );
-      break;
-
-    case "SWAP_JOKER":
-      adapter.logSwapJoker(
-        lobbyPlayerId,
-        action.meldId,
-        action.jokerCardId,
-        action.swapCardId,
-        before,
-        after
-      );
-      break;
-
-    case "CALL_MAY_I": {
-      const cardId = before.discard[0]?.id;
-      if (cardId) {
-        adapter.logMayICall(lobbyPlayerId, cardId, before);
-      }
-      break;
-    }
-
-    case "ALLOW_MAY_I": {
-      adapter.logMayIAllow(lobbyPlayerId);
-      // If May-I just resolved (phase changed), log who got the card
-      if (before.phase === "RESOLVING_MAY_I" && after.phase === "ROUND_ACTIVE") {
-        const mayIContext = before.mayIContext;
-        if (mayIContext) {
-          const cardRendered = formatCardText(mayIContext.cardBeingClaimed);
-          const winnerEngineId = mayIContext.originalCaller;
-          const winnerMapping = adapter.getAllPlayerMappings().find(
-            (m) => m.engineId === winnerEngineId
-          );
-          if (winnerMapping) {
-            adapter.logMayIResolved(winnerMapping.lobbyId, cardRendered);
-          }
-        }
-      }
-      break;
-    }
-
-    case "CLAIM_MAY_I": {
-      const mayIContext = before.mayIContext;
-      if (mayIContext) {
-        const cardRendered = formatCardText(mayIContext.cardBeingClaimed);
-        adapter.logMayIClaim(lobbyPlayerId, cardRendered);
-        // Claimer is this player, they took the card
-        adapter.logMayIResolved(lobbyPlayerId, cardRendered);
-      }
-      break;
-    }
-
-    // SKIP and REORDER_HAND are not logged (too verbose)
-  }
 }

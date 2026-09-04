@@ -74,14 +74,14 @@ import type {
   AIActionResult,
   AIActionRuntime,
 } from "../../ai/ai-action-runtime.types";
-import type { OpenAIResponseLineage } from "../../ai/openai-response-lineage";
+import type { AIHandScratchpadStore } from "../../ai/mayIAgent.scratchpad";
 import { createCloudflareLangfuseTelemetry } from "./cloudflare-langfuse-telemetry";
 
 const DISCONNECT_GRACE_MS = 5 * 60 * 1000; // 5 minutes
 const LOBBY_STATE_KEY = "lobby:state";
 const GAME_STATE_KEY = "game:state";
 const ROOM_PHASE_KEY = "room:phase";
-const AI_RESPONSE_LINEAGE_KEY_PREFIX = "ai:continuity:";
+const AI_NOTEBOOK_KEY_PREFIX = "ai:notebook:";
 
 type MayIRoomConnectionState = { playerId: string };
 
@@ -115,17 +115,19 @@ export class MayIRoom extends Server {
   private getAICoordinator(): AITurnCoordinator {
     if (!this.aiCoordinator) {
       const aiEnv = this.env as AIEnv;
-      const responseLineageStore = {
-        get: (playerId: string) => this.getAIResponseLineage(playerId),
-        set: (lineage: OpenAIResponseLineage) =>
-          this.setAIResponseLineage(lineage),
-        clear: (playerId: string) => this.clearAIResponseLineage(playerId),
+      const notebookStore: AIHandScratchpadStore = {
+        get: playerId => this.ctx.storage.get(`${AI_NOTEBOOK_KEY_PREFIX}${playerId}`),
+        set: async (playerId, state) => {
+          const key = `${AI_NOTEBOOK_KEY_PREFIX}${playerId}`;
+          if (state === undefined) await this.ctx.storage.delete(key);
+          else await this.ctx.storage.put(key, state);
+        },
       };
 
       this.aiCoordinator = new AITurnCoordinator({
         getState: () => this.getGameState(),
         executeAITurn: (options) =>
-          executeAITurn({ ...options, responseLineageStore }),
+          executeAITurn({ ...options, notebookStore }),
         executeAIAction: (playerId, action) => this.executeAIAction(playerId, action),
         recordMetrics: (metrics) => this.log("AI turn metrics", metrics),
         createTelemetry: createCloudflareLangfuseTelemetry,
@@ -434,7 +436,7 @@ export class MayIRoom extends Server {
 
     for (const effect of result.sideEffects) {
       if (effect.type === "setGameState") {
-        await this.clearAllAIResponseLineages();
+        await this.clearAllAINotebooks();
         await this.setGameState(effect.state);
       } else if (effect.type === "setRoomPhase") {
         await this.setRoomPhase(effect.phase);
@@ -645,7 +647,7 @@ export class MayIRoom extends Server {
     };
 
     await this.setLobbyState(lobbyState);
-    await this.clearAllAIResponseLineages();
+    await this.clearAllAINotebooks();
     await this.setGameState(storedState);
     await this.setRoomPhase("playing");
 
@@ -683,7 +685,7 @@ export class MayIRoom extends Server {
     };
 
     await this.setLobbyState(lobbyState);
-    await this.clearAllAIResponseLineages();
+    await this.clearAllAINotebooks();
     await this.setGameState(storedState);
     await this.setRoomPhase("playing");
 
@@ -910,34 +912,9 @@ export class MayIRoom extends Server {
     await this.ctx.storage.put(GAME_STATE_KEY, state);
   }
 
-  private getAIResponseLineageKey(playerId: string): string {
-    return `${AI_RESPONSE_LINEAGE_KEY_PREFIX}${playerId}`;
-  }
-
-  private async getAIResponseLineage(
-    playerId: string,
-  ): Promise<OpenAIResponseLineage | undefined> {
-    return this.ctx.storage.get<OpenAIResponseLineage>(
-      this.getAIResponseLineageKey(playerId),
-    );
-  }
-
-  private async setAIResponseLineage(
-    lineage: OpenAIResponseLineage,
-  ): Promise<void> {
-    await this.ctx.storage.put(
-      this.getAIResponseLineageKey(lineage.playerId),
-      lineage,
-    );
-  }
-
-  private async clearAIResponseLineage(playerId: string): Promise<void> {
-    await this.ctx.storage.delete(this.getAIResponseLineageKey(playerId));
-  }
-
-  private async clearAllAIResponseLineages(): Promise<void> {
-    const entries = await this.ctx.storage.list<OpenAIResponseLineage>({
-      prefix: AI_RESPONSE_LINEAGE_KEY_PREFIX,
+  private async clearAllAINotebooks(): Promise<void> {
+    const entries = await this.ctx.storage.list({
+      prefix: AI_NOTEBOOK_KEY_PREFIX,
     });
     const keys = Array.from(entries.keys());
     if (keys.length > 0) {

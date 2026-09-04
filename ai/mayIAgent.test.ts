@@ -162,30 +162,6 @@ function createRetryableFailureModel(options: {
   };
 }
 
-function createProviderCaptureModel(capture: { providerOptions: unknown }): LanguageModel {
-  return {
-    specificationVersion: "v3",
-    provider: "test-provider",
-    modelId: "gpt-5.6-luna",
-    supportedUrls: {},
-    doGenerate: async (options) => {
-      capture.providerOptions = options.providerOptions;
-      return {
-        content: [{ type: "text", text: "done" }],
-        finishReason: { unified: "stop", raw: "stop" },
-        usage: {
-          inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-          outputTokens: { total: 1, text: 1, reasoning: 0 },
-        },
-        warnings: [],
-      };
-    },
-    doStream: async () => {
-      throw new Error("streaming is not used by executeTurn");
-    },
-  };
-}
-
 function createAISnapshot(): GameSnapshot {
   return {
     version: "3.0",
@@ -263,33 +239,5 @@ describe("executeTurn retry settings", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain("without completing the game turn");
     expect(attempts.count).toBe(3);
-  });
-});
-
-describe("executeTurn response continuity", () => {
-  it("sends a response ID only as part of an atomic continuation", async () => {
-    const capture = { providerOptions: undefined as unknown };
-
-    await executeTurn({
-      model: createProviderCaptureModel(capture),
-      modelId: "default:openai",
-      runtime: createRuntime(createAISnapshot()),
-      playerId: "ai",
-      maxSteps: 1,
-      telemetry: false,
-      continuation: {
-        responseId: "resp-with-tool-result",
-        pendingToolResult: {
-          toolCallId: "call-previous",
-          toolName: "discard",
-          output: JSON.stringify({ success: true, turnComplete: true }),
-        },
-      },
-    });
-
-    const openaiOptions = (capture.providerOptions as {
-      openai?: { previousResponseId?: string };
-    }).openai;
-    expect(openaiOptions?.previousResponseId).toBe("resp-with-tool-result");
   });
 });

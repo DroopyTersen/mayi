@@ -12,6 +12,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogle } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { defaultSettingsMiddleware, wrapLanguageModel, type LanguageModel } from "ai";
 import type {
   LanguageModelV4,
@@ -23,6 +24,7 @@ import {
   isAIModelId,
   type AIModelDefinition,
 } from "../../ai/ai-model-catalog";
+import { OPENROUTER_MUSE_CHAT_SETTINGS } from "../../ai/openrouter-muse-profile";
 
 /**
  * Environment bindings containing API keys
@@ -33,6 +35,7 @@ export interface AIEnv {
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   GOOGLE_GENERATIVE_AI_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
 }
 
 /**
@@ -78,6 +81,11 @@ function createBaseModel(modelId: string, env: AIEnv): LanguageModelV4 {
   switch (definition.provider) {
     case "openai":
       return createOpenAI({ apiKey: env.OPENAI_API_KEY })(definition.model);
+    case "openrouter":
+      return createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }).chat(
+        definition.model,
+        OPENROUTER_MUSE_CHAT_SETTINGS,
+      );
     case "anthropic":
       return createAnthropic({ apiKey: env.ANTHROPIC_API_KEY })(definition.model);
     case "gemini":
@@ -97,7 +105,7 @@ function withPlayerSettings(modelId: string, model: LanguageModelV4): LanguageMo
 /**
  * Create a language model for use in web app
  *
- * Accepts only the four model IDs in the shared player-model catalog.
+ * Accepts only the five model IDs in the shared player-model catalog.
  * Requires env parameter with API keys (process.env not available in Workers).
  */
 export function createWorkerAIModel(modelId: string, env: AIEnv): LanguageModel {

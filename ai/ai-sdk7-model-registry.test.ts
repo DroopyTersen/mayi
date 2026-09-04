@@ -19,18 +19,28 @@ describe("AI SDK 7 model registry", () => {
   it("defines every supported picker model once with its resolved provider model", () => {
     const expected: AIModelId[] = [
       "default:openai",
+      "default:meta",
       "default:grok",
       "default:claude",
       "default:gemini",
     ];
 
     expect(Object.keys(AI_MODEL_CATALOG)).toEqual(expected);
-    expect(DEFAULT_AI_MODEL_ID).toBe("default:openai");
+    expect(DEFAULT_AI_MODEL_ID).toBe("default:meta");
     expect(AI_MODEL_CATALOG[DEFAULT_AI_MODEL_ID]).toMatchObject({
-      model: "gpt-5.6-luna",
-      provider: "openai",
-      name: "GPT-5.6 Luna",
+      model: "meta/muse-spark-1.3-contributor",
+      provider: "openrouter",
+      name: "Muse Spark 1.3 Contributor",
     });
+  });
+
+  it("uses OpenRouter's chat transport for Meta in CLI and Worker factories", () => {
+    expect(getProviderId(modelRegistry.languageModel("default:meta"))).toBe(
+      "openrouter",
+    );
+    expect(getProviderId(createWorkerAIModel("default:meta", {}))).toBe(
+      "openrouter",
+    );
   });
 
   it("keeps Grok on the Chat transport in CLI and Worker model factories", () => {
@@ -38,7 +48,7 @@ describe("AI SDK 7 model registry", () => {
     expect(getProviderId(createWorkerAIModel("default:grok", {}))).toBe("xai.chat");
   });
 
-  it("rejects IDs outside the picker catalog instead of silently substituting Luna", () => {
+  it("rejects IDs outside the picker catalog instead of silently substituting the default", () => {
     expect(() => createWorkerAIModel("xai:grok-4-1-fast-reasoning", {})).toThrow(
       'Unsupported AI model ID: xai:grok-4-1-fast-reasoning',
     );
@@ -54,7 +64,10 @@ describe("AI SDK 7 model registry", () => {
   });
 
   it("does not pass a generic temperature to Luna", async () => {
-    expect(AI_MODEL_CATALOG["default:openai"].settings).toEqual({ maxOutputTokens: 4096 });
+    expect(AI_MODEL_CATALOG["default:openai"].settings).toEqual({
+      maxOutputTokens: 4096,
+      providerOptions: { openai: { store: false, reasoningEffort: "xhigh", textVerbosity: "low", parallelToolCalls: false } },
+    });
     expect(AI_MODEL_CATALOG["default:grok"].settings.temperature).toBe(0.7);
   });
 });

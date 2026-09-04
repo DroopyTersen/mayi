@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import { AITurnCoordinator, type AITurnCoordinatorDeps } from "./ai-turn-coordinator";
+import {
+  AITurnCoordinator,
+  DEFAULT_AI_MAY_I_RESPONSE_DELAY_MS,
+  DEFAULT_AI_THINKING_DELAY_MS,
+  getAITurnPacingDelayMs,
+  type AITurnCoordinatorDeps,
+} from "./ai-turn-coordinator";
 import type { GameSnapshot } from "../../core/engine/game-engine.types";
 import type { GameAction } from "../../core/engine/game-action.command";
 import type { PlayerMapping, StoredGameState } from "./party-game-adapter";
@@ -100,6 +106,7 @@ function createDeps(options: Partial<{
           options.snapshotForState?.(storedState) ?? createSnapshot(),
       }) as PartyGameAdapter,
     thinkingDelayMs: 0,
+    mayIResponseDelayMs: 0,
     interTurnDelayMs: 0,
   };
 
@@ -107,6 +114,13 @@ function createDeps(options: Partial<{
 }
 
 describe("AITurnCoordinator", () => {
+  it("gives human players a ten-second reaction window before an AI acts", () => {
+    expect(DEFAULT_AI_THINKING_DELAY_MS).toBe(10_000);
+    expect(DEFAULT_AI_MAY_I_RESPONSE_DELAY_MS).toBe(500);
+    expect(getAITurnPacingDelayMs("ROUND_ACTIVE", 10_000, 500)).toBe(10_000);
+    expect(getAITurnPacingDelayMs("RESOLVING_MAY_I", 10_000, 500)).toBe(500);
+  });
+
   it("creates production telemetry with the game as the session", async () => {
     const telemetry = {};
     let telemetryContext: LangfuseGameContext | undefined;
@@ -161,6 +175,7 @@ describe("AITurnCoordinator", () => {
           textOutputTokens: 50,
           reasoningOutputTokens: 250,
           totalTokens: 2_300,
+          providerReportedCostUsd: undefined,
         },
       }),
     });
@@ -174,6 +189,7 @@ describe("AITurnCoordinator", () => {
     expect("estimatedCostUsd" in records[0]!).toBe(false);
     expect(records[0]).toMatchObject({
       providerDurationMs: 1_100,
+      pacingDelayMs: 0,
     });
   });
 

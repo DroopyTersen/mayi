@@ -1,4 +1,4 @@
-import type { LanguageModelUsage } from "ai";
+import type { LanguageModelUsage, ProviderMetadata } from "ai";
 
 export interface AITurnStepPerformance {
   responseTimeMs: number;
@@ -19,12 +19,26 @@ export interface AITurnMetrics {
   textOutputTokens: number | undefined;
   reasoningOutputTokens: number | undefined;
   totalTokens: number | undefined;
+  providerReportedCostUsd: number | undefined;
 }
 
 export interface SummarizeAITurnMetricsInput {
   turnDurationMs: number;
   stepPerformance: AITurnStepPerformance[];
   usage: LanguageModelUsage;
+  stepProviderMetadata?: Array<ProviderMetadata | undefined>;
+}
+
+function getOpenRouterCostUsd(
+  providerMetadata: ProviderMetadata | undefined,
+): number | undefined {
+  const usage = providerMetadata?.openrouter?.usage;
+  if (typeof usage !== "object" || usage === null) return undefined;
+
+  const cost = Reflect.get(usage, "cost");
+  return typeof cost === "number" && Number.isFinite(cost) && cost >= 0
+    ? cost
+    : undefined;
 }
 
 export function summarizeAITurnMetrics(
@@ -43,6 +57,9 @@ export function summarizeAITurnMetrics(
       ),
     0,
   );
+  const providerCosts = (input.stepProviderMetadata ?? [])
+    .map(getOpenRouterCostUsd)
+    .filter((cost): cost is number => cost !== undefined);
 
   return {
     turnDurationMs: input.turnDurationMs,
@@ -61,5 +78,9 @@ export function summarizeAITurnMetrics(
     textOutputTokens: input.usage.outputTokenDetails.textTokens,
     reasoningOutputTokens: input.usage.outputTokenDetails.reasoningTokens,
     totalTokens: input.usage.totalTokens,
+    providerReportedCostUsd:
+      providerCosts.length === 0
+        ? undefined
+        : providerCosts.reduce((total, cost) => total + cost, 0),
   };
 }

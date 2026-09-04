@@ -17,32 +17,27 @@ import type { Meld } from "../../core/meld/meld.types";
 import { canLayOffToSet, canLayOffToRun, needsPositionChoice } from "../../core/engine/layoff";
 import { canPlayerCallMayI } from "../../core/engine/game-engine.availability";
 import {
-  clearAIResponseLineage,
+  createAINotebookStore,
   formatGameDate,
   listSavedGames,
   loadAIPlayerConfigs,
-  loadAIResponseLineages,
   readActionLog,
   saveAIPlayerConfigs,
-  saveAIResponseLineages,
 } from "../shared/cli.persistence";
 import { formatRecentActivity } from "../shared/cli.activity";
 import { sortHandByRank, sortHandBySuit, moveCard } from "../../core/engine/hand.reordering";
 import { AIPlayerRegistry, setupGameWithAI } from "../../ai/aiPlayer.registry";
 import {
-  executeAITurn,
+  executePlayerTurn,
   type ExecuteTurnResult,
 } from "../../ai/mayIAgent";
 import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
 import {
-  AI_MODEL_CATALOG,
   AI_MODEL_OPTIONS,
   DEFAULT_AI_MODEL_ID,
   type AIModelId,
 } from "../../ai/ai-model-catalog";
 import type { DecisionPhase } from "../shared/cli.types";
-import { MAYI_AI_PROMPT_VERSION } from "../../ai/openai-luna-profile";
-import { executeWithOpenAIResponseLineage } from "../../ai/openai-response-lineage";
 
 // Track the current game ID for persistence
 let currentGameId: string = "";
@@ -109,50 +104,19 @@ async function executePersistedAITurn(
   playerId: string,
   maxSteps?: number,
 ): Promise<ExecuteTurnResult> {
-  const modelId = aiRegistry.getModelId(playerId);
-  if (!modelId) {
-    return {
-      success: false,
-      actions: [],
-      error: `Player ${playerId} is not registered as an AI player`,
-    };
-  }
-
+  const model = aiRegistry.getModel(playerId);
+  if (!model) return { success: false, actions: [], error: `Player ${playerId} is not registered as an AI player` };
   const snapshot = game.getSnapshot();
-  const context = {
-    gameId: snapshot.gameId,
-    playerId,
-    round: snapshot.currentRound,
-    modelId: AI_MODEL_CATALOG[modelId].model,
-    promptVersion: MAYI_AI_PROMPT_VERSION,
-  };
-
-  const turnConfig = {
+  return executePlayerTurn({
+    model,
+    modelId: aiRegistry.getModelId(playerId),
+    playerName: aiRegistry.getName(playerId),
     runtime: createCliAIActionRuntime(game),
     playerId,
-    registry: aiRegistry,
     debug: false,
     maxSteps,
     actionLog: readActionLog(snapshot.gameId),
-  };
-  return executeWithOpenAIResponseLineage({
-    context,
-    store: {
-      get: (lineagePlayerId) =>
-        loadAIResponseLineages(snapshot.gameId).find(
-          (lineage) => lineage.playerId === lineagePlayerId,
-        ),
-      clear: (lineagePlayerId) =>
-        clearAIResponseLineage(snapshot.gameId, lineagePlayerId),
-      set: (lineage) => {
-        const others = loadAIResponseLineages(snapshot.gameId).filter(
-          (candidate) => candidate.playerId !== lineage.playerId,
-        );
-        saveAIResponseLineages(snapshot.gameId, [...others, lineage]);
-      },
-    },
-    execute: (continuation) =>
-      executeAITurn({ ...turnConfig, continuation }),
+    notebookStore: createAINotebookStore(snapshot.gameId),
   });
 }
 

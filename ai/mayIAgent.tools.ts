@@ -15,11 +15,20 @@ import {
 } from "./mayIAgent.prompt-renderer";
 import { isValidRun, isValidSet } from "../core/meld/meld.validation";
 import type { AIActionRuntime, GameAction } from "./ai-action-runtime.types";
+import { parseAIStrategyNote, type AIHandScratchpadTurn } from "./mayIAgent.scratchpad";
+import type { AITacticalPresentation } from "./mayIAgent.contract-options";
+import {
+  sortHandByRank,
+  sortHandBySuit,
+} from "../core/engine/hand.reordering";
 
 /** Options for creating May I tools */
 export interface CreateMayIToolsOptions {
   /** Optional action log entries for LLM context */
   actionLog?: ActionLogEntry[];
+  /** Optional private intent staged alongside a successful discard. */
+  scratchpadTurn?: AIHandScratchpadTurn;
+  tacticalPresentation?: AITacticalPresentation;
 }
 
 /**
@@ -39,6 +48,7 @@ export function createMayITools(
       message: error,
       gameState: outputGameStateForLLM(stateWithError, playerId, {
         actionLog: options.actionLog,
+        tacticalPresentation: options.tacticalPresentation,
       }),
       turnComplete: snapshot.awaitingPlayerId !== playerId,
     };
@@ -52,6 +62,7 @@ export function createMayITools(
     const state = result.snapshot;
     const gameState = outputGameStateForLLM(state, playerId, {
       actionLog: options.actionLog,
+      tacticalPresentation: options.tacticalPresentation,
     });
     const turnComplete =
       completesDecision ||
@@ -83,6 +94,29 @@ export function createMayITools(
         "Take the top card from the discard pile as your draw (only if you are not down).",
       inputSchema: z.object({}),
       execute: async () => executeAction({ type: "DRAW_FROM_DISCARD" }),
+    }),
+
+    organize_hand: tool({
+      description:
+        "Organize your entire hand without ending the turn. Use rank for set-heavy contracts and suit for run-heavy contracts.",
+      inputSchema: z.object({
+        order: z.enum(["rank", "suit"]),
+      }),
+      execute: async ({ order }) => {
+        const snapshot = await runtime.getSnapshot();
+        const player = getPlayer(snapshot);
+        if (!player) {
+          return toolFailure(snapshot, "AI player not found in latest snapshot");
+        }
+        const organized =
+          order === "rank"
+            ? sortHandByRank(player.hand)
+            : sortHandBySuit(player.hand);
+        return executeAction({
+          type: "REORDER_HAND",
+          cardIds: organized.map((card) => card.id),
+        });
+      },
     }),
 
     lay_down: tool({
@@ -151,9 +185,23 @@ In Round 6, you must use ALL cards in your hand.`,
         "Discard a card from your hand to end your turn. Provide the hand position (1-indexed). The engine validates whether discarding is legal in the current phase.",
       inputSchema: z.object({
         position: z.number().int().min(1),
+        ...(options.scratchpadTurn === undefined ? {} : {
+          strategy_note: z.string().max(400).optional().describe(
+            "One or two short lines of strategy intent for your next turn; current plan and what would change it. Private, revisable, not game rules.",
+          ),
+        }),
       }),
-      execute: async ({ position }) => {
+      execute: async ({ position, strategy_note }) => {
         const snapshot = await runtime.getSnapshot();
+        let note: string | undefined;
+        if (strategy_note !== undefined && options.scratchpadTurn !== undefined) {
+          if (typeof strategy_note !== "string") return toolFailure(snapshot, "Strategy note must be text");
+          try {
+            note = parseAIStrategyNote(strategy_note);
+          } catch (error) {
+            return toolFailure(snapshot, error instanceof Error ? error.message : "Invalid strategy note");
+          }
+        }
         const player = getPlayer(snapshot);
         if (!player) {
           return toolFailure(snapshot, "AI player not found in latest snapshot");
@@ -164,7 +212,9 @@ In Round 6, you must use ALL cards in your hand.`,
           return toolFailure(snapshot, "Card position out of range");
         }
 
-        return executeAction({ type: "DISCARD", cardId: card.id });
+        const result = await executeAction({ type: "DISCARD", cardId: card.id });
+        if (result.success && note !== undefined) options.scratchpadTurn?.stage(note);
+        return result;
       },
     }),
 

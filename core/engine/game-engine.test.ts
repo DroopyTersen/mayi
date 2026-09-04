@@ -322,9 +322,14 @@ describe("GameEngine", () => {
       const snapshot1 = engine.getSnapshot();
       const snapshot2 = engine.getSnapshot();
 
-      // Should be equal but not the same object
-      expect(snapshot1).toEqual(snapshot2);
+      // Projection timestamps may cross a millisecond even with no game action.
+      const { updatedAt: firstProjectionTime, ...firstState } = snapshot1;
+      const { updatedAt: secondProjectionTime, ...secondState } = snapshot2;
+      expect(firstState).toEqual(secondState);
+      expect(Number.isFinite(Date.parse(firstProjectionTime))).toBe(true);
+      expect(Number.isFinite(Date.parse(secondProjectionTime))).toBe(true);
       expect(snapshot1).not.toBe(snapshot2);
+      engine.stop();
     });
 
     it("returns a deep copy (modifying returned snapshot does not affect engine)", () => {

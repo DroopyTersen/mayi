@@ -138,7 +138,9 @@ export function formatActivityEntry(
         : `${name}: discarded`;
 
     case "laid down contract":
-      return `${name}: laid down contract`;
+      return entry.details
+        ? `${name}: laid down contract — ${entry.details}`
+        : `${name}: laid down contract`;
 
     case "laid down":
       return entry.details

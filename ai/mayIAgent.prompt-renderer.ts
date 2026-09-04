@@ -12,7 +12,11 @@ import type { Card } from "../core/card/card.types";
 import { formatCardText } from "../core/card/card-text.utils";
 import { getNumberedMelds } from "../core/meld/meld-numbering";
 import { getJokerSwapHints } from "./mayIAgent.tactics";
+import { findLayDownCandidates } from "./mayIAgent.contract-candidates";
+import { findProtectedFutureLayoffs } from "./mayIAgent.future-layoffs";
+import { findBestLayoffPlan } from "./mayIAgent.layoff-candidates";
 import { getAvailableToolNames } from "./mayIAgent.tool-availability";
+import { renderContractOptions, type AITacticalPresentation } from "./mayIAgent.contract-options";
 
 /** Action log entry for LLM context */
 export interface ActionLogEntry {
@@ -25,8 +29,10 @@ export interface ActionLogEntry {
 
 /** Options for LLM state output */
 export interface LLMOutputOptions {
-  /** Optional action log entries. If omitted, RECENT ACTIONS is omitted. */
+  /** Public history, oldest first. Current-hand entries are retained in full. */
   actionLog?: ActionLogEntry[];
+  /** Opt-in derived assistance; omitted preserves the legacy player view. */
+  tacticalPresentation?: AITacticalPresentation;
 }
 
 /**
@@ -168,9 +174,144 @@ export function outputGameStateForLLM(
     lines.push("");
   }
 
+  if (
+    state.phase === "ROUND_ACTIVE" &&
+    state.turnPhase === "AWAITING_ACTION" &&
+    isYourDecision &&
+    !player.isDown
+  ) {
+    if (options.tacticalPresentation === "contract-options" ||
+        options.tacticalPresentation === "contract-options-reversed") {
+      lines.push(...renderContractOptions({
+        hand: player.hand, contract: state.contract, playerId: player.id, table: state.table,
+        meldNumbers: new Map(getNumberedMelds(state.table, state.players).map(({ meldNumber, meld }) => [meld.id, meldNumber])),
+        ...(options.tacticalPresentation === "contract-options-reversed" ? { order: "reversed" as const } : {}),
+      }));
+    } else {
+      const neutral = options.tacticalPresentation === "neutral-contract-hint";
+      const candidate = findLayDownCandidates({
+        hand: player.hand,
+        contract: state.contract,
+        playerId: player.id,
+        limit: 1,
+      })[0];
+      if (candidate !== undefined) {
+        const remainingCards = candidate.remainingCardIds.flatMap((cardId) => {
+          const card = player.hand.find((entry) => entry.id === cardId);
+          return card === undefined ? [] : [formatCardText(card)];
+        });
+        const remainingDescription =
+          remainingCards.length === 0
+            ? "uses every card and goes out"
+            : `leaves ${remainingCards.length} card${remainingCards.length === 1 ? "" : "s"}: ${remainingCards.join(" ")}`;
+        lines.push(neutral ? "LEGAL CONTRACT EXAMPLE:" : "EXACT CONTRACT AVAILABLE:");
+        lines.push(
+          `  ${neutral ? "" : "CALL "}lay_down with melds ${JSON.stringify(candidate.positionGroups)}; ${remainingDescription}.`,
+        );
+        if (neutral) lines.push("  One legal example, not a strategic ranking or an exhaustive list.");
+        lines.push("");
+
+        const protection = findProtectedFutureLayoffs({
+          hand: player.hand,
+          table: state.table,
+          remainingCardIds: candidate.remainingCardIds,
+        });
+        if (protection.protectedCards.length > 0) {
+          const meldNumbers = new Map(
+            getNumberedMelds(state.table, state.players).map(({ meldNumber, meld }) =>
+              [meld.id, meldNumber] as const,
+            ),
+          );
+          const protectedDescriptions = protection.protectedCards.flatMap((entry) => {
+            const card = player.hand.find((candidateCard) => candidateCard.id === entry.cardId);
+            const meldNumber = meldNumbers.get(entry.meldId);
+            if (card === undefined || meldNumber === undefined) return [];
+            return [`${formatCardText(card)} → meld ${meldNumber}`];
+          });
+          if (protectedDescriptions.length > 0) {
+            lines.push(neutral ? "CONDITIONAL FUTURE LAYOFFS:" : "PROTECT FOR FUTURE LAYOFFS:");
+            lines.push(`  ${protectedDescriptions.join("; ")}.`);
+            lines.push(
+              neutral
+                ? "  These cards are outside the example contract, so retaining them does not prevent that lay_down."
+                : "  These cards are outside the exact contract above, so keeping them does not weaken lay_down.",
+            );
+            lines.push(
+              "  You cannot lay off on the same turn you first go down.",
+            );
+            const discardCandidate = player.hand.find(
+              (card) => card.id === protection.discardCandidateId,
+            );
+            if (discardCandidate !== undefined) {
+              lines.push(neutral
+                ? `  Alternative leftover discard: ${formatCardText(discardCandidate)}.`
+                : `  Discard ${formatCardText(discardCandidate)} instead.`);
+            } else {
+              lines.push(neutral
+                ? "  Every leftover is listed above; a required discard would use one of them."
+                : "  Protect them when possible; if every leftover is protected, one is your only discard option.");
+            }
+            lines.push("");
+          }
+        }
+      }
+    }
+  }
+
+  if (
+    state.phase === "ROUND_ACTIVE" &&
+    state.turnPhase === "AWAITING_ACTION" &&
+    isYourDecision &&
+    player.isDown
+  ) {
+    const plan = findBestLayoffPlan(player.hand, state.table);
+    if (plan !== null) {
+      const meldNumbers = new Map(
+        getNumberedMelds(state.table, state.players).map(({ meldNumber, meld }) =>
+          [meld.id, meldNumber] as const,
+        ),
+      );
+      const currentHand = [...player.hand];
+      const renderedSteps: string[] = [];
+
+      for (let stepIndex = 0; stepIndex < plan.steps.length; stepIndex++) {
+        const step = plan.steps[stepIndex];
+        if (step === undefined) continue;
+        const cardIndex = currentHand.findIndex((card) => card.id === step.cardId);
+        const card = currentHand[cardIndex];
+        const meldNumber = meldNumbers.get(step.meldId);
+        if (cardIndex < 0 || card === undefined || meldNumber === undefined) continue;
+        const positionArgument =
+          step.position === undefined ? "" : `, position ${step.position}`;
+        renderedSteps.push(
+          `  ${stepIndex + 1}. CALL lay_off with cardPosition ${cardIndex + 1}, meldNumber ${meldNumber}${positionArgument} (${formatCardText(card)})`,
+        );
+        currentHand.splice(cardIndex, 1);
+      }
+
+      if (renderedSteps.length === plan.steps.length) {
+        lines.push("ALL-CARDS-OUT LAYOFF SEQUENCE:");
+        lines.push(...renderedSteps);
+        if (currentHand.length === 0) {
+          lines.push("  This empties your hand immediately; do not discard.");
+        } else {
+          const finalCard = currentHand[0];
+          if (finalCard !== undefined) {
+            lines.push(`  Then discard the only remaining card, ${formatCardText(finalCard)}.`);
+          }
+        }
+        lines.push("");
+      }
+    }
+  }
+
   const jokerSwapHints = getJokerSwapHints(state, player);
   if (jokerSwapHints.length > 0) {
-    lines.push("TACTICAL OPPORTUNITIES:");
+    lines.push(
+      state.turnPhase === "AWAITING_DRAW"
+        ? "PLANNED TACTICAL OPPORTUNITIES:"
+        : "TACTICAL OPPORTUNITIES:",
+    );
     for (const hint of jokerSwapHints) {
       lines.push(`  ${hint}`);
     }
@@ -188,9 +329,9 @@ export function outputGameStateForLLM(
   }
 
   if (options.actionLog && options.actionLog.length > 0) {
-    const recentActions = options.actionLog
-      .filter((entry) => entry.roundNumber === state.currentRound)
-      .slice(-10);
+    const recentActions = options.actionLog.filter(
+      (entry) => entry.roundNumber === state.currentRound
+    );
 
     if (recentActions.length > 0) {
       lines.push("RECENT ACTIONS:");

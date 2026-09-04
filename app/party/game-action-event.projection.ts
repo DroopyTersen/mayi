@@ -15,7 +15,7 @@ export function projectPlayerViewMessages(input: {
   messageType: "GAME_STARTED" | "GAME_STATE";
   recipientPlayerIds: string[];
 }): ProjectedServerMessage[] {
-  const activityLog = input.adapter.getRecentActivityLog(10);
+  const activityLog = input.adapter.getCurrentRoundActivityLog();
   const messages: ProjectedServerMessage[] = [];
 
   for (const playerId of input.recipientPlayerIds) {

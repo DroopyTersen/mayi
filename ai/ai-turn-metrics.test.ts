@@ -25,6 +25,10 @@ describe("AI turn metrics", () => {
           },
           totalTokens: 3_400,
         },
+        stepProviderMetadata: [
+          { openrouter: { usage: { cost: 0.0002 } } },
+          { openrouter: { usage: { cost: 0.0003 } } },
+        ],
       }),
     ).toEqual({
       turnDurationMs: 2_000,
@@ -40,6 +44,34 @@ describe("AI turn metrics", () => {
       textOutputTokens: 100,
       reasoningOutputTokens: 300,
       totalTokens: 3_400,
+      providerReportedCostUsd: 0.0005,
     });
+  });
+
+  it("ignores malformed or unavailable provider cost metadata", () => {
+    const metrics = summarizeAITurnMetrics({
+      turnDurationMs: 10,
+      stepPerformance: [],
+      usage: {
+        inputTokens: undefined,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokens: undefined,
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+        totalTokens: undefined,
+      },
+      stepProviderMetadata: [
+        { openrouter: { usage: { cost: "not-a-number" } } },
+        { openai: { responseId: "response-1" } },
+      ],
+    });
+
+    expect(metrics.providerReportedCostUsd).toBeUndefined();
   });
 });

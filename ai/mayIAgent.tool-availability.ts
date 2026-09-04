@@ -4,6 +4,7 @@ import { getAvailableActions } from "../core/engine/game-engine.availability";
 export type MayIToolName =
   | "draw_from_stock"
   | "draw_from_discard"
+  | "organize_hand"
   | "lay_down"
   | "swap_joker"
   | "lay_off"
@@ -22,6 +23,9 @@ export function getAvailableToolNames(
   return [
     actions.canDrawFromStock && "draw_from_stock",
     actions.canDrawFromDiscard && "draw_from_discard",
+    snapshot.phase === "ROUND_ACTIVE" &&
+      snapshot.turnPhase === "AWAITING_ACTION" &&
+      "organize_hand",
     actions.canLayDown && "lay_down",
     actions.canSwapJoker && "swap_joker",
     actions.canLayOff && "lay_off",

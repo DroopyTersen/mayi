@@ -11,7 +11,8 @@ import { canSwapJokerWithCard } from "../core/meld/meld.joker";
 export function getJokerSwapHints(state: GameSnapshot, player: Player): string[] {
   if (
     state.phase !== "ROUND_ACTIVE" ||
-    state.turnPhase !== "AWAITING_ACTION" ||
+    (state.turnPhase !== "AWAITING_DRAW" &&
+      state.turnPhase !== "AWAITING_ACTION") ||
     state.awaitingPlayerId !== player.id ||
     player.isDown ||
     state.currentRound === 6
@@ -32,7 +33,9 @@ export function getJokerSwapHints(state: GameSnapshot, player: Player): string[]
         }
 
         hints.push(
-          `CALL swap_joker before discarding: meld ${meldNumber}, Joker position ${jokerIndex + 1}, hand position ${handIndex + 1} (${formatCardText(handCard)}). The Joker enters your hand; immediately re-check lay_down.`,
+          state.turnPhase === "AWAITING_DRAW"
+            ? `After drawing, you can swap meld ${meldNumber}, Joker position ${jokerIndex + 1}, with hand position ${handIndex + 1} (${formatCardText(handCard)}). Account for the recovered Joker when choosing the draw.`
+            : `CALL swap_joker before discarding: meld ${meldNumber}, Joker position ${jokerIndex + 1}, hand position ${handIndex + 1} (${formatCardText(handCard)}). The Joker enters your hand; immediately re-check lay_down.`,
         );
       }
     }

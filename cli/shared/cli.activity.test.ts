@@ -39,9 +39,9 @@ describe("formatActivityEntry", () => {
     expect(formatActivityEntry(entry)).toBe("Alice: discarded K♣");
   });
 
-  it("formats laid down contract without details", () => {
+  it("preserves public card details for a laid down contract", () => {
     const entry = makeEntry("player-1", "Alice", "laid down contract", "set: 3♠ 3♥ 3♦");
-    expect(formatActivityEntry(entry)).toBe("Alice: laid down contract");
+    expect(formatActivityEntry(entry)).toBe("Alice: laid down contract — set: 3♠ 3♥ 3♦");
   });
 
   it("formats laid off with details", () => {

@@ -9,18 +9,13 @@
 import type { AIActionRuntime } from "../../ai/ai-action-runtime.types";
 import type { Telemetry } from "ai";
 import {
-  executeTurn,
+  executePlayerTurn,
   type ExecuteTurnResult,
 } from "../../ai/mayIAgent";
+import type { AIHandScratchpadStore } from "../../ai/mayIAgent.scratchpad";
 import {
-  executeWithOpenAIResponseLineage,
-  type OpenAIResponseLineageStore,
-} from "../../ai/openai-response-lineage";
-import {
-  AI_MODEL_CATALOG,
   isAIModelId,
 } from "../../ai/ai-model-catalog";
-import { MAYI_AI_PROMPT_VERSION } from "../../ai/openai-luna-profile";
 import type { AIEnv } from "./ai-model-factory";
 import { createWorkerAIModelAsync } from "./ai-model-factory";
 import type { PartyGameAdapter, PlayerMapping } from "./party-game-adapter";
@@ -59,8 +54,8 @@ export interface ExecuteAITurnOptions {
   maxRetries?: number;
   /** Production telemetry integration for each model call. */
   telemetry?: Telemetry;
-  /** Stored Responses continuation for this game. */
-  responseLineageStore: OpenAIResponseLineageStore;
+  /** Private per-game notebook storage for every model. */
+  notebookStore: AIHandScratchpadStore;
 }
 
 function errorMessage(error: unknown): string {
@@ -87,7 +82,7 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     abortSignal,
     maxRetries,
     telemetry,
-    responseLineageStore,
+    notebookStore,
   } = options;
 
   const mapping = adapter.getPlayerMapping(aiPlayerId);
@@ -118,31 +113,19 @@ export async function executeAITurn(options: ExecuteAITurnOptions): Promise<AITu
     }
 
     const model = await createWorkerAIModelAsync(modelId, env);
-    return await executeWithOpenAIResponseLineage({
-      context: {
-        gameId: latestSnapshot.gameId,
-        playerId: mapping.engineId,
-        round: latestSnapshot.currentRound,
-        modelId: AI_MODEL_CATALOG[modelId].model,
-        promptVersion: MAYI_AI_PROMPT_VERSION,
-      },
-      store: responseLineageStore,
+    return await executePlayerTurn({
+      model,
+      modelId,
+      runtime,
+      playerId: mapping.engineId,
+      playerName: playerName ?? mapping.name,
+      maxSteps,
+      debug,
+      telemetry: telemetry ?? false,
+      actionLog: adapter.getCurrentRoundActivityLogForEngine(),
       abortSignal,
-      execute: (continuation) =>
-        executeTurn({
-          model,
-          modelId,
-          runtime,
-          playerId: mapping.engineId,
-          playerName: playerName ?? mapping.name,
-          maxSteps,
-          debug,
-          telemetry: telemetry ?? false,
-          actionLog: adapter.getRecentActivityLogForEngine(10),
-          abortSignal,
-          maxRetries,
-          continuation,
-        }),
+      maxRetries,
+      notebookStore,
     });
   } catch (error) {
     if (isAbortError(error)) {

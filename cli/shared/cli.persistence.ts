@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import type { ActionLogEntry, CliGameSave } from "./cli.types";
 import type { AIPlayerConfig } from "../../ai/aiPlayer.types";
-import type { OpenAIResponseLineage } from "../../ai/openai-response-lineage";
+import type { AIHandScratchpadStore } from "../../ai/mayIAgent.scratchpad";
 import { GameEngine } from "../../core/engine/game-engine";
 import { generateRoomId } from "../../core/room/room-id.utils";
 
@@ -194,10 +194,6 @@ function getAIPlayersFilePath(gameId: string): string {
   return `${getGameDir(gameId)}/ai-players.json`;
 }
 
-function getAIResponseLineagesFilePath(gameId: string): string {
-  return `${getGameDir(gameId)}/ai-continuity.json`;
-}
-
 /**
  * Persisted AI player config with player ID mapping
  */
@@ -228,35 +224,30 @@ export function loadAIPlayerConfigs(gameId: string): PersistedAIPlayer[] {
   return JSON.parse(content) as PersistedAIPlayer[];
 }
 
-export function saveAIResponseLineages(
-  gameId: string,
-  lineages: OpenAIResponseLineage[],
-): void {
-  ensureGameDir(gameId);
-  const content = JSON.stringify(lineages, null, 2);
-  fs.writeFileSync(getAIResponseLineagesFilePath(gameId), content);
-}
-
-export function loadAIResponseLineages(
-  gameId: string,
-): OpenAIResponseLineage[] {
-  const filePath = getAIResponseLineagesFilePath(gameId);
-  if (!fs.existsSync(filePath)) {
-    return [];
+/** Notes live outside the public game save and action log. */
+export function createAINotebookStore(gameId: string): AIHandScratchpadStore {
+  const filePath = `${getGameDir(gameId)}/ai-notebooks.json`;
+  function read(): unknown[] {
+    if (!fs.existsSync(filePath)) return [];
+    try {
+      const value: unknown = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      return Array.isArray(value) ? value : [];
+    } catch (error) {
+      if (error instanceof SyntaxError) return [];
+      throw error;
+    }
   }
-
-  const content = fs.readFileSync(filePath, "utf-8");
-  return JSON.parse(content) as OpenAIResponseLineage[];
-}
-
-export function clearAIResponseLineage(
-  gameId: string,
-  playerId: string,
-): void {
-  const remaining = loadAIResponseLineages(gameId).filter(
-    (lineage) => lineage.playerId !== playerId,
-  );
-  saveAIResponseLineages(gameId, remaining);
+  const belongsTo = (value: unknown, playerId: string): boolean =>
+    typeof value === "object" && value !== null && "playerId" in value && value.playerId === playerId;
+  return {
+    get: playerId => read().find(value => belongsTo(value, playerId)),
+    set: (playerId, state) => {
+      const others = read().filter(value => !belongsTo(value, playerId));
+      if (state !== undefined) others.push(state);
+      ensureGameDir(gameId);
+      fs.writeFileSync(filePath, JSON.stringify(others), { mode: 0o600 });
+    },
+  };
 }
 
 /**

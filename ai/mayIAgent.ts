@@ -4,6 +4,11 @@
  * Executes turns for AI players using an LLM with tool-based actions.
  */
 
+import { appendAIStrategyNoteContext, AIHandScratchpad, type AIHandScratchpadStore, type AIHandScratchpadTrace } from "./mayIAgent.scratchpad";
+import { MAYI_PLAYER_PROFILE } from "./mayIAgent.player-profile";
+import type { AITacticalPresentation } from "./mayIAgent.contract-options";
+import type { AIToolRequestJournal } from "./ai-tool-request-journal";
+import { beginAIPlayerDecisionContext, type AIPlayerDecisionContext, type AIPlayerDecisionContextOptions, type AIPlayerDecisionContextTrace } from "./mayIAgent.decision-context";
 import {
   generateText,
   type LanguageModel,
@@ -25,17 +30,7 @@ import {
   type MayITools,
 } from "./mayIAgent.tools";
 import { getAvailableToolNames } from "./mayIAgent.tool-availability";
-import type { AIPlayerRegistry } from "./aiPlayer.registry";
 import type { ToolExecutionResult } from "./mayIAgent.types";
-import {
-  createOpenAILunaInstructions,
-  createOpenAILunaProviderOptions,
-  isOpenAILunaModel,
-} from "./openai-luna-profile";
-import {
-  createOpenAIContinuationMessages,
-  type OpenAIResponseContinuation,
-} from "./openai-response-lineage";
 
 /**
  * Stop condition: stop when turn is complete or max steps reached
@@ -72,7 +67,7 @@ export interface ExecuteTurnConfig {
   /** The language model to use for decisions */
   model: LanguageModel;
 
-  /** Stable configured model ID, used for provider-specific behavior. */
+  /** Stable configured model ID for telemetry and evaluation identity. */
   modelId?: string;
 
   /** Runtime that reads latest game state and executes queued game actions */
@@ -102,8 +97,15 @@ export interface ExecuteTurnConfig {
   /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
   maxRetries?: number;
 
-  /** Previously committed OpenAI response and its terminal tool result. */
-  continuation?: OpenAIResponseContinuation;
+  /** Explicit experiment prompt; normal gameplay uses executePlayerTurn. */
+  systemPrompt?: string;
+  /** Opt-in process-local, private memory for this game and player. */
+  scratchpad?: AIHandScratchpad;
+  tacticalPresentation?: AITacticalPresentation;
+  /** Optional observer for eval artifacts; not part of the player's context. */
+  toolRequestJournal?: AIToolRequestJournal;
+  /** Opt-in experiment: exact input tracing, with optional private hand history. */
+  decisionContext?: AIPlayerDecisionContextOptions;
 }
 
 /**
@@ -115,12 +117,11 @@ export interface ExecuteTurnResult {
 
   /** Summary of actions taken */
   actions: string[];
+  scratchpadTrace?: AIHandScratchpadTrace;
+  decisionContextTrace?: AIPlayerDecisionContextTrace;
 
   /** Error message if failed */
   error?: string;
-
-  /** OpenAI response state that can be committed after a completed turn. */
-  continuation?: OpenAIResponseContinuation;
 
   /** True when execution stopped because an external event aborted it. */
   aborted?: boolean;
@@ -130,41 +131,13 @@ export interface ExecuteTurnResult {
 
 }
 
-function getOpenAIResponseId(
-  providerMetadata: Record<string, Record<string, unknown>> | undefined,
-): string | undefined {
-  const responseId = providerMetadata?.openai?.responseId;
-  return typeof responseId === "string" && responseId.length > 0
-    ? responseId
-    : undefined;
-}
-
-function getTerminalToolResult(
+function hasCompletedTurn(
   steps: StepResult<MayITools>[],
-): OpenAIResponseContinuation["pendingToolResult"] | undefined {
-  for (let stepIndex = steps.length - 1; stepIndex >= 0; stepIndex--) {
-    const step = steps[stepIndex];
-    if (!step) continue;
-
-    for (
-      let resultIndex = step.toolResults.length - 1;
-      resultIndex >= 0;
-      resultIndex--
-    ) {
-      const result = step.toolResults[resultIndex];
-      if (!result) continue;
-      const output = result.output as ToolExecutionResult | undefined;
-      if (!output?.success || !output.turnComplete) continue;
-
-      return {
-        toolCallId: result.toolCallId,
-        toolName: result.toolName,
-        output: JSON.stringify(output),
-      };
-    }
-  }
-
-  return undefined;
+): boolean {
+  return steps.some(step => step.toolResults.some(result => {
+    const output = result.output as ToolExecutionResult | undefined;
+    return output?.success === true && output.turnComplete;
+  }));
 }
 
 /**
@@ -188,16 +161,14 @@ export async function executeTurn(
     actionLog,
     abortSignal,
     maxRetries,
-    continuation,
+    systemPrompt: systemPromptOverride,
   } = config;
 
-  const tools = createMayITools(runtime, playerId, { actionLog });
-  const systemPrompt = buildSystemPrompt();
+  const systemPrompt = systemPromptOverride ?? buildSystemPrompt();
   const actions: string[] = [];
-  const isLuna = isOpenAILunaModel(modelId);
 
   // Check if it's this player's turn
-  let currentState = await runtime.getSnapshot();
+  const currentState = await runtime.getSnapshot();
   if (currentState.awaitingPlayerId !== playerId) {
     return {
       success: false,
@@ -207,24 +178,40 @@ export async function executeTurn(
   }
 
   const currentPlayer = currentState.players.find((p) => p.id === playerId);
+  const scratchpad = config.scratchpad;
+  const memoryContext = { ...currentState, playerId };
+  const priorNote = scratchpad?.read(memoryContext);
+  const scratchpadTurn = scratchpad !== undefined && currentState.phase === "ROUND_ACTIVE"
+    ? scratchpad.begin(memoryContext)
+    : undefined;
+  const tools = createMayITools(runtime, playerId, { actionLog, scratchpadTurn, tacticalPresentation: config.tacticalPresentation });
+  function finishScratchpad(snapshot: typeof currentState, completed: boolean): AIHandScratchpadTrace | undefined {
+    if (scratchpad === undefined) return undefined;
+    return scratchpadTurn?.finish({ ...snapshot, playerId }, completed) ?? {
+      before: priorNote, proposed: undefined,
+      after: scratchpad.read({ ...snapshot, playerId }), outcome: "unchanged",
+    };
+  }
 
   if (debug) {
     console.log(`\n[AI] Starting turn for ${playerId}`);
     console.log(`[AI] Phase: ${currentState.phase} / ${currentState.turnPhase}`);
   }
 
-  const initialGameState = outputGameStateForLLM(currentState, playerId, { actionLog });
-  const promptInput =
-    isLuna && continuation !== undefined
-      ? {
-          messages: createOpenAIContinuationMessages(
-            continuation.pendingToolResult,
-            initialGameState,
-          ),
-        }
-      : { prompt: initialGameState };
+  const publicState = outputGameStateForLLM(currentState, playerId, { actionLog, tacticalPresentation: config.tacticalPresentation });
+  const initialGameState = scratchpad === undefined ? publicState : appendAIStrategyNoteContext(publicState, priorNote);
+  const defaultPromptInput = { prompt: initialGameState };
 
+  let decisionContext: AIPlayerDecisionContext | undefined;
   try {
+    if (config.decisionContext !== undefined) {
+      decisionContext = await beginAIPlayerDecisionContext({
+        options: config.decisionContext, snapshot: currentState, playerId, modelId,
+        systemPrompt, observation: initialGameState, kind: "turn",
+      });
+    }
+    const historyMessages = decisionContext?.messages;
+    const promptInput = historyMessages === undefined ? defaultPromptInput : { messages: historyMessages };
     // Get display name for telemetry
     const displayName = playerName ?? currentPlayer?.name ?? playerId;
 
@@ -232,19 +219,10 @@ export async function executeTurn(
     const turnStartedAt = Date.now();
     const result = await generateText({
       model,
-      instructions: isLuna
-        ? createOpenAILunaInstructions(systemPrompt)
-        : systemPrompt,
+      instructions: systemPrompt,
       ...promptInput,
       tools,
       toolOrder: Object.keys(tools) as (keyof MayITools)[],
-      providerOptions: isLuna
-        ? {
-            openai: createOpenAILunaProviderOptions({
-              previousResponseId: continuation?.responseId,
-            }),
-          }
-        : undefined,
       abortSignal,
       maxRetries,
       stopWhen: stopWhenTurnComplete(maxSteps),
@@ -259,16 +237,6 @@ export async function executeTurn(
           console.log(
             `[AI] Phase: ${currentState.phase} / ${currentState.turnPhase}, Available tools: ${activeToolNames.join(", ")}`
           );
-        }
-
-        if (isLuna && activeToolNames.length > 0) {
-          return {
-            providerOptions: {
-              openai: createOpenAILunaProviderOptions({
-                allowedToolNames: activeToolNames,
-              }),
-            },
-          };
         }
 
         return { activeTools: activeToolNames };
@@ -300,7 +268,11 @@ export async function executeTurn(
             },
           }
         : undefined,
+      onStepStart: (step) => { config.toolRequestJournal?.startStep(step.stepNumber); },
+      onLanguageModelCallEnd: (event) => { config.toolRequestJournal?.recordModelResponse(event); },
+      onToolExecutionEnd: (event) => { config.toolRequestJournal?.recordToolOutput(event.toolOutput); },
       onStepEnd: async (step) => {
+        config.toolRequestJournal?.recordStep(step);
         if (step.toolCalls && step.toolCalls.length > 0) {
           for (const call of step.toolCalls) {
             const actionName = call.toolName;
@@ -337,29 +309,29 @@ export async function executeTurn(
       turnDurationMs,
       stepPerformance: result.steps.map((step) => step.performance),
       usage: result.usage,
+      stepProviderMetadata: result.steps.map((step) => step.providerMetadata),
     });
-    const pendingToolResult = getTerminalToolResult(result.steps);
-    const responseId =
-      pendingToolResult === undefined
-        ? undefined
-        : getOpenAIResponseId(result.finalStep.providerMetadata);
-    const completed = pendingToolResult !== undefined;
+    const turnCompleted = hasCompletedTurn(result.steps);
+    const contextResult = await decisionContext?.finish({
+      latestSnapshot: await runtime.getSnapshot().catch(() => undefined),
+      responseMessages: result.responseMessages,
+      completed: turnCompleted, abortSignal,
+    });
+    const completed = contextResult?.completed ?? turnCompleted;
+    const scratchpadTrace = scratchpad === undefined ? undefined : finishScratchpad(
+      await runtime.getSnapshot(), completed && !abortSignal?.aborted,
+    );
     return {
       success: completed,
       actions,
+      ...(contextResult === undefined ? {} : { decisionContextTrace: contextResult.trace }),
+      ...(contextResult?.aborted ? { aborted: true } : {}),
+      ...(scratchpadTrace === undefined ? {} : { scratchpadTrace }),
       ...(completed
         ? {}
         : {
             error: `AI provider stopped after ${result.steps.length} step(s) without completing the game turn`,
           }),
-      ...(responseId === undefined || pendingToolResult === undefined
-        ? {}
-        : {
-            continuation: {
-              responseId,
-              pendingToolResult,
-            },
-      }),
       metrics,
     };
   } catch (error) {
@@ -367,89 +339,37 @@ export async function executeTurn(
     const aborted =
       abortSignal?.aborted ||
       (error instanceof Error && error.name === "AbortError");
+    // The board may have advanced while the request failed. Expire ended-hand
+    // intent, but never replace the original provider error with a read error.
+    const failureSnapshot = scratchpad === undefined ? currentState :
+      await runtime.getSnapshot().catch(() => currentState);
+    const contextResult = await decisionContext?.finish({
+      latestSnapshot: await runtime.getSnapshot().catch(() => undefined),
+      responseMessages: [], completed: false, abortSignal, aborted,
+    });
     return {
       success: false,
       actions,
       error: errorMessage,
+      ...(contextResult === undefined ? {} : { decisionContextTrace: contextResult.trace }),
+      ...(scratchpad === undefined ? {} : { scratchpadTrace: finishScratchpad(failureSnapshot, false) }),
       ...(aborted ? { aborted: true } : {}),
     };
   }
 }
 
-/**
- * Configuration for executing an AI turn using the registry
- */
-export interface ExecuteAITurnConfig {
-  /** Runtime that reads latest game state and executes queued game actions */
-  runtime: AIActionRuntime;
-
-  /** The player ID to execute turn for */
-  playerId: string;
-
-  /** The AI player registry */
-  registry: AIPlayerRegistry;
-
-  /** Maximum steps (tool calls) per turn. Default: 10 */
-  maxSteps?: number;
-
-  /** Enable debug logging. Default: false */
-  debug?: boolean;
-
-  /** Maximum retries for failed AI SDK provider calls. Default: AI SDK default. */
-  maxRetries?: number;
-
-  /** Public current-round action history for opponent tracking. */
-  actionLog?: ActionLogEntry[];
-
-  /** Previously committed OpenAI response and its terminal tool result. */
-  continuation?: OpenAIResponseContinuation;
-}
-
-/**
- * Execute a turn for an AI player using the registry for model lookup
- *
- * This is a convenience wrapper that:
- * 1. Looks up the model from the registry by player ID
- * 2. Calls executeTurn with the resolved model
- *
- * Returns an error if the player is not registered as AI.
- */
-export async function executeAITurn(
-  config: ExecuteAITurnConfig
+/** Normal gameplay configuration. Explicit evals still call executeTurn directly. */
+export async function executePlayerTurn(
+  config: Omit<ExecuteTurnConfig, "systemPrompt" | "scratchpad"> & { notebookStore: AIHandScratchpadStore },
 ): Promise<ExecuteTurnResult> {
-  const {
-    runtime,
-    playerId,
-    registry,
-    maxSteps,
-    debug,
-    maxRetries,
-    actionLog,
-    continuation,
-  } = config;
-
-  const model = registry.getModel(playerId);
-  if (!model) {
-    return {
-      success: false,
-      actions: [],
-      error: `Player ${playerId} is not registered as an AI player`,
-    };
-  }
-
-  const playerName = registry.getName(playerId);
-  const modelId = registry.getModelId(playerId);
-
-  return executeTurn({
-    model,
-    modelId,
-    runtime,
-    playerId,
-    playerName,
-    maxSteps,
-    debug,
-    maxRetries,
-    actionLog,
-    continuation,
-  });
+  const { notebookStore, ...turnConfig } = config;
+  const initial = await config.runtime.getSnapshot();
+  const context = { ...initial, playerId: config.playerId };
+  const scratchpad = AIHandScratchpad.restore(context, await notebookStore.get(config.playerId));
+  const result = await executeTurn({ ...turnConfig, scratchpad, systemPrompt: MAYI_PLAYER_PROFILE.systemPrompt });
+  // Failed/aborted turns cannot commit a proposal. A fresh read also expires
+  // notes if another action ended the hand while the provider was running.
+  const latest = await config.runtime.getSnapshot();
+  await notebookStore.set(config.playerId, scratchpad.exportState({ ...latest, playerId: config.playerId }));
+  return result;
 }

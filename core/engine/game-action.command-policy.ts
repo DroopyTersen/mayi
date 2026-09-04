@@ -2,6 +2,11 @@ import type { GameAction } from "./game-action.command";
 import type { GameSnapshot } from "./game-engine.types";
 import { getActionAvailabilityDetails } from "./game-engine.availability";
 
+/** These round-level actions do not update the turn machine's lastError. */
+export const ACTIONS_THAT_IGNORE_LAST_ERROR: ReadonlySet<GameAction["type"]> = new Set([
+  "CALL_MAY_I", "ALLOW_MAY_I", "CLAIM_MAY_I", "REORDER_HAND",
+]);
+
 export type GameActionCommandError =
   | "ACTION_FAILED"
   | "CANNOT_CALL_MAY_I_ON_OWN_TURN"
