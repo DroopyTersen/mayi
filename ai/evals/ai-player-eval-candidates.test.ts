@@ -15,7 +15,7 @@ describe("AI player evaluation candidates", () => {
       modelId: "default:openai",
       provider: "openai",
       reasoningEffort: "xhigh",
-      promptVersion: "house-rules-v1+player-guidance-v1+tool-protocol-v1",
+      promptVersion: "house-rules-v2+player-guidance-v1+tool-protocol-v1",
       modelConfiguration: {
         resolvedModelId: "gpt-5.6-luna",
         transport: "responses",
@@ -43,7 +43,7 @@ describe("AI player evaluation candidates", () => {
         role: "hill-climb",
         modelId: "default:meta",
         provider: "openrouter",
-        promptVersion: "house-rules-v1+player-guidance-v1+tool-protocol-v1",
+        promptVersion: "house-rules-v2+player-guidance-v1+tool-protocol-v1",
         pricing: {
           noCacheInputPerMillionUsd: 0.1,
           cacheReadInputPerMillionUsd: 0.002,

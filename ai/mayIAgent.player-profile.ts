@@ -2,8 +2,8 @@ import { buildMayINotebookGuidance } from "./mayIAgent.notebook-guidance";
 import { buildSystemPrompt } from "./mayIAgent.prompt";
 import { MAYI_PLAYER_GUIDANCE_VERSION } from "./mayIAgent.player-guidance";
 
-// Preserve the evaluated wrapper and version so the promoted prompt is byte-identical.
-// This remains player guidance; the authoritative rules and tactical hints are unchanged.
+// Preserve the evaluated guidance wrapper and version. House-rule corrections
+// are versioned independently and apply to this profile through buildSystemPrompt.
 const experimentId = "player-examples-v1";
 const systemPrompt = buildSystemPrompt()
   .replace(

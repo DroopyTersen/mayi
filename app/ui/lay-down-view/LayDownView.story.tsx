@@ -3,6 +3,7 @@ import { LayDownView } from "./LayDownView";
 import { LayDownDrawer } from "./LayDownDrawer";
 import { Button } from "~/shadcn/components/ui/button";
 import type { Card } from "core/card/card.types";
+import type { Contract } from "core/engine/contracts";
 import { ViewportComparison } from "~/storybook/ViewportSimulator";
 
 const SAMPLE_HAND: Card[] = [
@@ -79,11 +80,6 @@ const LARGE_HAND: Card[] = [
   { id: "17", rank: "Joker", suit: null },
 ];
 
-interface Contract {
-  sets: number;
-  runs: number;
-}
-
 /** Interactive drawer demo component */
 function LayDownDrawerDemo({ contract, hand }: { contract: Contract; hand: Card[] }) {
   const [open, setOpen] = useState(false);
@@ -132,13 +128,13 @@ export function LayDownViewStory() {
         </p>
       </header>
 
-      {/* Interactive Dialog - 4 Melds (tests scrolling) */}
+      {/* Synthetic four-meld layout for testing scrolling */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Interactive Dialog (4 Melds)</h2>
+        <h2 className="text-lg font-semibold mb-3">Interactive Dialog (Layout Test)</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Click the button to open the lay down dialog with 4 melds. Tests scrolling behavior with many staging areas.
+          A synthetic four-meld layout to test scrolling, not a playable contract.
         </p>
-        <LayDownDrawerDemo contract={{ sets: 2, runs: 2 }} hand={LARGE_HAND} />
+        <LayDownDrawerDemo contract={{ roundNumber: 5, sets: 2, runs: 2 }} hand={LARGE_HAND} />
       </section>
 
       {/* Interactive Dialog - 2 Melds */}
@@ -147,7 +143,7 @@ export function LayDownViewStory() {
         <p className="text-sm text-muted-foreground mb-4">
           Click the button to open the lay down dialog with fewer melds.
         </p>
-        <LayDownDrawerDemo contract={{ sets: 1, runs: 1 }} hand={SAMPLE_HAND} />
+        <LayDownDrawerDemo contract={{ roundNumber: 2, sets: 1, runs: 1 }} hand={SAMPLE_HAND} />
       </section>
 
       {/* Round 1: 2 Sets */}
@@ -156,7 +152,7 @@ export function LayDownViewStory() {
         <div className="border rounded-lg p-4">
           <LayDownView
             hand={SAMPLE_HAND}
-            contract={{ sets: 2, runs: 0 }}
+            contract={{ roundNumber: 1, sets: 2, runs: 0 }}
             onLayDown={handleLayDown}
             onCancel={handleCancel}
           />
@@ -169,20 +165,20 @@ export function LayDownViewStory() {
         <div className="border rounded-lg p-4">
           <LayDownView
             hand={SAMPLE_HAND}
-            contract={{ sets: 1, runs: 1 }}
+            contract={{ roundNumber: 2, sets: 1, runs: 1 }}
             onLayDown={handleLayDown}
             onCancel={handleCancel}
           />
         </div>
       </section>
 
-      {/* Round 7: 3 Runs */}
+      {/* Synthetic three-run layout for testing scrolling */}
       <section>
-        <h2 className="text-lg font-semibold mb-3">Round 7 Contract (3 Runs)</h2>
+        <h2 className="text-lg font-semibold mb-3">Three Runs (Layout Test)</h2>
         <div className="border rounded-lg p-4">
           <LayDownView
             hand={SAMPLE_HAND}
-            contract={{ sets: 0, runs: 3 }}
+            contract={{ roundNumber: 3, sets: 0, runs: 3 }}
             onLayDown={handleLayDown}
             onCancel={handleCancel}
           />
@@ -198,7 +194,7 @@ export function LayDownViewStory() {
         <div className="border rounded-lg p-4">
           <LayDownView
             hand={SAMPLE_HAND}
-            contract={{ sets: 1, runs: 1 }}
+            contract={{ roundNumber: 2, sets: 1, runs: 1 }}
             initialStagedMelds={STAGED_MELDS_COMPLETE}
             onLayDown={handleLayDown}
             onCancel={handleCancel}
@@ -215,7 +211,7 @@ export function LayDownViewStory() {
         <div className="border rounded-lg p-4">
           <LayDownView
             hand={SAMPLE_HAND}
-            contract={{ sets: 1, runs: 1 }}
+            contract={{ roundNumber: 2, sets: 1, runs: 1 }}
             initialStagedMelds={STAGED_MELDS_PARTIAL}
             onLayDown={handleLayDown}
             onCancel={handleCancel}
@@ -233,7 +229,7 @@ export function LayDownViewStory() {
           <div className="border rounded-lg p-4">
             <LayDownView
               hand={SAMPLE_HAND}
-              contract={{ sets: 1, runs: 1 }}
+              contract={{ roundNumber: 2, sets: 1, runs: 1 }}
               onLayDown={handleLayDown}
               onCancel={handleCancel}
             />

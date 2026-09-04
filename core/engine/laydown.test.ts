@@ -122,6 +122,41 @@ describe("TurnMachine - drawn state", () => {
 });
 
 describe("TurnMachine - LAY_DOWN command", () => {
+  it("rejects four jacks and four tens plus a joker on the initial Round 1 laydown", () => {
+    const jacks = [
+      card("J", "clubs"), card("J", "diamonds"),
+      card("J", "hearts"), card("J", "spades"),
+    ];
+    const tens = [
+      card("10", "clubs"), card("10", "diamonds"),
+      card("10", "hearts"), card("10", "spades"), card("Joker", null),
+    ];
+    const actor = createActor(turnMachine, {
+      input: {
+        ...createTurnInput(),
+        hand: [...jacks, ...tens, card("3", "clubs"), card("5", "hearts")],
+      },
+    });
+    actor.start();
+    actor.send({ type: "DRAW_FROM_STOCK" });
+    const before = actor.getSnapshot().context;
+
+    actor.send({
+      type: "LAY_DOWN",
+      melds: [
+        { type: "set", cardIds: jacks.map((card) => card.id) },
+        { type: "set", cardIds: tens.map((card) => card.id) },
+      ],
+    });
+
+    const after = actor.getSnapshot();
+    expect(after.context.isDown).toBe(false);
+    expect(after.context.hand).toEqual(before.hand);
+    expect(after.context.table).toEqual(before.table);
+    expect(after.value).toBe("drawn");
+    actor.stop();
+  });
+
   describe("preconditions", () => {
     it("rejects if player has not drawn yet (state is awaitingDraw)", () => {
       const input = createTurnInput();
@@ -1051,7 +1086,7 @@ describe("TurnMachine - LAY_DOWN command", () => {
       expect(actor.getSnapshot().context.isDown).toBe(true);
     });
 
-    it("accepts set with equal wilds/naturals: (9C 9D 2H Joker) - 2 natural, 2 wild", () => {
+    it("rejects a four-card initial set even with a valid equal wild/natural ratio", () => {
       const nineC = card("9", "clubs");
       const nineD = card("9", "diamonds");
       const twoH = card("2", "hearts");
@@ -1078,8 +1113,9 @@ describe("TurnMachine - LAY_DOWN command", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
-      expect(actor.getSnapshot().context.isDown).toBe(true);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+      expect(actor.getSnapshot().context.lastError).toContain("exactly 3 cards");
     });
 
     it("accepts run with wild filling gap: (5S 6S Joker 8S)", () => {
@@ -1251,8 +1287,8 @@ describe("TurnMachine - LAY_DOWN command", () => {
     });
   });
 
-  describe("larger than minimum melds", () => {
-    it("accepts 4-card set: (9C 9D 9H 9S)", () => {
+  describe("oversized initial melds in Hands 1-5", () => {
+    it("rejects 4-card set: (9C 9D 9H 9S)", () => {
       const nineC = card("9", "clubs");
       const nineD = card("9", "diamonds");
       const nineH = card("9", "hearts");
@@ -1279,12 +1315,12 @@ describe("TurnMachine - LAY_DOWN command", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
-      expect(actor.getSnapshot().context.isDown).toBe(true);
-      expect(actor.getSnapshot().context.table[0]!.cards.length).toBe(4);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+      expect(actor.getSnapshot().context.table).toEqual([]);
     });
 
-    it("accepts 5-card set: (9C 9D 9H 9S 9C) - duplicate from multi-deck", () => {
+    it("rejects 5-card set: (9C 9D 9H 9S 9C) - duplicate from multi-deck", () => {
       // In a multi-deck game, duplicate cards of same rank+suit can exist
       const nineC1 = card("9", "clubs");
       const nineD = card("9", "diamonds");
@@ -1313,12 +1349,12 @@ describe("TurnMachine - LAY_DOWN command", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
-      expect(actor.getSnapshot().context.isDown).toBe(true);
-      expect(actor.getSnapshot().context.table[0]!.cards.length).toBe(5);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+      expect(actor.getSnapshot().context.table).toEqual([]);
     });
 
-    it("accepts 5-card run: (5S 6S 7S 8S 9S)", () => {
+    it("rejects 5-card run: (5S 6S 7S 8S 9S)", () => {
       const fiveS = card("5", "spades");
       const sixS = card("6", "spades");
       const sevenS = card("7", "spades");
@@ -1346,12 +1382,12 @@ describe("TurnMachine - LAY_DOWN command", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
-      expect(actor.getSnapshot().context.isDown).toBe(true);
-      expect(actor.getSnapshot().context.table[1]!.cards.length).toBe(5);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+      expect(actor.getSnapshot().context.table).toEqual([]);
     });
 
-    it("accepts 6+ card run: (5S 6S 7S 8S 9S 10S)", () => {
+    it("rejects 6+ card run: (5S 6S 7S 8S 9S 10S)", () => {
       const fiveS = card("5", "spades");
       const sixS = card("6", "spades");
       const sevenS = card("7", "spades");
@@ -1380,13 +1416,13 @@ describe("TurnMachine - LAY_DOWN command", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
-      expect(actor.getSnapshot().context.isDown).toBe(true);
-      expect(actor.getSnapshot().context.table[1]!.cards.length).toBe(6);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+      expect(actor.getSnapshot().context.table).toEqual([]);
     });
 
-    it("larger melds still count as 1 set or 1 run toward contract", () => {
-      // Round 1 requires 2 sets. A 4-card set still counts as 1 set.
+    it("rejects two oversized sets even when the number of melds matches", () => {
+      // Round 1 requires two sets of exactly three cards each.
       const nineC = card("9", "clubs");
       const nineD = card("9", "diamonds");
       const nineH = card("9", "hearts");
@@ -1406,7 +1442,7 @@ describe("TurnMachine - LAY_DOWN command", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
 
-      // Two 4-card sets satisfy the 2 sets contract
+      // The meld count is correct, but both initial sets are too large.
       actor.send({
         type: "LAY_DOWN",
         melds: [
@@ -1415,10 +1451,9 @@ describe("TurnMachine - LAY_DOWN command", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("awaitingDiscard");
-      expect(actor.getSnapshot().context.isDown).toBe(true);
-      // Contract is satisfied with 2 melds (even though they're larger than minimum)
-      expect(actor.getSnapshot().context.table.length).toBe(2);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+      expect(actor.getSnapshot().context.table).toEqual([]);
     });
   });
 
@@ -2689,56 +2724,7 @@ describe("TurnMachine - post lay down behavior", () => {
       expect(actor.getSnapshot().value).toBe("turnComplete");
     });
 
-    it("if hand.length === 0: goes out immediately (no discard)", () => {
-      // When a player lays down all their cards, they go out without discarding
-      // Round 1 requires 2 sets (minimum 6 cards)
-      // Player has exactly 6 cards + draws 1 = 7 cards, lays down 6 = 1 left
-      // For going out, need to lay down ALL cards (use larger melds)
-      const set1 = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts"), card("9", "spades")];
-      const set2 = [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts"), card("K", "spades")];
-      const drawnCard = card("A", "hearts");
-
-      const input = {
-        playerId: "player-1",
-        hand: [...set1, ...set2], // 8 cards - will have 9 after draw
-        stock: [drawnCard],
-        discard: [card("5", "clubs")],
-        roundNumber: 1 as const,
-        isDown: false,
-        table: [],
-      };
-      const actor = createActor(turnMachine, { input });
-      actor.start();
-
-      // Draw to have 9 cards
-      actor.send({ type: "DRAW_FROM_STOCK" });
-      expect(actor.getSnapshot().context.hand.length).toBe(9);
-
-      // Lay down sets using 8 cards (both sets of 4)
-      // This leaves 1 card, so won't go out - need to adjust
-
-      // Actually, to go out on lay down, we need to use ALL cards
-      // Let's create a scenario where player uses all cards in melds
-      actor.stop();
-
-      // Better test: player has exactly enough cards for contract after draw
-      const set1b = [card("9", "clubs"), card("9", "diamonds"), card("9", "hearts")];
-      const set2b = [card("K", "clubs"), card("K", "diamonds"), card("K", "hearts")];
-
-      const input2 = {
-        playerId: "player-1",
-        hand: [...set1b, ...set2b], // 6 cards - minimum for Round 1
-        stock: [], // Empty stock so they can't draw
-        discard: [card("5", "clubs")],
-        roundNumber: 1 as const,
-        isDown: false,
-        table: [],
-      };
-
-      // Can't do this without stock - need different approach
-      // The canLayDownAndGoOut guard checks if laying down uses all cards after draw
-
-      // Use a scenario where stock has the 7th card that completes a set
+    it("does not bypass exact initial sizes when oversized melds would empty the hand", () => {
       const nine1 = card("9", "clubs");
       const nine2 = card("9", "diamonds");
       const nine3 = card("9", "hearts");
@@ -2747,7 +2733,7 @@ describe("TurnMachine - post lay down behavior", () => {
       const king3 = card("K", "hearts");
       const nine4 = card("9", "spades"); // Will be drawn
 
-      const input3 = {
+      const input = {
         playerId: "player-1",
         hand: [nine1, nine2, nine3, king1, king2, king3], // 6 cards
         stock: [nine4], // Draw this to get 7 cards
@@ -2757,20 +2743,16 @@ describe("TurnMachine - post lay down behavior", () => {
         table: [],
       };
 
-      const actor3 = createActor(turnMachine, { input: input3 });
-      actor3.start();
+      const actor = createActor(turnMachine, { input });
+      actor.start();
 
       // Draw to get 7 cards
-      actor3.send({ type: "DRAW_FROM_STOCK" });
-      expect(actor3.getSnapshot().context.hand.length).toBe(7);
+      actor.send({ type: "DRAW_FROM_STOCK" });
+      const handBefore = actor.getSnapshot().context.hand;
+      expect(handBefore.length).toBe(7);
 
       // Lay down using all 7 cards (set of 4 nines + set of 3 kings)
-      // But wait - laying down 7 cards leaves 0 cards, going out!
-      // Actually the drawn card is nine4, so we can make set of 4 nines
-
-      // But we only have 7 cards total, using all in lay down = 0 left = go out
-      // However the contract is 2 sets minimum, 4+3=7 cards, using all goes out
-      actor3.send({
+      actor.send({
         type: "LAY_DOWN",
         melds: [
           { type: "set" as const, cardIds: [nine1.id, nine2.id, nine3.id, nine4.id] },
@@ -2778,9 +2760,11 @@ describe("TurnMachine - post lay down behavior", () => {
         ],
       });
 
-      // Should go out immediately without discard
-      expect(actor3.getSnapshot().value).toBe("wentOut");
-      expect(actor3.getSnapshot().context.hand.length).toBe(0);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand).toEqual(handBefore);
+      expect(actor.getSnapshot().context.table).toEqual([]);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
+      actor.stop();
     });
   });
 

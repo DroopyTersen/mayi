@@ -53,6 +53,7 @@ function countBits(mask: number): number {
 function createMeldOptions(
   hand: readonly Card[],
   playerId: string,
+  roundNumber: Contract["roundNumber"],
 ): { sets: MeldOption[]; runs: MeldOption[] } {
   const sets: MeldOption[] = [];
   const runs: MeldOption[] = [];
@@ -61,9 +62,12 @@ function createMeldOptions(
   for (let mask = 1; mask < subsetCount; mask++) {
     const cardCount = countBits(mask);
     if (cardCount < 3) continue;
+    const validSetSize = cardCount === 3 || roundNumber === 6;
+    const validRunSize = cardCount >= 4 && (cardCount === 4 || roundNumber === 6);
+    if (!validSetSize && !validRunSize) continue;
     const cards = cardsForMask(hand, mask);
 
-    if (isValidSet(cards)) {
+    if (validSetSize && isValidSet(cards)) {
       sets.push({
         mask,
         meld: {
@@ -75,7 +79,7 @@ function createMeldOptions(
       });
     }
 
-    if (cardCount < 4) continue;
+    if (!validRunSize) continue;
     const normalized = normalizeRunCards(cards);
     if (!normalized.success) continue;
     runs.push({
@@ -127,7 +131,7 @@ export function findLayDownCandidates(
     return [];
   }
 
-  const options = createMeldOptions(hand, playerId);
+  const options = createMeldOptions(hand, playerId, contract.roundNumber);
   const requiredTypes: Array<"set" | "run"> = [
     ...Array.from({ length: contract.sets }, () => "set" as const),
     ...Array.from({ length: contract.runs }, () => "run" as const),

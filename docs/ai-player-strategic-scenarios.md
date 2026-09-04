@@ -22,10 +22,12 @@ strategic families. Realistic May I/Joker decisions and stale-evidence reversal
 coverage remain gaps, not reasons to relabel mechanics as strategy.
 See `docs/ai-player-evaluation.md` for exclusions and no-provider inspection.
 
-Prerequisite: resolve the documented initial-meld-size disagreement before
-implementing or scoring examples that use extended Hands 1–5 melds. The house
-rules, player guidance, and tool protocol are now separate prompt layers. That
-boundary refactor is not a strategy improvement or evidence of a higher score.
+Rule clarification (2026-09-04): Hands 1–5 require exactly three cards per
+initial set and four per initial run. Only Hand 6 permits extensions. Historical
+extended Hands 1–5 scenarios remain quarantined negative regression fixtures;
+their original scores are not evidence for the corrected rules. The house rules,
+player guidance, and tool protocol remain separate prompt layers. A legality
+correction is not a strategy improvement or evidence of a higher score.
 
 The missing distinction is not legality or recognizing a ready contract. It is
 choosing between legal plans with different outcomes one or two own turns later.

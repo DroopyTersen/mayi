@@ -1,16 +1,7 @@
 import { ResponsiveDrawer } from "~/ui/responsive-drawer/ResponsiveDrawer";
-import { LayDownView } from "./LayDownView";
+import { LayDownView, type StagedMeld } from "./LayDownView";
 import type { Card } from "core/card/card.types";
-
-interface StagedMeld {
-  type: "set" | "run";
-  cards: Card[];
-}
-
-interface Contract {
-  sets: number;
-  runs: number;
-}
+import type { Contract } from "core/engine/contracts";
 
 interface LayDownDrawerProps {
   open: boolean;

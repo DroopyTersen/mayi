@@ -150,7 +150,7 @@ describe("layDownMelds action", () => {
       expect(table[1]!.cards.length).toBe(3);
     });
 
-    it("works with larger melds", () => {
+    it("does not remove cards or create melds for oversized initial sets", () => {
       // 4-card sets
       const nineC = card("9", "clubs");
       const nineD = card("9", "diamonds");
@@ -177,9 +177,9 @@ describe("layDownMelds action", () => {
 
       const table = actor.getSnapshot().context.table;
       const hand = actor.getSnapshot().context.hand;
-      expect(table[0]!.cards.length).toBe(4);
-      expect(table[1]!.cards.length).toBe(4);
-      expect(hand.length).toBe(2); // extra + drawn card
+      expect(table).toEqual([]);
+      expect(hand.length).toBe(10); // No cards played; includes the drawn card
+      expect(actor.getSnapshot().context.isDown).toBe(false);
     });
   });
 

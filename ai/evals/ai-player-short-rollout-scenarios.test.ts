@@ -7,6 +7,7 @@ import {
 import { getAIPlayerFixedStateInputForRepetition } from "./ai-player-fixed-state-scenarios";
 import { AI_PLAYER_SHORT_ROLLOUT_CHALLENGE_SCENARIOS } from "./ai-player-short-rollout-challenge-scenarios";
 import type { GameAction } from "../ai-action-runtime.types";
+import { getAIPlayerRolloutScope } from "./ai-player-rollout-scope";
 
 describe("AI player short rollout scenarios", () => {
   it("covers nuanced May I, Joker, and endgame choices with bounded decisions", () => {
@@ -74,6 +75,17 @@ describe("AI player short rollout scenarios", () => {
   });
 
   for (const scenario of AI_PLAYER_SHORT_ROLLOUT_SCENARIOS) {
+    // The historical "disputed" fixtures remain quarantined. Drew confirmed
+    // their oversized Hands 1-5 initial melds are illegal on 2026-09-04.
+    if (getAIPlayerRolloutScope(scenario.identity.id).ruleStatus === "disputed") {
+      it(`${scenario.identity.id}: rejects the quarantined oversized initial laydown`, async () => {
+        expect(getAIPlayerRolloutScope(scenario.identity.id).scope).toBe("quarantine");
+        const result = await runAIPlayerShortRolloutReference(scenario);
+        expect(result.legal).toBe(false);
+        expect(result.qualityPercent).toBeLessThan(100);
+      });
+      continue;
+    }
     it(`${scenario.identity.id}: has a legal full-credit reference trajectory`, async () => {
       const result = await runAIPlayerShortRolloutReference(scenario);
       expect(result.completed, scenario.identity.id).toBe(true);

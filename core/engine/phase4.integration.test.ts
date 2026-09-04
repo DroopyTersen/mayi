@@ -1219,27 +1219,26 @@ describe("going out scenarios - rounds 1-5", () => {
     });
   });
 
-  describe("going out on lay down turn", () => {
+  describe("going out after an exact contract from a synthetic shortened hand", () => {
     // Round 1 contract: 2 sets of 3
-    // Player has exactly 7 cards that form two sets (4+3), draws 1 more to discard
+    // Player has exactly 6 cards that form two sets (3+3), draws 1 more to discard
     const three1 = card("3", "clubs");
     const three2 = card("3", "diamonds");
     const three3 = card("3", "hearts");
-    const three4 = card("3", "spades");
     const four1 = card("4", "spades");
     const four2 = card("4", "clubs");
     const four3 = card("4", "diamonds");
     const drawnCard = card("A", "clubs");
 
-    it("given: round 1, player has 7 cards (two 4-card sets possible)", () => {
-      const hand = [three1, three2, three3, three4, four1, four2, four3];
-      expect(hand.length).toBe(7);
+    it("given: round 1, player has 6 cards (two exact 3-card sets)", () => {
+      const hand = [three1, three2, three3, four1, four2, four3];
+      expect(hand.length).toBe(6);
     });
 
-    it("when: player draws (8 cards)", () => {
+    it("when: player draws (7 cards)", () => {
       const input = {
         playerId: "player-1",
-        hand: [three1, three2, three3, three4, four1, four2, four3],
+        hand: [three1, three2, three3, four1, four2, four3],
         stock: [drawnCard],
         discard: [card("2", "hearts")],
         roundNumber: 1 as RoundNumber,
@@ -1252,13 +1251,13 @@ describe("going out scenarios - rounds 1-5", () => {
       actor.start();
       actor.send({ type: "DRAW_FROM_STOCK" });
 
-      expect(actor.getSnapshot().context.hand.length).toBe(8);
+      expect(actor.getSnapshot().context.hand.length).toBe(7);
     });
 
-    it("and: player lays down 7 cards in two sets (4+3)", () => {
+    it("and: player lays down 6 cards in two sets (3+3)", () => {
       const input = {
         playerId: "player-1",
-        hand: [three1, three2, three3, three4, four1, four2, four3],
+        hand: [three1, three2, three3, four1, four2, four3],
         stock: [drawnCard],
         discard: [card("2", "hearts")],
         roundNumber: 1 as RoundNumber,
@@ -1273,7 +1272,7 @@ describe("going out scenarios - rounds 1-5", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [three1.id, three2.id, three3.id, three4.id] },
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
           { type: "set", cardIds: [four1.id, four2.id, four3.id] },
         ],
       });
@@ -1285,7 +1284,7 @@ describe("going out scenarios - rounds 1-5", () => {
     it("and: player has 1 card remaining", () => {
       const input = {
         playerId: "player-1",
-        hand: [three1, three2, three3, three4, four1, four2, four3],
+        hand: [three1, three2, three3, four1, four2, four3],
         stock: [drawnCard],
         discard: [card("2", "hearts")],
         roundNumber: 1 as RoundNumber,
@@ -1300,7 +1299,7 @@ describe("going out scenarios - rounds 1-5", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [three1.id, three2.id, three3.id, three4.id] },
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
           { type: "set", cardIds: [four1.id, four2.id, four3.id] },
         ],
       });
@@ -1312,7 +1311,7 @@ describe("going out scenarios - rounds 1-5", () => {
     it("and: player discards that card", () => {
       const input = {
         playerId: "player-1",
-        hand: [three1, three2, three3, three4, four1, four2, four3],
+        hand: [three1, three2, three3, four1, four2, four3],
         stock: [drawnCard],
         discard: [card("2", "hearts")],
         roundNumber: 1 as RoundNumber,
@@ -1327,7 +1326,7 @@ describe("going out scenarios - rounds 1-5", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [three1.id, three2.id, three3.id, three4.id] },
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
           { type: "set", cardIds: [four1.id, four2.id, four3.id] },
         ],
       });
@@ -1339,7 +1338,7 @@ describe("going out scenarios - rounds 1-5", () => {
     it("then: player has 0 cards", () => {
       const input = {
         playerId: "player-1",
-        hand: [three1, three2, three3, three4, four1, four2, four3],
+        hand: [three1, three2, three3, four1, four2, four3],
         stock: [drawnCard],
         discard: [card("2", "hearts")],
         roundNumber: 1 as RoundNumber,
@@ -1354,7 +1353,7 @@ describe("going out scenarios - rounds 1-5", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [three1.id, three2.id, three3.id, three4.id] },
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
           { type: "set", cardIds: [four1.id, four2.id, four3.id] },
         ],
       });
@@ -1366,7 +1365,7 @@ describe("going out scenarios - rounds 1-5", () => {
     it("and: player went out on same turn as laying down", () => {
       const input = {
         playerId: "player-1",
-        hand: [three1, three2, three3, three4, four1, four2, four3],
+        hand: [three1, three2, three3, four1, four2, four3],
         stock: [drawnCard],
         discard: [card("2", "hearts")],
         roundNumber: 1 as RoundNumber,
@@ -1381,7 +1380,7 @@ describe("going out scenarios - rounds 1-5", () => {
       actor.send({
         type: "LAY_DOWN",
         melds: [
-          { type: "set", cardIds: [three1.id, three2.id, three3.id, three4.id] },
+          { type: "set", cardIds: [three1.id, three2.id, three3.id] },
           { type: "set", cardIds: [four1.id, four2.id, four3.id] },
         ],
       });
@@ -1567,10 +1566,10 @@ describe("scoring integration", () => {
 });
 
 describe("edge cases", () => {
-  describe("going out with contract using all cards", () => {
+  describe("oversized Hand 1 melds cannot bypass the contract to go out", () => {
     // Round 1 contract: 2 sets of 3 minimum (6 cards)
-    // But we can have larger sets, using all cards
-    // Player has 11 cards, draws 1 for 12, lays down all 12 in two 6-card sets
+    // Larger sets must be rejected even if they would use all cards
+    // Player has 11 cards, draws 1, then tries to lay down two illegal 6-card sets.
     const set1Cards = [
       card("9", "clubs"),
       card("9", "diamonds"),
@@ -1594,7 +1593,7 @@ describe("edge cases", () => {
       expect(initialHand.length).toBe(11);
     });
 
-    it("when: player lays down all 12 cards as contract", () => {
+    it("rejects laying down all 12 cards in oversized sets", () => {
       const initialHand = [...set1Cards.slice(0, 5), ...set2Cards]; // 11 cards
       const drawnCard = set1Cards[5]!; // The last card of set1
 
@@ -1623,11 +1622,11 @@ describe("edge cases", () => {
         ],
       });
 
-      // After laying down all cards, hand should be empty
-      expect(actor.getSnapshot().context.hand.length).toBe(0);
+      // Rejected laydown leaves the hand unchanged
+      expect(actor.getSnapshot().context.hand.length).toBe(12);
     });
 
-    it("then: player has 0 cards, went out on lay down (no discard needed)", () => {
+    it("keeps all 12 cards and does not go out", () => {
       const initialHand = [...set1Cards.slice(0, 5), ...set2Cards];
       const drawnCard = set1Cards[5]!;
 
@@ -1653,19 +1652,11 @@ describe("edge cases", () => {
         ],
       });
 
-      expect(actor.getSnapshot().value).toBe("wentOut");
-      expect(actor.getSnapshot().output?.hand.length).toBe(0);
-      expect(actor.getSnapshot().output?.wentOut).toBe(true);
+      expect(actor.getSnapshot().value).toBe("drawn");
+      expect(actor.getSnapshot().context.hand.length).toBe(12);
+      expect(actor.getSnapshot().context.isDown).toBe(false);
     });
 
-    it("note: rare scenario with larger-than-minimum melds", () => {
-      // Just a documentation test
-      // Round 1 minimum is 6 cards (2 sets of 3)
-      // Using 12 cards (2 sets of 6) allows going out on lay down
-      const minCards = 6;
-      const usedCards = 12;
-      expect(usedCards).toBeGreaterThan(minCards);
-    });
   });
 
   describe("laying off wild - wild ratio NOT enforced", () => {

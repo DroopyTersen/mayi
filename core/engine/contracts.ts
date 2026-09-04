@@ -77,6 +77,7 @@ export interface ContractValidationResult {
  * Checks:
  * - Correct number of sets
  * - Correct number of runs
+ * - Exact initial meld sizes in Hands 1-5 (Hand 6 permits extensions)
  * - Each meld's declared type matches its actual cards
  *
  * Note: Individual meld validity (wild ratios, card counts) is also checked.
@@ -104,6 +105,13 @@ export function validateContractMelds(
 
   // Verify each meld's declared type matches its actual cards
   for (const meld of melds) {
+    const initialSize = meld.type === "set" ? 3 : 4;
+    if (contract.roundNumber !== 6 && meld.cards.length !== initialSize) {
+      return {
+        valid: false,
+        error: `Hand ${contract.roundNumber} initial ${meld.type}s must contain exactly ${initialSize} cards`,
+      };
+    }
     if (meld.type === "set") {
       if (!isValidSet(meld.cards)) {
         return {

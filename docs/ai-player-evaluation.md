@@ -142,12 +142,13 @@ only its identity, and cannot introduce reserved rule/protocol section tags.
 Tests assert that the house-rule and tool-protocol fingerprints stay identical
 across a strategy experiment. The full prompt snapshot is still retained.
 
-**Unresolved rule discrepancy:** section 8 prohibits extending an initial meld
-in Hands 1–5, while the current engine and pre-existing AI rules summary permit
-larger initial melds. The separation refactor does not silently resolve that
-disagreement or edit the constitution. Drew has been asked to clarify; no live
-score or strategy promotion depending on this boundary is valid until it is
-resolved. The new prompt composition also requires a fresh baseline afterward.
+**Rule correction (2026-09-04):** Drew confirmed section 8: initial sets in
+Hands 1–5 contain exactly three cards, and initial runs exactly four. Only
+Hand 6 allows extensions and requires every held card. The shared validator,
+human staging, AI candidates, and `house-rules-v2` prompt enforce this boundary.
+Historical results retain their original rules and fingerprints; comparisons
+under the corrected rules require a fresh baseline. Previously quarantined
+rule-dependent scenarios remain excluded, not silently reactivated.
 
 ## Evaluation layers
 
@@ -560,9 +561,10 @@ Assessments are explicitly labeled:
   avoiding an opponent's publicly collected rank. Public pickups are evidence,
   not proof of hidden needs.
 
-The extended-contract tests follow the current engine and player prompt, which
-permit larger initial melds. Section 8 of `house-rules.md` still describes exact
-minimum sizes; that conflict is not permission to change the constitution.
+The historical extended-contract fixtures followed the permissive engine and
+player prompt. The 2026-09-04 correction now rejects those oversized Hands 1–5
+initial melds; regression tests verify rejection instead of certifying the old
+reference trajectories as legal.
 The runner now rejects quarantined cases before creating a model or run
 directory, including explicit or repeated `--scenario` selectors. There is no
 provider-run override. The three rule-dependent cases are

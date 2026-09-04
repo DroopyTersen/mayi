@@ -108,16 +108,17 @@ describe("buildSystemPrompt", () => {
     );
   });
 
-  it("explains the engine's contract boundary without asking for invalid exact-size melds", () => {
+  it("requires exact initial sizes in Hands 1-5 and only permits extensions in Hand 6", () => {
     const prompt = buildSystemPrompt().toLowerCase();
 
     expect(prompt).toContain(
       "submit exactly the required number and type of melds",
     );
     expect(prompt).toContain(
-      "each set or run may contain more than its minimum cards",
+      "hands 1-5: each initial set must contain exactly 3 cards and each initial run exactly 4 cards",
     );
-    expect(prompt).toContain("do not include unrelated extra cards");
+    expect(prompt).toContain("only hand 6 permits larger initial melds");
+    expect(prompt).not.toContain("each set or run may contain more than its minimum cards");
   });
 
   it("prioritizes contract-unlocking Joker swaps and urgent point dumping", () => {

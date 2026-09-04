@@ -193,17 +193,17 @@ describe("AI player tournament runner", () => {
         experimentCandidateId: "spark-medium",
       });
 
-      expect(assignments.get("spark-minimal")?.version).toBe("house-rules-v1+player-guidance-v1+tool-protocol-v1");
+      expect(assignments.get("spark-minimal")?.version).toBe("house-rules-v2+player-guidance-v1+tool-protocol-v1");
       expect(assignments.get("spark-minimal")?.content).toBe(
         "base house rules",
       );
       expect(assignments.get("spark-medium")?.version).toBe(
-        "house-rules-v1+player-guidance-v1+tool-protocol-v1+go-out-check-v1",
+        "house-rules-v2+player-guidance-v1+tool-protocol-v1+go-out-check-v1",
       );
       expect(assignments.get("spark-medium")?.content).toContain(
         "Check immediate go-out before discarding.",
       );
-      expect(assignments.get("spark-xhigh")?.version).toBe("house-rules-v1+player-guidance-v1+tool-protocol-v1");
+      expect(assignments.get("spark-xhigh")?.version).toBe("house-rules-v2+player-guidance-v1+tool-protocol-v1");
       expect(assignments.get("spark-xhigh")?.content).toBe("base house rules");
     } finally {
       await rm(directory, { recursive: true, force: true });
