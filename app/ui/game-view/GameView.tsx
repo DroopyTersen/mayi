@@ -1,3 +1,4 @@
+import { useAvatarReaction } from "~/ui/player-avatar/useAvatarReaction";
 import type { PlayerView } from "~/party/protocol.types";
 import type { ConnectionStatus } from "~/ui/lobby/lobby.types";
 import type { ActivityEntry } from "./game-view.types";
@@ -61,6 +62,7 @@ export function GameView({
   className,
 }: GameViewProps) {
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
+  const avatarReaction = useAvatarReaction(activityLog, connectionStatus === "connected");
 
   // State management and handlers
   const state = useGameViewState({
@@ -149,6 +151,7 @@ export function GameView({
                   currentPlayerId={derived.currentPlayerId}
                   viewingPlayerId={gameState.viewingPlayerId}
                   mayINotification={mayINotification}
+                  avatarReaction={avatarReaction}
                   renderMeld={({ meld, player }) => (
                     <InlineLayOffMeldTarget
                       {...inlineLayOff.getMeldTargetProps(meld, player)}
@@ -184,6 +187,7 @@ export function GameView({
               viewingPlayerId={gameState.viewingPlayerId}
               activePlayerId={gameState.awaitingPlayerId}
               thinkingPlayerId={aiThinkingPlayerId}
+              avatarReaction={avatarReaction}
               borderless
             />
 

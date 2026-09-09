@@ -1,3 +1,5 @@
+import { PlayerAvatar } from "~/ui/player-avatar/PlayerAvatar";
+import type { AvatarReaction } from "~/ui/player-avatar/avatar-reaction";
 import { Fragment, type ReactNode } from "react";
 import type { Meld } from "core/meld/meld.types";
 import type { MayINotificationState } from "~/routes/game/game-room-session.types";
@@ -29,6 +31,7 @@ interface PlayerMeldsDisplayProps {
   /** May I notification for this player (when they called May I) */
   mayINotification?: MayINotificationState | null;
   renderMeld?: RenderMeld;
+  avatarReaction?: AvatarReaction | null;
   className?: string;
 }
 
@@ -41,6 +44,7 @@ export function PlayerMeldsDisplay({
   isViewingPlayer = false,
   mayINotification,
   renderMeld,
+  avatarReaction,
   className,
 }: PlayerMeldsDisplayProps) {
   // Compute status message: May I notification takes priority over "hasn't laid down yet"
@@ -77,6 +81,8 @@ export function PlayerMeldsDisplay({
           <PlayerAvatar
             name={playerName}
             avatarId={playerAvatarId}
+            isActiveTurn={isActiveTurn}
+            reaction={avatarReaction}
             size="lg"
             showSpinner={isActiveTurn && !isViewingPlayer}
           />
@@ -129,6 +135,8 @@ export function PlayerMeldsDisplay({
           <PlayerAvatar
             name={playerName}
             avatarId={playerAvatarId}
+            isActiveTurn={isActiveTurn}
+            reaction={avatarReaction}
             size="sm"
             showSpinner={isActiveTurn && !isViewingPlayer}
           />
@@ -162,60 +170,6 @@ export function PlayerMeldsDisplay({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function PlayerAvatar({
-  name,
-  avatarId,
-  size = "sm",
-  showSpinner = false,
-}: {
-  name: string;
-  avatarId?: string;
-  size?: "sm" | "lg";
-  showSpinner?: boolean;
-}) {
-  const sizeClasses = size === "lg" ? "w-16 h-16" : "w-6 h-6";
-  const spinnerSize = size === "lg" ? "w-[72px] h-[72px]" : "w-8 h-8";
-  const textSize = size === "lg" ? "text-xl" : "text-xs";
-
-  const avatarContent = avatarId ? (
-    <img
-      src={`/avatars/${avatarId}.svg`}
-      alt={name}
-      className={cn(sizeClasses, "rounded-full shrink-0")}
-    />
-  ) : (
-    <div
-      className={cn(
-        sizeClasses,
-        "rounded-full bg-muted flex items-center justify-center shrink-0"
-      )}
-    >
-      <span className={cn(textSize, "font-medium text-muted-foreground")}>
-        {name.charAt(0).toUpperCase()}
-      </span>
-    </div>
-  );
-
-  if (!showSpinner) {
-    return avatarContent;
-  }
-
-  return (
-    <div className={cn("relative flex items-center justify-center", spinnerSize)}>
-      {/* Spinning ring */}
-      <div
-        className={cn(
-          "absolute inset-0 rounded-full animate-spin",
-          "border-4 border-orange-200 border-t-orange-400"
-        )}
-        style={{ animationDuration: "1.7s" }}
-      />
-      {/* Avatar centered inside */}
-      {avatarContent}
     </div>
   );
 }

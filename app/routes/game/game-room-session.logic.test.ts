@@ -95,8 +95,8 @@ describe("game room session view state", () => {
     ];
 
     expect(formatActivityLogEntries(entries)).toEqual([
-      { id: "entry-1", message: "Andrew: discarded Q♠" },
-      { id: "entry-2", message: "Mom: drew from the draw pile" },
+      { id: "entry-1", message: "Andrew: discarded Q♠", playerId: "player-1", action: "discarded" },
+      { id: "entry-2", message: "Mom: drew from the draw pile", playerId: "player-2", action: "drew from the draw pile" },
     ]);
   });
 });

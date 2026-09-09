@@ -1,0 +1,60 @@
+.player-avatar-sprite {
+  display: inline-block;
+  background-color: #f6f3eb;
+  background-size: 400% 400%;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  /* Cut out the generated head so the unmodified source portrait shows through. */
+  clip-path: polygon(0 32%, 26% 32%, 26% 67%, 77% 67%, 77% 32%, 100% 32%, 100% 100%, 0 100%);
+}
+
+.player-avatar:not([data-avatar-motion="idle"]) {
+  background: #f6f3eb;
+}
+
+.player-avatar[data-avatar-id="jane"] .player-avatar-sprite {
+  clip-path: polygon(0 32%, 16% 32%, 16% 67%, 84% 67%, 84% 32%, 100% 32%, 100% 100%, 0 100%);
+}
+
+/* Sixteen atlas cells, each held for 125 ms: 8 fps, exactly 2 seconds. */
+.player-avatar:not([data-avatar-motion="idle"]) .player-avatar-sprite {
+  animation: player-avatar-frames 2s steps(1, end) both;
+}
+
+.player-avatar[data-avatar-motion="turn"] .player-avatar-sprite {
+  animation-iteration-count: infinite;
+}
+
+.player-avatar[data-avatar-motion="idle"] .player-avatar-sprite {
+  display: none;
+}
+
+@keyframes player-avatar-frames {
+  0% { background-position: 0% 0%; }
+  6.25% { background-position: 33.333333% 0%; }
+  12.5% { background-position: 66.666667% 0%; }
+  18.75% { background-position: 100% 0%; }
+  25% { background-position: 0% 33.333333%; }
+  31.25% { background-position: 33.333333% 33.333333%; }
+  37.5% { background-position: 66.666667% 33.333333%; }
+  43.75% { background-position: 100% 33.333333%; }
+  50% { background-position: 0% 66.666667%; }
+  56.25% { background-position: 33.333333% 66.666667%; }
+  62.5% { background-position: 66.666667% 66.666667%; }
+  68.75% { background-position: 100% 66.666667%; }
+  75% { background-position: 0% 100%; }
+  81.25% { background-position: 33.333333% 100%; }
+  87.5% { background-position: 66.666667% 100%; }
+  93.75%, 100% { background-position: 100% 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-avatar .player-avatar-sprite {
+    display: none;
+    animation: none;
+  }
+  .player-avatar:not([data-avatar-motion="idle"]) {
+    background: none;
+  }
+}
