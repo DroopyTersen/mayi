@@ -1,4 +1,4 @@
-# Family avatar animation proof of concept
+# Player avatar animation preview
 
 Branch: `avatar-animation-poc`
 
@@ -8,9 +8,9 @@ Branch: `avatar-animation-poc`
 bun run dev
 ```
 
-Open [the animation preview](http://localhost:5173/storybook/avatar-animation).
-Choose Andrew or Jane, start or pause their turn, and play the lay-down or lay-off reaction.
-The page compares the original portrait with the animation and shows both actual game sizes.
+Open [PlayerAvatar (Animations)](http://localhost:5173/storybook/avatar-animation) in the DIY component storybook.
+Use **Choose player** to select any family or classic character, start or pause their turn, and play an available lay-down or lay-off reaction.
+The story compares the original portrait with the animation and shows both actual game sizes. Players without animations show their original portrait and disabled playback controls. Choosing another player resets the preview and any running reaction.
 
 In a normal local game, select Andrew or Jane in the character picker. Their avatars animate in the meld area and player status table. Other characters keep their existing portraits.
 
@@ -48,10 +48,19 @@ Export uses nearest-neighbor resizing and lossless WebP to preserve the white ba
 
 This remains a two-character art and interaction experiment.
 
+## Add another animation
+
+1. Save the 4 × 4 sprite sheet as `public/avatars/animated/<character-id>-<sequence>.webp`, where the sequence is `turn`, `lay-down`, or `lay-off`.
+2. Register that sequence for the character in `app/ui/player-avatar/avatar-animation.data.ts`.
+3. Select the player in the storybook. The corresponding control becomes available, and the same registration enables the animation in the game.
+
+The picker uses the game's existing character list. Sequences can be added individually; a player does not need all three before previewing one.
+
 ## Verification
 
 - Failing tests were written before the component and event integration, then brought to green.
 - Tests cover acting-player identity, both lay-off positions, duplicate/history boundaries, the first confirmed event, original-portrait fallback, and consistent targeting in both tables.
+- Story tests cover normal sidebar navigation and availability of every game character. Browser checks also cover switching players during a reaction and disabling unavailable sequences.
 - The [browser regression check](avatar-animation-browser-check.js) reproduces the original internal-clipping failure and verifies full-frame rendering, sixteen positions over two seconds, and neutral white frame backgrounds. Paste it into the preview's browser console, run `await checkAvatarAnimation()`, and repeat after selecting Jane.
 - Browser inspection covers all sixteen frame positions, two-second one-shot playback, repeated reactions, return to idle/turn, and desktop/mobile layout.
 - Run the repository checks with `bun test`, `bun run typecheck`, and `bun run build`.

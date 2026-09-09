@@ -1,6 +1,7 @@
 import { cn } from "~/shadcn/lib/utils";
 import { preload } from "react-dom";
 import type { AvatarReaction } from "./avatar-reaction";
+import { AVATAR_ANIMATIONS } from "./avatar-animation.data";
 import "./player-avatar.css";
 
 interface PlayerAvatarProps {
@@ -12,18 +13,16 @@ interface PlayerAvatarProps {
   showSpinner?: boolean;
 }
 
-/** Generated sequences are intentionally limited to two family avatars for this POC. */
 export function PlayerAvatar({
   name, avatarId, size = "sm", isActiveTurn = false, reaction, showSpinner = false,
 }: PlayerAvatarProps) {
   const sizeClass = { sm: "w-6 h-6", lg: "w-16 h-16", preview: "w-32 h-32" }[size];
-  const hasSprite = avatarId === "andrew" || avatarId === "jane";
+  const animations = AVATAR_ANIMATIONS.get(avatarId ?? "") ?? [];
   const motion = reaction?.kind ?? (isActiveTurn ? "turn" : "idle");
   const clip = reaction?.kind ?? "turn";
-  if (hasSprite) {
-    for (const sequence of ["turn", "lay-down", "lay-off"]) {
-      preload(`/avatars/animated/${avatarId}-${sequence}.webp`, { as: "image" });
-    }
+  const hasSprite = animations.includes(clip);
+  for (const sequence of animations) {
+    preload(`/avatars/animated/${avatarId}-${sequence}.webp`, { as: "image" });
   }
   const content = hasSprite ? (
     <span

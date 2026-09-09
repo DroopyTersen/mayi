@@ -28,7 +28,7 @@ import { HouseRulesDrawerStory } from "~/ui/house-rules/HouseRulesDrawer.story";
 import { PlayerAvatarStory } from "~/ui/player-avatar/PlayerAvatar.story";
 
 const STORIES: Array<{ path: string; label: string; component: React.ComponentType; fullscreen?: boolean }> = [
-  { path: "avatar-animation", label: "Family Avatar Animations", component: PlayerAvatarStory, fullscreen: true },
+  { path: "avatar-animation", label: "PlayerAvatar (Animations)", component: PlayerAvatarStory },
   { path: "game-view", label: "GameView (Layout)", component: GameViewStory },
   { path: "hand-drawer", label: "HandDrawer (Mobile)", component: HandDrawerStory },
   { path: "hand-drawer-fullscreen", label: "HandDrawer (Fullscreen)", component: HandDrawerFullscreenTest, fullscreen: true },

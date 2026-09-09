@@ -189,6 +189,6 @@ The storybook includes stories for:
 - **Layout**: GameView, LobbyView
 - **Cards**: PlayingCard, HandDisplay, HandDrawer
 - **Table**: MeldDisplay, DiscardPileDisplay, PlayerMeldsDisplay, TableDisplay
-- **Status**: PlayersTableDisplay, GameHeader, ActivityLog
+- **Status**: PlayerAvatar (Animations), PlayersTableDisplay, GameHeader, ActivityLog
 - **Actions**: ActionBar, ResponsiveDrawer
 - **Views**: LayDownView, LayOffView, DiscardView, OrganizeHandView, SwapJokerView, MayIRequestView
