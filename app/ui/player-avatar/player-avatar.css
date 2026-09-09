@@ -1,20 +1,14 @@
+.player-avatar {
+  background: #fff;
+}
+
 .player-avatar-sprite {
   display: inline-block;
-  background-color: #f6f3eb;
+  background-color: #fff;
   background-size: 400% 400%;
   background-position: 0 0;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  /* Cut out the generated head so the unmodified source portrait shows through. */
-  clip-path: polygon(0 32%, 26% 32%, 26% 67%, 77% 67%, 77% 32%, 100% 32%, 100% 100%, 0 100%);
-}
-
-.player-avatar:not([data-avatar-motion="idle"]) {
-  background: #f6f3eb;
-}
-
-.player-avatar[data-avatar-id="jane"] .player-avatar-sprite {
-  clip-path: polygon(0 32%, 16% 32%, 16% 67%, 84% 67%, 84% 32%, 100% 32%, 100% 100%, 0 100%);
 }
 
 /* Sixteen atlas cells, each held for 125 ms: 8 fps, exactly 2 seconds. */
@@ -50,11 +44,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .player-avatar .player-avatar-sprite {
+  .player-avatar[data-avatar-motion] .player-avatar-sprite {
     display: none;
     animation: none;
-  }
-  .player-avatar:not([data-avatar-motion="idle"]) {
-    background: none;
   }
 }

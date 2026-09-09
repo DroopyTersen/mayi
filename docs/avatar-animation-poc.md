@@ -18,12 +18,14 @@ In a normal local game, select Andrew or Jane in the character picker. Their ava
 
 Each sequence contains **16 frames at 8 fps**, lasting **2 seconds**.
 
-- **Turn:** subtle shoulder motion that loops while the player is active.
-- **Lay down:** a brief card-fan gesture.
-- **Lay off:** a small thumbs-up.
+- **Turn:** subtle shoulder motion and a blink, looping while the player is active.
+- **Lay down:** a brief card-fan gesture and blink.
+- **Lay off:** a small thumbs-up and wink.
 - **Idle / reduced motion:** the original portrait.
 
-The generated heads are masked out in the browser, revealing the original SVG portrait beneath. This preserves the actual facial artwork instead of relying on the image model to redraw it consistently. The generated sheets supply the shoulders, hands, and cards. Masks are fitted to Andrew and Jane; adding another family member requires fitting their mask too.
+Each frame is a complete portrait on white. The browser displays the entire frame, cropped only at the outer circle, so cards and hands can cross the chest and chin without disappearing. The opaque frame covers the original SVG during playback; the original shows at rest or when reduced motion is requested.
+
+The revised sheets use the original portraits as identity references and limit facial movement to eyelids. Their likeness is generated artwork, so compare it with the originals before expanding the family set.
 
 Reactions use confirmed public activity and the acting player's ID, including when laying off onto another player's meld. History present on mount does not replay. Duplicate updates do not restart a reaction. A newer move replaces the current reaction, then playback returns to the current turn state after two seconds.
 
@@ -42,14 +44,15 @@ Runtime assets, each a 512 × 512 atlas of sixteen 128 × 128 cells:
 - `public/avatars/animated/jane-lay-down.webp`
 - `public/avatars/animated/jane-lay-off.webp`
 
-Export uses nearest-neighbor resizing and WebP quality 88. The source portraits remain untouched. Each character's three sheets preload when their avatar appears, so reactions do not wait for a first-use download.
+Export uses nearest-neighbor resizing and lossless WebP to preserve the white background and pixel-art palette. The source portraits remain untouched. Each character's three sheets preload when their avatar appears, so reactions do not wait for a first-use download.
 
-This is a two-character art and interaction experiment. The fixed-face approach trades facial expressions for stable likeness; shoulder and neckline continuity are still worth evaluating in local play before expanding the set.
+This remains a two-character art and interaction experiment.
 
 ## Verification
 
 - Failing tests were written before the component and event integration, then brought to green.
 - Tests cover acting-player identity, both lay-off positions, duplicate/history boundaries, the first confirmed event, original-portrait fallback, and consistent targeting in both tables.
+- The [browser regression check](avatar-animation-browser-check.js) reproduces the original internal-clipping failure and verifies full-frame rendering, sixteen positions over two seconds, and neutral white frame backgrounds. Paste it into the preview's browser console, run `await checkAvatarAnimation()`, and repeat after selecting Jane.
 - Browser inspection covers all sixteen frame positions, two-second one-shot playback, repeated reactions, return to idle/turn, and desktop/mobile layout.
 - Run the repository checks with `bun test`, `bun run typecheck`, and `bun run build`.
 
