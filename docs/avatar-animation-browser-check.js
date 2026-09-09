@@ -1,4 +1,4 @@
-// Run in the local avatar preview's browser console. Repeat after selecting Jane.
+// Run in the local avatar preview's browser console. Repeat for each family player.
 async function checkAvatarAnimation() {
   const button = [...document.querySelectorAll('button')].find(button => button.textContent === 'Play lay-down');
   button.click();

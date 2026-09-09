@@ -12,7 +12,7 @@ Open [PlayerAvatar (Animations)](http://localhost:5173/storybook/avatar-animatio
 Use **Choose player** to select any family or classic character, start or pause their turn, and play an available lay-down or lay-off reaction.
 The story compares the original portrait with the animation and shows both actual game sizes. Players without animations show their original portrait and disabled playback controls. Choosing another player resets the preview and any running reaction.
 
-In a normal local game, select Andrew or Jane in the character picker. Their avatars animate in the meld area and player status table. Other characters keep their existing portraits.
+All eight family avatars now have all three animations: Andrew, Jane, Curt, Kate, Natalie, Carter, Hannah, and Maggie & Theo. Select any of them in a normal local game to see the same animations in the meld area and player status table. Classic characters keep their existing portraits.
 
 ## Behavior
 
@@ -23,9 +23,11 @@ Each sequence contains **16 frames at 8 fps**, lasting **2 seconds**.
 - **Lay off:** a small thumbs-up and wink.
 - **Idle / reduced motion:** the original portrait.
 
+Maggie & Theo share one portrait. Their turn alternates blinks, their lay-down gesture raises a paw beside a card fan, and their lay-off gesture is a small paw wave.
+
 Each frame is a complete portrait on white. The browser displays the entire frame, cropped only at the outer circle, so cards and hands can cross the chest and chin without disappearing. The opaque frame covers the original SVG during playback; the original shows at rest or when reduced motion is requested.
 
-The revised sheets use the original portraits as identity references and limit facial movement to eyelids. Their likeness is generated artwork, so compare it with the originals before expanding the family set.
+The sheets use the original portraits as identity references and limit facial movement to eyelids. The storybook keeps the original beside each animation for checking likeness.
 
 Reactions use confirmed public activity and the acting player's ID, including when laying off onto another player's meld. History present on mount does not replay. Duplicate updates do not restart a reaction. A newer move replaces the current reaction, then playback returns to the current turn state after two seconds.
 
@@ -35,18 +37,11 @@ No game engine, rule, server protocol, or model-provider behavior changes are re
 
 The built-in image tool generated and revised the sheets using the existing family portraits. The full prompt set is in [avatar-animation-prompts.json](avatar-animation-prompts.json).
 
-Runtime assets, each a 512 × 512 atlas of sixteen 128 × 128 cells:
-
-- `public/avatars/animated/andrew-turn.webp`
-- `public/avatars/animated/andrew-lay-down.webp`
-- `public/avatars/animated/andrew-lay-off.webp`
-- `public/avatars/animated/jane-turn.webp`
-- `public/avatars/animated/jane-lay-down.webp`
-- `public/avatars/animated/jane-lay-off.webp`
+There are 24 runtime assets in `public/avatars/animated/`, each a 512 × 512 atlas of sixteen 128 × 128 cells. Each family character has `<character-id>-turn.webp`, `<character-id>-lay-down.webp`, and `<character-id>-lay-off.webp`.
 
 Export uses nearest-neighbor resizing and lossless WebP to preserve the white background and pixel-art palette. The source portraits remain untouched. Each character's three sheets preload when their avatar appears, so reactions do not wait for a first-use download.
 
-This remains a two-character art and interaction experiment.
+This remains a local art and interaction experiment covering the full family roster.
 
 ## Add another animation
 
@@ -61,7 +56,8 @@ The picker uses the game's existing character list. Sequences can be added indiv
 - Failing tests were written before the component and event integration, then brought to green.
 - Tests cover acting-player identity, both lay-off positions, duplicate/history boundaries, the first confirmed event, original-portrait fallback, and consistent targeting in both tables.
 - Story tests cover normal sidebar navigation and availability of every game character. Browser checks also cover switching players during a reaction and disabling unavailable sequences.
-- The [browser regression check](avatar-animation-browser-check.js) reproduces the original internal-clipping failure and verifies full-frame rendering, sixteen positions over two seconds, and neutral white frame backgrounds. Paste it into the preview's browser console, run `await checkAvatarAnimation()`, and repeat after selecting Jane.
+- Family asset tests require every family character to have all three registered sheets and readable generation prompts.
+- The [browser regression check](avatar-animation-browser-check.js) reproduces the original internal-clipping failure and verifies full-frame rendering, sixteen positions over two seconds, and neutral white frame backgrounds. Paste it into the preview's browser console, run `await checkAvatarAnimation()`, and repeat after selecting another family player.
 - Browser inspection covers all sixteen frame positions, two-second one-shot playback, repeated reactions, return to idle/turn, and desktop/mobile layout.
 - Run the repository checks with `bun test`, `bun run typecheck`, and `bun run build`.
 

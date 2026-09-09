@@ -6,4 +6,10 @@ type AvatarAnimation = "turn" | AvatarReaction["kind"];
 export const AVATAR_ANIMATIONS = new Map<string, readonly AvatarAnimation[]>([
   ["andrew", ["turn", "lay-down", "lay-off"]],
   ["jane", ["turn", "lay-down", "lay-off"]],
+  ["curt", ["turn", "lay-down", "lay-off"]],
+  ["kate", ["turn", "lay-down", "lay-off"]],
+  ["natalie", ["turn", "lay-down", "lay-off"]],
+  ["carter", ["turn", "lay-down", "lay-off"]],
+  ["hannah", ["turn", "lay-down", "lay-off"]],
+  ["maggie-theo", ["turn", "lay-down", "lay-off"]],
 ]);
