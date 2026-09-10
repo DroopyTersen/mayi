@@ -18,16 +18,29 @@ All eight family avatars now have all three animations: Andrew, Jane, Curt, Kate
 
 Each sequence contains **16 frames at 8 fps**, lasting **2 seconds**.
 
-- **Turn:** subtle shoulder motion and a blink, looping while the player is active.
-- **Lay down:** a brief card-fan gesture and blink.
-- **Lay off:** a small thumbs-up and wink.
+- **Turn:** a character's quiet thinking habit, looping while the player is active.
+- **Lay down:** a character's distinct celebration.
+- **Lay off:** a smaller gesture acknowledging a successful move.
 - **Idle / reduced motion:** the original portrait.
 
-Maggie & Theo share one portrait. Their turn alternates blinks, their lay-down gesture raises a paw beside a card fan, and their lay-off gesture is a small paw wave.
+The gestures follow the short descriptions in `app/ui/lobby/character.data.ts`:
+
+| Character | Turn | Lay down | Lay off |
+|---|---|---|---|
+| Curt — experienced veteran | Thoughtful beard stroke | Folds his arms with a knowing smile | Playful finger wag |
+| Kate — strategic planner | Adjusts her glasses and studies the table | Squares a card stack and taps it once | Raises one index finger |
+| Andrew — quick reflexes | Light finger drumming and an alert glance | Compact fist pump | Casual two-finger salute |
+| Natalie — creative, loves surprises | Peeks over a card | Presents a theatrical card reveal | Palms-up shrug |
+| Jane — calm under pressure | Relaxed breathing and slow blink | Unhurried mug toast | Small assured nod |
+| Carter — playful little card shark | Eager shoulder wiggle | Two delighted claps | Proud thumbs-up |
+| Hannah — warm and observant | Curious head tilt | Clasps her hands with a pleased smile | Hand to heart and a warm nod |
+| Maggie & Theo — attentive dog duo | Alternate head tilts | Shared paw bump | Gentle nose nudge |
+
+Maggie & Theo remain together in their original overlapping arrangement. Their gestures use canine paws and head movement.
 
 Each frame is a complete portrait on white. The browser displays the entire frame, cropped only at the outer circle, so cards and hands can cross the chest and chin without disappearing. The opaque frame covers the original SVG during playback; the original shows at rest or when reduced motion is requested.
 
-The sheets use the original portraits as identity references and limit facial movement to eyelids. The storybook keeps the original beside each animation for checking likeness.
+The sheets use the original portraits as identity references. Small blinks, glances, head movements and expressions accompany the gestures while preserving the faces and clothing. The storybook keeps the original beside each animation for checking likeness.
 
 Reactions use confirmed public activity and the acting player's ID, including when laying off onto another player's meld. Game-state and reconnect messages map activity IDs to the same player IDs used by the game view. History present on mount does not replay. Duplicate updates do not restart a reaction. A newer move replaces the current reaction, then playback returns to the current turn state after two seconds.
 
@@ -36,12 +49,13 @@ Images are static local assets; gameplay makes no image-generation requests. The
 ## Assets and generation
 
 The built-in image tool generated and revised the sheets using the existing family portraits. The full prompt set is in [avatar-animation-prompts.json](avatar-animation-prompts.json).
+The current `personalityRevision` records the character plans and exact generation requests. Its `corrections` replace the initial request for the matching character and sequence.
 
 There are 24 runtime assets in `public/avatars/animated/`, each a 512 × 512 atlas of sixteen 128 × 128 cells. Each family character has `<character-id>-turn.webp`, `<character-id>-lay-down.webp`, and `<character-id>-lay-off.webp`.
 
 Export uses nearest-neighbor resizing and lossless WebP to preserve the white background and pixel-art palette. The source portraits remain untouched. Each character's three sheets preload when their avatar appears, so reactions do not wait for a first-use download.
 
-This remains a local art and interaction experiment covering the full family roster.
+The personality pass replaces the earlier shared gestures using the existing gameplay and storybook playback.
 
 ## Add another animation
 
@@ -57,6 +71,7 @@ The picker uses the game's existing character list. Sequences can be added indiv
 - Tests cover acting-player identity, both lay-off positions, duplicate/history boundaries, the first confirmed event, original-portrait fallback, and consistent targeting in both tables.
 - Story tests cover normal sidebar navigation and availability of every game character. Browser checks also cover switching players during a reaction and disabling unavailable sequences.
 - Family asset tests require every family character to have all three registered sheets and readable generation prompts.
+- The personality pass was visually compared with all eight original portraits at 96, 64, and 24 pixels. All 24 sheets were checked for sixteen complete cells, the intended gesture, stable character identity, and white backgrounds; browser checks cover all 384 frame positions and return to the turn loop.
 - The [browser regression check](avatar-animation-browser-check.js) reproduces the original internal-clipping failure and verifies full-frame rendering, sixteen positions over two seconds, and neutral white frame backgrounds. Paste it into the preview's browser console, run `await checkAvatarAnimation()`, and repeat after selecting another family player.
 - Browser inspection covers all sixteen frame positions, two-second one-shot playback, repeated reactions, return to idle/turn, and desktop/mobile layout.
 - Run the repository checks with `bun test`, `bun run typecheck`, and `bun run build`.
