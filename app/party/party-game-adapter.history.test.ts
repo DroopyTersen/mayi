@@ -7,6 +7,7 @@ import { handleJoinMessage } from "./mayi-room.message-handlers";
 import { convertAgentTestStateToStoredState } from "./agent-state.converter";
 import type { Card } from "../../core/card/card.types";
 import { formatActivityLogEntries } from "../routes/game/game-room-session.logic";
+import { getNewAvatarReaction } from "../ui/player-avatar/avatar-reaction";
 
 function createHistory() {
   const humans = ["Alice", "Bob", "Carol"].map((name, index) => ({
@@ -145,6 +146,26 @@ describe("current-hand public activity", () => {
       expect(formatActivityLogEntries([entry])[0]?.message).toContain(
         "7♥ 7♦ 7♣",
       );
+      for (const messageType of ["GAME_STARTED", "GAME_STATE"] as const) {
+        const messages = projectPlayerViewMessages({
+          adapter,
+          messageType,
+          recipientPlayerIds: ["alice", "bob", "carol"],
+        });
+        for (const { message } of messages) {
+          if (message.type !== "GAME_STARTED" && message.type !== "GAME_STATE")
+            throw new Error("Expected player view");
+          const reaction = getNewAvatarReaction(
+            formatActivityLogEntries(message.activityLog),
+            undefined,
+          );
+          expect(reaction).toEqual({
+            id: entry.id,
+            playerId: "player-0",
+            kind: "lay-down",
+          });
+        }
+      }
     } finally {
       adapter.stop();
     }
@@ -300,6 +321,9 @@ describe("current-hand public activity", () => {
         throw new Error("Expected game state");
       expect(started.activityLog).toHaveLength(30);
       expect(started.activityLog[0]?.action).toBe("took from discard");
+      expect(started.activityLog.every((entry) =>
+        ["player-0", "player-1", "player-2"].includes(entry.playerId),
+      )).toBe(true);
     } finally {
       adapter.stop();
     }

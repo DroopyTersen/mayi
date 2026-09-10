@@ -14,6 +14,8 @@ export interface ActivityEntry {
   id: string;
   message: string;
   timestamp?: string;
+  playerId?: string;
+  action?: string;
 }
 
 /**

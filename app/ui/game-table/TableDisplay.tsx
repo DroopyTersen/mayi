@@ -1,3 +1,4 @@
+import type { AvatarReaction } from "~/ui/player-avatar/avatar-reaction";
 import type { Meld } from "core/meld/meld.types";
 import type { MayINotificationState } from "~/routes/game/game-room-session.types";
 import { PlayerMeldsDisplay, type RenderMeld } from "./PlayerMeldsDisplay";
@@ -19,6 +20,7 @@ interface TableDisplayProps {
   /** May I notification to display for the calling player */
   mayINotification?: MayINotificationState | null;
   renderMeld?: RenderMeld;
+  avatarReaction?: AvatarReaction | null;
   className?: string;
 }
 
@@ -29,6 +31,7 @@ export function TableDisplay({
   viewingPlayerId,
   mayINotification,
   renderMeld,
+  avatarReaction,
   className,
 }: TableDisplayProps) {
   // Group melds by player
@@ -58,6 +61,7 @@ export function TableDisplay({
             isViewingPlayer={player.id === viewingPlayerId}
             mayINotification={playerNotification}
             renderMeld={renderMeld}
+            avatarReaction={avatarReaction?.playerId === player.id ? avatarReaction : null}
           />
         );
       })}

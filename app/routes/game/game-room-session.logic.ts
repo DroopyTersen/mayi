@@ -43,7 +43,10 @@ export function formatActivityLogEntries(
   return entries
     .map((entry) => {
       const message = formatActivityEntry(entry, { humanPlayerId: null });
-      return message ? { id: entry.id, message } : null;
+      const formatted: ActivityEntry | null = message
+        ? { id: entry.id, message, playerId: entry.playerId, action: entry.action }
+        : null;
+      return formatted;
     })
     .filter((entry): entry is ActivityEntry => entry !== null);
 }

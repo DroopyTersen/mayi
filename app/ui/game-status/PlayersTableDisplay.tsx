@@ -1,3 +1,5 @@
+import { PlayerAvatar } from "~/ui/player-avatar/PlayerAvatar";
+import type { AvatarReaction } from "~/ui/player-avatar/avatar-reaction";
 import { cn } from "~/shadcn/lib/utils";
 import { Check, Loader2, Minus } from "lucide-react";
 
@@ -20,6 +22,7 @@ interface PlayersTableDisplayProps {
   thinkingPlayerId?: string;
   /** Hide the outer border (useful when embedded in a container) */
   borderless?: boolean;
+  avatarReaction?: AvatarReaction | null;
   className?: string;
 }
 
@@ -29,6 +32,7 @@ export function PlayersTableDisplay({
   activePlayerId,
   thinkingPlayerId,
   borderless = false,
+  avatarReaction,
   className,
 }: PlayersTableDisplayProps) {
   return (
@@ -60,6 +64,8 @@ export function PlayersTableDisplay({
                     <PlayerAvatar
                       name={player.name}
                       avatarId={player.avatarId}
+                      isActiveTurn={isActivePlayer}
+                      reaction={avatarReaction?.playerId === player.id ? avatarReaction : null}
                     />
                     <span className="font-medium">
                       {player.name}
@@ -95,26 +101,6 @@ export function PlayersTableDisplay({
           })}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function PlayerAvatar({ name, avatarId }: { name: string; avatarId?: string }) {
-  if (avatarId) {
-    return (
-      <img
-        src={`/avatars/${avatarId}.svg`}
-        alt={name}
-        className="w-6 h-6 rounded-full shrink-0"
-      />
-    );
-  }
-
-  return (
-    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-      <span className="text-xs font-medium text-muted-foreground">
-        {name.charAt(0).toUpperCase()}
-      </span>
     </div>
   );
 }

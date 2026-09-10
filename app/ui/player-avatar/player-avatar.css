@@ -1,0 +1,51 @@
+.player-avatar {
+  background: #fff;
+}
+
+.player-avatar-sprite {
+  display: inline-block;
+  background-color: #fff;
+  background-size: 400% 400%;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+/* Sixteen atlas cells. The component gives slower turn loops a longer duration. */
+.player-avatar:not([data-avatar-motion="idle"]) .player-avatar-sprite {
+  animation: player-avatar-frames 2s steps(1, end) both;
+}
+
+.player-avatar[data-avatar-motion="turn"] .player-avatar-sprite {
+  animation-iteration-count: infinite;
+}
+
+.player-avatar[data-avatar-motion="idle"] .player-avatar-sprite {
+  display: none;
+}
+
+@keyframes player-avatar-frames {
+  0% { background-position: 0% 0%; }
+  6.25% { background-position: 33.333333% 0%; }
+  12.5% { background-position: 66.666667% 0%; }
+  18.75% { background-position: 100% 0%; }
+  25% { background-position: 0% 33.333333%; }
+  31.25% { background-position: 33.333333% 33.333333%; }
+  37.5% { background-position: 66.666667% 33.333333%; }
+  43.75% { background-position: 100% 33.333333%; }
+  50% { background-position: 0% 66.666667%; }
+  56.25% { background-position: 33.333333% 66.666667%; }
+  62.5% { background-position: 66.666667% 66.666667%; }
+  68.75% { background-position: 100% 66.666667%; }
+  75% { background-position: 0% 100%; }
+  81.25% { background-position: 33.333333% 100%; }
+  87.5% { background-position: 66.666667% 100%; }
+  93.75%, 100% { background-position: 100% 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-avatar[data-avatar-motion] .player-avatar-sprite {
+    display: none;
+    animation: none;
+  }
+}
