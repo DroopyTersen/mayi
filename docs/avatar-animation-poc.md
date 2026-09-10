@@ -29,9 +29,9 @@ Each frame is a complete portrait on white. The browser displays the entire fram
 
 The sheets use the original portraits as identity references and limit facial movement to eyelids. The storybook keeps the original beside each animation for checking likeness.
 
-Reactions use confirmed public activity and the acting player's ID, including when laying off onto another player's meld. History present on mount does not replay. Duplicate updates do not restart a reaction. A newer move replaces the current reaction, then playback returns to the current turn state after two seconds.
+Reactions use confirmed public activity and the acting player's ID, including when laying off onto another player's meld. Game-state and reconnect messages map activity IDs to the same player IDs used by the game view. History present on mount does not replay. Duplicate updates do not restart a reaction. A newer move replaces the current reaction, then playback returns to the current turn state after two seconds.
 
-No game engine, rule, server protocol, or model-provider behavior changes are required. Images are static local assets; gameplay makes no image-generation requests. The dev state-injection harness currently omits avatar IDs, so use the preview or an ordinary lobby game to see the artwork.
+Images are static local assets; gameplay makes no image-generation requests. The game engine, rules, and model-provider behavior are unchanged. The dev state-injection harness currently omits avatar IDs, so use the preview or an ordinary lobby game to see the artwork.
 
 ## Assets and generation
 

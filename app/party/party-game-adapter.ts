@@ -248,7 +248,7 @@ export class PartyGameAdapter {
     );
   }
 
-  /** Same public evidence as the app, with identities mapped for the AI runtime. */
+  /** Public activity with the same player IDs as game views and AI snapshots. */
   getCurrentRoundActivityLogForEngine(): ActivityLogEntry[] {
     return this.getCurrentRoundActivityLog().map((entry) => ({
       ...entry,
