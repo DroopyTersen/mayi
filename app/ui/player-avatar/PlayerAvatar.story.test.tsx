@@ -6,6 +6,13 @@ import { ALL_CHARACTERS } from "~/ui/lobby/character.data";
 import { PlayerAvatarStory } from "./PlayerAvatar.story";
 
 describe("PlayerAvatarStory", () => {
+  it("shows separate timing for the turn loop and reactions", () => {
+    const html = renderToStaticMarkup(<MemoryRouter><PlayerAvatarStory /></MemoryRouter>);
+
+    expect(html).toContain("Turn: 4 seconds");
+    expect(html).toContain("Reactions: 2 seconds");
+  });
+
   it("renders inside the normal storybook navigation", () => {
     const html = renderToStaticMarkup(
       <MemoryRouter initialEntries={["/storybook/avatar-animation"]}>

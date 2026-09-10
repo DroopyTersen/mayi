@@ -542,5 +542,85 @@
         ]
       }
     ]
+  },
+  "feedbackRevision": {
+    "generationMode": "Built-in image tool",
+    "jobs": [
+      {
+        "id": "andrew",
+        "sequence": "turn",
+        "references": [
+          "/Users/drew/code/mayi/public/avatars/andrew.png",
+          "/Users/drew/code/mayi/public/avatars/animated/andrew-turn.webp"
+        ],
+        "prompt": "Use case: identity-preserve. Input 1 is Andrew's original identity reference. Input 2 is the existing sixteen-frame finger-tapping animation and the EDIT TARGET. Produce one square sprite atlas with exactly FOUR columns and FOUR rows: SIXTEEN equally sized square cells, left-to-right top-to-bottom. No gaps, grid lines, labels or margins. Each cell is a complete opaque portrait on flat PURE WHITE RGB(255,255,255). Maintain the source portrait's exact recognizable face, hair, clothing, palette, pixel-art style and framing. No new camera angles or scaling. Keep all parts within their cells. Make ONE targeted correction: Andrew's open eyes must remain calmly fixed straight ahead at the same natural position in ALL frames. Copy the relaxed gaze from input 1. No sideways glances, wandering pupils, eye popping, widened eyes, crossed eyes or alternating eye directions. A single natural simultaneous blink in frames 8-9 is okay; reopen to EXACTLY the same forward gaze. Keep the existing light finger-tapping gesture, hand positions, body, head position, smile, jacket, beard and frame sequence as close to the edit target as possible. Do not add another gesture or change facial proportions. This will play as a calm four-second thinking loop. Only the tapping fingers and eyelids should move."
+      },
+      {
+        "id": "carter",
+        "sequence": "lay-off",
+        "references": [
+          "/Users/drew/code/mayi/public/avatars/carter.png",
+          "/Users/drew/code/mayi/public/avatars/animated/carter-lay-off.webp"
+        ],
+        "prompt": "Use case: identity-preserve. Input 1 is Carter's original identity reference. Input 2 is his approved sixteen-frame proud thumbs-up animation and the EDIT TARGET. Produce one square sprite atlas with exactly FOUR columns and FOUR rows: SIXTEEN equally sized square cells, left-to-right top-to-bottom. No gaps, grid lines, labels or margins. Each cell is a complete opaque portrait on flat PURE WHITE RGB(255,255,255). Maintain the source portrait's exact recognizable face, hair, clothing, palette, pixel-art style and framing. No new camera angles or scaling. Keep all parts within their cells. Make ONE targeted correction: fix the eyes throughout the animation, especially the middle frames. BOTH eyes should naturally look straight ahead with aligned pupils, matching the original relaxed gaze. They must never point inward or in different directions, never look up or sideways, and never grow or pop. Preserve the existing thumbs-up gesture, small toddler hand, timing, head tilt, original bright smile, backward black cap, red bib, blue shirt, scale and framing. One simultaneous gentle blink at frames 8-9 is fine; reopen to the same forward gaze. Do not redesign or age up his face. Sixteen frames, two-second reaction at eight fps."
+      },
+      {
+        "id": "maggie-theo",
+        "sequence": "lay-down",
+        "references": [
+          "/Users/drew/code/mayi/public/avatars/maggie-theo.png",
+          "/Users/drew/code/mayi/public/avatars/animated/maggie-theo-lay-down.webp"
+        ],
+        "prompt": "Use case: precise-object-edit. Input 1 is the original dog-pair identity reference. Input 2 is the sixteen-frame shared-paw-bump animation and the EDIT TARGET. Produce one square sprite atlas with exactly FOUR columns and FOUR rows: SIXTEEN equally sized square cells, left-to-right top-to-bottom. No gaps, grid lines, labels or margins. Each cell is a complete opaque portrait on flat PURE WHITE RGB(255,255,255). Maintain the source portrait's exact recognizable face, hair, clothing, palette, pixel-art style and framing. No new camera angles or scaling. Keep all parts within their cells. Add small fans of playing cards to the dogs' raised front paws while preserving the approved friendly paw-bump celebration. Each dog holds one small fan of two or three cards tucked against its raised paw, with cards visible at chest level in frames 5-11; the two card fans meet gently near the center at the shared paw bump in frames 7-9, then lower. Keep cards clearly BELOW the dogs' faces and both noses and eyes unobscured. The cards can show simple red hearts and black spades. Preserve the same TWO golden retrievers, distinct fur shades and faces, the foreground-left and rear-right positions, and the rear dog's red plaid bandana. Keep both dogs at stable vertical positions and constant size throughout. These are DOG PAWS with fur, never human hands, fingers or arms. Preserve the target's return to the original resting portrait in frames 1 and 16. Sixteen frames, two-second reaction at eight fps."
+      },
+      {
+        "id": "jane",
+        "sequence": "lay-down",
+        "references": [
+          "/Users/drew/code/mayi/public/avatars/jane.png"
+        ],
+        "prompt": "Use case: stylized-concept. The attached original Jane portrait is the exact identity, clothing, palette and pixel-art style reference. Produce one square sprite atlas with exactly FOUR columns and FOUR rows: SIXTEEN equally sized square cells, left-to-right top-to-bottom. No gaps, grid lines, labels or margins. Each cell is a complete opaque portrait on flat PURE WHITE RGB(255,255,255). Maintain the source portrait's exact recognizable face, hair, clothing, palette, pixel-art style and framing. No new camera angles or scaling. Keep all parts within their cells. Create a cheerful excited little SHOULDER DANCE celebration for Jane. Preserve her exact blond bob, reddish rectangular glasses, gentle recognizable face, striped blue overshirt, pink top and necklace. Frame 1 original resting portrait. Frames 2-4 she lifts both relaxed bent hands to upper chest, small excited preparation. Frames 5-7 she lifts one shoulder and dips the other in a small playful dance beat, then frames 8-10 reverses the shoulder tilt for the second beat. Frames 11-13 a last tiny happy shimmy as her hands lower, frames 14-16 back at the original resting portrait. Hands stay beside the upper chest, never overhead and never hide her face. Her head may follow the shoulders by only a couple of pixels; NO large head bob, swinging hair or changing facial proportions. A pleased blink accompanies the dance, both eyes aligned and calm whenever open. Original smile can brighten slightly without distorting her face. Lively, happy and compact. No mug or other props in this sequence. Exactly sixteen frames at eight fps for a two-second reaction."
+      }
+    ],
+    "turnDurationMs": {
+      "default": 4000,
+      "jane": 2000,
+      "hannah": 2000
+    },
+    "reactionDurationMs": 2000,
+    "reassignments": [
+      {
+        "sourceRevision": "b8e80c5",
+        "source": "curt-lay-down.webp",
+        "destination": "curt-turn.webp"
+      },
+      {
+        "sourceRevision": "b8e80c5",
+        "source": "curt-turn.webp",
+        "destination": "curt-lay-down.webp"
+      },
+      {
+        "sourceRevision": "b8e80c5",
+        "source": "jane-lay-down.webp",
+        "destination": "jane-lay-off.webp"
+      },
+      {
+        "sourceRevision": "b8e80c5",
+        "source": "maggie-theo-lay-off.webp",
+        "destination": "maggie-theo-turn.webp"
+      }
+    ],
+    "corrections": [
+      {
+        "id": "jane",
+        "sequence": "lay-down",
+        "reason": "Dance mirrored Jane's head and hair in middle frames.",
+        "references": [
+          "/Users/drew/code/mayi/public/avatars/jane.png",
+          "/Users/drew/.codex/generated_images/01a08806-2240-7961-957b-2c22a3043283/exec-b9d875d9-2f51-4737-af46-599ceb2bd2c5.png"
+        ],
+        "prompt": "Use case: identity-preserve. Input 1 is Jane's original exact face, hair and clothing reference. Input 2 is an almost-correct sixteen-frame shoulder-dance sprite sheet, the EDIT TARGET.\nFix ONLY the mirrored head in the middle frames: Jane's head and face must keep the ORIGINAL LEFT-RIGHT ORIENTATION from input 1 in ALL SIXTEEN frames. Never mirror or horizontally flip her head, eyes, glasses, nose, smile, hair part, side-swept bangs or hairstyle. Keep the original side part and hair sweep on their original sides throughout. Keep her head upright, the same width and in a nearly fixed position while ONLY HER SHOULDERS AND HANDS dance. A subtle simultaneous blink is okay, always return to the same relaxed forward gaze. Her head must not turn from side to side.\nPreserve the excited little alternating shoulder dance with relaxed hands raised near the upper chest from the target: one shoulder lifts, then the other, then return to rest. Preserve the original recognizable face and gentle smile in every frame. Preserve blue striped overshirt, pink top and necklace. No props.\nOutput exactly FOUR columns by FOUR rows, SIXTEEN equally sized SQUARE cells on a square atlas. The same original portrait scale and position in every cell. No fifth column, gridlines, labels, gutters, text, margins or cut-off hands. Background perfectly flat PURE WHITE RGB(255,255,255). All sixteen frames are complete opaque portraits. Pixel-art style and palette remain the same. Frame 1 and frame 16 resting original pose. Two-second celebration at eight fps."
+      }
+    ]
   }
 }

@@ -7,7 +7,7 @@ import type { ActivityEntry } from "~/ui/game-view/game-view.types";
 import { CharacterPicker } from "~/ui/lobby/CharacterPicker";
 import { getCharacterById, type Character } from "~/ui/lobby/character.data";
 import { PlayerAvatar } from "./PlayerAvatar";
-import { AVATAR_ANIMATIONS } from "./avatar-animation.data";
+import { AVATAR_ANIMATIONS, getAvatarTurnDurationMs } from "./avatar-animation.data";
 import { useAvatarReaction } from "./useAvatarReaction";
 
 export function PlayerAvatarStory() {
@@ -82,7 +82,9 @@ function AvatarAnimationPreview({ character }: { character: Character }) {
             <Button onClick={() => play("laid down contract")} variant="outline" disabled={!animations.includes("lay-down")}>Play lay-down</Button>
             <Button onClick={() => play("laid off")} variant="outline" disabled={!animations.includes("lay-off")}>Play lay-off</Button>
           </div>
-          <p className="text-xs text-muted-foreground">2 seconds · 8 fps · 16 frames per animation</p>
+          <p className="text-xs text-muted-foreground">
+            Turn: {getAvatarTurnDurationMs(character.id) / 1000} seconds · Reactions: 2 seconds · 16 frames per animation
+          </p>
           <p className="text-xs text-muted-foreground">
             Reactions play once, then return to the turn loop or rest. Reduced-motion preferences are respected.
           </p>

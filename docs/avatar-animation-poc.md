@@ -16,7 +16,7 @@ All eight family avatars now have all three animations: Andrew, Jane, Curt, Kate
 
 ## Behavior
 
-Each sequence contains **16 frames at 8 fps**, lasting **2 seconds**.
+Each sequence contains **16 frames**. Turn loops last **4 seconds** (4 fps), except Jane and Hannah, whose approved turn loops retain **2 seconds** (8 fps). Lay-down and lay-off reactions last **2 seconds** (8 fps).
 
 - **Turn:** a character's quiet thinking habit, looping while the player is active.
 - **Lay down:** a character's distinct celebration.
@@ -27,14 +27,14 @@ The gestures follow the short descriptions in `app/ui/lobby/character.data.ts`:
 
 | Character | Turn | Lay down | Lay off |
 |---|---|---|---|
-| Curt — experienced veteran | Thoughtful beard stroke | Folds his arms with a knowing smile | Playful finger wag |
+| Curt — experienced veteran | Folds his arms with a knowing smile | Thoughtful beard stroke | Playful finger wag |
 | Kate — strategic planner | Adjusts her glasses and studies the table | Squares a card stack and taps it once | Raises one index finger |
-| Andrew — quick reflexes | Light finger drumming and an alert glance | Compact fist pump | Casual two-finger salute |
+| Andrew — quick reflexes | Light finger drumming with a steady gaze | Compact fist pump | Casual two-finger salute |
 | Natalie — creative, loves surprises | Peeks over a card | Presents a theatrical card reveal | Palms-up shrug |
-| Jane — calm under pressure | Relaxed breathing and slow blink | Unhurried mug toast | Small assured nod |
+| Jane — calm under pressure | Relaxed breathing and slow blink | Excited little shoulder dance | Unhurried mug toast |
 | Carter — playful little card shark | Eager shoulder wiggle | Two delighted claps | Proud thumbs-up |
 | Hannah — warm and observant | Curious head tilt | Clasps her hands with a pleased smile | Hand to heart and a warm nod |
-| Maggie & Theo — attentive dog duo | Alternate head tilts | Shared paw bump | Gentle nose nudge |
+| Maggie & Theo — attentive dog duo | Slow, gentle nose nudge | Shared paw bump with cards | Gentle nose nudge |
 
 Maggie & Theo remain together in their original overlapping arrangement. Their gestures use canine paws and head movement.
 
@@ -49,7 +49,7 @@ Images are static local assets; gameplay makes no image-generation requests. The
 ## Assets and generation
 
 The built-in image tool generated and revised the sheets using the existing family portraits. The full prompt set is in [avatar-animation-prompts.json](avatar-animation-prompts.json).
-The current `personalityRevision` records the character plans and exact generation requests. Its `corrections` replace the initial request for the matching character and sequence.
+The `personalityRevision` records the initial character plans and generation requests. The later `feedbackRevision` records the pacing changes, approved clip reassignments, eye corrections, shoulder dance, and cards. Within each revision, `corrections` replace the initial request for the matching character and sequence.
 
 There are 24 runtime assets in `public/avatars/animated/`, each a 512 × 512 atlas of sixteen 128 × 128 cells. Each family character has `<character-id>-turn.webp`, `<character-id>-lay-down.webp`, and `<character-id>-lay-off.webp`.
 
@@ -72,7 +72,7 @@ The picker uses the game's existing character list. Sequences can be added indiv
 - Story tests cover normal sidebar navigation and availability of every game character. Browser checks also cover switching players during a reaction and disabling unavailable sequences.
 - Family asset tests require every family character to have all three registered sheets and readable generation prompts.
 - The personality pass was visually compared with all eight original portraits at 96, 64, and 24 pixels. All 24 sheets were checked for sixteen complete cells, the intended gesture, stable character identity, and white backgrounds; browser checks cover all 384 frame positions and return to the turn loop.
-- The [browser regression check](avatar-animation-browser-check.js) reproduces the original internal-clipping failure and verifies full-frame rendering, sixteen positions over two seconds, and neutral white frame backgrounds. Paste it into the preview's browser console, run `await checkAvatarAnimation()`, and repeat after selecting another family player.
+- The [browser regression check](avatar-animation-browser-check.js) reproduces the original internal-clipping failure and verifies full-frame rendering, sixteen positions, duration, and neutral white backgrounds. Paste it into the preview's browser console and run `await checkAvatarAnimation()` for a two-second lay-down, or `await checkAvatarAnimation("turn", 4000)` for a four-second turn. Use `2000` for Jane and Hannah's turn loops.
 - Browser inspection covers all sixteen frame positions, two-second one-shot playback, repeated reactions, return to idle/turn, and desktop/mobile layout.
 - Run the repository checks with `bun test`, `bun run typecheck`, and `bun run build`.
 

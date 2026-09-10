@@ -11,7 +11,7 @@
   image-rendering: pixelated;
 }
 
-/* Sixteen atlas cells, each held for 125 ms: 8 fps, exactly 2 seconds. */
+/* Sixteen atlas cells. The component gives slower turn loops a longer duration. */
 .player-avatar:not([data-avatar-motion="idle"]) .player-avatar-sprite {
   animation: player-avatar-frames 2s steps(1, end) both;
 }

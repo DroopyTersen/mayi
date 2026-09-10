@@ -1,22 +1,24 @@
 // Run in the local avatar preview's browser console. Repeat for each family player.
-async function checkAvatarAnimation() {
-  const button = [...document.querySelectorAll('button')].find(button => button.textContent === 'Play lay-down');
-  button.click();
+async function checkAvatarAnimation(sequence = 'lay-down', expectedDuration = 2000) {
+  const label = sequence === 'turn' ? 'Start turn' : `Play ${sequence}`;
+  const button = [...document.querySelectorAll('button')].find(button => button.textContent === label);
+  if (button) button.click();
   await new Promise(resolve => setTimeout(resolve, 50));
-  const avatar = document.querySelector('[data-avatar-motion="lay-down"]');
+  const avatar = document.querySelector(`[data-avatar-motion="${sequence}"]`);
   const sprite = avatar.querySelector('.player-avatar-sprite');
   const style = getComputedStyle(sprite);
   if (style.clipPath !== 'none') {
-    throw new Error(`Lay-down cards cannot travel across the portrait: an internal ${style.clipPath} clips the animation.`);
+    throw new Error(`Hands and cards cannot travel across the portrait: an internal ${style.clipPath} clips the animation.`);
   }
   const animation = sprite.getAnimations()[0];
-  if (animation.effect.getTiming().duration !== 2000) {
-    throw new Error('Avatar animations must last two seconds.');
+  const duration = animation.effect.getTiming().duration;
+  if (duration !== expectedDuration) {
+    throw new Error(`${avatar.dataset.avatarId} ${sequence} must last ${expectedDuration} ms; received ${duration} ms.`);
   }
   animation.pause();
   const positions = new Set();
   for (let frame = 0; frame < 16; frame++) {
-    animation.currentTime = frame * 125 + 1;
+    animation.currentTime = frame * duration / 16 + 1;
     positions.add(getComputedStyle(sprite).backgroundPosition);
   }
   animation.play();
@@ -40,5 +42,5 @@ async function checkAvatarAnimation() {
   if (corners.some(pixel => pixel.slice(0, 3).some(channel => channel < 250) || Math.max(...pixel.slice(0, 3)) - Math.min(...pixel.slice(0, 3)) > 3)) {
     throw new Error(`Animation backgrounds must be white: ${JSON.stringify(corners)}`);
   }
-  return {result: 'pass', avatar: avatar.dataset.avatarId, frames: positions.size, internalClip: style.clipPath, frameBackgrounds: corners};
+  return {result: 'pass', avatar: avatar.dataset.avatarId, sequence, duration, frames: positions.size, internalClip: style.clipPath, frameBackgrounds: corners};
 }

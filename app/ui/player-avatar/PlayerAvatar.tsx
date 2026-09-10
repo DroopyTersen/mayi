@@ -1,7 +1,7 @@
 import { cn } from "~/shadcn/lib/utils";
 import { preload } from "react-dom";
 import type { AvatarReaction } from "./avatar-reaction";
-import { AVATAR_ANIMATIONS } from "./avatar-animation.data";
+import { AVATAR_ANIMATIONS, getAvatarTurnDurationMs } from "./avatar-animation.data";
 import "./player-avatar.css";
 
 interface PlayerAvatarProps {
@@ -37,7 +37,10 @@ export function PlayerAvatar({
         key={reaction?.id ?? motion}
         aria-hidden="true"
         className="player-avatar-sprite absolute inset-0"
-        style={{ backgroundImage: `url(/avatars/animated/${avatarId}-${clip}.webp)` }}
+        style={{
+          backgroundImage: `url(/avatars/animated/${avatarId}-${clip}.webp)`,
+          animationDuration: motion === "turn" ? `${getAvatarTurnDurationMs(avatarId)}ms` : undefined,
+        }}
       />
     </span>
   ) : avatarId ? (
